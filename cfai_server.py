@@ -9424,21 +9424,28 @@ class CFAIChatEngine:
         elif tool in ("hashcat",):
             rockyou = self._rockyou_path()
             cmd = [rockyou if p == "/usr/share/wordlists/rockyou.txt" else p for p in cmd]
+            # Redirect ALL hashcat write paths to /tmp so it never touches $HOME
+            hc_dir = "/tmp/hashcat_work"
+            os.makedirs(f"{hc_dir}/sessions", exist_ok=True)
             if "--potfile-path" not in " ".join(cmd):
-                cmd += ["--potfile-path", "/tmp/hashcat.potfile"]
+                cmd += ["--potfile-path", f"{hc_dir}/hashcat.pot"]
             if "--session" not in " ".join(cmd):
                 cmd += ["--session", "cfai"]
             # VPS has no GPU — force CPU mode
             if "--force" not in cmd:
                 cmd += ["--force"]
             if "-D" not in cmd and "--opencl-device-types" not in " ".join(cmd):
-                cmd += ["-D", "1"]
+                cmd += ["-D", "1,2"]
 
         elif tool in ("john",):
             rockyou = self._rockyou_path()
             cmd = [rockyou if p == "/usr/share/wordlists/rockyou.txt" else p for p in cmd]
+            john_dir = "/tmp/john_work"
+            os.makedirs(john_dir, exist_ok=True)
             if not any(p.startswith("--pot") for p in cmd):
-                cmd += ["--pot=/tmp/john.pot"]
+                cmd += [f"--pot={john_dir}/john.pot"]
+            if not any(p.startswith("--session") for p in cmd):
+                cmd += [f"--session={john_dir}/session"]
 
         elif tool in ("hydra", "medusa"):
             rockyou = self._rockyou_path()
@@ -9505,13 +9512,25 @@ class CFAIChatEngine:
             resolved = self._resolve_bin(cmd[0], full_path)
             cmd[0] = resolved
 
+            tool_base = os.path.basename(cmd[0])
+
             # Metasploit / Ruby tools need a writable HOME and .msf4 dirs
-            if os.path.basename(cmd[0]) in self._HOME_ROOT_TOOLS or \
-               any(t in os.path.basename(cmd[0]) for t in ('msf', 'msfvenom')):
+            if tool_base in self._HOME_ROOT_TOOLS or \
+               any(t in tool_base for t in ('msf', 'msfvenom')):
                 msf_home = self._msf_home()
                 env['HOME'] = msf_home
                 env['MSF_CFGROOT_CONFIG'] = f'{msf_home}/.msf4'
                 env['BOOTSNAP_CACHE_DIR'] = '/tmp/bootsnap_cache'
+
+            # john/hashcat write session files to $HOME — redirect to /tmp
+            elif tool_base in ('john', 'hashcat'):
+                tmp_home = '/tmp/tool_home'
+                os.makedirs(tmp_home, exist_ok=True)
+                env['HOME'] = tmp_home
+                # hashcat also uses XDG dirs
+                hc_data = '/tmp/hashcat_work'
+                os.makedirs(f'{hc_data}/sessions', exist_ok=True)
+                env['XDG_DATA_HOME'] = hc_data
 
             # Wrap tools that may lack execute bit (belt-and-suspenders)
             if cmd[0] in self._BASH_WRAP_TOOLS:
@@ -9875,30 +9894,16 @@ class CFAIChatEngine:
                 }
             return {"success": True, "response": self._tools_list("web"), "category": "web", "suggested_tools": ["nuclei"]}
 
-        # ── Port Scan / Network ───────────────────────────────────────────────
-        if any(w in msg_lower for w in ["port", "scan", "nmap", "network", "host", "service", "open ports", "rustscan", "masscan"]):
+        # ── Subdomain / OSINT (checked BEFORE port scan to avoid nmap stealing) ─
+        _osint_kws = [
+            "subdomain", "subdomains", "amass", "subfinder", "dnsenum",
+            "theharvester", "harvester", "recon-ng", "osint", "fierce",
+            "whois", "spiderfoot", "social-analyzer", "social analyzer",
+            "enumerate domain", "find domain", "dns enum", "find subdomains",
+            "enumerate subdomains", "domain recon", "passive recon",
+        ]
+        if any(w in msg_lower for w in _osint_kws):
             if target:
-                # -sT: TCP connect (no raw sockets), -Pn: skip ICMP host discovery (raw socket), -T4: fast
-                cmd = ["nmap", "-sT", "-Pn", "-sV", "--open", "-T4", target]
-                output = self._run_tool(cmd, timeout=120)
-                return {
-                    "success": True,
-                    "response": f"Nmap scan on `{target}`:\n\n```\n{output}\n```",
-                    "executed": True,
-                    "command": f"nmap -sT -Pn -sV --open -T4 {target}",
-                    "category": "network",
-                    "suggested_tools": ["rustscan", "gobuster", "nuclei"],
-                }
-            return {"success": True, "response": self._tools_list("network"), "category": "network", "suggested_tools": ["nmap", "rustscan", "masscan"]}
-
-        # ── Subdomain / OSINT ─────────────────────────────────────────────────
-        if any(w in msg_lower for w in [
-            "subdomain", "amass", "subfinder", "dnsenum", "theharvester", "recon-ng",
-            "osint", "fierce", "whois", "recon", "spiderfoot", "social-analyzer",
-            "social analyzer", "enumerate domain", "find domain", "dns enum",
-        ]):
-            if target:
-                # Route to the specific tool requested, default to subfinder
                 if "amass" in msg_lower:
                     cmd = ["amass", "enum", "-d", target, "-passive"]
                     label = f"Amass enumeration for `{target}`"
@@ -9912,7 +9917,8 @@ class CFAIChatEngine:
                     cmd = ["fierce", "--domain", target]
                     label = f"Fierce DNS scan for `{target}`"
                 elif "recon-ng" in msg_lower:
-                    cmd = ["recon-ng", "-m", "recon/domains-hosts/hackertarget", "-x", f"set SOURCE {target}; run"]
+                    cmd = ["recon-ng", "-q", "-m", "recon/domains-hosts/hackertarget",
+                           "-x", f"options set SOURCE {target}; run; exit"]
                     label = f"Recon-ng scan for `{target}`"
                 else:
                     cmd = ["subfinder", "-d", target, "-silent"]
@@ -9926,7 +9932,31 @@ class CFAIChatEngine:
                     "category": "osint",
                     "suggested_tools": ["amass", "dnsenum", "httpx", "theharvester"],
                 }
-            return {"success": True, "response": self._tools_list("osint"), "category": "osint", "suggested_tools": ["subfinder", "amass", "dnsenum"]}
+            return {"success": True, "response": self._tools_list("osint"), "category": "osint",
+                    "suggested_tools": ["subfinder", "amass", "dnsenum"]}
+
+        # ── Port Scan / Network ───────────────────────────────────────────────
+        # Intentionally narrow keywords — "scan" alone would steal OSINT messages
+        _portscan_kws = [
+            "port scan", "port sweep", "nmap", "open ports", "rustscan", "masscan",
+            "network scan", "service scan", "version scan", "host discovery",
+            "tcp scan", "udp scan", "syn scan",
+        ]
+        if any(w in msg_lower for w in _portscan_kws) or \
+           (first_word in ("nmap", "rustscan", "masscan") and len(words) > 1):
+            if target:
+                cmd = ["nmap", "-sT", "-Pn", "-sV", "--open", "-T4", target]
+                output = self._run_tool(cmd, timeout=120)
+                return {
+                    "success": True,
+                    "response": f"Nmap scan on `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"nmap -sT -Pn -sV --open -T4 {target}",
+                    "category": "network",
+                    "suggested_tools": ["rustscan", "gobuster", "nuclei"],
+                }
+            return {"success": True, "response": self._tools_list("network"), "category": "network",
+                    "suggested_tools": ["nmap", "rustscan", "masscan"]}
 
         # ── Password / Hash ───────────────────────────────────────────────────
         if any(w in msg_lower for w in ["brute force", "hydra", "hashcat", "password crack", "crack hash", "john the ripper"]):
@@ -10295,17 +10325,23 @@ class CFAIChatEngine:
                 "category": "ctf",
             }
 
+        # ── LLM-powered intent router (Claude API) ────────────────────────────
+        # Try Claude API to understand intent before falling back to nmap/help
+        llm_result = self._llm_route(message, target)
+        if llm_result:
+            return llm_result
+
         # ── Target given but intent unclear — default to nmap ─────────────────
         if target:
-            cmd = ["nmap", "-sT", "-sV", "--open", "-T4", target]
+            cmd = ["nmap", "-sT", "-Pn", "-sV", "--open", "-T4", target]
             output = self._run_tool(cmd, timeout=120)
             return {
                 "success": True,
-                "response": f"Detected target `{target}` — running default scan:\n\n```\n{output}\n```",
+                "response": f"Detected target `{target}` — running default port scan:\n\n```\n{output}\n```",
                 "executed": True,
-                "command": f"nmap -sT -sV --open -T4 {target}",
+                "command": f"nmap -sT -Pn -sV --open -T4 {target}",
                 "category": "network",
-                "suggested_tools": ["gobuster", "nuclei", "shodan"],
+                "suggested_tools": ["gobuster", "nuclei", "subfinder"],
             }
 
         # ── Specific tool keyword without target ──────────────────────────────
@@ -10331,6 +10367,56 @@ class CFAIChatEngine:
             "suggested_tools": [],
             "category": "general",
         }
+
+    def _llm_route(self, message: str, target: str) -> Optional[Dict[str, Any]]:
+        """
+        Use Claude API to understand natural language intent and route to the
+        correct tool. Returns a response dict or None if API unavailable.
+        """
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return None
+        try:
+            import anthropic, json as _json
+            client = anthropic.Anthropic(api_key=api_key)
+            prompt = (
+                f'You are a penetration testing AI assistant. The user sent this message:\n'
+                f'"{message}"\n'
+                f'Detected target: "{target or "none"}"\n\n'
+                f'Your job: identify the EXACT security tool and command to run.\n'
+                f'Available tools: nmap, gobuster, ffuf, sqlmap, nikto, nuclei, wpscan, '
+                f'dalfox, subfinder, amass, dnsenum, theHarvester, fierce, hydra, hashcat, '
+                f'john, binwalk, exiftool, steghide, vol, trivy, checkov, searchsploit, '
+                f'msfvenom, shodan, virustotal.\n\n'
+                f'Respond with ONLY valid JSON (no markdown):\n'
+                f'{{"tool":"<name>","command":["tool","arg1","arg2"],"category":"<network|web|osint|password|forensics|binary|cloud|intel>","label":"<short description>"}}\n'
+                f'If you cannot determine the intent, respond: {{"tool":"none"}}'
+            )
+            resp = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=300,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            text = resp.content[0].text.strip()
+            # Strip markdown code fences if present
+            text = re.sub(r'^```[a-z]*\n?', '', text).rstrip('`').strip()
+            data = _json.loads(text)
+            if data.get("tool") == "none" or not data.get("command"):
+                return None
+            cmd = data["command"]
+            cmd = self._preprocess_cmd(cmd)
+            output = self._run_tool(cmd, timeout=120)
+            label = data.get("label", f"Executed: {' '.join(cmd)}")
+            return {
+                "success": True,
+                "response": f"{label}:\n\n```\n{output}\n```",
+                "executed": True,
+                "command": " ".join(cmd),
+                "category": data.get("category", "general"),
+                "suggested_tools": [],
+            }
+        except Exception:
+            return None
 
     def _detect_category(self, text: str) -> str:
         for cat, kws in self.CATEGORY_KEYWORDS.items():
@@ -10366,8 +10452,66 @@ class CFAIChatEngine:
         )
 
 
+def _fix_tool_permissions():
+    """
+    One-time startup fix: chmod +x every known security tool binary.
+    Runs silently — permission errors are ignored (read-only FS, etc.).
+    """
+    TOOL_DIRS = [
+        '/usr/local/bin', '/usr/bin', '/bin',
+        '/usr/local/sbin', '/usr/sbin', '/sbin',
+        '/root/go/bin', '/home/kali/go/bin',
+        '/opt/CF_AI/venv/bin',
+        '/usr/share/metasploit-framework/tools',
+    ]
+    KNOWN_TOOLS = [
+        # Network
+        'nmap', 'rustscan', 'masscan', 'nxc', 'enum4linux', 'enum4linux-ng',
+        # Web
+        'gobuster', 'ffuf', 'feroxbuster', 'dirsearch', 'dalfox', 'katana',
+        'hakrawler', 'httpx', 'wafw00f', 'nikto', 'sqlmap', 'wfuzz', 'arjun',
+        'gau', 'waybackurls', 'anew', 'qsreplace', 'uro', 'jaeles', 'x8',
+        # Vuln / Nuclei
+        'nuclei', 'wpscan',
+        # OSINT
+        'subfinder', 'amass', 'dnsenum', 'theHarvester', 'fierce',
+        'spiderfoot', 'sherlock', 'recon-ng', 'shodan',
+        # Password
+        'hydra', 'medusa', 'john', 'hashcat', 'hashid', 'hash-identifier',
+        # Binary
+        'gdb', 'r2', 'radare2', 'checksec', 'ROPgadget', 'ropper',
+        'objdump', 'readelf', 'strings', 'xxd', 'hexdump', 'nm',
+        'ltrace', 'strace', 'patchelf', 'pwninit', 'pwn',
+        # Forensics
+        'binwalk', 'exiftool', 'steghide', 'foremost', 'scalpel',
+        'vol', 'vol3', 'bulk_extractor', 'zsteg', 'outguess', 'hashpump',
+        # Cloud
+        'trivy', 'checkov', 'kube-hunter', 'kube-bench', 'prowler',
+        'scout-suite', 'terrascan',
+        # Exploitation
+        'msfvenom', 'msfconsole', 'searchsploit',
+        # Wireless
+        'airmon-ng', 'airodump-ng', 'aireplay-ng', 'aircrack-ng',
+    ]
+    fixed = 0
+    for d in TOOL_DIRS:
+        if not os.path.isdir(d):
+            continue
+        for tool in KNOWN_TOOLS:
+            path = os.path.join(d, tool)
+            if os.path.isfile(path) and not os.access(path, os.X_OK):
+                try:
+                    os.chmod(path, 0o755)
+                    fixed += 1
+                except OSError:
+                    pass
+    if fixed:
+        logger.info(f"[startup] Fixed execute permissions on {fixed} tool(s)")
+
+
 prompt_guard = PromptInjectionProtector()
 chat_engine = CFAIChatEngine(prompt_guard)
+_fix_tool_permissions()
 
 # API Routes
 
