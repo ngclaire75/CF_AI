@@ -9451,15 +9451,35 @@ class CFAIChatEngine:
     # Tools that may not be marked executable — run via bash -c
     _BASH_WRAP_TOOLS  = {'searchsploit', 'exploitdb'}
 
+    @staticmethod
+    def _msf_home() -> str:
+        """Return a writable home dir for Metasploit, creating needed subdirs."""
+        home = '/tmp/msf4_home'
+        for d in [home,
+                  f'{home}/.msf4',
+                  f'{home}/.msf4/logs',
+                  f'{home}/.msf4/loot',
+                  f'{home}/.msf4/modules',
+                  f'{home}/.msf4/plugins']:
+            os.makedirs(d, exist_ok=True)
+        log = f'{home}/.msf4/logs/production.log'
+        if not os.path.exists(log):
+            open(log, 'w').close()
+        return home
+
     def _run_tool(self, cmd: List[str], timeout: int = 90) -> str:
         try:
             cmd = self._preprocess_cmd(cmd)
             env = dict(os.environ)
             env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/root/go/bin:' + env.get('PATH', '')
-            # Metasploit / Ruby tools need a writable HOME
+            # Always set TERM so curses-based tools don't warn
+            env['TERM'] = env.get('TERM') or 'xterm'
+            # Metasploit / Ruby tools need a writable HOME and .msf4 dirs
             if cmd[0] in self._HOME_ROOT_TOOLS or any(t in cmd[0] for t in ('msf', 'msfvenom')):
-                env['HOME'] = '/root'
-                env['MSF_DATABASE_CONFIG'] = '/tmp/msf_database.yml'
+                msf_home = self._msf_home()
+                env['HOME'] = msf_home
+                env['MSF_CFGROOT_CONFIG'] = f'{msf_home}/.msf4'
+                env['BOOTSNAP_CACHE_DIR'] = '/tmp/bootsnap_cache'
             # Wrap tools that may lack execute bit
             if cmd[0] in self._BASH_WRAP_TOOLS:
                 cmd = ['bash', '-c', ' '.join(cmd)]
