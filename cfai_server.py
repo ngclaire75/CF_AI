@@ -9365,7 +9365,11 @@ class CFAIChatEngine:
         try:
             env = dict(os.environ)
             env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/root/go/bin:' + env.get('PATH', '')
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+            # Run with sudo -n to ensure elevated privileges for raw socket tools
+            final_cmd = cmd
+            if os.geteuid() != 0:
+                final_cmd = ['sudo', '-n'] + cmd
+            result = subprocess.run(final_cmd, capture_output=True, text=True, timeout=timeout, env=env)
             out = (result.stdout or '') + (result.stderr or '')
             out = out.strip()
             if not out:
@@ -9675,13 +9679,13 @@ class CFAIChatEngine:
         # ── Port Scan / Network ───────────────────────────────────────────────
         if any(w in msg_lower for w in ["port", "scan", "nmap", "network", "host", "service", "open ports", "rustscan", "masscan"]):
             if target:
-                cmd = ["nmap", "-sV", "--open", "-T4", target]
+                cmd = ["nmap", "-sT", "-sV", "--open", "-T4", target]
                 output = self._run_tool(cmd, timeout=120)
                 return {
                     "success": True,
                     "response": f"Nmap scan on `{target}`:\n\n```\n{output}\n```",
                     "executed": True,
-                    "command": f"nmap -sV --open -T4 {target}",
+                    "command": f"nmap -sT -sV --open -T4 {target}",
                     "category": "network",
                     "suggested_tools": ["rustscan", "gobuster", "nuclei"],
                 }
@@ -9763,13 +9767,13 @@ class CFAIChatEngine:
 
         # ── Target given but intent unclear — default to nmap ─────────────────
         if target:
-            cmd = ["nmap", "-sV", "--open", "-T4", target]
+            cmd = ["nmap", "-sT", "-sV", "--open", "-T4", target]
             output = self._run_tool(cmd, timeout=120)
             return {
                 "success": True,
                 "response": f"Detected target `{target}` — running default scan:\n\n```\n{output}\n```",
                 "executed": True,
-                "command": f"nmap -sV --open -T4 {target}",
+                "command": f"nmap -sT -sV --open -T4 {target}",
                 "category": "network",
                 "suggested_tools": ["gobuster", "nuclei", "shodan"],
             }
