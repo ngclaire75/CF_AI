@@ -81,12 +81,11 @@ function sendMessage() {
     .then(data => {
       removeTyping(typingId);
       if (data.blocked) {
-        appendMessage('bot', data.response || 'Request blocked by injection protection.', {
-          blocked: true
-        });
+        appendMessage('bot', data.response || 'Request blocked by injection protection.', { blocked: true });
       } else if (data.success) {
         appendMessage('bot', data.response, {
-          suggestedTools: data.suggested_tools || []
+          suggestedTools: data.suggested_tools || [],
+          executed: !!data.executed,
         });
       } else {
         appendMessage('bot', 'Error: ' + (data.error || 'Unknown error'));
@@ -119,7 +118,12 @@ function appendMessage(role, text, opts = {}) {
 
   const textDiv = document.createElement('div');
   textDiv.className = 'msg-text';
-  textDiv.innerHTML = formatText(text);
+
+  if (!isUser && opts.executed) {
+    textDiv.innerHTML = formatExecutedOutput(text);
+  } else {
+    textDiv.innerHTML = formatText(text);
+  }
 
   const meta = document.createElement('div');
   meta.className = 'msg-meta';
@@ -185,26 +189,44 @@ function removeTyping(id) {
 
 function formatText(text) {
   if (!text) return '';
-
-  // Escape HTML
-  let escaped = text
+  let s = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  s = s.replace(/^[•\-]\s+(.+)$/gm, '<span style="display:block;padding-left:12px">• $1</span>');
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
 
-  // Bold: **text**
-  escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-  // Code: `text`
-  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  // Bullet points: • or -
-  escaped = escaped.replace(/^[•\-]\s+(.+)$/gm, '<span style="display:block;padding-left:12px">• $1</span>');
-
-  // Line breaks
-  escaped = escaped.replace(/\n/g, '<br>');
-
-  return escaped;
+function formatExecutedOutput(text) {
+  if (!text) return '';
+  // Split on ``` blocks
+  const parts = text.split(/```/);
+  let html = '';
+  parts.forEach((part, i) => {
+    if (i % 2 === 0) {
+      // normal text
+      let s = part
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+      s = s.replace(/\n/g, '<br>');
+      html += s;
+    } else {
+      // terminal output block
+      const escaped = part
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .trim();
+      html += `<pre>${escaped}</pre>`;
+    }
+  });
+  return html;
 }
 
 function timeNow() {
@@ -374,15 +396,15 @@ function showToast(msg) {
     position: 'fixed',
     bottom: '24px',
     right: '24px',
-    background: '#0d1117',
-    border: '1px solid #dc143c',
-    color: '#e6edf3',
+    background: '#1b5e20',
+    border: '1px solid #2e7d32',
+    color: '#ffffff',
     padding: '10px 16px',
     borderRadius: '8px',
     fontSize: '12px',
-    fontFamily: 'JetBrains Mono, monospace',
+    fontFamily: 'Inter, system-ui, sans-serif',
     zIndex: '9999',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+    boxShadow: '0 4px 16px rgba(27,94,32,0.2)',
     transition: 'opacity 0.3s',
   });
   document.body.appendChild(toast);

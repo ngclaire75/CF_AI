@@ -9256,183 +9256,544 @@ class CFAIChatEngine:
         self.conversation_history.append({"role": "assistant", "content": response["response"]})
         return response
 
+    DIRECT_TOOLS = {
+        'nmap', 'rustscan', 'masscan', 'gobuster', 'sqlmap', 'nikto', 'hydra',
+        'wpscan', 'nuclei', 'ffuf', 'amass', 'subfinder', 'dnsenum', 'dirb',
+        'feroxbuster', 'dirsearch', 'enum4linux', 'volatility', 'binwalk',
+        'exiftool', 'steghide', 'hashcat', 'john', 'dalfox', 'katana', 'httpx',
+        'theharvester', 'recon-ng', 'aircrack-ng', 'medusa', 'metasploit',
+        'msfconsole', 'searchsploit', 'shodan', 'trivy', 'prowler',
+    }
+
+    TOOL_GROUPS = {
+        "network": {
+            "tools": ["nmap", "rustscan", "masscan", "httpx"],
+            "desc": "Network & port scanning tools",
+            "examples": [
+                "scan 192.168.1.1",
+                "nmap -sV -T4 192.168.1.1",
+                "rustscan -a 192.168.1.1 -- -sC -sV",
+                "masscan 192.168.1.0/24 -p80,443",
+            ],
+        },
+        "web": {
+            "tools": ["gobuster", "ffuf", "feroxbuster", "dirb", "dirsearch", "nikto", "sqlmap", "dalfox", "nuclei"],
+            "desc": "Web application security tools",
+            "examples": [
+                "enumerate directories on http://target.com",
+                "gobuster dir -u http://target.com -w /usr/share/wordlists/dirb/common.txt",
+                "nikto -h http://target.com",
+                "sqlmap -u http://target.com/page?id=1 --dbs --batch",
+                "dalfox url http://target.com/search?q=test",
+            ],
+        },
+        "osint": {
+            "tools": ["subfinder", "amass", "dnsenum", "theharvester", "recon-ng"],
+            "desc": "OSINT & subdomain enumeration tools",
+            "examples": [
+                "find subdomains for example.com",
+                "subfinder -d example.com",
+                "amass enum -d example.com",
+                "theharvester -d example.com -b all",
+            ],
+        },
+        "wordpress": {
+            "tools": ["wpscan", "nuclei", "gobuster", "nikto"],
+            "desc": "WordPress security tools",
+            "examples": [
+                "scan wordpress http://target.com",
+                "wpscan --url http://target.com --enumerate vp,u",
+                "nuclei -u http://target.com -t wordpress",
+            ],
+        },
+        "password": {
+            "tools": ["hydra", "hashcat", "john", "medusa"],
+            "desc": "Password & credential testing tools",
+            "examples": [
+                "hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://target.com",
+                "hashcat -a 0 -m 0 hash.txt /usr/share/wordlists/rockyou.txt",
+                "john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt",
+            ],
+        },
+        "intel": {
+            "tools": ["shodan", "virustotal", "hackerone", "censys"],
+            "desc": "Intelligence API tools",
+            "examples": [
+                "shodan lookup 8.8.8.8",
+                "shodan search apache port:80",
+                "virustotal check domain.com",
+                "virustotal check 1.2.3.4",
+                "hackerone programs",
+            ],
+        },
+        "forensics": {
+            "tools": ["volatility", "binwalk", "exiftool", "steghide"],
+            "desc": "Digital forensics tools",
+            "examples": [
+                "binwalk firmware.bin",
+                "exiftool image.jpg",
+                "steghide info image.jpg",
+            ],
+        },
+        "cloud": {
+            "tools": ["trivy", "prowler", "kube-hunter", "checkov"],
+            "desc": "Cloud & container security tools",
+            "examples": [
+                "trivy image nginx:latest",
+                "kube-hunter --remote 10.0.0.1",
+            ],
+        },
+    }
+
+    def _extract_target(self, text: str) -> Optional[str]:
+        url_match = re.search(r'https?://[^\s,;>]+', text)
+        if url_match:
+            return url_match.group().rstrip('.,;:)')
+        ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?\b', text)
+        if ip_match:
+            return ip_match.group()
+        domain_match = re.search(
+            r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)'
+            r'+(?:com|net|org|io|co|uk|de|fr|ru|jp|gov|edu|mil|info|biz|app|dev|xyz|tech|site|online|me|tv|cc|ca|au|in|us)\b',
+            text, re.IGNORECASE
+        )
+        if domain_match:
+            return domain_match.group()
+        return None
+
+    def _run_tool(self, cmd: List[str], timeout: int = 90) -> str:
+        try:
+            env = dict(os.environ)
+            env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/root/go/bin:' + env.get('PATH', '')
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+            out = (result.stdout or '') + (result.stderr or '')
+            out = out.strip()
+            if not out:
+                return f"Command completed (exit code {result.returncode}) with no output."
+            return out[:6000]
+        except subprocess.TimeoutExpired:
+            return f"Scan timed out after {timeout}s. The target may be slow or the scan too broad."
+        except FileNotFoundError:
+            return f"Tool '{cmd[0]}' is not installed. Run: sudo bash /opt/CF_AI/setup.sh"
+        except Exception as e:
+            return f"Execution error: {str(e)}"
+
+    def _tools_list(self, group: str) -> str:
+        g = self.TOOL_GROUPS.get(group, {})
+        if not g:
+            return "Unknown tool group."
+        lines = [f"Available {g['desc']}:\n"]
+        for tool in g['tools']:
+            lines.append(f"  {tool}")
+        lines.append("\nExamples:")
+        for ex in g['examples']:
+            lines.append(f"  {ex}")
+        return "\n".join(lines)
+
+    def _shodan_lookup(self, target: str) -> str:
+        api_key = os.environ.get("SHODAN_API_KEY", "")
+        if not api_key:
+            return "SHODAN_API_KEY not set. Add it to your .env file.\nGet a free key at: https://account.shodan.io"
+        try:
+            ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', target)
+            if ip_match:
+                url = f"https://api.shodan.io/shodan/host/{ip_match.group()}?key={api_key}"
+            else:
+                url = f"https://api.shodan.io/shodan/host/search?key={api_key}&query={urllib.parse.quote(target)}&facets=country,port"
+            resp = requests.get(url, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "ip_str" in data:
+                    ports = [str(s.get("port")) for s in data.get("data", [])]
+                    vulns = list(data.get("vulns", {}).keys())
+                    lines = [
+                        f"IP: {data.get('ip_str')}",
+                        f"Org: {data.get('org', 'N/A')}",
+                        f"Country: {data.get('country_name', 'N/A')}",
+                        f"City: {data.get('city', 'N/A')}",
+                        f"ISP: {data.get('isp', 'N/A')}",
+                        f"Open ports: {', '.join(ports) if ports else 'None found'}",
+                        f"Hostnames: {', '.join(data.get('hostnames', [])) or 'None'}",
+                        f"OS: {data.get('os', 'N/A')}",
+                        f"Last update: {data.get('last_update', 'N/A')}",
+                    ]
+                    if vulns:
+                        lines.append(f"Vulnerabilities: {', '.join(vulns[:10])}")
+                    return "\n".join(lines)
+                else:
+                    total = data.get("total", 0)
+                    matches = data.get("matches", [])[:5]
+                    lines = [f"Shodan search results ({total} total):"]
+                    for m in matches:
+                        lines.append(f"  {m.get('ip_str')}:{m.get('port')} — {m.get('org','N/A')}")
+                    return "\n".join(lines)
+            elif resp.status_code == 401:
+                return "Shodan API key invalid or expired."
+            elif resp.status_code == 404:
+                return f"No Shodan data found for {target}."
+            else:
+                return f"Shodan API error: HTTP {resp.status_code}"
+        except Exception as e:
+            return f"Shodan lookup failed: {str(e)}"
+
+    def _virustotal_lookup(self, target: str) -> str:
+        api_key = os.environ.get("VIRUSTOTAL_API_KEY", "")
+        if not api_key:
+            return "VIRUSTOTAL_API_KEY not set. Add it to your .env file.\nGet a free key at: https://www.virustotal.com/gui/my-apikey"
+        try:
+            headers = {"x-apikey": api_key}
+            ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', target)
+            hash_match = re.search(r'\b[a-fA-F0-9]{32,64}\b', target)
+            if ip_match:
+                url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip_match.group()}"
+                label = f"IP {ip_match.group()}"
+            elif hash_match:
+                url = f"https://www.virustotal.com/api/v3/files/{hash_match.group()}"
+                label = f"file hash {hash_match.group()}"
+            else:
+                domain = re.sub(r'^https?://', '', target).split('/')[0].strip()
+                url = f"https://www.virustotal.com/api/v3/domains/{domain}"
+                label = f"domain {domain}"
+            resp = requests.get(url, headers=headers, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json().get("data", {}).get("attributes", {})
+                stats = data.get("last_analysis_stats", {})
+                malicious = stats.get("malicious", 0)
+                suspicious = stats.get("suspicious", 0)
+                harmless = stats.get("harmless", 0)
+                undetected = stats.get("undetected", 0)
+                total = malicious + suspicious + harmless + undetected
+                verdict = "MALICIOUS" if malicious > 2 else ("SUSPICIOUS" if suspicious > 0 or malicious > 0 else "CLEAN")
+                lines = [
+                    f"VirusTotal report for {label}:",
+                    f"Verdict: {verdict}",
+                    f"Detections: {malicious} malicious, {suspicious} suspicious / {total} engines",
+                    f"Harmless: {harmless}  |  Undetected: {undetected}",
+                ]
+                rep = data.get("reputation")
+                if rep is not None:
+                    lines.append(f"Reputation score: {rep}")
+                cats = data.get("categories")
+                if cats:
+                    lines.append(f"Categories: {', '.join(list(cats.values())[:5])}")
+                return "\n".join(lines)
+            elif resp.status_code == 401:
+                return "VirusTotal API key invalid."
+            elif resp.status_code == 404:
+                return f"No VirusTotal data found for {target}."
+            else:
+                return f"VirusTotal API error: HTTP {resp.status_code}"
+        except Exception as e:
+            return f"VirusTotal lookup failed: {str(e)}"
+
+    def _hackerone_lookup(self, query: str) -> str:
+        username = os.environ.get("HACKERONE_USERNAME", "")
+        api_key = os.environ.get("HACKERONE_API_KEY", "")
+        if not username or not api_key:
+            return "HACKERONE_USERNAME and HACKERONE_API_KEY not set.\nGet your token at: https://hackerone.com/settings/api_token/edit"
+        try:
+            auth = (username, api_key)
+            url = "https://api.hackerone.com/v1/hackers/programs"
+            params = {"page[size]": 10}
+            if query and query not in ("programs", "list", "all"):
+                params["filter[program][handle]"] = query
+            resp = requests.get(url, auth=auth, params=params, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if not data:
+                    return f"No HackerOne programs found for '{query}'."
+                lines = ["HackerOne Programs:"]
+                for p in data[:10]:
+                    attrs = p.get("attributes", {})
+                    name = attrs.get("name", "N/A")
+                    handle = attrs.get("handle", "N/A")
+                    offers_bounties = "Yes" if attrs.get("offers_bounties") else "No"
+                    lines.append(f"  [{handle}] {name} — Bounties: {offers_bounties}")
+                return "\n".join(lines)
+            elif resp.status_code == 401:
+                return "HackerOne credentials invalid."
+            else:
+                return f"HackerOne API error: HTTP {resp.status_code}"
+        except Exception as e:
+            return f"HackerOne lookup failed: {str(e)}"
+
     def _generate_response(self, message: str, msg_lower: str) -> Dict[str, Any]:
-        """Generate contextual AI response for security tool queries."""
+        target = self._extract_target(message)
+        words = message.strip().split()
+        first_word = words[0].lower() if words else ""
 
-        # Help/greeting
+        # Help / greeting
         if any(w in msg_lower for w in ["hello", "hi", "help", "what can you do", "capabilities"]):
+            return {"success": True, "response": self._help_response(), "suggested_tools": [], "category": "general"}
+
+        # ── Direct tool command (user typed the tool name first) ──────────────
+        if first_word in self.DIRECT_TOOLS and len(words) > 1:
+            cmd = message.strip().split()
+            output = self._run_tool(cmd, timeout=120)
             return {
                 "success": True,
-                "response": self._help_response(),
+                "response": f"Executed: `{' '.join(cmd)}`\n\n```\n{output}\n```",
+                "executed": True,
+                "command": ' '.join(cmd),
+                "category": self._detect_category(msg_lower),
                 "suggested_tools": [],
-                "category": "general",
             }
 
-        # WordPress
-        if any(w in msg_lower for w in ["wordpress", "wp ", "wpscan", "wp plugin", "wp theme"]):
-            tools = ["wpscan", "nikto", "nuclei", "gobuster"]
+        # ── Intelligence APIs ─────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["shodan"]):
+            q = re.sub(r'shodan\s*(lookup|search|host|query|check)?\s*', '', message, flags=re.IGNORECASE).strip()
+            if not q:
+                return {"success": True, "response": self._tools_list("intel"), "category": "intel", "suggested_tools": ["shodan"]}
+            output = self._shodan_lookup(q)
+            return {
+                "success": True,
+                "response": f"Shodan lookup: `{q}`\n\n```\n{output}\n```",
+                "executed": True,
+                "category": "intel",
+                "suggested_tools": ["virustotal"],
+            }
+
+        if any(w in msg_lower for w in ["virustotal", "virus total", "vt check", "vt scan"]):
+            q = re.sub(r'(virustotal|virus\s*total|vt)\s*(check|scan|lookup|analyze)?\s*', '', message, flags=re.IGNORECASE).strip()
+            if not q and target:
+                q = target
+            if not q:
+                return {"success": True, "response": self._tools_list("intel"), "category": "intel", "suggested_tools": ["virustotal"]}
+            output = self._virustotal_lookup(q)
+            return {
+                "success": True,
+                "response": f"VirusTotal report: `{q}`\n\n```\n{output}\n```",
+                "executed": True,
+                "category": "intel",
+                "suggested_tools": ["shodan"],
+            }
+
+        if any(w in msg_lower for w in ["hackerone", "hacker one", "bug bounty program", "h1 program"]):
+            q = re.sub(r'(hackerone|hacker\s*one|h1)\s*(programs?|search|lookup|list|find)?\s*', '', message, flags=re.IGNORECASE).strip() or "programs"
+            output = self._hackerone_lookup(q)
+            return {
+                "success": True,
+                "response": f"HackerOne: `{q}`\n\n```\n{output}\n```",
+                "executed": True,
+                "category": "intel",
+                "suggested_tools": ["shodan", "virustotal"],
+            }
+
+        # ── WordPress ─────────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["wordpress", "wpscan", "wp plugin", "wp theme", "wp scan"]):
+            if target:
+                cmd = ["wpscan", "--url", target, "--enumerate", "vp,u,tt", "--no-update", "--random-user-agent"]
+                output = self._run_tool(cmd, timeout=120)
+                return {
+                    "success": True,
+                    "response": f"WPScan on `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"wpscan --url {target} --enumerate vp,u,tt",
+                    "category": "wordpress",
+                    "suggested_tools": ["nikto", "nuclei", "gobuster"],
+                }
+            return {"success": True, "response": self._tools_list("wordpress"), "category": "wordpress", "suggested_tools": ["wpscan", "nikto", "nuclei"]}
+
+        # ── SQL Injection ─────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["sql injection", "sqli", "sqlmap"]):
+            if target:
+                cmd = ["sqlmap", "-u", target, "--batch", "--level=1", "--risk=1", "--dbs"]
+                output = self._run_tool(cmd, timeout=120)
+                return {
+                    "success": True,
+                    "response": f"SQLMap on `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"sqlmap -u {target} --batch --dbs",
+                    "category": "web",
+                    "suggested_tools": ["nuclei"],
+                }
+            return {"success": True, "response": self._tools_list("web"), "category": "web", "suggested_tools": ["sqlmap", "nuclei"]}
+
+        # ── XSS ──────────────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["xss", "cross-site", "cross site", "dalfox"]):
+            if target:
+                cmd = ["dalfox", "url", target]
+                output = self._run_tool(cmd, timeout=90)
+                return {
+                    "success": True,
+                    "response": f"Dalfox XSS scan on `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"dalfox url {target}",
+                    "category": "web",
+                    "suggested_tools": ["nuclei"],
+                }
+            return {"success": True, "response": self._tools_list("web"), "category": "web", "suggested_tools": ["dalfox", "nuclei"]}
+
+        # ── Directory Enumeration ─────────────────────────────────────────────
+        if any(w in msg_lower for w in ["directory", "enumerate dir", "gobuster", "dirb", "ffuf", "fuzz", "dir scan"]):
+            if target:
+                wl = "/usr/share/wordlists/dirb/common.txt"
+                if not os.path.exists(wl):
+                    wl = "/usr/share/dirb/wordlists/common.txt"
+                cmd = ["gobuster", "dir", "-u", target, "-w", wl, "-t", "30", "--no-error", "-q"]
+                output = self._run_tool(cmd, timeout=120)
+                return {
+                    "success": True,
+                    "response": f"Directory enumeration on `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"gobuster dir -u {target} -w common.txt",
+                    "category": "web",
+                    "suggested_tools": ["feroxbuster", "ffuf", "nikto"],
+                }
+            return {"success": True, "response": self._tools_list("web"), "category": "web", "suggested_tools": ["gobuster", "feroxbuster", "ffuf"]}
+
+        # ── Nikto ────────────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["nikto", "web vuln", "http vuln", "web server scan"]):
+            if target:
+                cmd = ["nikto", "-h", target, "-maxtime", "60"]
+                output = self._run_tool(cmd, timeout=90)
+                return {
+                    "success": True,
+                    "response": f"Nikto scan on `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"nikto -h {target}",
+                    "category": "web",
+                    "suggested_tools": ["nuclei", "gobuster"],
+                }
+            return {"success": True, "response": self._tools_list("web"), "category": "web", "suggested_tools": ["nikto", "nuclei"]}
+
+        # ── Nuclei ───────────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["nuclei", "template scan", "vuln template"]):
+            if target:
+                cmd = ["nuclei", "-u", target, "-severity", "medium,high,critical", "-silent"]
+                output = self._run_tool(cmd, timeout=120)
+                return {
+                    "success": True,
+                    "response": f"Nuclei scan on `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"nuclei -u {target} -severity medium,high,critical",
+                    "category": "web",
+                    "suggested_tools": ["gobuster", "nikto"],
+                }
+            return {"success": True, "response": self._tools_list("web"), "category": "web", "suggested_tools": ["nuclei"]}
+
+        # ── Port Scan / Network ───────────────────────────────────────────────
+        if any(w in msg_lower for w in ["port", "scan", "nmap", "network", "host", "service", "open ports", "rustscan", "masscan"]):
+            if target:
+                cmd = ["nmap", "-sV", "--open", "-T4", target]
+                output = self._run_tool(cmd, timeout=120)
+                return {
+                    "success": True,
+                    "response": f"Nmap scan on `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"nmap -sV --open -T4 {target}",
+                    "category": "network",
+                    "suggested_tools": ["rustscan", "gobuster", "nuclei"],
+                }
+            return {"success": True, "response": self._tools_list("network"), "category": "network", "suggested_tools": ["nmap", "rustscan", "masscan"]}
+
+        # ── Subdomain / OSINT ─────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["subdomain", "amass", "subfinder", "dns", "theharvester", "recon-ng"]):
+            if target:
+                cmd = ["subfinder", "-d", target, "-silent"]
+                output = self._run_tool(cmd, timeout=90)
+                return {
+                    "success": True,
+                    "response": f"Subdomain enumeration for `{target}`:\n\n```\n{output}\n```",
+                    "executed": True,
+                    "command": f"subfinder -d {target}",
+                    "category": "osint",
+                    "suggested_tools": ["amass", "dnsenum", "httpx"],
+                }
+            return {"success": True, "response": self._tools_list("osint"), "category": "osint", "suggested_tools": ["subfinder", "amass", "dnsenum"]}
+
+        # ── Password / Hash ───────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["brute force", "hydra", "hashcat", "password crack", "crack hash", "john the ripper"]):
+            return {"success": True, "response": self._tools_list("password"), "category": "password", "suggested_tools": ["hydra", "hashcat", "john"]}
+
+        hash_match = re.search(r'\b[a-fA-F0-9]{32,64}\b', message)
+        if hash_match and any(w in msg_lower for w in ["hash", "crack", "md5", "sha", "identify"]):
+            h = hash_match.group()
+            cmd = ["hashid", h]
+            output = self._run_tool(cmd, timeout=10)
             return {
                 "success": True,
                 "response": (
-                    "For WordPress security assessment I recommend:\n\n"
-                    "• **WPScan** — dedicated WordPress vulnerability scanner\n"
-                    "• **Nuclei** — template-based vuln detection for WP\n"
-                    "• **Gobuster** — enumerate WP directories/plugins\n"
-                    "• **Nikto** — web server misconfiguration detection\n\n"
-                    "Use the WordPress Security Report section on the sidebar to generate a formal report. "
-                    "Type a command like `wpscan --url https://target.com` to run a scan."
+                    f"Hash: `{h}`\n\n```\n{output}\n```\n\n"
+                    f"To crack: `hashcat -a 0 -m <mode> {h} /usr/share/wordlists/rockyou.txt`"
                 ),
-                "suggested_tools": tools,
-                "category": "wordpress",
-            }
-
-        # SQL injection
-        if any(w in msg_lower for w in ["sql", "sqli", "injection", "database"]):
-            return {
-                "success": True,
-                "response": (
-                    "SQL Injection testing workflow:\n\n"
-                    "• **SQLMap** — automated SQL injection detection and exploitation\n"
-                    "• **Nuclei** — template-based SQLi detection\n"
-                    "• **Ghauri** — advanced SQLi tool with tamper scripts\n\n"
-                    "Example: `sqlmap -u https://target.com/page?id=1 --dbs --batch`\n\n"
-                    "Always ensure you have written authorization before testing."
-                ),
-                "suggested_tools": ["sqlmap", "nuclei"],
-                "category": "web",
-            }
-
-        # XSS
-        if any(w in msg_lower for w in ["xss", "cross-site", "cross site scripting"]):
-            return {
-                "success": True,
-                "response": (
-                    "XSS Testing tools:\n\n"
-                    "• **Dalfox** — fast XSS scanner with parameter analysis\n"
-                    "• **XSSer** — automated XSS injection tool\n"
-                    "• **Nuclei** — XSS detection templates\n\n"
-                    "Example: `dalfox url https://target.com/search?q=test`"
-                ),
-                "suggested_tools": ["dalfox", "nuclei"],
-                "category": "web",
-            }
-
-        # Port scan / network
-        if any(w in msg_lower for w in ["port", "scan", "nmap", "network", "host", "service"]):
-            return {
-                "success": True,
-                "response": (
-                    "Network scanning tools:\n\n"
-                    "• **Nmap** — industry-standard port/service scanner\n"
-                    "• **RustScan** — ultra-fast port discovery\n"
-                    "• **Masscan** — internet-scale port scanning\n\n"
-                    "Example: `nmap -sC -sV -oN scan.txt <target>`\n"
-                    "Quick scan: `rustscan -a <target> -- -sC -sV`"
-                ),
-                "suggested_tools": ["nmap", "rustscan", "masscan"],
-                "category": "network",
-            }
-
-        # Subdomain
-        if any(w in msg_lower for w in ["subdomain", "amass", "subfinder", "recon", "dns"]):
-            return {
-                "success": True,
-                "response": (
-                    "Subdomain enumeration tools:\n\n"
-                    "• **Amass** — comprehensive ASN & subdomain discovery\n"
-                    "• **Subfinder** — passive subdomain finder\n"
-                    "• **DNSenum** — DNS zone transfer & brute force\n"
-                    "• **Fierce** — DNS reconnaissance\n\n"
-                    "Example: `subfinder -d target.com -all -o subs.txt`"
-                ),
-                "suggested_tools": ["amass", "subfinder", "dnsenum"],
-                "category": "osint",
-            }
-
-        # Brute force / password
-        if any(w in msg_lower for w in ["brute", "password", "hydra", "hash", "crack"]):
-            return {
-                "success": True,
-                "response": (
-                    "Password & credential testing tools:\n\n"
-                    "• **Hydra** — multi-protocol login brute forcer\n"
-                    "• **Hashcat** — GPU-accelerated hash cracking\n"
-                    "• **John the Ripper** — versatile password cracker\n"
-                    "• **Medusa** — parallel network login brute forcer\n\n"
-                    "Example: `hydra -l admin -P wordlist.txt ssh://target.com`\n"
-                    "**Only use on systems you own or have written permission to test.**"
-                ),
-                "suggested_tools": ["hydra", "hashcat", "john"],
+                "executed": True,
                 "category": "password",
+                "suggested_tools": ["hashcat", "john"],
             }
 
-        # Bug bounty
+        # ── Bug bounty ────────────────────────────────────────────────────────
         if any(w in msg_lower for w in ["bug bounty", "bugbounty", "recon workflow"]):
             return {
                 "success": True,
                 "response": (
-                    "Bug Bounty Recon Workflow:\n\n"
-                    "**Phase 1 — Asset Discovery:**\n"
-                    "• Subfinder + Amass (subdomains)\n"
-                    "• HTTPx (live host probing)\n"
-                    "• Nmap (port/service scan)\n\n"
-                    "**Phase 2 — Web Attack Surface:**\n"
-                    "• Katana + Hakrawler (crawling)\n"
-                    "• Ffuf + Gobuster (directory brute)\n"
-                    "• Arjun + Paramspider (parameter discovery)\n\n"
-                    "**Phase 3 — Vulnerability Discovery:**\n"
-                    "• Nuclei (automated templates)\n"
-                    "• Dalfox (XSS), SQLMap (SQLi)\n"
-                    "• Manual testing for business logic\n\n"
-                    "Use `/api/bugbounty/reconnaissance-workflow` for automated pipeline."
+                    "Bug Bounty Recon Workflow — type these commands:\n\n"
+                    "Phase 1 — Asset Discovery:\n"
+                    "  find subdomains for target.com\n"
+                    "  scan ports on target.com\n\n"
+                    "Phase 2 — Web Attack Surface:\n"
+                    "  enumerate directories on http://target.com\n"
+                    "  nuclei scan http://target.com\n\n"
+                    "Phase 3 — Vulnerabilities:\n"
+                    "  xss scan http://target.com/search?q=test\n"
+                    "  test http://target.com/page?id=1 for sql injection\n\n"
+                    "Intel APIs:\n"
+                    "  shodan lookup target.com\n"
+                    "  virustotal check target.com"
                 ),
                 "suggested_tools": ["subfinder", "httpx", "nuclei", "dalfox", "sqlmap"],
                 "category": "bugbounty",
             }
 
-        # CTF
+        # ── CTF ───────────────────────────────────────────────────────────────
         if any(w in msg_lower for w in ["ctf", "capture the flag", "challenge"]):
             return {
                 "success": True,
                 "response": (
-                    "CTF Challenge Toolkit:\n\n"
-                    "• **Web:** Burp Suite, SQLMap, Dalfox, Gobuster\n"
-                    "• **Crypto:** CyberChef, Hashcat, John\n"
-                    "• **Forensics:** Volatility, Binwalk, Exiftool, Steghide\n"
-                    "• **Binary/PWN:** GDB, Radare2, ROPgadget, Pwntools\n"
-                    "• **OSINT:** Recon-ng, Maltego, Shodan\n\n"
-                    "Use `/api/ctf/auto-solve-challenge` for automated challenge analysis."
+                    "CTF Toolkit:\n\n"
+                    "Web: sqlmap, dalfox, gobuster, ffuf\n"
+                    "Crypto: hashcat, john, hashid\n"
+                    "Forensics: volatility, binwalk, exiftool, steghide\n"
+                    "Binary/PWN: gdb, radare2, pwntools\n\n"
+                    "Type a tool name with a target to execute it."
                 ),
                 "suggested_tools": ["volatility", "binwalk", "gdb", "sqlmap"],
                 "category": "ctf",
             }
 
-        # Identify specific tool mention
+        # ── Target given but intent unclear — default to nmap ─────────────────
+        if target:
+            cmd = ["nmap", "-sV", "--open", "-T4", target]
+            output = self._run_tool(cmd, timeout=120)
+            return {
+                "success": True,
+                "response": f"Detected target `{target}` — running default scan:\n\n```\n{output}\n```",
+                "executed": True,
+                "command": f"nmap -sV --open -T4 {target}",
+                "category": "network",
+                "suggested_tools": ["gobuster", "nuclei", "shodan"],
+            }
+
+        # ── Specific tool keyword without target ──────────────────────────────
         for tool, keywords in self.TOOL_KEYWORDS.items():
             if any(kw in msg_lower for kw in keywords):
+                grp = self._detect_category(msg_lower)
                 return {
                     "success": True,
                     "response": (
-                        f"Recognized tool: **{tool}**\n\n"
-                        f"To execute, type the full command. Example usages are shown in the tool categories panel. "
-                        f"I can also run this via API — use the `/api/{tool}` endpoint or type the command directly."
+                        f"Tool: **{tool}**\n\n"
+                        f"Provide a target to execute. Example:\n"
+                        f"  `{tool} target.com`\n\n"
+                        + self._tools_list(grp)
                     ),
                     "suggested_tools": [tool],
-                    "category": self._detect_category(msg_lower),
+                    "category": grp,
                 }
 
-        # Generic fallback
+        # ── Fallback ──────────────────────────────────────────────────────────
         return {
             "success": True,
-            "response": (
-                f"I understand you're asking about: **{message[:80]}**\n\n"
-                "CF_AI supports 150+ security tools. Here's how to get started:\n\n"
-                "• Type a tool name to get usage guidance (e.g. `nmap`, `sqlmap`, `wpscan`)\n"
-                "• Type a task description (e.g. `scan ports on 192.168.1.1`)\n"
-                "• Use the sidebar tool categories to browse available tools\n"
-                "• Use the WordPress Report section for WP security assessments\n\n"
-                "Type `help` for a full list of capabilities."
-            ),
+            "response": self._help_response(),
             "suggested_tools": [],
             "category": "general",
         }
@@ -9445,18 +9806,29 @@ class CFAIChatEngine:
 
     def _help_response(self) -> str:
         return (
-            "**CF_AI — Advanced Penetration Testing Framework**\n\n"
-            "I can help you with:\n\n"
-            "**Network Recon:** Nmap, RustScan, Masscan, HTTPx\n"
-            "**Web Security:** SQLMap, Dalfox, Gobuster, Nikto, Nuclei, WPScan\n"
-            "**OSINT:** Amass, Subfinder, TheHarvester, Recon-ng\n"
-            "**Password:** Hydra, Hashcat, John the Ripper\n"
-            "**Forensics:** Volatility, Binwalk, Exiftool, Steghide\n"
-            "**Exploitation:** Metasploit, SearchSploit, custom payloads\n"
-            "**Bug Bounty:** Automated recon → discovery → exploitation pipelines\n"
-            "**CTF:** Challenge solvers for web, crypto, forensics, pwn\n"
-            "**WordPress:** Dedicated WP security report generation\n\n"
-            "Type any tool name, task description, or question to get started."
+            "CF_AI — Advanced Penetration Testing Framework\n\n"
+            "Provide a target and the AI executes the right tool automatically.\n\n"
+            "Network:\n"
+            "  scan 192.168.1.1\n"
+            "  nmap -sV -T4 192.168.1.1\n\n"
+            "Web:\n"
+            "  enumerate directories on http://target.com\n"
+            "  nikto -h http://target.com\n"
+            "  nuclei scan http://target.com\n\n"
+            "SQL / XSS:\n"
+            "  test http://target.com/page?id=1 for sql injection\n"
+            "  xss scan http://target.com/search?q=test\n\n"
+            "WordPress:\n"
+            "  scan wordpress http://target.com\n\n"
+            "OSINT:\n"
+            "  find subdomains for example.com\n\n"
+            "Intel APIs:\n"
+            "  shodan lookup 8.8.8.8\n"
+            "  virustotal check domain.com\n"
+            "  hackerone programs\n\n"
+            "Password:\n"
+            "  crack hash 5f4dcc3b5aa765d61d8327deb882cf99\n\n"
+            "Always obtain written authorization before testing any target."
         )
 
 

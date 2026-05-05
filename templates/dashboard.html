@@ -5,18 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CF_AI — Penetration Testing Framework</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
 
-  <!-- Background grid effect -->
-  <div class="bg-grid"></div>
-
-  <!-- Top Navigation Bar -->
   <nav class="topbar">
     <div class="topbar-brand">
-      <span class="brand-icon">⚡</span>
+      <div class="brand-icon">CF</div>
       <span class="brand-name">CF_AI</span>
       <span class="brand-tag">v6.0</span>
     </div>
@@ -26,92 +22,118 @@
     </div>
     <div class="topbar-actions">
       <button class="btn-ghost" onclick="clearChat()" title="Clear chat">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>
       <button class="btn-ghost" onclick="toggleSidebar()" title="Toggle sidebar">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
       </button>
     </div>
   </nav>
 
-  <!-- Main Layout -->
   <div class="app-layout">
 
-    <!-- LEFT SIDEBAR -->
     <aside class="sidebar" id="sidebar">
 
-      <!-- Tool Categories -->
       <div class="panel">
         <div class="panel-header">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
           Tool Categories
         </div>
         <div class="tool-list">
           <div class="tool-item" onclick="askCategory('network recon tools: nmap rustscan masscan')">
-            <span class="tool-icon">🌐</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">Network</div>
               <div class="tool-desc">Nmap, RustScan, Masscan</div>
             </div>
           </div>
           <div class="tool-item" onclick="askCategory('web security tools: gobuster ffuf nikto dalfox sqlmap')">
-            <span class="tool-icon">🔍</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">Web Security</div>
               <div class="tool-desc">SQLMap, Dalfox, Gobuster</div>
             </div>
           </div>
-          <div class="tool-item" onclick="askCategory('vulnerability scanning: nuclei wpscan nikto jaeles')">
-            <span class="tool-icon">🎯</span>
+          <div class="tool-item" onclick="askCategory('vulnerability scanning: nuclei wpscan nikto')">
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">Vuln Scanning</div>
               <div class="tool-desc">Nuclei, WPScan, Nikto</div>
             </div>
           </div>
           <div class="tool-item" onclick="askCategory('subdomain and osint tools: amass subfinder dnsenum theharvester')">
-            <span class="tool-icon">🕵️</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">OSINT</div>
               <div class="tool-desc">Amass, Subfinder, Recon-ng</div>
             </div>
           </div>
           <div class="tool-item" onclick="askCategory('password cracking tools: hydra hashcat john medusa')">
-            <span class="tool-icon">🔑</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">Password</div>
               <div class="tool-desc">Hydra, Hashcat, John</div>
             </div>
           </div>
           <div class="tool-item" onclick="askCategory('binary analysis and exploitation: gdb radare2 pwntools ropgadget')">
-            <span class="tool-icon">⚙️</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">Binary / PWN</div>
               <div class="tool-desc">GDB, Radare2, Pwntools</div>
             </div>
           </div>
           <div class="tool-item" onclick="askCategory('digital forensics tools: volatility binwalk exiftool steghide')">
-            <span class="tool-icon">🔬</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 13s3-3 7-3 9 4 13 4-3 3-7 3-9-4-13-4z"/><circle cx="12" cy="13" r="3"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">Forensics</div>
               <div class="tool-desc">Volatility, Binwalk, Exiftool</div>
             </div>
           </div>
           <div class="tool-item" onclick="askCategory('cloud security tools: prowler trivy kube-hunter checkov')">
-            <span class="tool-icon">☁️</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">Cloud Security</div>
               <div class="tool-desc">Prowler, Trivy, Kube-hunter</div>
             </div>
           </div>
+          <div class="tool-item" onclick="askCategory('shodan hackerone virustotal censys api lookup')">
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div class="tool-info">
+              <div class="tool-name">Intel APIs</div>
+              <div class="tool-desc">Shodan, VirusTotal, HackerOne</div>
+            </div>
+          </div>
           <div class="tool-item" onclick="askCategory('exploitation framework: metasploit searchsploit msfvenom')">
-            <span class="tool-icon">💥</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">Exploitation</div>
               <div class="tool-desc">Metasploit, SearchSploit</div>
             </div>
           </div>
           <div class="tool-item active" onclick="showTab('wordpress')">
-            <span class="tool-icon">📋</span>
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
             <div class="tool-info">
               <div class="tool-name">WordPress Report</div>
               <div class="tool-desc">Formal security report</div>
@@ -120,10 +142,9 @@
         </div>
       </div>
 
-      <!-- System Status Panel -->
       <div class="panel" id="status-panel">
         <div class="panel-header">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           System Status
         </div>
         <div id="status-content" class="status-content">
@@ -156,21 +177,19 @@
 
     </aside>
 
-    <!-- MAIN CONTENT -->
     <main class="main-content">
 
-      <!-- Tab Bar -->
       <div class="tab-bar">
         <button class="tab active" id="tab-chat" onclick="showTab('chat')">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           AI Assistant
         </button>
         <button class="tab" id="tab-wordpress" onclick="showTab('wordpress')">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           WP Report
         </button>
         <button class="tab" id="tab-tools" onclick="showTab('tools')">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 19.07a10 10 0 010-14.14M1 12h2M21 12h2M12 1v2M12 21v2"/></svg>
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 19.07a10 10 0 010-14.14"/></svg>
           API Docs
         </button>
       </div>
@@ -183,15 +202,16 @@
               <div class="msg-avatar">AI</div>
               <div class="msg-body">
                 <div class="msg-text">
-                  Welcome to <strong>CF_AI</strong> — your advanced penetration testing assistant.<br><br>
-                  I can help you with:<br>
-                  • Network recon, port scanning, service enumeration<br>
-                  • Web vulnerability assessment (SQL injection, XSS, CSRF)<br>
-                  • WordPress security scanning and report generation<br>
-                  • Bug bounty automation pipelines<br>
-                  • CTF challenge assistance<br>
-                  • Password cracking, forensics, exploit development<br><br>
-                  Type <code>help</code> for a full guide, or ask me anything.
+                  Welcome to <strong>CF_AI</strong> — Advanced Penetration Testing Framework.<br><br>
+                  Provide a target and I will execute the right tool automatically.<br><br>
+                  <strong>Examples:</strong><br>
+                  <code>scan 192.168.1.1</code><br>
+                  <code>enumerate directories on http://target.com</code><br>
+                  <code>find subdomains for example.com</code><br>
+                  <code>scan wordpress http://target.com</code><br>
+                  <code>shodan lookup 8.8.8.8</code><br>
+                  <code>virustotal check domain.com</code><br><br>
+                  Type <code>help</code> for a full command reference.
                 </div>
                 <div class="msg-meta">CF_AI · just now</div>
               </div>
@@ -203,19 +223,21 @@
                 type="text"
                 id="user-input"
                 class="chat-input"
-                placeholder="Ask about tools, run commands, or describe a task..."
+                placeholder="Enter a target or command — e.g. scan 192.168.1.1"
                 autocomplete="off"
                 spellcheck="false"
               />
               <button class="send-btn" id="send-btn" onclick="sendMessage()">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </div>
             <div class="chat-hints">
-              <span onclick="fillInput('nmap -sC -sV -T4 target.com')">nmap scan</span>
-              <span onclick="fillInput('sqlmap -u https://target.com/page?id=1 --dbs')">sqlmap</span>
-              <span onclick="fillInput('bug bounty recon workflow')">bug bounty</span>
-              <span onclick="fillInput('wpscan --url https://target.com')">wpscan</span>
+              <span onclick="fillInput('scan 192.168.1.1')">port scan</span>
+              <span onclick="fillInput('enumerate directories on http://target.com')">dir scan</span>
+              <span onclick="fillInput('find subdomains for example.com')">subdomains</span>
+              <span onclick="fillInput('scan wordpress http://target.com')">wpscan</span>
+              <span onclick="fillInput('shodan lookup 8.8.8.8')">shodan</span>
+              <span onclick="fillInput('virustotal check google.com')">virustotal</span>
               <span onclick="fillInput('help')">help</span>
             </div>
           </div>
@@ -226,10 +248,10 @@
       <div class="tab-content" id="content-wordpress">
         <div class="wp-report-container">
           <div class="wp-report-header">
-            <div class="wp-icon">📋</div>
+            <div class="wp-header-icon">WP</div>
             <div>
               <h2>WordPress Security Assessment Report</h2>
-              <p>Generate a formal security report for a WordPress site. Suitable for bug bounty submissions, client deliverables, and internal security reviews.</p>
+              <p>Generate a formal penetration test report for a WordPress site. Suitable for bug bounty submissions, client deliverables, and internal security reviews.</p>
             </div>
           </div>
 
@@ -247,7 +269,7 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label for="company-name">Your Company / Firm Name</label>
+                <label for="company-name">Security Firm / Company Name</label>
                 <input type="text" id="company-name" placeholder="Security Firm Inc." class="form-input" />
               </div>
               <div class="form-group">
@@ -276,16 +298,16 @@
               <label>AI Tools Usage</label>
               <div class="radio-group">
                 <label class="radio-label">
-                  <input type="radio" name="ai-tools" value="yes" checked /> Yes — AI-assisted testing tools are acceptable
+                  <input type="radio" name="ai-tools" value="yes" checked /> AI-assisted testing tools acceptable
                 </label>
                 <label class="radio-label">
-                  <input type="radio" name="ai-tools" value="no" /> No — Manual testing only
+                  <input type="radio" name="ai-tools" value="no" /> Manual testing only
                 </label>
               </div>
             </div>
 
             <button class="btn-primary" id="generate-report-btn" onclick="generateWordpressReport()">
-              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               Generate Formal Security Report
             </button>
           </div>
@@ -293,7 +315,7 @@
           <div class="wp-result" id="wp-result" style="display:none">
             <div class="wp-result-header">
               <span>Generated Report</span>
-              <button class="btn-ghost-sm" onclick="copyReport()">Copy Report</button>
+              <button class="btn-ghost-sm" onclick="copyReport()">Copy</button>
               <button class="btn-ghost-sm" onclick="downloadReport()">Download</button>
             </div>
             <pre class="wp-report-output" id="wp-report-output"></pre>
@@ -304,8 +326,8 @@
       <!-- API Docs Tab -->
       <div class="tab-content" id="content-tools">
         <div class="api-docs">
-          <h2>API Endpoints</h2>
-          <p class="api-desc">CF_AI exposes a full REST API. All endpoints accept JSON and return JSON.</p>
+          <h2>API Reference</h2>
+          <p class="api-desc">All endpoints accept and return JSON. Base URL: <code>http://server:8888</code></p>
 
           <div class="api-section">
             <div class="api-section-title">Core</div>
@@ -317,31 +339,41 @@
             <div class="api-endpoint">
               <span class="method post">POST</span>
               <span class="path">/api/chat</span>
-              <span class="endpoint-desc">AI chat with natural language understanding</span>
+              <span class="endpoint-desc">AI chat — natural language tool execution</span>
             </div>
             <div class="api-endpoint">
               <span class="method post">POST</span>
               <span class="path">/api/command</span>
-              <span class="endpoint-desc">Execute security tool command</span>
+              <span class="endpoint-desc">Execute any security tool command directly</span>
             </div>
           </div>
 
           <div class="api-section">
-            <div class="api-section-title">Intelligence</div>
+            <div class="api-section-title">Intelligence APIs</div>
             <div class="api-endpoint">
               <span class="method post">POST</span>
-              <span class="path">/api/intelligence/analyze-target</span>
-              <span class="endpoint-desc">AI target analysis</span>
+              <span class="path">/api/shodan/host</span>
+              <span class="endpoint-desc">Shodan host lookup by IP</span>
             </div>
             <div class="api-endpoint">
               <span class="method post">POST</span>
-              <span class="path">/api/intelligence/smart-scan</span>
-              <span class="endpoint-desc">Intelligent scan orchestration</span>
+              <span class="path">/api/shodan/search</span>
+              <span class="endpoint-desc">Shodan search query</span>
             </div>
             <div class="api-endpoint">
               <span class="method post">POST</span>
-              <span class="path">/api/intelligence/create-attack-chain</span>
-              <span class="endpoint-desc">Automated attack chain planning</span>
+              <span class="path">/api/virustotal/lookup</span>
+              <span class="endpoint-desc">VirusTotal IP/domain/hash reputation</span>
+            </div>
+            <div class="api-endpoint">
+              <span class="method get">GET</span>
+              <span class="path">/api/hackerone/programs</span>
+              <span class="endpoint-desc">List HackerOne bug bounty programs</span>
+            </div>
+            <div class="api-endpoint">
+              <span class="method post">POST</span>
+              <span class="path">/api/censys/search</span>
+              <span class="endpoint-desc">Censys internet-wide host search</span>
             </div>
           </div>
 
@@ -351,11 +383,6 @@
               <span class="method post">POST</span>
               <span class="path">/api/bugbounty/reconnaissance-workflow</span>
               <span class="endpoint-desc">Automated recon pipeline</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/bugbounty/vulnerability-hunting-workflow</span>
-              <span class="endpoint-desc">Vulnerability discovery workflow</span>
             </div>
             <div class="api-endpoint">
               <span class="method post">POST</span>
@@ -378,12 +405,7 @@
             <div class="api-endpoint">
               <span class="method post">POST</span>
               <span class="path">/api/ctf/auto-solve-challenge</span>
-              <span class="endpoint-desc">Automated CTF challenge solver</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/ctf/cryptography-solver</span>
-              <span class="endpoint-desc">Crypto challenge solver</span>
+              <span class="endpoint-desc">Automated CTF challenge analysis</span>
             </div>
           </div>
 
