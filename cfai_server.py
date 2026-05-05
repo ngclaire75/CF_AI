@@ -9362,8 +9362,66 @@ class CFAIChatEngine:
             return domain_match.group()
         return None
 
+    @staticmethod
+    def _rockyou_path() -> str:
+        """Return an existing rockyou wordlist path, unzipping if needed."""
+        plain = "/usr/share/wordlists/rockyou.txt"
+        gz = "/usr/share/wordlists/rockyou.txt.gz"
+        if os.path.exists(plain):
+            return plain
+        if os.path.exists(gz):
+            try:
+                subprocess.run(["gunzip", "-k", gz], capture_output=True, timeout=30)
+            except Exception:
+                pass
+            if os.path.exists(plain):
+                return plain
+        # Fallback: use any available wordlist
+        for wl in ["/usr/share/dirb/wordlists/common.txt", "/usr/share/wordlists/dirb/common.txt"]:
+            if os.path.exists(wl):
+                return wl
+        return plain  # Return expected path even if missing so error is clear
+
+    def _preprocess_cmd(self, cmd: List[str]) -> List[str]:
+        """Fix tool-specific flags for VPS environment (no raw sockets, /tmp for writes)."""
+        if not cmd:
+            return cmd
+        tool = cmd[0].lower()
+
+        if tool == "nmap":
+            if "-Pn" not in cmd:
+                cmd.insert(1, "-Pn")
+            if "-sT" not in cmd and "-sS" not in cmd:
+                cmd.insert(1, "-sT")
+
+        elif tool == "amass":
+            # amass uses sudo/raw-sockets for active enum; force passive mode
+            if "-passive" not in cmd and "--passive" not in cmd:
+                cmd.append("-passive")
+
+        elif tool in ("hashcat",):
+            rockyou = self._rockyou_path()
+            cmd = [rockyou if p == "/usr/share/wordlists/rockyou.txt" else p for p in cmd]
+            if "--potfile-path" not in " ".join(cmd):
+                cmd += ["--potfile-path", "/tmp/hashcat.potfile"]
+            if "--session" not in " ".join(cmd):
+                cmd += ["--session", "cfai"]
+
+        elif tool in ("john",):
+            rockyou = self._rockyou_path()
+            cmd = [rockyou if p == "/usr/share/wordlists/rockyou.txt" else p for p in cmd]
+            if not any(p.startswith("--pot") for p in cmd):
+                cmd += ["--pot=/tmp/john.pot"]
+
+        elif tool in ("hydra", "medusa"):
+            rockyou = self._rockyou_path()
+            cmd = [rockyou if p == "/usr/share/wordlists/rockyou.txt" else p for p in cmd]
+
+        return cmd
+
     def _run_tool(self, cmd: List[str], timeout: int = 90) -> str:
         try:
+            cmd = self._preprocess_cmd(cmd)
             env = dict(os.environ)
             env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/root/go/bin:' + env.get('PATH', '')
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
@@ -9375,7 +9433,7 @@ class CFAIChatEngine:
         except subprocess.TimeoutExpired:
             return f"Scan timed out after {timeout}s. Try a more targeted command, e.g. add -T4 for nmap or reduce scan scope."
         except FileNotFoundError:
-            return f"Tool '{cmd[0]}' is not installed. Run: sudo bash /opt/CF_AI/setup.sh"
+            return f"Tool '{cmd[0]}' is not installed. Run: bash /opt/CF_AI/install_missing_tools.sh"
         except Exception as e:
             return f"Execution error: {str(e)}"
 
@@ -9793,28 +9851,155 @@ class CFAIChatEngine:
             }
 
         # ── Forensics ─────────────────────────────────────────────────────────
-        if any(w in msg_lower for w in ["binwalk", "firmware", "binary extract"]):
-            target_file = self._extract_target(message) or message.split()[-1]
-            cmd = ["binwalk", target_file]
-            output = self._run_tool(cmd, timeout=60)
+        if any(w in msg_lower for w in [
+            "forensics", "digital forensics", "forensic", "memory forensics",
+            "binwalk", "firmware", "binary extract",
+            "exiftool", "metadata", "exif",
+            "steghide", "steganography", "steg",
+            "volatility", "memory dump", "memory analysis",
+            "foremost", "file carv", "bulk_extractor",
+        ]):
+            # Specific tool routing based on keyword
+            target_file = message.split()[-1] if len(message.split()) > 1 else None
+
+            if any(w in msg_lower for w in ["volatility", "memory dump", "memory analysis"]):
+                if target_file and target_file not in ("forensics", "forensic", "volatility"):
+                    cmd = ["vol", "-f", target_file, "windows.pslist"]
+                    output = self._run_tool(cmd, timeout=60)
+                    return {
+                        "success": True,
+                        "response": f"Volatility memory analysis of `{target_file}`:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "forensics",
+                        "suggested_tools": ["binwalk", "foremost"],
+                    }
+
+            if any(w in msg_lower for w in ["steghide", "steganography", "steg"]):
+                if target_file and target_file not in ("steghide", "steganography", "steg", "forensics"):
+                    cmd = ["steghide", "info", target_file]
+                    output = self._run_tool(cmd, timeout=30)
+                    return {
+                        "success": True,
+                        "response": f"Steghide analysis of `{target_file}`:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "forensics",
+                        "suggested_tools": ["exiftool", "binwalk"],
+                    }
+
+            if any(w in msg_lower for w in ["binwalk", "firmware", "binary extract"]):
+                if target_file and target_file not in ("binwalk", "firmware", "forensics"):
+                    cmd = ["binwalk", target_file]
+                    output = self._run_tool(cmd, timeout=60)
+                    return {
+                        "success": True,
+                        "response": f"Binwalk analysis of `{target_file}`:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "forensics",
+                        "suggested_tools": ["exiftool", "foremost"],
+                    }
+
+            if any(w in msg_lower for w in ["exiftool", "metadata", "exif"]):
+                if target_file and target_file not in ("exiftool", "metadata", "exif", "forensics"):
+                    cmd = ["exiftool", target_file]
+                    output = self._run_tool(cmd, timeout=30)
+                    return {
+                        "success": True,
+                        "response": f"Exiftool metadata for `{target_file}`:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "forensics",
+                        "suggested_tools": ["steghide", "binwalk"],
+                    }
+
+            # No specific target — show tools list
             return {
                 "success": True,
-                "response": f"Binwalk analysis of `{target_file}`:\n\n```\n{output}\n```",
-                "executed": True,
+                "response": (
+                    "Available Digital Forensics tools:\n\n"
+                    "  vol          — Memory forensics (Volatility3)\n"
+                    "  binwalk      — Firmware analysis & extraction\n"
+                    "  exiftool     — File metadata extraction\n"
+                    "  steghide     — Steganography detection\n"
+                    "  foremost     — File carving from disk images\n"
+                    "  scalpel      — File carving\n"
+                    "  bulk_extractor — Extract artifacts from images\n"
+                    "  zsteg        — PNG/BMP steganography\n"
+                    "  outguess     — Steganography tool\n\n"
+                    "Examples:\n"
+                    "  vol -f memory.dmp windows.pslist\n"
+                    "  binwalk firmware.bin\n"
+                    "  exiftool image.jpg\n"
+                    "  steghide info image.jpg\n"
+                    "  foremost -i disk.img -o /tmp/output"
+                ),
                 "category": "forensics",
-                "suggested_tools": ["exiftool"],
+                "suggested_tools": ["vol", "binwalk", "exiftool", "steghide"],
             }
 
-        if any(w in msg_lower for w in ["exiftool", "metadata", "exif data"]):
-            target_file = message.split()[-1]
-            cmd = ["exiftool", target_file]
-            output = self._run_tool(cmd, timeout=30)
+        # ── Binary Analysis / Exploitation ────────────────────────────────────
+        if any(w in msg_lower for w in [
+            "binary", "binary analysis", "exploit", "exploitation", "pwn",
+            "gdb", "radare2", "r2", "ropgadget", "rop", "checksec",
+            "pwntools", "ropper", "binexp", "buffer overflow", "overflow",
+        ]):
+            target_file = message.split()[-1] if len(message.split()) > 1 else None
+
+            if any(w in msg_lower for w in ["checksec", "check security"]):
+                if target_file and target_file not in ("checksec", "binary", "exploit"):
+                    cmd = ["checksec", "--file", target_file]
+                    output = self._run_tool(cmd, timeout=15)
+                    return {
+                        "success": True,
+                        "response": f"Security properties of `{target_file}`:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "binary",
+                        "suggested_tools": ["gdb", "ROPgadget"],
+                    }
+
+            if any(w in msg_lower for w in ["ropgadget", "rop gadget", "rop chain"]):
+                if target_file and target_file not in ("ropgadget", "rop", "binary", "exploit"):
+                    cmd = ["ROPgadget", "--binary", target_file]
+                    output = self._run_tool(cmd, timeout=30)
+                    return {
+                        "success": True,
+                        "response": f"ROP gadgets in `{target_file}`:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "binary",
+                        "suggested_tools": ["checksec", "gdb"],
+                    }
+
+            if any(w in msg_lower for w in ["binwalk", "strings"]):
+                if target_file and target_file not in ("strings", "binary", "exploit"):
+                    cmd = ["strings", target_file]
+                    output = self._run_tool(cmd, timeout=15)
+                    return {
+                        "success": True,
+                        "response": f"Strings in `{target_file}`:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "binary",
+                        "suggested_tools": ["binwalk", "checksec"],
+                    }
+
             return {
                 "success": True,
-                "response": f"Exiftool metadata for `{target_file}`:\n\n```\n{output}\n```",
-                "executed": True,
-                "category": "forensics",
-                "suggested_tools": ["steghide", "binwalk"],
+                "response": (
+                    "Available Binary Analysis & Exploitation tools:\n\n"
+                    "  gdb          — GNU debugger with pwndbg/peda\n"
+                    "  radare2 (r2) — Reverse engineering framework\n"
+                    "  checksec     — Check binary security properties\n"
+                    "  ROPgadget    — Find ROP gadgets in binaries\n"
+                    "  ropper       — ROP chain builder\n"
+                    "  pwn (pwntools) — CTF exploitation toolkit\n"
+                    "  objdump      — Disassembler\n"
+                    "  strings      — Extract printable strings\n\n"
+                    "Examples:\n"
+                    "  checksec binary\n"
+                    "  ROPgadget --binary ./binary\n"
+                    "  strings ./binary | grep -i flag\n"
+                    "  gdb ./binary\n"
+                    "  r2 ./binary"
+                ),
+                "category": "binary",
+                "suggested_tools": ["gdb", "checksec", "ROPgadget", "radare2"],
             }
 
         # ── Bug bounty ────────────────────────────────────────────────────────
