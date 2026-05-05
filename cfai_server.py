@@ -9925,46 +9925,44 @@ def health_check():
     web_security_tools = [
         "ffuf", "feroxbuster", "dirsearch", "dotdotpwn", "xsser", "wfuzz",
         "gau", "waybackurls", "arjun", "paramspider", "x8", "jaeles", "dalfox",
-        "httpx", "wafw00f", "burpsuite", "zaproxy", "katana", "hakrawler"
+        "httpx", "wafw00f", "zap.sh", "katana", "hakrawler"
     ]
 
     vuln_scanning_tools = [
-        "nuclei", "wpscan", "graphql-scanner", "jwt-analyzer"
+        "nuclei", "wpscan"
     ]
 
     password_tools = [
-        "medusa", "patator", "hash-identifier", "ophcrack", "hashcat-utils"
+        "medusa", "patator", "hash-identifier", "ophcrack", "hashcat"
     ]
 
     binary_tools = [
-        "gdb", "radare2", "binwalk", "ropgadget", "checksec", "objdump",
-        "ghidra", "pwntools", "one-gadget", "ropper", "angr", "libc-database",
-        "pwninit"
+        "gdb", "radare2", "binwalk", "ROPgadget", "checksec", "objdump",
+        "ghidra", "pwn", "one_gadget", "ropper", "pwninit"
     ]
 
     forensics_tools = [
-        "volatility3", "vol", "steghide", "hashpump", "foremost", "exiftool",
-        "strings", "xxd", "file", "photorec", "testdisk", "scalpel", "bulk-extractor",
-        "stegsolve", "zsteg", "outguess"
+        "vol", "steghide", "hashpump", "foremost", "exiftool",
+        "strings", "xxd", "file", "photorec", "testdisk", "scalpel", "bulk_extractor",
+        "zsteg", "outguess"
     ]
 
     cloud_tools = [
         "prowler", "scout-suite", "trivy", "kube-hunter", "kube-bench",
-        "docker-bench-security", "checkov", "terrascan", "falco", "clair"
+        "checkov", "terrascan"
     ]
 
     osint_tools = [
         "amass", "subfinder", "fierce", "dnsenum", "theharvester", "sherlock",
-        "social-analyzer", "recon-ng", "maltego", "spiderfoot", "shodan-cli",
-        "censys-cli", "have-i-been-pwned"
+        "social-analyzer", "recon-ng", "spiderfoot", "shodan"
     ]
 
     exploitation_tools = [
-        "metasploit", "exploit-db", "searchsploit"
+        "metasploit", "searchsploit"
     ]
 
     api_tools = [
-        "api-schema-analyzer", "postman", "insomnia", "curl", "httpie", "anew", "qsreplace", "uro"
+        "curl", "httpie", "anew", "qsreplace", "uro"
     ]
 
     wireless_tools = [
@@ -9972,9 +9970,9 @@ def health_check():
     ]
 
     additional_tools = [
-        "smbmap", "volatility", "sleuthkit", "autopsy", "evil-winrm",
+        "smbmap", "sleuthkit", "evil-winrm",
         "paramspider", "airmon-ng", "airodump-ng", "aireplay-ng", "aircrack-ng",
-        "msfvenom", "msfconsole", "graphql-scanner", "jwt-analyzer"
+        "msfvenom", "msfconsole"
     ]
 
     all_tools = (
