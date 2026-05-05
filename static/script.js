@@ -19,38 +19,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function sendMessage() {
-        const message = userInput.value.trim();
-        if (message === '') return;
-
-        // Add user message to chat
-        addMessage('user', message);
-        userInput.value = '';
-
-        // Send to API
-        fetch('/api/command', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                command: message,
-                timeout: 30
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                addMessage('ai', `Command executed successfully:\n${data.output}`);
-            } else {
-                addMessage('ai', `Error: ${data.error}`);
-            }
-        })
-        .catch(error => {
-            addMessage('ai', `Network error: ${error.message}`);
-        });
-    }
-
     function addMessage(sender, content) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}-message`;
@@ -83,6 +51,79 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             statusInfo.innerHTML = `<p>Error loading status: ${error.message}</p>`;
+        });
+    }
+
+    const generateReportButton = document.getElementById('generate-report-button');
+    if (generateReportButton) {
+        generateReportButton.addEventListener('click', generateWordpressReport);
+    }
+
+    function sendMessage() {
+        const message = userInput.value.trim();
+        if (message === '') return;
+
+        // Add user message to chat
+        addMessage('user', message);
+        userInput.value = '';
+
+        // Send to API
+        fetch('/api/command', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                command: message,
+                timeout: 30
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                addMessage('ai', `Command executed successfully:\n${data.output}`);
+            } else {
+                addMessage('ai', `Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            addMessage('ai', `Network error: ${error.message}`);
+        });
+    }
+
+    function generateWordpressReport() {
+        const siteUrl = document.getElementById('site-url').value.trim();
+        const scope = document.getElementById('report-scope').value.trim();
+        const notes = document.getElementById('report-notes').value.trim();
+
+        if (!siteUrl) {
+            addMessage('ai', 'Please enter a site URL to generate the WordPress security report.');
+            return;
+        }
+
+        addMessage('user', `Requesting WordPress report for ${siteUrl}`);
+
+        fetch('/api/wordpress/report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                site_url: siteUrl,
+                scope: scope || 'WordPress website review',
+                notes: notes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                addMessage('ai', data.report);
+            } else {
+                addMessage('ai', `Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            addMessage('ai', `Network error: ${error.message}`);
         });
     }
 

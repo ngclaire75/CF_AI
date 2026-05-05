@@ -126,18 +126,57 @@ header p {
     gap: 20px;
 }
 
-.tool-categories, .system-status {
+.tool-categories, .system-status, .wordpress-report-card {
     background-color: #f9f9f9;
     border: 2px solid #006400;
     border-radius: 8px;
     padding: 15px;
 }
 
-.tool-categories h3, .system-status h3 {
+.tool-categories h3, .system-status h3, .wordpress-report-card h3 {
     color: #006400;
     margin-bottom: 15px;
     border-bottom: 1px solid #90EE90;
     padding-bottom: 5px;
+}
+
+.wordpress-report-card label {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    color: #004d00;
+    font-weight: bold;
+}
+
+.wordpress-report-card input,
+.wordpress-report-card textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 2px solid #006400;
+    border-radius: 4px;
+    font-family: inherit;
+}
+
+.wordpress-report-card textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.wordpress-report-card button {
+    width: 100%;
+    background-color: #006400;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1em;
+}
+
+.wordpress-report-card button:hover {
+    background-color: #004d00;
 }
 
 .tool-categories ul {

@@ -9140,6 +9140,84 @@ def dashboard():
     """Serve the main dashboard interface"""
     return render_template('dashboard.html')
 
+def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "") -> Dict[str, Any]:
+    """Generate a formal WordPress security assessment report template."""
+    report = f"""
+CF_AI WordPress Security Assessment Report
+==========================================
+
+Target Website: {site_url}
+Assessment Scope: {scope}
+
+Executive Summary:
+A formal security assessment was requested for the WordPress website at {site_url}. The assessment focuses on identifying vulnerabilities, misconfigurations, and risk exposures specific to WordPress, installed plugins, themes, and related infrastructure.
+
+Findings and Observations:
+- WordPress core and plugin review
+- Theme integrity and custom code review
+- Authentication and session management
+- File permissions and directory security
+- SSL/TLS configuration and web server hardening
+- Common WordPress vulnerabilities such as XSS, SQL injection, CSRF, and privilege escalation
+
+Recommendations:
+1. Ensure WordPress core, themes, and plugins are up to date.
+2. Remove or disable unused plugins and themes.
+3. Implement strong authentication, multi-factor authentication, and account lockout controls.
+4. Harden file permissions for wp-content, wp-config.php, and uploads.
+5. Enforce HTTPS and secure TLS configuration.
+6. Use a Web Application Firewall (WAF) and regular vulnerability scanning.
+7. Review and restrict admin access, and monitor logs for suspicious activity.
+
+Additional Notes:
+{notes}
+
+Suggested Formal Report Requirements:
+- Detailed vulnerability description and risk rating
+- Reproduction steps for each finding
+- Clear remediation guidance
+- Evidence screenshots and logs
+- Executive summary for stakeholders
+- Compliance and security improvement roadmap
+
+Recommended Provider Criteria:
+- Certified security firm with WordPress expertise
+- Formal penetration testing certification (OSCP, CREST, CISSP, PCI QSA, etc.)
+- Public company website and documented case studies
+- Ability to deliver formal report and remediation plan
+- Understanding of WordPress-specific security best practices
+"""
+
+    return {
+        "success": True,
+        "report": report,
+        "recommendation": "We recommend engaging a certified WordPress security firm with formal testing experience and report delivery capabilities.",
+        "next_steps": [
+            "Review WordPress core/plugin/theme versions",
+            "Schedule a formal penetration test with a certified provider",
+            "Use the report for remediation planning and long-term security improvements"
+        ]
+    }
+
+@app.route("/api/wordpress/report", methods=["POST"])
+def wordpress_report():
+    """Generate a WordPress-focused security assessment report."""
+    try:
+        params = request.json
+        site_url = params.get("site_url", "").strip()
+        scope = params.get("scope", "WordPress website review").strip()
+        notes = params.get("notes", "").strip()
+
+        if not site_url:
+            return jsonify({"error": "site_url is required"}), 400
+
+        result = generate_wordpress_security_report(site_url, scope, notes)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error generating WordPress report: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
 @app.route("/api/command", methods=["POST"])
 def generic_command():
     """Execute any command provided in the request with enhanced logging"""
