@@ -9365,11 +9365,7 @@ class CFAIChatEngine:
         try:
             env = dict(os.environ)
             env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/root/go/bin:' + env.get('PATH', '')
-            # Run with sudo -n to ensure elevated privileges for raw socket tools
-            final_cmd = cmd
-            if os.geteuid() != 0:
-                final_cmd = ['sudo', '-n'] + cmd
-            result = subprocess.run(final_cmd, capture_output=True, text=True, timeout=timeout, env=env)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
             out = (result.stdout or '') + (result.stderr or '')
             out = out.strip()
             if not out:
