@@ -9262,7 +9262,8 @@ class CFAIChatEngine:
         'feroxbuster', 'dirsearch', 'enum4linux', 'volatility', 'binwalk',
         'exiftool', 'steghide', 'hashcat', 'john', 'dalfox', 'katana', 'httpx',
         'theharvester', 'recon-ng', 'aircrack-ng', 'medusa', 'metasploit',
-        'msfconsole', 'searchsploit', 'trivy', 'prowler',
+        'msfconsole', 'searchsploit', 'trivy', 'prowler', 'checkov',
+        'kube-hunter', 'kube-bench', 'docker', 'terraform', 'ansible',
     }
 
     TOOL_GROUPS = {
