@@ -1,19 +1,21 @@
-version: '3.8'
-
 services:
   cfai:
     build: .
+    container_name: cfai
     ports:
       - "${CFAI_PORT:-8888}:8888"
     environment:
       - CFAI_HOST=0.0.0.0
       - CFAI_PORT=8888
       - DEBUG_MODE=0
+      - LOG_LEVEL=INFO
+    env_file:
+      - path: .env
+        required: false
     volumes:
-      - ./logs:/app/logs
-      - ./cache:/app/cache
-      - ./temp:/app/temp
-      - ./.env:/app/.env:ro
+      - cfai-logs:/app/logs
+      - cfai-cache:/app/cache
+      - cfai-temp:/app/temp
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
@@ -36,6 +38,6 @@ networks:
     driver: bridge
 
 volumes:
-  cfai-logs:
-  cfai-cache:
-  cfai-temp:
+  cfai-logs: {}
+  cfai-cache: {}
+  cfai-temp: {}

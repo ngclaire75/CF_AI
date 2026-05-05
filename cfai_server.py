@@ -7,6 +7,7 @@ Architecture: Flask REST API + AI decision engine + 150+ tool integrations
 Dashboard: http://0.0.0.0:8888
 """
 
+# stdlib — always available
 import argparse
 import json
 import logging
@@ -20,48 +21,87 @@ import hashlib
 import pickle
 import base64
 import queue
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
-from collections import OrderedDict
+import asyncio
+import re
+import socket
 import shutil
 import venv
 import zipfile
-from pathlib import Path
-from flask import Flask, request, jsonify, render_template
-import psutil
 import signal
-import requests
-import re
-import socket
-import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List, Set, Tuple
+from collections import OrderedDict
+from pathlib import Path
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Set, Tuple
-import asyncio
-import aiohttp
 from urllib.parse import urljoin, urlparse, parse_qs
-from bs4 import BeautifulSoup
+import urllib.parse
+
+# ── Required third-party packages ────────────────────────────────────────────
 try:
-    import selenium
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options as ChromeOptions
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException
-    SELENIUM_AVAILABLE = True
+    from flask import Flask, request, jsonify, render_template  # type: ignore[import]
+    FLASK_AVAILABLE = True
 except ImportError:
-    SELENIUM_AVAILABLE = False
-    logger = logging.getLogger(__name__)
+    raise SystemExit("Flask is required. Run: pip3 install Flask==2.3.3")
 
 try:
-    import mitmproxy
-    from mitmproxy import http as mitmhttp
-    from mitmproxy.tools.dump import DumpMaster
-    from mitmproxy.options import Options as MitmOptions
+    import psutil  # type: ignore[import]
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    raise SystemExit("psutil is required. Run: pip3 install psutil==5.9.0")
+
+try:
+    import requests as _requests  # type: ignore[import]
+    requests = _requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    raise SystemExit("requests is required. Run: pip3 install requests==2.31.0")
+
+# ── Optional third-party packages (Linux / Kali only) ────────────────────────
+try:
+    import aiohttp  # type: ignore[import]
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    aiohttp = None  # type: ignore[assignment]
+    AIOHTTP_AVAILABLE = False
+
+try:
+    from bs4 import BeautifulSoup  # type: ignore[import]
+    BS4_AVAILABLE = True
+except ImportError:
+    BeautifulSoup = None  # type: ignore[assignment,misc]
+    BS4_AVAILABLE = False
+
+try:
+    from selenium import webdriver  # type: ignore[import]
+    from selenium.webdriver.chrome.options import Options as ChromeOptions  # type: ignore[import]
+    from selenium.webdriver.common.by import By  # type: ignore[import]
+    from selenium.webdriver.support.ui import WebDriverWait  # type: ignore[import]
+    from selenium.webdriver.support import expected_conditions as EC  # type: ignore[import]
+    from selenium.common.exceptions import TimeoutException, WebDriverException  # type: ignore[import]
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    webdriver = None  # type: ignore[assignment]
+    ChromeOptions = None  # type: ignore[assignment,misc]
+    By = None  # type: ignore[assignment]
+    WebDriverWait = None  # type: ignore[assignment,misc]
+    EC = None  # type: ignore[assignment]
+    TimeoutException = Exception  # type: ignore[assignment,misc]
+    WebDriverException = Exception  # type: ignore[assignment,misc]
+    SELENIUM_AVAILABLE = False
+
+try:
+    import mitmproxy  # type: ignore[import]
+    from mitmproxy import http as mitmhttp  # type: ignore[import]
+    from mitmproxy.tools.dump import DumpMaster  # type: ignore[import]
+    from mitmproxy.options import Options as MitmOptions  # type: ignore[import]
     MITMPROXY_AVAILABLE = True
 except ImportError:
+    mitmproxy = None  # type: ignore[assignment]
+    mitmhttp = None  # type: ignore[assignment]
+    DumpMaster = None  # type: ignore[assignment,misc]
+    MitmOptions = None  # type: ignore[assignment,misc]
     MITMPROXY_AVAILABLE = False
 
 # ============================================================================
@@ -196,9 +236,9 @@ class ModernVisualEngine:
  ╚═════╝╚═╝           ╚═╝  ╚═╝╚═╝
 {RESET}
 {border_color}┌─────────────────────────────────────────────────────────────────────┐
-│  {ModernVisualEngine.COLORS['BRIGHT_WHITE']}🚀 CF_AI - Blood-Red Offensive Intelligence Core{border_color}        │
-│  {accent}⚡ AI-Automated Recon | Exploitation | Analysis Pipeline{border_color}          │
-│  {gradient}🎯 Bug Bounty | CTF | Red Team | Zero-Day Research{border_color}              │
+│  {ModernVisualEngine.COLORS['BRIGHT_WHITE']} CF_AI - Offensive Intelligence Core{border_color}        │
+│  {accent} AI-Automated Recon | Exploitation | Analysis Pipeline{border_color}          │
+│  {gradient} Bug Bounty | CTF | Red Team | Zero-Day Research{border_color}              │
 └─────────────────────────────────────────────────────────────────────┘{RESET}
 
 {ModernVisualEngine.COLORS['TERMINAL_GRAY']}[INFO] Server starting on {API_HOST}:{API_PORT}
@@ -9777,6 +9817,325 @@ def injection_stats():
         "success": True,
         "stats": prompt_guard.get_stats(),
     })
+
+
+# ============================================================================
+# EXTERNAL API INTEGRATIONS
+# ============================================================================
+
+_SHODAN_KEY       = os.environ.get("SHODAN_API_KEY", "")
+_HACKERONE_KEY    = os.environ.get("HACKERONE_API_KEY", "")
+_HACKERONE_USER   = os.environ.get("HACKERONE_USERNAME", "")
+_CENSYS_ID        = os.environ.get("CENSYS_API_ID", "")
+_CENSYS_SECRET    = os.environ.get("CENSYS_API_SECRET", "")
+_VIRUSTOTAL_KEY   = os.environ.get("VIRUSTOTAL_API_KEY", "")
+
+
+@app.route("/api/shodan/host", methods=["GET"])
+def shodan_host():
+    """Look up a host on Shodan (requires SHODAN_API_KEY in .env)"""
+    if not _SHODAN_KEY:
+        return jsonify({"error": "SHODAN_API_KEY not configured. Add it to .env file."}), 400
+
+    ip = request.args.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "ip parameter is required"}), 400
+
+    check = prompt_guard.check(ip)
+    if not check["safe"]:
+        return jsonify({"error": "Invalid input", "blocked": True}), 400
+
+    try:
+        import shodan as shodan_lib
+        api = shodan_lib.Shodan(_SHODAN_KEY)
+        host = api.host(ip)
+        return jsonify({
+            "success": True,
+            "ip": ip,
+            "organization": host.get("org", "N/A"),
+            "country": host.get("country_name", "N/A"),
+            "os": host.get("os", "N/A"),
+            "ports": host.get("ports", []),
+            "vulns": list(host.get("vulns", {}).keys()),
+            "hostnames": host.get("hostnames", []),
+            "tags": host.get("tags", []),
+            "data_count": len(host.get("data", [])),
+        })
+    except ImportError:
+        return jsonify({"error": "shodan Python package not installed. Run: pip3 install shodan"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/shodan/search", methods=["GET"])
+def shodan_search():
+    """Search Shodan for devices/services (requires SHODAN_API_KEY)"""
+    if not _SHODAN_KEY:
+        return jsonify({"error": "SHODAN_API_KEY not configured. Add it to .env file."}), 400
+
+    query = request.args.get("query", "").strip()
+    if not query:
+        return jsonify({"error": "query parameter is required"}), 400
+
+    check = prompt_guard.check(query)
+    if not check["safe"]:
+        return jsonify({"error": "Invalid input", "blocked": True}), 400
+
+    try:
+        import shodan as shodan_lib
+        api = shodan_lib.Shodan(_SHODAN_KEY)
+        results = api.search(query, limit=20)
+        matches = []
+        for m in results.get("matches", []):
+            matches.append({
+                "ip": m.get("ip_str"),
+                "port": m.get("port"),
+                "org": m.get("org"),
+                "country": m.get("location", {}).get("country_name"),
+                "product": m.get("product"),
+                "version": m.get("version"),
+                "cpe": m.get("cpe", []),
+                "vulns": list(m.get("vulns", {}).keys()),
+            })
+        return jsonify({
+            "success": True,
+            "query": query,
+            "total": results.get("total", 0),
+            "matches": matches,
+        })
+    except ImportError:
+        return jsonify({"error": "shodan Python package not installed. Run: pip3 install shodan"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/shodan/cve", methods=["GET"])
+def shodan_cve():
+    """Look up CVE details via Shodan (requires SHODAN_API_KEY)"""
+    if not _SHODAN_KEY:
+        return jsonify({"error": "SHODAN_API_KEY not configured."}), 400
+
+    cve_id = request.args.get("cve", "").strip().upper()
+    if not cve_id or not cve_id.startswith("CVE-"):
+        return jsonify({"error": "cve parameter must be in format CVE-YYYY-NNNNN"}), 400
+
+    try:
+        import shodan as shodan_lib
+        api = shodan_lib.Shodan(_SHODAN_KEY)
+        query = f"vuln:{cve_id}"
+        results = api.search(query, limit=10)
+        return jsonify({
+            "success": True,
+            "cve": cve_id,
+            "total_exposed": results.get("total", 0),
+            "sample_hosts": [m.get("ip_str") for m in results.get("matches", [])[:10]],
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/hackerone/programs", methods=["GET"])
+def hackerone_programs():
+    """List HackerOne bug bounty programs (requires HACKERONE credentials)"""
+    if not _HACKERONE_KEY or not _HACKERONE_USER:
+        return jsonify({
+            "error": "HACKERONE_USERNAME and HACKERONE_API_KEY not configured. Add to .env file.",
+            "guide": "Get your token at: https://hackerone.com/settings/api_token/edit"
+        }), 400
+
+    try:
+        import base64 as _b64
+        creds = _b64.b64encode(f"{_HACKERONE_USER}:{_HACKERONE_KEY}".encode()).decode()
+        headers = {
+            "Authorization": f"Basic {creds}",
+            "Accept": "application/json",
+        }
+        resp = requests.get(
+            "https://api.hackerone.com/v1/hackers/programs",
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        programs = []
+        for p in data.get("data", [])[:20]:
+            attrs = p.get("attributes", {})
+            programs.append({
+                "handle": attrs.get("handle"),
+                "name": attrs.get("name"),
+                "state": attrs.get("state"),
+                "offers_bounties": attrs.get("offers_bounties"),
+                "minimum_bounty": attrs.get("minimum_bounty_table_value"),
+                "response_efficiency": attrs.get("response_efficiency_percentage"),
+                "url": f"https://hackerone.com/{attrs.get('handle')}",
+            })
+        return jsonify({
+            "success": True,
+            "programs": programs,
+            "total": len(data.get("data", [])),
+        })
+    except requests.exceptions.HTTPError as e:
+        return jsonify({"error": f"HackerOne API error: {str(e)}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/hackerone/program", methods=["GET"])
+def hackerone_program():
+    """Get details of a specific HackerOne program"""
+    if not _HACKERONE_KEY or not _HACKERONE_USER:
+        return jsonify({"error": "HACKERONE credentials not configured."}), 400
+
+    handle = request.args.get("handle", "").strip()
+    if not handle:
+        return jsonify({"error": "handle parameter is required (e.g. ?handle=uber)"}), 400
+
+    check = prompt_guard.check(handle)
+    if not check["safe"]:
+        return jsonify({"error": "Invalid input", "blocked": True}), 400
+
+    try:
+        import base64 as _b64
+        creds = _b64.b64encode(f"{_HACKERONE_USER}:{_HACKERONE_KEY}".encode()).decode()
+        headers = {
+            "Authorization": f"Basic {creds}",
+            "Accept": "application/json",
+        }
+        resp = requests.get(
+            f"https://api.hackerone.com/v1/hackers/programs/{handle}",
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        attrs = data.get("data", {}).get("attributes", {})
+        return jsonify({
+            "success": True,
+            "handle": handle,
+            "name": attrs.get("name"),
+            "policy": attrs.get("policy", "")[:500] + "..." if len(attrs.get("policy", "")) > 500 else attrs.get("policy", ""),
+            "in_scope": attrs.get("targets", {}).get("in_scope", []),
+            "out_of_scope": attrs.get("targets", {}).get("out_of_scope", []),
+            "offers_bounties": attrs.get("offers_bounties"),
+            "bounty_table": attrs.get("bounty_table"),
+            "url": f"https://hackerone.com/{handle}",
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/virustotal/lookup", methods=["GET"])
+def virustotal_lookup():
+    """Look up an IP, domain, URL, or file hash on VirusTotal"""
+    if not _VIRUSTOTAL_KEY:
+        return jsonify({
+            "error": "VIRUSTOTAL_API_KEY not configured. Add to .env file.",
+            "guide": "Get your free key at: https://www.virustotal.com/gui/my-apikey"
+        }), 400
+
+    resource = request.args.get("resource", "").strip()
+    rtype = request.args.get("type", "ip").lower()
+    if not resource:
+        return jsonify({"error": "resource parameter is required"}), 400
+
+    check = prompt_guard.check(resource)
+    if not check["safe"]:
+        return jsonify({"error": "Invalid input", "blocked": True}), 400
+
+    type_map = {
+        "ip": f"https://www.virustotal.com/api/v3/ip_addresses/{resource}",
+        "domain": f"https://www.virustotal.com/api/v3/domains/{resource}",
+        "hash": f"https://www.virustotal.com/api/v3/files/{resource}",
+        "url": f"https://www.virustotal.com/api/v3/urls/{resource}",
+    }
+
+    if rtype not in type_map:
+        return jsonify({"error": "type must be one of: ip, domain, hash, url"}), 400
+
+    try:
+        resp = requests.get(
+            type_map[rtype],
+            headers={"x-apikey": _VIRUSTOTAL_KEY},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        attrs = data.get("data", {}).get("attributes", {})
+        stats = attrs.get("last_analysis_stats", {})
+        return jsonify({
+            "success": True,
+            "resource": resource,
+            "type": rtype,
+            "malicious": stats.get("malicious", 0),
+            "suspicious": stats.get("suspicious", 0),
+            "undetected": stats.get("undetected", 0),
+            "harmless": stats.get("harmless", 0),
+            "reputation": attrs.get("reputation", "N/A"),
+            "country": attrs.get("country", "N/A"),
+            "tags": attrs.get("tags", []),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/censys/search", methods=["GET"])
+def censys_search():
+    """Search Censys for hosts/certificates (requires CENSYS_API_ID + CENSYS_API_SECRET)"""
+    if not _CENSYS_ID or not _CENSYS_SECRET:
+        return jsonify({
+            "error": "CENSYS_API_ID and CENSYS_API_SECRET not configured. Add to .env file.",
+            "guide": "Register at: https://search.censys.io/account"
+        }), 400
+
+    query = request.args.get("query", "").strip()
+    if not query:
+        return jsonify({"error": "query parameter is required"}), 400
+
+    check = prompt_guard.check(query)
+    if not check["safe"]:
+        return jsonify({"error": "Invalid input", "blocked": True}), 400
+
+    try:
+        resp = requests.post(
+            "https://search.censys.io/api/v2/hosts/search",
+            auth=(_CENSYS_ID, _CENSYS_SECRET),
+            json={"q": query, "per_page": 20},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        hits = []
+        for h in data.get("result", {}).get("hits", []):
+            hits.append({
+                "ip": h.get("ip"),
+                "services": [s.get("service_name") for s in h.get("services", [])],
+                "country": h.get("location", {}).get("country"),
+                "autonomous_system": h.get("autonomous_system", {}).get("name"),
+            })
+        return jsonify({
+            "success": True,
+            "query": query,
+            "total": data.get("result", {}).get("total", 0),
+            "hits": hits,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/integrations/status", methods=["GET"])
+def integrations_status():
+    """Check which external API integrations are configured"""
+    return jsonify({
+        "success": True,
+        "integrations": {
+            "shodan":     {"configured": bool(_SHODAN_KEY),                          "endpoint": "/api/shodan/host, /api/shodan/search"},
+            "hackerone":  {"configured": bool(_HACKERONE_KEY and _HACKERONE_USER),   "endpoint": "/api/hackerone/programs"},
+            "censys":     {"configured": bool(_CENSYS_ID),                           "endpoint": "/api/censys/search"},
+            "virustotal": {"configured": bool(_VIRUSTOTAL_KEY),                      "endpoint": "/api/virustotal/lookup"},
+        },
+        "guide": "Add API keys to .env file — see .env.example for instructions",
+    })
+
 
 # File Operations API Endpoints
 

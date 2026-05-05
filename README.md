@@ -1,6 +1,4 @@
-# CF_AI — Advanced Penetration Testing Framework
-
-**Bug Bounty | CTF | Red Team | Security Research**
+# CF_AI — Automation for Penetration Testing
 
 CF_AI is a self-hosted AI-powered penetration testing platform with a modern web dashboard, 150+ integrated security tools, automated recon pipelines, prompt injection protection, and formal WordPress security report generation.
 
