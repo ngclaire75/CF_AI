@@ -378,13 +378,91 @@ function copyReport() {
 function downloadReport() {
   if (!reportText) return;
   const siteUrl = document.getElementById('site-url').value || 'report';
-  const filename = 'cfai-wp-report-' + siteUrl.replace(/[^a-z0-9]/gi, '_') + '.txt';
-  const blob = new Blob([reportText], { type: 'text/plain' });
+  const filename = 'cfai-wp-report-' + siteUrl.replace(/[^a-z0-9]/gi, '_') + '.doc';
+
+  // Convert plain-text report into a Word-compatible HTML document
+  const lines = reportText.split('\n');
+  let bodyHtml = '';
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    // Section dividers
+    if (/^[━=]{10,}$/.test(trimmed)) return;
+    // Numbered section headings (e.g. "1. EXECUTIVE SUMMARY")
+    if (/^\d+\.\s+[A-Z &\/\-]+$/.test(trimmed)) {
+      bodyHtml += `<h2>${escW(trimmed)}</h2>`;
+    // All-caps headings (e.g. "EXECUTIVE SUMMARY")
+    } else if (/^[A-Z][A-Z\s&\/\-:]{6,}$/.test(trimmed) && trimmed.length < 60) {
+      bodyHtml += `<h2>${escW(trimmed)}</h2>`;
+    // Report header key-value lines
+    } else if (/^(Target|Scan Date|Duration|Scope|WordPress|Server|HTTPS|Overall Risk|Total Findings)\s*:/.test(trimmed)) {
+      const [key, ...rest] = trimmed.split(':');
+      bodyHtml += `<p class="meta"><strong>${escW(key.trim())}:</strong> ${escW(rest.join(':').trim())}</p>`;
+    // Finding severity lines like "[HIGH] F-001 — Title"
+    } else if (/^\[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\]/.test(trimmed)) {
+      const sev = trimmed.match(/\[(.*?)\]/)[1];
+      const cls = sev.toLowerCase();
+      bodyHtml += `<p class="finding-title ${cls}">${escW(trimmed)}</p>`;
+    // Indented detail lines
+    } else if (/^(Description|Evidence|Remediation)\s*:/.test(trimmed)) {
+      const [key, ...rest] = trimmed.split(':');
+      bodyHtml += `<p class="detail"><strong>${escW(key.trim())}:</strong> ${escW(rest.join(':').trim())}</p>`;
+    // Bullet / numbered list items
+    } else if (/^[\d]+\.\s/.test(trimmed) || /^[•\-]\s/.test(trimmed)) {
+      bodyHtml += `<p class="list-item">${escW(trimmed)}</p>`;
+    // Empty lines → small gap
+    } else if (trimmed === '') {
+      bodyHtml += '<br>';
+    } else {
+      bodyHtml += `<p>${escW(trimmed)}</p>`;
+    }
+  });
+
+  const docHtml = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<!--[if gte mso 9]>
+<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml>
+<![endif]-->
+<style>
+  @page { size: A4; margin: 2.5cm 2cm; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a3a1a; line-height: 1.5; }
+  h1 { font-size: 18pt; color: #1b5e20; border-bottom: 2px solid #1b5e20; padding-bottom: 6pt; margin-bottom: 12pt; }
+  h2 { font-size: 13pt; color: #1b5e20; margin-top: 18pt; margin-bottom: 6pt; border-bottom: 1px solid #b2d8b2; padding-bottom: 3pt; }
+  p { margin: 3pt 0; }
+  p.meta { font-size: 10pt; color: #333; margin: 2pt 0; }
+  p.detail { margin: 2pt 0 2pt 16pt; font-size: 10pt; color: #444; }
+  p.list-item { margin: 2pt 0 2pt 20pt; }
+  p.finding-title { font-weight: bold; margin-top: 10pt; padding: 4pt 8pt; border-left: 4px solid #888; }
+  p.finding-title.critical { border-color: #b71c1c; background: #fff5f5; color: #b71c1c; }
+  p.finding-title.high     { border-color: #e65100; background: #fff8f5; color: #e65100; }
+  p.finding-title.medium   { border-color: #f57f17; background: #fffde7; color: #f57f17; }
+  p.finding-title.low      { border-color: #388e3c; background: #f1f8f1; color: #388e3c; }
+  p.finding-title.info     { border-color: #0277bd; background: #f0f8ff; color: #0277bd; }
+  .report-header-box { background: #f4f9f4; border: 1px solid #b2d8b2; border-radius: 4pt; padding: 10pt 14pt; margin-bottom: 16pt; }
+</style>
+</head>
+<body>
+<h1>CF_AI — WordPress Security Assessment Report</h1>
+<div class="report-header-box">${bodyHtml.substring(0, bodyHtml.indexOf('<h2>'))}</div>
+${bodyHtml.substring(bodyHtml.indexOf('<h2>'))}
+</body>
+</html>`;
+
+  const blob = new Blob([docHtml], { type: 'application/msword' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
+  showToast('Report downloaded as Word document');
+}
+
+function escW(str) {
+  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ── Toast Notifications ────────────────────────────────────────────────────

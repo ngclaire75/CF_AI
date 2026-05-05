@@ -10235,141 +10235,429 @@ def dashboard():
     """Serve the main dashboard interface"""
     return render_template('dashboard.html')
 
-def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "") -> Dict[str, Any]:
-    """Generate a formal WordPress security assessment report."""
-    report_date = datetime.now().strftime("%Y-%m-%d")
+def _run_wp_scan(site_url: str, timeout: int = 180) -> str:
+    """Run wpscan against site_url and return raw output."""
+    try:
+        env = dict(os.environ)
+        env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:' + env.get('PATH', '')
+        cmd = [
+            "wpscan", "--url", site_url,
+            "--enumerate", "vp,vt,u,ap",
+            "--no-banner", "--no-update",
+            "--random-user-agent",
+            "--format", "cli",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+        out = (result.stdout or '') + (result.stderr or '')
+        return out.strip() or "wpscan returned no output."
+    except subprocess.TimeoutExpired:
+        return "wpscan timed out after 180s."
+    except FileNotFoundError:
+        return "wpscan is not installed."
+    except Exception as e:
+        return f"wpscan error: {str(e)}"
 
-    if cfai_config:
-        firm_reqs = cfai_config.get_wp_firm_requirements()
-        vulns = cfai_config.get_wp_vulnerabilities()
-        sections = cfai_config.get_wp_report_sections()
+
+def _check_http_surface(site_url: str) -> Dict[str, Any]:
+    """
+    Perform lightweight HTTP checks against the site:
+    headers, xmlrpc, user enum, login page, REST API, readme.
+    Returns a dict of check_name -> result string.
+    """
+    results = {}
+    headers_sess = requests.Session()
+    headers_sess.headers.update({"User-Agent": "Mozilla/5.0 (compatible; CF_AI-Scanner/6.0)"})
+
+    def get(path: str, allow_redirects: bool = True) -> requests.Response | None:
+        try:
+            return headers_sess.get(site_url.rstrip('/') + path, timeout=10,
+                                    allow_redirects=allow_redirects, verify=False)
+        except Exception:
+            return None
+
+    # ── Security Headers ──────────────────────────────────────────────────────
+    resp = get("/")
+    if resp:
+        h = resp.headers
+        missing_headers = []
+        security_headers = {
+            "X-Frame-Options": h.get("X-Frame-Options"),
+            "X-Content-Type-Options": h.get("X-Content-Type-Options"),
+            "Strict-Transport-Security": h.get("Strict-Transport-Security"),
+            "Content-Security-Policy": h.get("Content-Security-Policy"),
+            "X-XSS-Protection": h.get("X-XSS-Protection"),
+            "Referrer-Policy": h.get("Referrer-Policy"),
+            "Permissions-Policy": h.get("Permissions-Policy"),
+        }
+        for name, val in security_headers.items():
+            if not val:
+                missing_headers.append(name)
+        results["server_header"] = h.get("Server", "Not disclosed")
+        results["x_powered_by"]  = h.get("X-Powered-By", "Not disclosed")
+        results["missing_headers"] = missing_headers
+        results["https"] = resp.url.startswith("https://")
+        results["status_code"] = resp.status_code
     else:
-        firm_reqs = [
-            "OSCP, CREST, CEH, CISSP, or PCI QSA certification",
-            "Publicly accessible company website",
-            "Documented case studies or portfolio",
-            "Professional liability / cyber insurance",
-        ]
-        vulns = [
-            "Outdated WordPress core version",
-            "Vulnerable plugins or themes",
-            "User enumeration (wp-json/users exposed)",
-            "XML-RPC brute force",
-            "SQL injection in plugins",
-            "Stored / reflected XSS",
-            "Insecure file permissions (wp-config.php)",
-            "Missing security headers",
-            "Weak administrator credentials",
-        ]
-        sections = [
-            "Executive Summary",
-            "Scope and Methodology",
-            "Findings",
-            "Remediation Recommendations",
-            "Evidence",
-            "Appendix — Tools Used",
-        ]
+        results["server_header"] = "Unreachable"
+        results["missing_headers"] = []
+        results["https"] = False
 
-    vuln_list = "\n".join(f"   • {v}" for v in vulns)
-    req_list  = "\n".join(f"   • {r}" for r in firm_reqs)
-    sec_list  = "\n".join(f"   {i+1}. {s}" for i, s in enumerate(sections))
+    # ── XML-RPC ───────────────────────────────────────────────────────────────
+    r = get("/xmlrpc.php")
+    if r and r.status_code in (200, 405):
+        results["xmlrpc"] = f"EXPOSED (HTTP {r.status_code}) — brute force risk"
+    elif r:
+        results["xmlrpc"] = f"Restricted (HTTP {r.status_code})"
+    else:
+        results["xmlrpc"] = "Not reachable"
 
-    report = f"""CF_AI WordPress Security Assessment Report
-==========================================
-Report Date    : {report_date}
-Target Site    : {site_url}
-Assessment Scope: {scope}
-Generated By   : CF_AI v6.0 — Advanced Penetration Testing Framework
+    # ── wp-login.php ──────────────────────────────────────────────────────────
+    r = get("/wp-login.php")
+    if r and r.status_code == 200:
+        results["wp_login"] = "Publicly accessible — login page exposed"
+    elif r:
+        results["wp_login"] = f"HTTP {r.status_code}"
+    else:
+        results["wp_login"] = "Not reachable"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EXECUTIVE SUMMARY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-A formal security assessment has been requested for the WordPress website
-at {site_url}. The assessment focuses on identifying vulnerabilities,
-misconfigurations, and risk exposures specific to the WordPress core,
-installed plugins, themes, user management, and supporting infrastructure.
+    # ── User Enumeration via REST API ─────────────────────────────────────────
+    r = get("/wp-json/wp/v2/users")
+    if r and r.status_code == 200:
+        try:
+            users = r.json()
+            names = [u.get("slug", u.get("name", "?")) for u in users[:5]]
+            results["user_enum_rest"] = f"EXPOSED — {len(users)} user(s): {', '.join(names)}"
+        except Exception:
+            results["user_enum_rest"] = "EXPOSED (200 OK, non-JSON body)"
+    elif r:
+        results["user_enum_rest"] = f"Restricted (HTTP {r.status_code})"
+    else:
+        results["user_enum_rest"] = "Not reachable"
 
-The use of AI-assisted testing tools is acceptable for this engagement.
+    # ── User Enumeration via ?author= ─────────────────────────────────────────
+    r = get("/?author=1", allow_redirects=True)
+    if r and r.status_code == 200 and "/author/" in r.url:
+        results["user_enum_author"] = f"EXPOSED — author URL: {r.url}"
+    elif r and r.status_code == 301:
+        results["user_enum_author"] = f"Possible redirect to author page: {r.headers.get('Location', '')}"
+    else:
+        results["user_enum_author"] = "Not exposed"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ASSESSMENT AREAS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-This assessment will cover the following vulnerability categories:
+    # ── readme.html / license.txt ─────────────────────────────────────────────
+    r = get("/readme.html")
+    if r and r.status_code == 200 and "WordPress" in (r.text or ""):
+        results["readme"] = "EXPOSED — reveals WordPress version info"
+    else:
+        results["readme"] = "Not exposed"
 
-{vuln_list}
+    r = get("/license.txt")
+    results["license_txt"] = "EXPOSED" if (r and r.status_code == 200) else "Not exposed"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FORMAL REPORT STRUCTURE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-The security firm delivering this engagement must provide a written
-report containing the following sections:
+    # ── wp-config backup ──────────────────────────────────────────────────────
+    for path in ["/wp-config.php.bak", "/wp-config.bak", "/wp-config~", "/.wp-config.php.swp"]:
+        r = get(path)
+        if r and r.status_code == 200:
+            results["wp_config_backup"] = f"CRITICAL — backup found at {path}"
+            break
+    else:
+        results["wp_config_backup"] = "Not found"
 
-{sec_list}
+    # ── WordPress detection ───────────────────────────────────────────────────
+    r = get("/")
+    if r:
+        body = r.text or ""
+        results["is_wordpress"] = "wp-content" in body or "wp-includes" in body or "WordPress" in body
+    else:
+        results["is_wordpress"] = False
 
-Each finding must include:
-   • Vulnerability name and CVSS risk rating
-   • Detailed description and affected component
-   • Reproduction steps with evidence (screenshots/logs)
-   • Remediation guidance with specific actions
-   • Re-test result after fixes are applied
+    return results
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RECOMMENDED PROVIDER CRITERIA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-We are seeking a certified security firm meeting the following criteria:
 
-{req_list}
+def _severity_label(finding: str) -> str:
+    finding_lower = finding.lower()
+    if any(k in finding_lower for k in ["critical", "exposed", "backup", "xmlrpc", "admin"]):
+        return "CRITICAL"
+    if any(k in finding_lower for k in ["missing", "accessible", "weak", "outdated", "high"]):
+        return "HIGH"
+    if any(k in finding_lower for k in ["medium", "possible", "redirect"]):
+        return "MEDIUM"
+    return "LOW"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REMEDIATION RECOMMENDATIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Keep WordPress core, plugins, and themes up to date at all times.
-2. Remove or disable all unused plugins and themes.
-3. Enforce strong passwords, MFA, and account lockout for all users.
-4. Restrict wp-config.php permissions (chmod 640) and move above web root.
-5. Disable XML-RPC unless explicitly required.
-6. Enforce HTTPS with HSTS and a valid TLS certificate.
-7. Deploy a Web Application Firewall (WAF) in front of the site.
-8. Enable logging and alerting for admin login events.
-9. Implement Content Security Policy (CSP) headers.
-10. Conduct scheduled security reviews at least annually.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ADDITIONAL NOTES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "") -> Dict[str, Any]:
+    """Scan the target WordPress site and generate a full findings-based report."""
+    import warnings
+    warnings.filterwarnings("ignore")  # suppress SSL warnings from urllib3
+
+    report_date = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+    scan_start  = datetime.now()
+
+    # Normalise URL
+    if not site_url.startswith("http"):
+        site_url = "https://" + site_url
+
+    # ── Run scans ─────────────────────────────────────────────────────────────
+    http_data   = _check_http_surface(site_url)
+    wpscan_raw  = _run_wp_scan(site_url, timeout=180)
+    scan_duration = int((datetime.now() - scan_start).total_seconds())
+
+    # ── Parse additional context from wpscan output ───────────────────────────
+    wp_version    = "Unknown"
+    plugins_found = []
+    themes_found  = []
+    users_found   = []
+    vulns_found   = []
+
+    for line in wpscan_raw.splitlines():
+        l = line.strip()
+        if "WordPress version" in l:
+            wp_version = l.split("WordPress version")[-1].strip().split()[0].strip("[](),")
+        if "| Plugin:" in l or "[+] Plugin:" in l or ("plugin" in l.lower() and l.startswith("[")):
+            plugins_found.append(l.lstrip("[+] ").strip())
+        if ("Theme:" in l or "theme" in l.lower()) and l.startswith("["):
+            themes_found.append(l.lstrip("[+] ").strip())
+        if "| User:" in l or "[+] User" in l:
+            users_found.append(l.lstrip("[+] User: ").strip())
+        if "vulnerability" in l.lower() or "CVE-" in l or "CVSS" in l:
+            vulns_found.append(l.strip())
+
+    # ── Build findings list from HTTP checks ──────────────────────────────────
+    findings = []
+
+    if not http_data.get("https"):
+        findings.append({
+            "id": "F-001", "severity": "HIGH",
+            "title": "Site Not Served Over HTTPS",
+            "detail": f"The site at {site_url} does not enforce HTTPS. All traffic is transmitted in plaintext.",
+            "remediation": "Install and enforce a valid TLS/SSL certificate. Configure HSTS (Strict-Transport-Security) header.",
+            "evidence": f"HTTP response received without TLS for {site_url}",
+        })
+
+    missing = http_data.get("missing_headers", [])
+    if missing:
+        findings.append({
+            "id": "F-002", "severity": "MEDIUM",
+            "title": "Missing HTTP Security Headers",
+            "detail": f"The following security headers are absent: {', '.join(missing)}. These headers protect against clickjacking, MIME sniffing, and XSS.",
+            "remediation": "Add all missing headers via server configuration or a WordPress security plugin (e.g., Wordfence, Headers & Redirects).",
+            "evidence": f"Server: {http_data.get('server_header')} | X-Powered-By: {http_data.get('x_powered_by')}",
+        })
+
+    if "EXPOSED" in http_data.get("xmlrpc", ""):
+        findings.append({
+            "id": "F-003", "severity": "HIGH",
+            "title": "XML-RPC Endpoint Exposed",
+            "detail": f"The /xmlrpc.php endpoint is publicly accessible ({http_data['xmlrpc']}). Attackers can use this for brute-force amplification attacks or SSRF.",
+            "remediation": "Disable XML-RPC via .htaccess or a security plugin unless specifically required by a mobile app or Jetpack integration.",
+            "evidence": f"GET {site_url}/xmlrpc.php — {http_data['xmlrpc']}",
+        })
+
+    if "EXPOSED" in http_data.get("user_enum_rest", ""):
+        findings.append({
+            "id": "F-004", "severity": "HIGH",
+            "title": "User Enumeration via REST API",
+            "detail": f"WordPress REST API exposes user accounts: {http_data['user_enum_rest']}. Exposed usernames enable targeted brute-force attacks.",
+            "remediation": "Disable public access to /wp-json/wp/v2/users endpoint or restrict it to authenticated users only.",
+            "evidence": f"GET {site_url}/wp-json/wp/v2/users returned 200 OK with user data",
+        })
+
+    if "EXPOSED" in http_data.get("user_enum_author", ""):
+        findings.append({
+            "id": "F-005", "severity": "MEDIUM",
+            "title": "User Enumeration via Author URL",
+            "detail": f"The /?author=1 redirect leaks a username: {http_data['user_enum_author']}.",
+            "remediation": "Block author URL redirect with a plugin or add redirect rules for /?author= queries.",
+            "evidence": f"GET {site_url}/?author=1 redirects to author page",
+        })
+
+    if "EXPOSED" in http_data.get("readme", ""):
+        findings.append({
+            "id": "F-006", "severity": "LOW",
+            "title": "readme.html Publicly Accessible",
+            "detail": "The WordPress readme.html file is accessible and may disclose the WordPress version to attackers.",
+            "remediation": "Delete or restrict access to readme.html via server rules.",
+            "evidence": f"GET {site_url}/readme.html — 200 OK",
+        })
+
+    if "CRITICAL" in http_data.get("wp_config_backup", ""):
+        findings.append({
+            "id": "F-007", "severity": "CRITICAL",
+            "title": "WordPress Config Backup File Exposed",
+            "detail": f"A wp-config backup is accessible: {http_data['wp_config_backup']}. This file contains database credentials.",
+            "remediation": "Delete the backup file immediately and rotate all database credentials.",
+            "evidence": http_data["wp_config_backup"],
+        })
+
+    if "publicly accessible" in http_data.get("wp_login", "").lower():
+        findings.append({
+            "id": "F-008", "severity": "MEDIUM",
+            "title": "wp-login.php Publicly Accessible",
+            "detail": "The WordPress admin login page is publicly accessible without rate limiting or CAPTCHA, enabling brute-force attacks.",
+            "remediation": "Add CAPTCHA, 2FA, IP allowlisting, or use a login URL hiding plugin (e.g., WPS Hide Login).",
+            "evidence": f"GET {site_url}/wp-login.php — {http_data['wp_login']}",
+        })
+
+    # Findings from wpscan vuln output
+    fid = len(findings) + 1
+    for v in vulns_found[:10]:
+        findings.append({
+            "id": f"F-{fid:03d}", "severity": _severity_label(v),
+            "title": "Vulnerability Detected by WPScan",
+            "detail": v,
+            "remediation": "Update the affected plugin/theme/core to the latest version. Check vendor advisories for patched release.",
+            "evidence": f"wpscan output: {v[:200]}",
+        })
+        fid += 1
+
+    if not findings:
+        findings.append({
+            "id": "F-001", "severity": "INFO",
+            "title": "No Automated Findings",
+            "detail": "Automated scanning did not identify high-confidence findings. Manual testing is recommended.",
+            "remediation": "Proceed with manual assessment following OWASP WordPress Testing Guide.",
+            "evidence": "Automated surface checks completed with no confirmed issues.",
+        })
+
+    # ── Count by severity ─────────────────────────────────────────────────────
+    sev_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
+    for f in findings:
+        sev_counts[f.get("severity", "INFO")] += 1
+
+    risk_rating = "LOW"
+    if sev_counts["CRITICAL"] > 0:
+        risk_rating = "CRITICAL"
+    elif sev_counts["HIGH"] > 0:
+        risk_rating = "HIGH"
+    elif sev_counts["MEDIUM"] > 0:
+        risk_rating = "MEDIUM"
+
+    # ── Format findings section ───────────────────────────────────────────────
+    findings_text = ""
+    for f in findings:
+        findings_text += f"""
+  [{f['severity']}] {f['id']} — {f['title']}
+  {'─' * 60}
+  Description : {f['detail']}
+  Evidence    : {f['evidence']}
+  Remediation : {f['remediation']}
+"""
+
+    # ── Format wpscan raw summary ─────────────────────────────────────────────
+    wpscan_summary_lines = [l for l in wpscan_raw.splitlines()
+                            if any(k in l for k in ["[+]", "[!]", "[i]", "WordPress", "Plugin", "Theme", "Version", "User", "vulnerability"])]
+    wpscan_summary = "\n".join(wpscan_summary_lines[:60]) or wpscan_raw[:2000]
+
+    # ── Plugins / themes ──────────────────────────────────────────────────────
+    plugins_text = "\n".join(f"  • {p}" for p in plugins_found[:20]) or "  No plugins detected by wpscan."
+    themes_text  = "\n".join(f"  • {t}" for t in themes_found[:10]) or "  No themes detected by wpscan."
+    users_text   = "\n".join(f"  • {u}" for u in users_found[:10]) or "  No users discovered."
+
+    # ── Build full report ─────────────────────────────────────────────────────
+    report = f"""
+CF_AI — WordPress Security Assessment Report
+============================================================
+  Target        : {site_url}
+  Scan Date     : {report_date}
+  Duration      : {scan_duration}s
+  Scope         : {scope}
+  WordPress     : {wp_version}
+  Server        : {http_data.get('server_header', 'Unknown')}
+  HTTPS         : {'Yes' if http_data.get('https') else 'NO — Unencrypted'}
+  Overall Risk  : {risk_rating}
+  Total Findings: {len(findings)} ({sev_counts['CRITICAL']} Critical, {sev_counts['HIGH']} High, {sev_counts['MEDIUM']} Medium, {sev_counts['LOW']} Low)
+============================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. EXECUTIVE SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A security assessment was conducted against {site_url} using
+automated scanning tools (WPScan, HTTP header analysis, endpoint
+enumeration). The scan identified {len(findings)} finding(s) with an
+overall risk rating of {risk_rating}.
+
+{"IMMEDIATE ACTION REQUIRED — Critical vulnerabilities found." if sev_counts["CRITICAL"] > 0 else ""}
+{"High-risk findings require prompt remediation." if sev_counts["HIGH"] > 0 else ""}
+{"Medium-risk findings should be addressed in the next release cycle." if sev_counts["MEDIUM"] > 0 else ""}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. SCOPE & METHODOLOGY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Target URL   : {site_url}
+Scope        : {scope}
+Tools Used   : WPScan, HTTP endpoint checks, header analysis
+Test Type    : Black-box automated assessment
+Tester       : CF_AI v6.0 — Automated Security Scanner
+
+Checks performed:
+  • WordPress core version detection
+  • Plugin & theme enumeration and CVE matching
+  • User enumeration (REST API & author redirect)
+  • XML-RPC exposure check
+  • Security header audit
+  • Sensitive file exposure (readme.html, license.txt, wp-config backups)
+  • wp-login.php access control check
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. FINDINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{findings_text}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. DETECTED COMPONENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WordPress Version : {wp_version}
+
+Plugins Detected:
+{plugins_text}
+
+Themes Detected:
+{themes_text}
+
+Users Discovered:
+{users_text}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. REMEDIATION PRIORITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMMEDIATE (Critical/High):
+  1. Delete any exposed wp-config backup files and rotate DB credentials.
+  2. Disable XML-RPC if not required.
+  3. Block user enumeration via REST API and ?author= redirect.
+  4. Enforce HTTPS with a valid TLS certificate.
+
+SHORT TERM (Medium):
+  5. Add all missing HTTP security headers.
+  6. Protect wp-login.php with 2FA, CAPTCHA, or IP restriction.
+  7. Delete readme.html and license.txt from web root.
+
+ONGOING:
+  8. Keep WordPress core, all plugins, and themes fully updated.
+  9. Schedule quarterly security scans.
+  10. Enable audit logging for admin actions.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. RAW WPSCAN OUTPUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{wpscan_summary}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. ADDITIONAL NOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {notes if notes else "No additional notes provided."}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NEXT STEPS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Share this brief with shortlisted security firms to obtain proposals.
-2. Verify certifications and request sample reports before engagement.
-3. Sign NDA before granting testing access.
-4. Define testing window and communication channels.
-5. Review formal report and implement remediation within agreed timeline.
-6. Schedule re-test to validate all fixes.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Generated by CF_AI v6.0 | {report_date}
-This is an assessment brief template, not a completed penetration test.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This report is based on automated scanning. Manual verification
+of findings and comprehensive manual testing is recommended.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
     return {
         "success": True,
-        "report": report,
-        "recommendation": (
-            "Engage a certified WordPress security firm with formal testing experience. "
-            "Ensure they hold OSCP, CREST, or equivalent certification and can deliver "
-            "a formal written report with CVSS-rated findings and reproduction evidence."
-        ),
-        "next_steps": [
-            "Share this brief with security firms to obtain proposals",
-            "Verify certifications and request sample reports before engagement",
-            "Schedule formal penetration test with a certified provider",
-            "Review report and implement remediation within agreed timeline",
-            "Schedule re-test to validate all fixes",
-        ],
+        "report": report.strip(),
+        "risk_rating": risk_rating,
+        "findings_count": len(findings),
+        "severity_counts": sev_counts,
     }
 
 @app.route("/api/wordpress/report", methods=["POST"])
