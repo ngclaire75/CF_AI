@@ -6,7 +6,7 @@
   <title>CF_AI — Penetration Testing Framework</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=12" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=13" />
 </head>
 <body>
 
@@ -119,6 +119,15 @@
             <div class="tool-info">
               <div class="tool-name">Intel APIs</div>
               <div class="tool-desc">Shodan, VirusTotal, HackerOne</div>
+            </div>
+          </div>
+          <div class="tool-item" onclick="askCategory('api security test: graphql jwt rest api endpoint discovery')">
+            <div class="tool-icon">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div class="tool-info">
+              <div class="tool-name">API Security</div>
+              <div class="tool-desc">GraphQL, JWT, REST API</div>
             </div>
           </div>
           <div class="tool-item" onclick="askCategory('exploitation framework: metasploit searchsploit msfvenom')">
@@ -429,6 +438,6 @@
     </main>
   </div>
 
-  <script src="{{ url_for('static', filename='script.js') }}?v=11"></script>
+  <script src="{{ url_for('static', filename='script.js') }}?v=13"></script>
 </body>
 </html>

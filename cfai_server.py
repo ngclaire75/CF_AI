@@ -9213,6 +9213,12 @@ class CFAIChatEngine:
         "dalfox": ["dalfox", "xss scan", "cross-site scripting"],
         "katana": ["katana", "web crawl", "crawler"],
         "httpx": ["httpx", "http probe", "live hosts"],
+        # API Security
+        "graphql-cop": ["graphql", "graphql security", "graphql audit", "gql"],
+        "jwt_tool": ["jwt", "json web token", "jwt crack", "jwt security", "bearer token"],
+        "kiterunner": ["kiterunner", "kr", "api routes", "api endpoint discovery"],
+        "arjun": ["arjun", "parameter discovery", "hidden parameters", "api params"],
+        "swagger": ["swagger", "openapi", "api spec", "api documentation"],
     }
 
     CATEGORY_KEYWORDS = {
@@ -9224,12 +9230,27 @@ class CFAIChatEngine:
         "password": ["password", "hash", "crack", "brute", "credential", "login"],
         "cloud": ["cloud", "aws", "azure", "gcp", "docker", "kubernetes", "container"],
         "wordpress": ["wordpress", "wp-", "wpscan", "wp plugin", "wp theme"],
+        "api": ["graphql", "jwt", "rest api", "api security", "openapi", "swagger",
+                "bearer", "oauth", "api fuzz", "kiterunner", "arjun", "json web token"],
     }
 
     def __init__(self, injection_protector: PromptInjectionProtector):
         self.protector = injection_protector
         self.conversation_history = []
         self.max_history = 50
+        # AI Agents — wired in after class definitions
+        self.tech_detector: Optional[Any] = None
+        self.rate_limiter: Optional[Any] = None
+        self.recovery: Optional[Any] = None
+        self.perf_monitor: Optional[Any] = None
+        self.param_optimizer: Optional[Any] = None
+        self.degradation: Optional[Any] = None
+        self.cve_intel: Optional[Any] = None
+        self.vuln_correlator: Optional[Any] = None
+        self.exploit_gen: Optional[Any] = None
+        self.bb_workflow: Optional[Any] = None
+        self.ctf_workflow: Optional[Any] = None
+        self.decision_engine: Optional[Any] = None
 
     def process_message(self, user_message: str) -> Dict[str, Any]:
         """Process a chat message and return AI response."""
@@ -9268,6 +9289,8 @@ class CFAIChatEngine:
         'checksec', 'ROPgadget', 'ropper', 'objdump', 'strings', 'readelf',
         'ltrace', 'strace', 'nm', 'file', 'xxd', 'hexdump', 'pwn',
         'one_gadget', 'patchelf', 'pwninit',
+        # API security tools
+        'graphql-cop', 'jwt_tool', 'kiterunner', 'kr', 'arjun',
     }
 
     # Tools that are interactive by nature — wrap with non-interactive flags
@@ -9364,6 +9387,19 @@ class CFAIChatEngine:
             "examples": [
                 "trivy image nginx:latest",
                 "kube-hunter --remote 10.0.0.1",
+            ],
+        },
+        "api": {
+            "tools": ["graphql-cop", "jwt_tool", "kiterunner", "arjun", "nuclei", "ffuf"],
+            "desc": "API security testing tools (GraphQL, JWT, REST)",
+            "examples": [
+                "graphql audit http://target.com/graphql",
+                "jwt decode eyJhbGciOiJIUzI1NiJ9...",
+                "jwt crack eyJhbGciOiJIUzI1NiJ9...",
+                "api security test http://target.com/api/v1/",
+                "rest api fuzz http://target.com/api/",
+                "find api endpoints http://target.com",
+                "parameter discovery http://target.com/api/users",
             ],
         },
     }
@@ -9536,7 +9572,12 @@ class CFAIChatEngine:
             if cmd[0] in self._BASH_WRAP_TOOLS:
                 cmd = ['bash', '-c', f'export PATH="{full_path}"; ' + ' '.join(cmd)]
 
+            import time as _time
+            _t0 = _time.time()
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+            _elapsed = _time.time() - _t0
+            if self.perf_monitor:
+                self.perf_monitor.record(os.path.basename(cmd[0]), _elapsed)
             out = (result.stdout or '') + (result.stderr or '')
             out = out.strip()
             if not out:
@@ -9546,7 +9587,13 @@ class CFAIChatEngine:
             return f"Scan timed out after {timeout}s. Try a more targeted command, e.g. add -T4 for nmap or reduce scan scope."
         except FileNotFoundError:
             tool_name = cmd[0] if cmd else 'unknown'
-            return f"Tool '{tool_name}' not found. Run: bash /opt/CF_AI/install_missing_tools.sh"
+            # Use FailureRecoverySystem if available
+            recovery_hint = ""
+            if self.recovery:
+                alts = self.recovery.get_alternatives(tool_name)
+                if alts:
+                    recovery_hint = f"\nAlternatives: {', '.join(alts[:3])}"
+            return f"Tool '{tool_name}' not found. Run: bash /opt/CF_AI/install_missing_tools.sh{recovery_hint}"
         except PermissionError:
             # Last resort: run the original command through bash with explicit PATH
             try:
@@ -9699,6 +9746,361 @@ class CFAIChatEngine:
                 return f"HackerOne API error: HTTP {resp.status_code}"
         except Exception as e:
             return f"HackerOne lookup failed: {str(e)}"
+
+    # ── API Security helpers ──────────────────────────────────────────────────
+
+    def _graphql_introspect(self, url: str) -> str:
+        """Send an introspection query to a GraphQL endpoint and return schema summary."""
+        introspection = {
+            "query": "{ __schema { types { name kind description fields { name type { name kind } } } } }"
+        }
+        try:
+            r = requests.post(url, json=introspection, timeout=15,
+                              headers={"Content-Type": "application/json",
+                                       "Accept": "application/json"})
+            if r.status_code == 200:
+                data = r.json()
+                types_ = data.get("data", {}).get("__schema", {}).get("types", [])
+                user_types = [t for t in types_ if t.get("name") and not t["name"].startswith("__")]
+                lines = [f"[+] GraphQL introspection enabled on {url}",
+                         f"[+] Discovered {len(user_types)} type(s):"]
+                for t in user_types[:30]:
+                    fields = t.get("fields") or []
+                    field_names = [f["name"] for f in fields[:8]]
+                    more = f" (+{len(fields)-8} more)" if len(fields) > 8 else ""
+                    lines.append(f"  {t['name']} ({t.get('kind','')}) — fields: {', '.join(field_names)}{more}")
+                if len(user_types) > 30:
+                    lines.append(f"  ... {len(user_types)-30} more types")
+                # Check for mutation types (write access)
+                mutations = [t for t in user_types if t.get("name") == "Mutation"]
+                if mutations and mutations[0].get("fields"):
+                    mut_names = [f["name"] for f in mutations[0]["fields"][:10]]
+                    lines.append(f"[!] Mutations available (write access): {', '.join(mut_names)}")
+                return "\n".join(lines)
+            elif r.status_code == 400:
+                return f"[-] {url}: introspection returned 400 — introspection may be disabled\n{r.text[:300]}"
+            else:
+                return f"[-] {url}: HTTP {r.status_code}\n{r.text[:300]}"
+        except requests.exceptions.ConnectionError:
+            return f"[-] Cannot connect to {url}"
+        except Exception as e:
+            return f"[-] GraphQL introspection error: {e}"
+
+    def _graphql_security_checks(self, url: str) -> str:
+        """Run GraphQL security checks: introspection, CSRF, batch, injection."""
+        results = []
+        results.append(f"=== GraphQL Security Assessment: {url} ===\n")
+
+        # 1. Introspection
+        results.append("[1] Introspection Query")
+        results.append(self._graphql_introspect(url))
+
+        # 2. Introspection disabled check (POST vs GET)
+        try:
+            r = requests.get(url, params={"query": "{__typename}"}, timeout=10)
+            if r.status_code == 200 and "__typename" in r.text:
+                results.append("\n[2] GET-based queries: ENABLED (CSRF risk)")
+            else:
+                results.append("\n[2] GET-based queries: disabled")
+        except Exception:
+            results.append("\n[2] GET-based queries: connection failed")
+
+        # 3. Batch query attack
+        results.append("\n[3] Batch Query Attack")
+        batch_payload = [{"query": "{ __typename }"} for _ in range(10)]
+        try:
+            r = requests.post(url, json=batch_payload, timeout=10,
+                              headers={"Content-Type": "application/json"})
+            if r.status_code == 200 and isinstance(r.json(), list):
+                results.append(f"    [!] BATCHING ENABLED — sent 10 queries, got {len(r.json())} responses")
+                results.append("    [!] Alias amplification attacks possible")
+            else:
+                results.append("    [-] Batch queries not supported or blocked")
+        except Exception as e:
+            results.append(f"    [-] Batch test failed: {e}")
+
+        # 4. CSRF check (no token required)
+        try:
+            r = requests.post(url, json={"query": "{ __typename }"},
+                              headers={"Content-Type": "application/json"}, timeout=10)
+            if r.status_code == 200:
+                results.append("\n[4] CSRF: No token required — mutation CSRF may be exploitable")
+            else:
+                results.append("\n[4] CSRF: Token may be required")
+        except Exception:
+            pass
+
+        # 5. SQL/NoSQL injection probe
+        sqli_probe = {"query": "{ user(id: \"1 OR 1=1\") { id name email } }"}
+        try:
+            r = requests.post(url, json=sqli_probe, timeout=10,
+                              headers={"Content-Type": "application/json"})
+            body = r.text[:500]
+            if any(kw in body.lower() for kw in ["syntax error", "sql", "mysql", "pgsql",
+                                                   "ora-", "sqlite", "query was"]):
+                results.append("\n[!] SQL INJECTION INDICATOR: Error-based SQLi may be present")
+                results.append(f"    Response: {body[:200]}")
+            else:
+                results.append("\n[5] SQL injection probe: no obvious error")
+        except Exception:
+            pass
+
+        # 6. Run graphql-cop if available
+        gcop = self._resolve_bin("graphql-cop", self._TOOL_PATH)
+        if gcop != "graphql-cop":
+            results.append("\n[6] graphql-cop")
+            out = self._run_tool([gcop, "-t", url], timeout=60)
+            results.append(out)
+        else:
+            results.append("\n[6] graphql-cop: not installed (run: pip3 install graphql-cop)")
+
+        # 7. Run nuclei graphql templates
+        results.append("\n[7] Nuclei GraphQL templates")
+        nuclei_out = self._run_tool(
+            ["nuclei", "-u", url, "-t", "graphql/", "-silent", "-timeout", "10"], timeout=60
+        )
+        if nuclei_out.strip():
+            results.append(nuclei_out)
+        else:
+            results.append("    No nuclei graphql templates found or no findings")
+
+        return "\n".join(results)
+
+    def _jwt_analyze(self, token: str) -> str:
+        """Decode and analyze a JWT token. Optionally crack if weak secret suspected."""
+        import base64 as _b64
+        token = token.strip()
+        parts = token.split(".")
+        if len(parts) != 3:
+            return f"[-] Not a valid JWT (expected 3 parts, got {len(parts)})"
+
+        lines = ["=== JWT Analysis ===\n"]
+
+        def _b64_decode(s: str) -> str:
+            s += "=" * (-len(s) % 4)
+            try:
+                return _b64.urlsafe_b64decode(s.encode()).decode("utf-8", errors="replace")
+            except Exception:
+                return "(decode error)"
+
+        header_raw = _b64_decode(parts[0])
+        payload_raw = _b64_decode(parts[1])
+
+        try:
+            header = json.loads(header_raw)
+        except Exception:
+            header = {"raw": header_raw}
+        try:
+            payload = json.loads(payload_raw)
+        except Exception:
+            payload = {"raw": payload_raw}
+
+        lines.append(f"[Header]\n{json.dumps(header, indent=2)}")
+        lines.append(f"\n[Payload]\n{json.dumps(payload, indent=2)}")
+
+        alg = header.get("alg", "").upper()
+        lines.append(f"\n[Algorithm] {alg}")
+
+        # Security checks
+        if alg == "NONE":
+            lines.append("[CRITICAL] Algorithm is 'none' — token signature not verified!")
+        if alg in ("HS256", "HS384", "HS512"):
+            lines.append(f"[INFO] HMAC algorithm {alg} — shared secret. Brute-force possible.")
+        if alg.startswith("RS") or alg.startswith("ES"):
+            lines.append(f"[INFO] Asymmetric {alg} — check for key confusion (RS256→HS256 attack)")
+
+        # Expiry check
+        import time as _time
+        exp = payload.get("exp")
+        if exp:
+            now = int(_time.time())
+            if exp < now:
+                lines.append(f"[INFO] Token EXPIRED {int((now-exp)/60)} minutes ago")
+            else:
+                lines.append(f"[INFO] Token valid for {int((exp-now)/60)} more minutes")
+        else:
+            lines.append("[INFO] No expiry (exp) claim — token never expires!")
+
+        iat = payload.get("iat")
+        if iat:
+            import datetime as _dt
+            lines.append(f"[INFO] Issued at: {_dt.datetime.utcfromtimestamp(iat).isoformat()}Z")
+
+        # Sensitive fields
+        sensitive = ["password", "secret", "key", "token", "pass", "pwd", "admin"]
+        for k, v in payload.items():
+            if any(s in k.lower() for s in sensitive):
+                lines.append(f"[WARNING] Sensitive claim '{k}' present in payload!")
+
+        # Try jwt_tool if installed
+        jwt_bin = self._resolve_bin("jwt_tool", self._TOOL_PATH)
+        if jwt_bin != "jwt_tool":
+            lines.append("\n[jwt_tool crack attempt with common secrets]")
+            wordlist = "/usr/share/wordlists/rockyou.txt"
+            if not os.path.exists(wordlist):
+                wordlist = ""
+            if wordlist and alg.startswith("HS"):
+                crack_out = self._run_tool([jwt_bin, token, "-C", "-d", wordlist], timeout=30)
+                lines.append(crack_out[:1000])
+            else:
+                decode_out = self._run_tool([jwt_bin, token, "-T"], timeout=15)
+                lines.append(decode_out[:500])
+
+        return "\n".join(lines)
+
+    def _rest_api_audit(self, target: str) -> str:
+        """Comprehensive REST API security assessment."""
+        lines = [f"=== REST API Security Assessment: {target} ===\n"]
+        base = target.rstrip("/")
+
+        # 1. Common API paths discovery
+        lines.append("[1] Probing common API paths...")
+        common_paths = [
+            "/api", "/api/v1", "/api/v2", "/api/v3", "/rest", "/graphql",
+            "/swagger.json", "/swagger/v1/swagger.json", "/openapi.json",
+            "/api-docs", "/api/docs", "/v1", "/v2", "/health", "/status",
+            "/api/health", "/api/status", "/actuator", "/actuator/health",
+            "/metrics", "/api/metrics", "/.well-known/openapi.yaml",
+        ]
+        found = []
+        for path in common_paths:
+            try:
+                r = requests.get(f"{base}{path}", timeout=5, allow_redirects=False,
+                                 headers={"Accept": "application/json"})
+                if r.status_code < 400:
+                    ct = r.headers.get("Content-Type", "")
+                    lines.append(f"    [{r.status_code}] {base}{path}  ({ct[:60]})")
+                    found.append(f"{base}{path}")
+            except Exception:
+                pass
+        if not found:
+            lines.append("    No common API paths found")
+
+        # 2. Headers security check
+        lines.append("\n[2] Security Headers")
+        try:
+            r = requests.get(base, timeout=10)
+            headers_to_check = {
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": None,
+                "Strict-Transport-Security": None,
+                "Content-Security-Policy": None,
+                "Access-Control-Allow-Origin": None,
+                "Authorization": None,
+                "X-API-Key": None,
+            }
+            for h, expected in headers_to_check.items():
+                val = r.headers.get(h)
+                if val:
+                    if h == "Access-Control-Allow-Origin" and val == "*":
+                        lines.append(f"    [WARN] {h}: * (overly permissive CORS)")
+                    else:
+                        lines.append(f"    [+] {h}: {val[:80]}")
+                else:
+                    if h in ("X-Content-Type-Options", "Strict-Transport-Security"):
+                        lines.append(f"    [MISSING] {h}")
+        except Exception as e:
+            lines.append(f"    Connection error: {e}")
+
+        # 3. HTTP method enumeration
+        lines.append("\n[3] HTTP Method Enumeration")
+        probe_url = found[0] if found else base
+        for method in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "TRACE"]:
+            try:
+                r = requests.request(method, probe_url, timeout=5,
+                                     headers={"Content-Type": "application/json"})
+                if r.status_code != 405:
+                    lines.append(f"    [{method}] {r.status_code} — allowed")
+                if method == "TRACE" and r.status_code == 200:
+                    lines.append(f"    [CRITICAL] TRACE enabled — XST risk!")
+            except Exception:
+                pass
+
+        # 4. Authentication bypass attempts
+        lines.append("\n[4] Authentication Check")
+        auth_paths = [p for p in found if any(k in p for k in ["/api", "/v1", "/v2", "/rest"])]
+        probe = auth_paths[0] if auth_paths else (found[0] if found else f"{base}/api/v1/users")
+        try:
+            r_no_auth = requests.get(probe, timeout=5)
+            r_bad_auth = requests.get(probe, headers={"Authorization": "Bearer invalid"}, timeout=5)
+            r_null_auth = requests.get(probe, headers={"Authorization": "Bearer null"}, timeout=5)
+            lines.append(f"    No auth:     HTTP {r_no_auth.status_code}")
+            lines.append(f"    Invalid JWT: HTTP {r_bad_auth.status_code}")
+            lines.append(f"    Null token:  HTTP {r_null_auth.status_code}")
+            if r_no_auth.status_code == 200:
+                lines.append("    [CRITICAL] Endpoint accessible WITHOUT authentication!")
+            elif r_null_auth.status_code == 200:
+                lines.append("    [HIGH] Null token accepted!")
+        except Exception as e:
+            lines.append(f"    Auth probe error: {e}")
+
+        # 5. Rate limit detection
+        lines.append("\n[5] Rate Limit Detection")
+        try:
+            statuses = []
+            for i in range(15):
+                r = requests.get(probe, timeout=5)
+                statuses.append(r.status_code)
+            if 429 in statuses:
+                idx = statuses.index(429)
+                lines.append(f"    [+] Rate limit triggered after {idx+1} requests (HTTP 429)")
+            elif all(s == statuses[0] for s in statuses):
+                lines.append(f"    [-] No rate limit detected after 15 rapid requests")
+            else:
+                lines.append(f"    Responses: {statuses}")
+        except Exception:
+            lines.append("    Rate limit test failed")
+
+        # 6. SSRF probe
+        lines.append("\n[6] SSRF Probe")
+        ssrf_payloads = [
+            f"{base}/api/fetch?url=http://169.254.169.254/latest/meta-data/",
+            f"{base}/api/proxy?target=http://169.254.169.254/",
+            f"{base}/api/v1/redirect?url=http://169.254.169.254/",
+        ]
+        for sp in ssrf_payloads:
+            try:
+                r = requests.get(sp, timeout=5, allow_redirects=False)
+                if r.status_code in (200, 302) and ("ami-id" in r.text or "169.254" in r.text):
+                    lines.append(f"    [CRITICAL] SSRF to AWS metadata! {sp}")
+                    lines.append(f"    {r.text[:300]}")
+            except Exception:
+                pass
+        lines.append("    SSRF probes sent (external collaboration needed for blind SSRF)")
+
+        # 7. kiterunner if available
+        lines.append("\n[7] API Route Discovery (kiterunner)")
+        kr_bin = self._resolve_bin("kr", self._TOOL_PATH)
+        if kr_bin != "kr":
+            out = self._run_tool([kr_bin, "scan", base, "--wordlist",
+                                  "/usr/share/kiterunner/routes-large.kite", "-x", "5"], timeout=90)
+            lines.append(out[:2000])
+        else:
+            # Fallback: use ffuf for API path fuzzing
+            lines.append("    kiterunner not found — using ffuf for API path discovery")
+            wordlist = "/usr/share/wordlists/dirb/common.txt"
+            if os.path.exists(wordlist):
+                out = self._run_tool(["ffuf", "-u", f"{base}/FUZZ", "-w", wordlist,
+                                      "-mc", "200,201,202,204,301,302,307,401,403",
+                                      "-t", "50", "-timeout", "10"], timeout=60)
+                lines.append(out[:1500])
+
+        # 8. Nuclei API templates
+        lines.append("\n[8] Nuclei API Security Templates")
+        nout = self._run_tool(["nuclei", "-u", base,
+                               "-t", "exposures/apis/", "-silent", "-timeout", "10"], timeout=60)
+        lines.append(nout[:1000] if nout.strip() else "    No API exposure findings")
+
+        # 9. arjun parameter discovery
+        lines.append("\n[9] Parameter Discovery (arjun)")
+        arjun_bin = self._resolve_bin("arjun", self._TOOL_PATH)
+        if arjun_bin != "arjun":
+            pout = self._run_tool([arjun_bin, "-u", probe, "--stable"], timeout=60)
+            lines.append(pout[:1000])
+        else:
+            lines.append("    arjun not installed (pip3 install arjun)")
+
+        return "\n".join(lines)
 
     def _generate_response(self, message: str, msg_lower: str) -> Dict[str, Any]:
         target = self._extract_target(message)
@@ -10309,6 +10711,297 @@ class CFAIChatEngine:
                 "category": "bugbounty",
             }
 
+        # ── AI Agent-powered commands ─────────────────────────────────────────
+
+        # Technology Detector
+        if any(w in msg_lower for w in ["detect technology", "fingerprint", "tech stack",
+                                         "what tech", "what cms", "technology detection",
+                                         "identify technology", "wappalyzer"]):
+            if target and self.tech_detector:
+                fp = self.tech_detector.detect(target)
+                techs = fp.get("technologies", [])
+                recommended = self.tech_detector.recommend_tools(techs)
+                lines = [f"Technology Fingerprint: {target}",
+                         f"Detected: {', '.join(techs) or 'none identified'}",
+                         f"Server: {fp.get('server', 'unknown')}"]
+                if fp.get("powered_by"):
+                    lines.append(f"X-Powered-By: {fp['powered_by']}")
+                if recommended:
+                    lines.append(f"Recommended tools: {', '.join(recommended[:6])}")
+                if self.decision_engine:
+                    decision = self.decision_engine.decide(target, "web")
+                    lines.append(f"Suggested profile: {decision['profile']}")
+                return {
+                    "success": True,
+                    "response": f"```\n{chr(10).join(lines)}\n```",
+                    "executed": True,
+                    "command": f"tech-detect {target}",
+                    "category": "web",
+                    "suggested_tools": recommended[:4] or ["nuclei", "nikto"],
+                }
+            return {"success": True,
+                    "response": "Provide a target URL to fingerprint its technology stack.\n"
+                                "Example: `detect technology https://target.com`",
+                    "category": "web", "suggested_tools": ["httpx", "nuclei"]}
+
+        # CVE Intelligence
+        if any(w in msg_lower for w in ["cve", "cve search", "vulnerability intel",
+                                         "search cve", "exploit db", "exploitdb",
+                                         "vulnerability intelligence", "nvd"]):
+            query = re.sub(r'(cve|search|lookup|intel|intelligence|exploitdb|exploit db|nvd|'
+                           r'vulnerability)\s*', '', message, flags=re.IGNORECASE).strip()
+            if not query:
+                query = target or ""
+            if query and self.cve_intel:
+                nvd_out = self.cve_intel.search_cve(query, limit=8)
+                edb_out = self.cve_intel.search_exploitdb(
+                    query, run_tool_fn=lambda cmd, timeout: self._run_tool(cmd, timeout))
+                return {
+                    "success": True,
+                    "response": f"```\n{nvd_out}\n\n{edb_out}\n```",
+                    "executed": True,
+                    "command": f"cve-intel {query}",
+                    "category": "intel",
+                    "suggested_tools": ["searchsploit", "nuclei"],
+                }
+            return {"success": True,
+                    "response": "CVE Intelligence — provide a keyword or technology:\n"
+                                "  `cve search apache log4j`\n"
+                                "  `cve search wordpress 6.0`\n"
+                                "  `exploitdb openssh 8.4`",
+                    "category": "intel", "suggested_tools": ["searchsploit"]}
+
+        # Exploit Generator
+        if any(w in msg_lower for w in ["generate exploit", "write exploit", "poc exploit",
+                                         "exploit poc", "create exploit", "exploit generator",
+                                         "exploit gen", "write poc"]):
+            vuln = re.sub(r'(generate|write|create|exploit|poc|gen)\s*', '',
+                          message, flags=re.IGNORECASE).strip() or "unknown vulnerability"
+            if self.exploit_gen:
+                out = self.exploit_gen.generate(vuln, target or "")
+                return {
+                    "success": True,
+                    "response": f"AI Exploit PoC — {vuln}:\n\n{out}",
+                    "executed": True,
+                    "command": f"exploit-gen {vuln}",
+                    "category": "exploitation",
+                    "suggested_tools": ["searchsploit", "metasploit"],
+                }
+
+        # Rate Limit Detection
+        if any(w in msg_lower for w in ["rate limit", "ratelimit", "rate limiting",
+                                         "detect rate", "api rate limit", "429"]):
+            if target and self.rate_limiter:
+                result = self.rate_limiter.detect(target, count=20)
+                lines = [f"Rate Limit Test: {target}",
+                         f"Requests sent: {result['total_requests']}",
+                         f"Limited: {'YES' if result['limited'] else 'NO'}",
+                         f"Finding: {result['finding']}"]
+                if result.get("retry_after"):
+                    lines.append(f"Retry-After: {result['retry_after']}")
+                if result.get("rate_limit_header"):
+                    lines.append(f"Limit header: {result['rate_limit_header']}")
+                lines.append(f"Avg response: {result['avg_response_ms']} ms")
+                return {
+                    "success": True,
+                    "response": f"```\n{chr(10).join(lines)}\n```",
+                    "executed": True,
+                    "command": f"rate-limit-test {target}",
+                    "category": "api",
+                    "suggested_tools": ["ffuf", "nuclei"],
+                }
+            return {"success": True,
+                    "response": "Provide a target URL to test for rate limiting.\n"
+                                "Example: `rate limit test http://target.com/api/login`",
+                    "category": "api", "suggested_tools": ["ffuf"]}
+
+        # Vulnerability Correlation
+        if any(w in msg_lower for w in ["correlate", "attack chain", "vulnerability chain",
+                                         "attack path", "correlate findings"]):
+            # Extract findings from message as comma/newline-separated items
+            raw = re.sub(r'(correlate|attack chain|vulnerability chain|attack path|findings?)\s*',
+                         '', message, flags=re.IGNORECASE).strip()
+            findings_list = [f.strip() for f in re.split(r'[,\n;]+', raw) if f.strip()]
+            if findings_list and self.vuln_correlator:
+                out = self.vuln_correlator.correlate(findings_list)
+                return {
+                    "success": True,
+                    "response": f"```\n{out}\n```",
+                    "executed": True,
+                    "command": "vulnerability-correlator",
+                    "category": "exploitation",
+                    "suggested_tools": ["nuclei", "metasploit"],
+                }
+            return {"success": True,
+                    "response": "Provide findings to correlate into attack chains:\n"
+                                "  `correlate findings: open ssh, weak credential, sql injection`\n"
+                                "  `attack chain: graphql introspection, mutation, admin`",
+                    "category": "exploitation", "suggested_tools": ["nuclei"]}
+
+        # CTF Workflow
+        if any(w in msg_lower for w in ["ctf workflow", "ctf guide", "ctf help",
+                                         "how to solve ctf", "ctf approach"]):
+            cat = "web"
+            for c in ["web", "crypto", "forensics", "binary", "network"]:
+                if c in msg_lower:
+                    cat = c
+                    break
+            if self.ctf_workflow:
+                out = self.ctf_workflow.guide(cat)
+                return {
+                    "success": True,
+                    "response": f"```\n{out}\n```",
+                    "category": "ctf",
+                    "suggested_tools": ["gobuster", "sqlmap", "gdb", "binwalk"],
+                }
+
+        # Bug Bounty Workflow
+        if any(w in msg_lower for w in ["bug bounty workflow", "bb workflow", "hunting workflow",
+                                         "recon workflow", "full workflow", "full recon"]):
+            if target and self.bb_workflow:
+                out = self.bb_workflow.phase_summary(target.lstrip("https://").lstrip("http://"))
+                return {
+                    "success": True,
+                    "response": f"```\n{out}\n```",
+                    "executed": False,
+                    "command": f"bb-workflow {target}",
+                    "category": "bugbounty",
+                    "suggested_tools": ["subfinder", "httpx", "nuclei", "dalfox"],
+                }
+
+        # Performance Monitor
+        if any(w in msg_lower for w in ["performance", "tool stats", "execution time",
+                                         "perf monitor", "slow tools"]):
+            if self.perf_monitor:
+                out = self.perf_monitor.summary()
+                return {"success": True, "response": f"```\n{out}\n```",
+                        "category": "general", "suggested_tools": []}
+
+        # Intelligent Decision Engine
+        if any(w in msg_lower for w in ["best tool", "what tool", "recommend tool",
+                                         "which tool", "intelligent scan", "smart scan",
+                                         "auto select tool", "optimize scan"]):
+            if target and self.decision_engine:
+                decision = self.decision_engine.decide(target, "web")
+                return {
+                    "success": True,
+                    "response": f"```\n{decision['summary']}\n```",
+                    "executed": False,
+                    "command": f"intelligent-decide {target}",
+                    "category": "web",
+                    "suggested_tools": decision.get("recommended_tools", [])[:4],
+                }
+
+        # ── API Security Testing ─────────────────────────────────────────────
+        _api_kws = [
+            "graphql", "gql", "introspection", "graphql audit", "graphql security",
+            "jwt", "json web token", "bearer token", "jwt crack", "jwt decode",
+            "jwt analyze", "jwt analysis", "jwt security",
+            "rest api", "api security", "api fuzz", "api test", "api audit",
+            "api endpoint", "api route", "openapi", "swagger", "kiterunner",
+            "arjun", "parameter discovery", "hidden parameters", "api scan",
+            "cors bypass", "rate limit", "ssrf", "api auth", "api injection",
+        ]
+        if any(w in msg_lower for w in _api_kws):
+            # JWT-specific
+            if any(w in msg_lower for w in ["jwt", "json web token", "bearer token",
+                                             "jwt decode", "jwt crack", "jwt analyze"]):
+                # Extract token from message (looks like eyJ...)
+                token_match = re.search(r'eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*',
+                                        message)
+                if token_match:
+                    token = token_match.group()
+                    output = self._jwt_analyze(token)
+                    return {
+                        "success": True,
+                        "response": f"JWT Analysis:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "command": f"jwt_tool {token[:40]}...",
+                        "category": "api",
+                        "suggested_tools": ["jwt_tool", "nuclei"],
+                    }
+                elif target and "crack" in msg_lower:
+                    # crack JWT from URL — try to fetch and extract
+                    return {
+                        "success": True,
+                        "response": (
+                            "To crack a JWT, paste the full token. Example:\n\n"
+                            "  `jwt crack eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiYWRtaW4ifQ.xxxx`\n\n"
+                            "I'll decode the header/payload, check algorithm, expiry, "
+                            "and attempt brute-force if it's HS256/HS384/HS512."
+                        ),
+                        "category": "api",
+                        "suggested_tools": ["jwt_tool"],
+                    }
+                return {
+                    "success": True,
+                    "response": (
+                        "JWT Security Testing:\n\n"
+                        "Paste a token to decode/analyze/crack:\n"
+                        "  `jwt decode eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiYWRtaW4ifQ.xxxx`\n\n"
+                        "Checks performed:\n"
+                        "  - Header/payload decode\n"
+                        "  - Algorithm weakness (none, RS256→HS256 confusion)\n"
+                        "  - Expiry, sensitive claims\n"
+                        "  - Secret brute-force (HS256 with rockyou)\n"
+                        "  - jwt_tool extended tests if installed"
+                    ),
+                    "category": "api",
+                    "suggested_tools": ["jwt_tool"],
+                }
+
+            # GraphQL-specific
+            if any(w in msg_lower for w in ["graphql", "gql", "introspection"]):
+                if target:
+                    # Normalise URL to /graphql if no path given
+                    gql_url = target
+                    if "/graphql" not in gql_url and not re.search(r'/[a-z]{3,}', gql_url):
+                        gql_url = gql_url.rstrip("/") + "/graphql"
+                    output = self._graphql_security_checks(gql_url)
+                    return {
+                        "success": True,
+                        "response": f"```\n{output}\n```",
+                        "executed": True,
+                        "command": f"graphql-audit {gql_url}",
+                        "category": "api",
+                        "suggested_tools": ["nuclei", "graphql-cop"],
+                    }
+                return {
+                    "success": True,
+                    "response": (
+                        "GraphQL Security Assessment:\n\n"
+                        "Provide a target URL:\n"
+                        "  `graphql audit http://target.com/graphql`\n\n"
+                        "Checks performed:\n"
+                        "  - Introspection enabled (schema leak)\n"
+                        "  - GET-based queries (CSRF risk)\n"
+                        "  - Batch / alias amplification\n"
+                        "  - SQL/NoSQL injection probes\n"
+                        "  - graphql-cop security scanner\n"
+                        "  - Nuclei GraphQL templates"
+                    ),
+                    "category": "api",
+                    "suggested_tools": ["graphql-cop", "nuclei"],
+                }
+
+            # REST API assessment
+            if target:
+                output = self._rest_api_audit(target)
+                return {
+                    "success": True,
+                    "response": f"```\n{output}\n```",
+                    "executed": True,
+                    "command": f"rest-api-audit {target}",
+                    "category": "api",
+                    "suggested_tools": ["kiterunner", "arjun", "nuclei", "ffuf"],
+                }
+            return {
+                "success": True,
+                "response": self._tools_list("api"),
+                "category": "api",
+                "suggested_tools": ["kiterunner", "arjun", "nuclei", "graphql-cop"],
+            }
+
         # ── CTF ───────────────────────────────────────────────────────────────
         if any(w in msg_lower for w in ["ctf", "capture the flag", "challenge"]):
             return {
@@ -10384,12 +11077,22 @@ class CFAIChatEngine:
                 f'"{message}"\n'
                 f'Detected target: "{target or "none"}"\n\n'
                 f'Your job: identify the EXACT security tool and command to run.\n'
-                f'Available tools: nmap, gobuster, ffuf, sqlmap, nikto, nuclei, wpscan, '
-                f'dalfox, subfinder, amass, dnsenum, theHarvester, fierce, hydra, hashcat, '
-                f'john, binwalk, exiftool, steghide, vol, trivy, checkov, searchsploit, '
-                f'msfvenom, shodan, virustotal.\n\n'
+                f'Available tools:\n'
+                f'  Network: nmap, rustscan, masscan, enum4linux\n'
+                f'  Web: gobuster, ffuf, feroxbuster, sqlmap, nikto, dalfox, nuclei, wpscan, httpx\n'
+                f'  OSINT: subfinder, amass, dnsenum, theHarvester, fierce\n'
+                f'  Password: hydra, hashcat, john, medusa\n'
+                f'  Binary: gdb, checksec, ROPgadget, ropper, r2, binwalk, exiftool, steghide\n'
+                f'  Forensics: vol, binwalk, exiftool, steghide, foremost\n'
+                f'  Cloud: trivy, checkov, kube-hunter, prowler\n'
+                f'  API Security: graphql-cop, jwt_tool, kiterunner, arjun\n'
+                f'  Intel: shodan, virustotal, searchsploit, msfvenom\n\n'
+                f'IMPORTANT: Use nmap flags "-sT -Pn" (no raw sockets). '
+                f'For API targets, prefer graphql-cop, jwt_tool, arjun, or kiterunner. '
                 f'Respond with ONLY valid JSON (no markdown):\n'
-                f'{{"tool":"<name>","command":["tool","arg1","arg2"],"category":"<network|web|osint|password|forensics|binary|cloud|intel>","label":"<short description>"}}\n'
+                f'{{"tool":"<name>","command":["tool","arg1","arg2"],'
+                f'"category":"<network|web|osint|password|forensics|binary|cloud|api|intel>",'
+                f'"label":"<short description>"}}\n'
                 f'If you cannot determine the intent, respond: {{"tool":"none"}}'
             )
             resp = client.messages.create(
@@ -10448,8 +11151,546 @@ class CFAIChatEngine:
             "  hackerone programs\n\n"
             "Password:\n"
             "  crack hash 5f4dcc3b5aa765d61d8327deb882cf99\n\n"
+            "API Security:\n"
+            "  graphql audit http://target.com/graphql\n"
+            "  jwt decode eyJhbGciOiJIUzI1NiJ9...\n"
+            "  api security test http://target.com/api/v1/\n\n"
             "Always obtain written authorization before testing any target."
         )
+
+
+# =============================================================================
+# SPECIALIZED AI AGENTS
+# =============================================================================
+
+class TechnologyDetector:
+    """Detect tech stack from live HTTP responses (CMS, framework, language)."""
+
+    _SIGNATURES: Dict[str, List] = {
+        "WordPress":     [("X-Powered-By", ""), ("", "wp-content/"), ("", "wp-json/")],
+        "Drupal":        [("X-Generator", "Drupal"), ("", "Drupal.settings")],
+        "Joomla":        [("", "/components/com_"), ("", "Joomla!")],
+        "Laravel":       [("Set-Cookie", "laravel_session"), ("X-Powered-By", "")],
+        "Django":        [("Set-Cookie", "csrftoken"), ("X-Frame-Options", "SAMEORIGIN")],
+        "Rails":         [("X-Powered-By", "Phusion Passenger"), ("", "_session_id")],
+        "Express.js":    [("X-Powered-By", "Express")],
+        "Spring Boot":   [("", "Whitelabel Error Page"), ("", "Spring")],
+        "PHP":           [("X-Powered-By", "PHP"), ("", ".php")],
+        "ASP.NET":       [("X-Powered-By", "ASP.NET"), ("X-AspNet-Version", "")],
+        "Nginx":         [("Server", "nginx")],
+        "Apache":        [("Server", "Apache")],
+        "Cloudflare":    [("CF-Ray", ""), ("Server", "cloudflare")],
+        "GraphQL":       [("", "graphql"), ("", "__schema")],
+        "FastAPI":       [("", "openapi.json"), ("", "FastAPI")],
+        "Next.js":       [("", "__NEXT_DATA__"), ("", "_next/static")],
+        "React":         [("", "react-root"), ("", "__reactFiber")],
+        "Vue.js":        [("", "__vue__"), ("", "vue.min.js")],
+    }
+
+    def detect(self, url: str) -> Dict[str, Any]:
+        detected = []
+        raw_headers: Dict[str, str] = {}
+        body = ""
+        try:
+            r = requests.get(url, timeout=10, allow_redirects=True,
+                             headers={"User-Agent": "Mozilla/5.0"})
+            raw_headers = dict(r.headers)
+            body = r.text[:8000]
+            server = r.headers.get("Server", "")
+            powered = r.headers.get("X-Powered-By", "")
+            for tech, sigs in self._SIGNATURES.items():
+                for (header, value) in sigs:
+                    if header:
+                        hval = r.headers.get(header, "")
+                        if value and value.lower() in hval.lower():
+                            detected.append(tech)
+                            break
+                        elif not value and hval:
+                            detected.append(tech)
+                            break
+                    else:
+                        if value and value.lower() in body.lower():
+                            detected.append(tech)
+                            break
+        except Exception as e:
+            return {"technologies": [], "error": str(e), "headers": {}}
+        return {
+            "technologies": list(set(detected)),
+            "server": raw_headers.get("Server", "unknown"),
+            "powered_by": raw_headers.get("X-Powered-By", ""),
+            "headers": {k: v for k, v in raw_headers.items()
+                        if k.lower() in ("server", "x-powered-by", "x-generator",
+                                         "cf-ray", "x-frame-options", "content-type")},
+        }
+
+    def recommend_tools(self, technologies: List[str]) -> List[str]:
+        mapping = {
+            "WordPress": ["wpscan", "nuclei -t wordpress/", "gobuster"],
+            "Drupal": ["droopescan", "nuclei", "gobuster"],
+            "Joomla": ["joomscan", "nuclei", "gobuster"],
+            "PHP": ["sqlmap", "nikto", "ffuf"],
+            "ASP.NET": ["nuclei", "nikto", "ffuf"],
+            "GraphQL": ["graphql-cop", "nuclei -t graphql/"],
+            "Nginx": ["nuclei", "nikto"],
+            "Apache": ["nuclei", "nikto"],
+            "Cloudflare": ["wafw00f", "nuclei"],
+            "FastAPI": ["nuclei -t exposures/apis/", "arjun"],
+        }
+        tools = []
+        for tech in technologies:
+            tools.extend(mapping.get(tech, []))
+        return list(dict.fromkeys(tools))  # preserve order, deduplicate
+
+
+class RateLimitDetector:
+    """Detect rate limiting behavior on HTTP endpoints."""
+
+    def detect(self, url: str, method: str = "GET",
+               count: int = 30, burst: bool = True) -> Dict[str, Any]:
+        statuses: List[int] = []
+        times: List[float] = []
+        import time as _t
+        headers_429: Dict[str, str] = {}
+        try:
+            for i in range(count):
+                t0 = _t.time()
+                try:
+                    r = requests.request(method, url, timeout=5,
+                                         headers={"User-Agent": f"Mozilla/5.0 cfai/{i}"})
+                    statuses.append(r.status_code)
+                    if r.status_code == 429:
+                        headers_429 = dict(r.headers)
+                except requests.exceptions.Timeout:
+                    statuses.append(0)
+                times.append(_t.time() - t0)
+                if not burst and i > 0:
+                    _t.sleep(0.1)
+        except Exception as e:
+            return {"error": str(e), "limited": False}
+
+        limited = 429 in statuses
+        first_limit = statuses.index(429) + 1 if limited else None
+        retry_after = headers_429.get("Retry-After") or headers_429.get("X-RateLimit-Reset")
+        ratelimit_limit = headers_429.get("X-RateLimit-Limit") or headers_429.get("RateLimit-Limit")
+
+        avg_time = sum(times) / len(times) if times else 0
+        return {
+            "limited": limited,
+            "first_limit_at_request": first_limit,
+            "total_requests": count,
+            "statuses": statuses,
+            "retry_after": retry_after,
+            "rate_limit_header": ratelimit_limit,
+            "avg_response_ms": round(avg_time * 1000, 1),
+            "finding": (
+                f"Rate limited after {first_limit} requests — Retry-After: {retry_after}"
+                if limited else f"No rate limit detected in {count} requests"
+            ),
+        }
+
+
+class FailureRecoverySystem:
+    """When a primary tool fails, suggest and run alternatives."""
+
+    _ALTERNATIVES: Dict[str, List[str]] = {
+        "nmap":         ["masscan", "rustscan", "netcat"],
+        "nuclei":       ["nikto", "nmap -sV --script vuln"],
+        "gobuster":     ["ffuf", "feroxbuster", "dirsearch", "dirb"],
+        "dalfox":       ["xsstrike", "xsser"],
+        "sqlmap":       ["nosqli", "ghauri"],
+        "subfinder":    ["amass", "dnsenum", "theHarvester"],
+        "amass":        ["subfinder", "dnsenum", "fierce"],
+        "wpscan":       ["nuclei -t wordpress/", "nikto"],
+        "hydra":        ["medusa", "ncrack"],
+        "hashcat":      ["john"],
+        "john":         ["hashcat"],
+        "binwalk":      ["foremost", "strings", "xxd"],
+        "volatility":   ["vol3", "strings", "foremost"],
+        "kiterunner":   ["ffuf", "gobuster", "feroxbuster"],
+        "graphql-cop":  ["nuclei -t graphql/"],
+        "jwt_tool":     ["python3 -c 'import base64,json; ...'"],
+        "arjun":        ["ffuf", "x8"],
+        "trivy":        ["grype", "syft", "docker scan"],
+        "checkov":      ["terrascan", "tfsec"],
+    }
+
+    def get_alternatives(self, failed_tool: str) -> List[str]:
+        base = os.path.basename(failed_tool).lower()
+        return self._ALTERNATIVES.get(base, [])
+
+    def analyze_error(self, tool: str, error_output: str) -> Dict[str, Any]:
+        error_lower = error_output.lower()
+        diagnosis = "unknown error"
+        fix_hint = ""
+        if "command not found" in error_lower or "no such file" in error_lower:
+            diagnosis = "tool not installed"
+            fix_hint = f"Install: apt-get install -y {os.path.basename(tool)} 2>/dev/null || pip3 install {os.path.basename(tool)}"
+        elif "permission denied" in error_lower:
+            diagnosis = "permission denied"
+            fix_hint = f"Fix: chmod +x $(which {os.path.basename(tool)}) or run as root"
+        elif "raw socket" in error_lower or "operation not permitted" in error_lower:
+            diagnosis = "requires root / raw socket"
+            fix_hint = "Use -sT (TCP connect) instead of SYN scan, or run as root"
+        elif "connection refused" in error_lower or "timeout" in error_lower:
+            diagnosis = "target unreachable"
+            fix_hint = "Check target is alive: ping -c1 <target>"
+        elif "home" in error_lower and "permission" in error_lower:
+            diagnosis = "HOME directory not writable"
+            fix_hint = "Set HOME=/tmp/tool_home before running"
+        return {
+            "tool": tool,
+            "diagnosis": diagnosis,
+            "fix_hint": fix_hint,
+            "alternatives": self.get_alternatives(tool),
+        }
+
+
+class PerformanceMonitor:
+    """Track tool execution times and flag slow tools."""
+
+    def __init__(self) -> None:
+        self._timings: Dict[str, List[float]] = {}
+        self._lock = threading.Lock()
+
+    def record(self, tool: str, elapsed: float) -> None:
+        with self._lock:
+            if tool not in self._timings:
+                self._timings[tool] = []
+            self._timings[tool].append(elapsed)
+            if len(self._timings[tool]) > 100:
+                self._timings[tool] = self._timings[tool][-100:]
+
+    def stats(self, tool: str) -> Dict[str, Any]:
+        with self._lock:
+            times = self._timings.get(tool, [])
+        if not times:
+            return {"tool": tool, "runs": 0}
+        return {
+            "tool": tool,
+            "runs": len(times),
+            "avg_s": round(sum(times) / len(times), 2),
+            "max_s": round(max(times), 2),
+            "min_s": round(min(times), 2),
+        }
+
+    def summary(self) -> str:
+        lines = ["Tool Performance Summary:"]
+        with self._lock:
+            items = sorted(self._timings.items(),
+                           key=lambda x: sum(x[1]) / len(x[1]) if x[1] else 0,
+                           reverse=True)
+        for tool, times in items[:15]:
+            avg = sum(times) / len(times)
+            lines.append(f"  {tool:25s} avg={avg:.1f}s  runs={len(times)}")
+        return "\n".join(lines)
+
+
+class ParameterOptimizer:
+    """Generate optimized tool parameters based on target context."""
+
+    _TIMING_PROFILES = {
+        "fast":     {"nmap": "-T5", "ffuf": "-t 200", "gobuster": "-t 100"},
+        "normal":   {"nmap": "-T4", "ffuf": "-t 100", "gobuster": "-t 50"},
+        "stealth":  {"nmap": "-T2 -f --data-length 24", "ffuf": "-t 5 -p 0.5-1.5",
+                     "gobuster": "-t 10 --delay 200ms"},
+        "waf":      {"nmap": "-T3 --randomize-hosts", "ffuf": "-t 1 -p 1.0",
+                     "sqlmap": "--delay=2 --random-agent --tamper=space2comment"},
+    }
+
+    def optimize(self, tool: str, target: str, profile: str = "normal",
+                 technologies: Optional[List[str]] = None) -> List[str]:
+        base_params = self._TIMING_PROFILES.get(profile, {}).get(tool, "").split()
+        extra: List[str] = []
+        if technologies:
+            if "Cloudflare" in technologies and tool in ("sqlmap", "ffuf", "gobuster"):
+                extra = ["--delay=2", "--random-agent"] if tool == "sqlmap" else []
+            if "WordPress" in technologies and tool == "gobuster":
+                extra = ["-w", "/usr/share/wordlists/dirb/common.txt",
+                         "-x", "php,html,txt,xml"]
+        return base_params + extra
+
+
+class GracefulDegradation:
+    """Fall back to alternative tools when primary tool is unavailable."""
+
+    def __init__(self, tool_path: str) -> None:
+        self._path = tool_path
+
+    def _available(self, tool: str) -> bool:
+        for d in self._path.split(":"):
+            if os.path.isfile(os.path.join(d, tool)) and os.access(os.path.join(d, tool), os.X_OK):
+                return True
+        return bool(shutil.which(tool))
+
+    def resolve_chain(self, preferred: List[str]) -> Optional[str]:
+        """Return first available tool from the preference list."""
+        for tool in preferred:
+            if self._available(tool):
+                return tool
+        return None
+
+    def port_scanner(self) -> str:
+        return self.resolve_chain(["rustscan", "masscan", "nmap"]) or "nmap"
+
+    def dir_bruter(self) -> str:
+        return self.resolve_chain(["ffuf", "gobuster", "feroxbuster", "dirb"]) or "gobuster"
+
+    def subdomain_enum(self) -> str:
+        return self.resolve_chain(["subfinder", "amass", "dnsenum", "fierce"]) or "subfinder"
+
+    def vuln_scanner(self) -> str:
+        return self.resolve_chain(["nuclei", "nikto"]) or "nuclei"
+
+
+class CVEIntelligenceManager:
+    """Query CVE databases and correlate with target technology."""
+
+    _NVD_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+    def search_cve(self, keyword: str, limit: int = 10) -> str:
+        try:
+            params = {"keywordSearch": keyword, "resultsPerPage": limit,
+                      "cvssV3Severity": "HIGH,CRITICAL"}
+            r = requests.get(self._NVD_BASE, params=params, timeout=15)
+            if r.status_code != 200:
+                return f"NVD API error: HTTP {r.status_code}"
+            data = r.json()
+            vulns = data.get("vulnerabilities", [])
+            if not vulns:
+                return f"No HIGH/CRITICAL CVEs found for: {keyword}"
+            lines = [f"CVE Intelligence — '{keyword}' ({len(vulns)} result(s)):"]
+            for v in vulns[:limit]:
+                cve = v.get("cve", {})
+                cve_id = cve.get("id", "N/A")
+                descs = cve.get("descriptions", [])
+                desc = next((d["value"] for d in descs if d.get("lang") == "en"), "")[:120]
+                metrics = cve.get("metrics", {})
+                cvss = "N/A"
+                for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
+                    m = metrics.get(key)
+                    if m:
+                        cvss = m[0].get("cvssData", {}).get("baseScore", "N/A")
+                        break
+                lines.append(f"  [{cve_id}] CVSS {cvss} — {desc}")
+            return "\n".join(lines)
+        except Exception as e:
+            return f"CVE lookup failed: {e}"
+
+    def search_exploitdb(self, keyword: str, run_tool_fn=None) -> str:
+        if run_tool_fn:
+            out = run_tool_fn(["searchsploit", "--json", keyword], timeout=30)
+            try:
+                data = json.loads(out)
+                exploits = data.get("RESULTS_EXPLOIT", [])
+                if not exploits:
+                    return f"No ExploitDB results for: {keyword}"
+                lines = [f"ExploitDB — '{keyword}' ({len(exploits)} result(s)):"]
+                for e in exploits[:10]:
+                    lines.append(f"  EDB-{e.get('EDB-ID','?')} — {e.get('Title','')[:80]}")
+                    lines.append(f"    Path: {e.get('Path','')}")
+                return "\n".join(lines)
+            except Exception:
+                return out[:1000]
+        return "searchsploit not available"
+
+
+class VulnerabilityCorrelator:
+    """Correlate multiple scan outputs into prioritized attack chains."""
+
+    _ATTACK_CHAINS = {
+        ("open ssh port", "weak credential"): "SSH brute-force → shell",
+        ("sql injection", "admin panel"): "SQLi → admin takeover → RCE",
+        ("xss", "session cookie"): "XSS → session hijack",
+        ("open rdp", "unpatched windows"): "EternalBlue / BlueKeep exploitation",
+        ("graphql introspection", "mutation"): "GraphQL mutation abuse → data exfiltration",
+        ("jwt none algorithm", "admin"): "JWT none-alg bypass → privilege escalation",
+        ("ssrf", "aws metadata"): "SSRF → AWS metadata → credential theft",
+        ("cors wildcard", "sensitive api"): "CORS bypass → cross-origin data theft",
+        ("wordpress", "outdated plugin"): "Plugin exploit → webshell → server pivot",
+        ("open ldap", "anonymous bind"): "LDAP anonymous → AD enumeration",
+    }
+
+    def correlate(self, findings: List[str]) -> str:
+        findings_lower = " ".join(f.lower() for f in findings)
+        chains_found = []
+        for (a, b), chain in self._ATTACK_CHAINS.items():
+            if a in findings_lower and b in findings_lower:
+                chains_found.append(f"  [CHAIN] {chain}")
+        lines = ["Vulnerability Correlation Analysis:"]
+        if chains_found:
+            lines.append(f"  Found {len(chains_found)} attack chain(s):")
+            lines.extend(chains_found)
+        else:
+            lines.append("  No automated attack chains identified.")
+            lines.append("  Manual correlation recommended based on findings.")
+        lines.append(f"\n  Total findings provided: {len(findings)}")
+        return "\n".join(lines)
+
+
+class AIExploitGenerator:
+    """Generate PoC exploits using Claude API and ExploitDB."""
+
+    def generate(self, vulnerability: str, target: str = "",
+                 api_key: str = "") -> str:
+        if not api_key:
+            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return "ANTHROPIC_API_KEY not set — cannot generate exploit PoC via AI."
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=api_key)
+            prompt = (
+                f"You are a professional penetration tester writing a PoC exploit for educational/authorized testing.\n"
+                f"Vulnerability: {vulnerability}\n"
+                f"Target context: {target or 'generic'}\n\n"
+                f"Provide:\n"
+                f"1. Brief technical explanation of the vulnerability\n"
+                f"2. A concise, working PoC (Python or bash) — no destructive payloads\n"
+                f"3. Remediation recommendation\n"
+                f"Keep it under 400 words. Use code blocks."
+            )
+            resp = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=600,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return resp.content[0].text
+        except Exception as e:
+            return f"Exploit generation error: {e}"
+
+
+class BugBountyWorkflowManager:
+    """Orchestrate a full bug bounty workflow in phases."""
+
+    PHASES = [
+        ("1_recon",     ["subfinder -d {domain} -silent",
+                         "amass enum -d {domain} -passive"]),
+        ("2_httpx",     ["httpx -l {recon_out} -status-code -title -tech-detect -silent"]),
+        ("3_vuln",      ["nuclei -l {httpx_out} -severity medium,high,critical -silent",
+                         "dalfox file {httpx_out} --silence"]),
+        ("4_content",   ["ffuf -u {target}/FUZZ -w /usr/share/wordlists/dirb/common.txt "
+                         "-mc 200,301,302 -t 50 -timeout 10"]),
+    ]
+
+    def phase_summary(self, domain: str) -> str:
+        lines = [f"Bug Bounty Workflow for: {domain}\n"]
+        for phase, cmds in self.PHASES:
+            lines.append(f"Phase {phase}:")
+            for cmd in cmds:
+                lines.append(f"  {cmd.format(domain=domain, target=f'https://{domain}', recon_out='subdomains.txt', httpx_out='alive.txt')}")
+        lines.append(
+            "\nTo execute all phases:\n"
+            f"  1. subfinder -d {domain} -silent -o subdomains.txt\n"
+            f"  2. httpx -l subdomains.txt -o alive.txt\n"
+            f"  3. nuclei -l alive.txt -severity medium,high,critical\n"
+            f"  4. dalfox file alive.txt --silence\n"
+            f"  5. ffuf -u https://{domain}/FUZZ -w common.txt\n"
+        )
+        return "\n".join(lines)
+
+
+class CTFWorkflowManager:
+    """Guide CTF challenge solving by category."""
+
+    WORKFLOWS = {
+        "web": [
+            "1. View source, check JS files for secrets",
+            "2. gobuster dir -u <url> -w /usr/share/wordlists/dirb/common.txt",
+            "3. nikto -h <url>",
+            "4. Try SQLi: sqlmap -u '<url>?id=1' --dbs --batch",
+            "5. Try XSS: dalfox url <url>",
+            "6. Check robots.txt, .git/, /.env",
+        ],
+        "crypto": [
+            "1. Identify hash: hashid <hash> or hash-identifier <hash>",
+            "2. Crack: hashcat -a 0 -m <mode> hash.txt /usr/share/wordlists/rockyou.txt --force",
+            "3. john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt",
+            "4. For JWT: paste token and run jwt decode <token>",
+            "5. XOR/Caesar: check CyberChef recipes",
+        ],
+        "forensics": [
+            "1. file <target>",
+            "2. strings <target> | grep -i flag",
+            "3. binwalk -e <target>",
+            "4. exiftool <target>",
+            "5. steghide extract -sf <image>",
+            "6. zsteg <image.png> (PNG steganography)",
+            "7. For memory dumps: volatility -f <dump> imageinfo",
+        ],
+        "binary": [
+            "1. file <binary> && checksec <binary>",
+            "2. strings <binary> | grep -i flag",
+            "3. ltrace / strace <binary>",
+            "4. gdb <binary> — run: info functions, disassemble main",
+            "5. r2 -A <binary> — run: afl, pdf @main",
+            "6. ROPgadget --binary <binary>",
+            "7. pwntools: python3 -c 'from pwn import *; ...'",
+        ],
+        "network": [
+            "1. Capture: tcpdump -i any -w capture.pcap",
+            "2. Analyze in Wireshark: follow TCP/HTTP streams",
+            "3. nmap -sV -sC -T4 <target>",
+            "4. Extract from pcap: tshark -r capture.pcap -T fields -e http.file_data",
+        ],
+    }
+
+    def guide(self, category: str) -> str:
+        cat = category.lower()
+        if cat not in self.WORKFLOWS:
+            cats = ", ".join(self.WORKFLOWS.keys())
+            return f"CTF categories: {cats}\nUsage: ctf workflow <category>"
+        steps = self.WORKFLOWS[cat]
+        lines = [f"CTF Workflow — {cat.title()}:\n"]
+        for step in steps:
+            lines.append(f"  {step}")
+        return "\n".join(lines)
+
+
+class IntelligentDecisionEngine:
+    """Select optimal tool and parameters by fingerprinting the target."""
+
+    def __init__(self, tech_detector: TechnologyDetector,
+                 param_optimizer: ParameterOptimizer,
+                 degradation: GracefulDegradation) -> None:
+        self.tech = tech_detector
+        self.optimizer = param_optimizer
+        self.degradation = degradation
+
+    def decide(self, target: str, goal: str = "general") -> Dict[str, Any]:
+        fp = self.tech.detect(target)
+        technologies = fp.get("technologies", [])
+        recommended = self.tech.recommend_tools(technologies)
+
+        # Pick primary tool based on goal
+        primary = "nmap"
+        if goal == "web":
+            primary = self.degradation.vuln_scanner()
+        elif goal == "dirs":
+            primary = self.degradation.dir_bruter()
+        elif goal == "subdomains":
+            primary = self.degradation.subdomain_enum()
+        elif goal == "ports":
+            primary = self.degradation.port_scanner()
+
+        profile = "waf" if "Cloudflare" in technologies else "normal"
+        params = self.optimizer.optimize(primary, target, profile, technologies)
+
+        return {
+            "technologies": technologies,
+            "server": fp.get("server"),
+            "recommended_tools": recommended,
+            "primary_tool": primary,
+            "optimized_params": params,
+            "profile": profile,
+            "summary": (
+                f"Target: {target}\n"
+                f"Detected: {', '.join(technologies) or 'unknown stack'}\n"
+                f"Server: {fp.get('server', 'unknown')}\n"
+                f"Profile: {profile}\n"
+                f"Recommended: {', '.join(recommended[:5]) or primary}\n"
+                f"Params: {' '.join(params)}"
+            ),
+        }
 
 
 def _fix_tool_permissions():
@@ -10492,6 +11733,10 @@ def _fix_tool_permissions():
         'msfvenom', 'msfconsole', 'searchsploit',
         # Wireless
         'airmon-ng', 'airodump-ng', 'aireplay-ng', 'aircrack-ng',
+        # API Security
+        'graphql-cop', 'jwt_tool', 'kiterunner', 'kr', 'arjun', 'x8',
+        # Additional web tools
+        'hakrawler', 'gau', 'waybackurls', 'anew', 'qsreplace', 'uro',
     ]
     fixed = 0
     for d in TOOL_DIRS:
@@ -10512,6 +11757,24 @@ def _fix_tool_permissions():
 prompt_guard = PromptInjectionProtector()
 chat_engine = CFAIChatEngine(prompt_guard)
 _fix_tool_permissions()
+
+# Wire AI agents into chat_engine after all classes are defined
+_tech_det   = TechnologyDetector()
+_param_opt  = ParameterOptimizer()
+_degrade    = GracefulDegradation(chat_engine._TOOL_PATH)
+chat_engine.tech_detector    = _tech_det
+chat_engine.rate_limiter     = RateLimitDetector()
+chat_engine.recovery         = FailureRecoverySystem()
+chat_engine.perf_monitor     = PerformanceMonitor()
+chat_engine.param_optimizer  = _param_opt
+chat_engine.degradation      = _degrade
+chat_engine.cve_intel        = CVEIntelligenceManager()
+chat_engine.vuln_correlator  = VulnerabilityCorrelator()
+chat_engine.exploit_gen      = AIExploitGenerator()
+chat_engine.bb_workflow      = BugBountyWorkflowManager()
+chat_engine.ctf_workflow     = CTFWorkflowManager()
+chat_engine.decision_engine  = IntelligentDecisionEngine(_tech_det, _param_opt, _degrade)
+logger.info("[startup] 12 AI agents wired into chat engine")
 
 # API Routes
 
