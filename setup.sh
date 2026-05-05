@@ -1,8 +1,8 @@
 #!/bin/bash
 # CF_AI Full Setup Script for Kali Linux
-# Installs all tools listed in the AI Automation for Attack and Reconnaissance Platform
+# Installs all tools from the AI Automation for Attack and Reconnaissance Platform
 
-set -e
+# Do NOT use set -e — allow individual installs to fail without stopping the whole script
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -13,6 +13,7 @@ NC='\033[0m'
 info()    { echo -e "${CYAN}[INFO]${NC} $1"; }
 success() { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
+err()     { echo -e "${RED}[ERR]${NC} $1"; }
 section() { echo -e "\n${RED}━━━ $1 ━━━${NC}"; }
 
 echo -e "${RED}"
@@ -27,44 +28,61 @@ cat << 'BANNER'
 BANNER
 echo -e "${NC}"
 
-# ── 1. System Update ──────────────────────────────────────────────────────
-section "System Update"
-sudo apt-get update -y && sudo apt-get upgrade -y
+# ── 1. Fix Chrome repo key issue before update ────────────────────────────
+section "Fixing APT Sources"
+# Remove broken Google Chrome apt source if present (we install via .deb directly)
+rm -f /etc/apt/sources.list.d/google-chrome.list 2>/dev/null || true
+rm -f /etc/apt/sources.list.d/google.list 2>/dev/null || true
+
+apt-get update -y 2>/dev/null || true
+apt-get upgrade -y 2>/dev/null || true
 success "System updated"
 
 # ── 2. Core Dependencies ─────────────────────────────────────────────────
 section "Core Dependencies"
-sudo apt-get install -y \
+
+# libgconf-2-4 was removed from Kali — skip it
+# libatk-bridge2.0-0 → libatk-bridge2.0-0t64 on newer Kali (apt handles alias)
+apt-get install -y \
     python3 python3-pip python3-dev python3-venv \
     build-essential libssl-dev libffi-dev \
     curl wget git unzip ca-certificates lsb-release \
     ruby ruby-dev \
     golang-go \
     default-jdk \
-    libpcap-dev libpq-dev \
-    xvfb libxi6 libgconf-2-4 libnss3-dev libxss1 \
-    libatk-bridge2.0-0 libdrm2 libgtk-3-0 libnspr4 \
+    libpcap-dev \
+    xvfb libxi6 libnss3-dev libxss1 \
+    libdrm2 libnspr4 \
     libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 \
     libxrandr2 libgbm1 fonts-liberation \
-    httpie net-tools dnsutils whois
+    net-tools dnsutils whois 2>/dev/null || true
+
+# Install optional packages one by one (some may not exist on all Kali versions)
+for pkg in httpie libpq-dev libatk-bridge2.0-0 libatk-bridge2.0-0t64 libgtk-3-0 libgtk-3-0t64; do
+    apt-get install -y "$pkg" 2>/dev/null || true
+done
+
 success "Core dependencies installed"
 
 # ── 3. Networking Tools ───────────────────────────────────────────────────
 section "Networking Tools (nmap, rustscan, masscan, autorecon, amass)"
 
-sudo apt-get install -y nmap masscan amass
+apt-get install -y nmap masscan amass 2>/dev/null || true
 success "nmap, masscan, amass installed"
 
-# RustScan
+# RustScan — download .deb directly from GitHub releases
 if ! command -v rustscan &>/dev/null; then
     info "Installing RustScan..."
-    curl -s https://api.github.com/repos/RustScan/RustScan/releases/latest \
-        | grep "browser_download_url.*amd64.deb" \
-        | cut -d '"' -f 4 \
-        | wget -qi - -O /tmp/rustscan.deb 2>/dev/null && \
-    sudo dpkg -i /tmp/rustscan.deb || true
-    rm -f /tmp/rustscan.deb
-    success "RustScan installed"
+    RUSTSCAN_URL=$(curl -s https://api.github.com/repos/RustScan/RustScan/releases/latest \
+        | grep "browser_download_url.*amd64.deb" | cut -d '"' -f 4 | head -1)
+    if [ -n "$RUSTSCAN_URL" ]; then
+        wget -q "$RUSTSCAN_URL" -O /tmp/rustscan.deb && \
+        dpkg -i /tmp/rustscan.deb 2>/dev/null || apt-get -f install -y 2>/dev/null || true
+        rm -f /tmp/rustscan.deb
+        command -v rustscan &>/dev/null && success "RustScan installed" || warn "RustScan install failed"
+    else
+        warn "Could not find RustScan release URL — install manually: https://github.com/RustScan/RustScan/releases"
+    fi
 else
     success "RustScan already installed"
 fi
@@ -72,295 +90,262 @@ fi
 # AutoRecon
 if ! command -v autorecon &>/dev/null; then
     info "Installing AutoRecon..."
-    pip3 install --user autorecon 2>/dev/null || \
+    pip3 install autorecon 2>/dev/null || \
     pip3 install git+https://github.com/Tib3rius/AutoRecon.git 2>/dev/null || \
-    warn "AutoRecon install failed — install manually: pip3 install autorecon"
-    success "AutoRecon installed"
+    warn "AutoRecon install failed — run: pip3 install autorecon"
 fi
 
 # ── 4. Web Application Tools ──────────────────────────────────────────────
 section "Web Application Tools (gobuster, feroxbuster, ffuf, nuclei, sqlmap)"
 
-sudo apt-get install -y gobuster dirb nikto sqlmap dirsearch wpscan
+apt-get install -y gobuster dirb nikto sqlmap dirsearch wpscan 2>/dev/null || true
+
+# Install Go-based tools
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+
+for tool_pkg in \
+    "github.com/ffuf/ffuf/v2@latest" \
+    "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest" \
+    "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest" \
+    "github.com/projectdiscovery/httpx/cmd/httpx@latest" \
+    "github.com/hahwul/dalfox/v2@latest" \
+    "github.com/projectdiscovery/katana/cmd/katana@latest" \
+    "github.com/hakluke/hakrawler@latest" \
+    "github.com/lc/gau/v2/cmd/gau@latest"
+do
+    tool_name=$(basename "${tool_pkg%%@*}")
+    if ! command -v "$tool_name" &>/dev/null; then
+        info "Installing $tool_name..."
+        go install -v "$tool_pkg" 2>/dev/null && success "$tool_name installed" || warn "$tool_name install failed"
+    else
+        success "$tool_name already installed"
+    fi
+done
+
+# Update nuclei templates
+nuclei -update-templates 2>/dev/null || true
 
 # Feroxbuster
 if ! command -v feroxbuster &>/dev/null; then
     info "Installing Feroxbuster..."
-    curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash 2>/dev/null || \
-    warn "Feroxbuster install failed — install manually"
+    apt-get install -y feroxbuster 2>/dev/null || \
+    curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh \
+        | bash 2>/dev/null || warn "Feroxbuster install failed"
 fi
 
-# FFUF via Go
-if ! command -v ffuf &>/dev/null; then
-    info "Installing ffuf..."
-    go install github.com/ffuf/ffuf/v2@latest 2>/dev/null || sudo apt-get install -y ffuf
-fi
-
-# Nuclei via Go
-if ! command -v nuclei &>/dev/null; then
-    info "Installing Nuclei..."
-    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest 2>/dev/null || sudo apt-get install -y nuclei
-fi
-nuclei -update-templates 2>/dev/null || true
-
-# Subfinder
-if ! command -v subfinder &>/dev/null; then
-    go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest 2>/dev/null || sudo apt-get install -y subfinder
-fi
-
-# HTTPx
-if ! command -v httpx &>/dev/null; then
-    go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest 2>/dev/null
-fi
-
-# Dalfox (XSS)
-if ! command -v dalfox &>/dev/null; then
-    go install github.com/hahwul/dalfox/v2@latest 2>/dev/null
-fi
-
-# Katana (web crawler)
-if ! command -v katana &>/dev/null; then
-    go install github.com/projectdiscovery/katana/cmd/katana@latest 2>/dev/null
-fi
-
-# Hakrawler
-if ! command -v hakrawler &>/dev/null; then
-    go install github.com/hakluke/hakrawler@latest 2>/dev/null
-fi
-
-# GAU (get all URLs)
-if ! command -v gau &>/dev/null; then
-    go install github.com/lc/gau/v2/cmd/gau@latest 2>/dev/null
-fi
-
-success "Web application tools installed"
+success "Web application tools done"
 
 # ── 5. Binary Analysis Tools ──────────────────────────────────────────────
 section "Binary Analysis Tools (ghidra, pwntools, angr, gdb, radare2)"
 
-sudo apt-get install -y gdb radare2 binwalk ltrace strace file
+apt-get install -y gdb radare2 binwalk ltrace strace file 2>/dev/null || true
 
-# GDB PEDA/PWNDBG
-if [ ! -d ~/.gdb-peda ]; then
-    info "Installing GDB PEDA..."
-    git clone https://github.com/longld/peda.git ~/.gdb-peda 2>/dev/null || true
-    echo "source ~/.gdb-peda/peda.py" >> ~/.gdbinit 2>/dev/null || true
+# GDB PEDA
+if [ ! -d "$HOME/.gdb-peda" ]; then
+    git clone --depth=1 https://github.com/longld/peda.git "$HOME/.gdb-peda" 2>/dev/null || true
+    echo "source $HOME/.gdb-peda/peda.py" >> "$HOME/.gdbinit" 2>/dev/null || true
 fi
 
 # Ghidra
 if ! command -v ghidra &>/dev/null; then
     info "Installing Ghidra..."
-    GHIDRA_VER="11.1.2"
-    GHIDRA_DATE="20240709"
-    GHIDRA_URL="https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_${GHIDRA_VER}_build/ghidra_${GHIDRA_VER}_PUBLIC_${GHIDRA_DATE}.zip"
-    wget -q "$GHIDRA_URL" -O /tmp/ghidra.zip 2>/dev/null && \
-    sudo unzip -q /tmp/ghidra.zip -d /opt/ && \
-    sudo ln -sf /opt/ghidra_${GHIDRA_VER}_PUBLIC/ghidraRun /usr/local/bin/ghidra && \
-    rm -f /tmp/ghidra.zip
-    success "Ghidra installed at /opt/ghidra_${GHIDRA_VER}_PUBLIC"
+    GHIDRA_JSON=$(curl -s https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/latest)
+    GHIDRA_URL=$(echo "$GHIDRA_JSON" | grep "browser_download_url.*zip" | cut -d '"' -f 4 | head -1)
+    if [ -n "$GHIDRA_URL" ]; then
+        wget -q "$GHIDRA_URL" -O /tmp/ghidra.zip && \
+        unzip -q /tmp/ghidra.zip -d /opt/ && \
+        GHIDRA_DIR=$(ls -d /opt/ghidra_* 2>/dev/null | head -1) && \
+        ln -sf "$GHIDRA_DIR/ghidraRun" /usr/local/bin/ghidra && \
+        rm -f /tmp/ghidra.zip
+        success "Ghidra installed at $GHIDRA_DIR"
+    else
+        warn "Ghidra download failed — install manually from https://ghidra-sre.org"
+    fi
 else
     success "Ghidra already installed"
 fi
 
-# ROPgadget, one_gadget, checksec
-pip3 install ropgadget 2>/dev/null || true
+# Python binary tools
+pip3 install ropgadget pwntools 2>/dev/null || warn "pwntools/ropgadget install failed"
 gem install one_gadget --no-document 2>/dev/null || true
-sudo apt-get install -y checksec 2>/dev/null || pip3 install checksec 2>/dev/null || true
+apt-get install -y checksec 2>/dev/null || pip3 install checksec 2>/dev/null || true
 
-# Pwntools (Python)
-pip3 install pwntools 2>/dev/null || warn "pwntools install failed"
+# Angr (large package — may take several minutes)
+info "Installing angr (this may take a few minutes)..."
+pip3 install angr 2>/dev/null || warn "angr install failed — run: pip3 install angr"
 
-# Angr (Python)
-pip3 install angr 2>/dev/null || warn "angr install failed (may take several minutes)"
-
-success "Binary analysis tools installed"
+success "Binary analysis tools done"
 
 # ── 6. Cloud Security Tools ───────────────────────────────────────────────
 section "Cloud Security Tools (prowler, scout-suite, trivy, kube-hunter, kube-bench)"
 
-# Prowler (AWS/Azure/GCP)
-if ! command -v prowler &>/dev/null; then
-    info "Installing Prowler..."
-    pip3 install prowler 2>/dev/null || warn "Prowler install failed"
-fi
+# Prowler
+pip3 install prowler 2>/dev/null || warn "prowler install failed"
 
 # Scout Suite
-if ! command -v scout &>/dev/null; then
-    info "Installing Scout Suite..."
-    pip3 install scoutsuite 2>/dev/null || warn "ScoutSuite install failed"
-fi
+pip3 install scoutsuite 2>/dev/null || warn "scoutsuite install failed"
 
-# Trivy (container vulnerability scanning)
+# Trivy
 if ! command -v trivy &>/dev/null; then
     info "Installing Trivy..."
-    wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg 2>/dev/null
-    echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -cs) main" | \
-        sudo tee /etc/apt/sources.list.d/trivy.list > /dev/null 2>&1
-    sudo apt-get update -y && sudo apt-get install -y trivy 2>/dev/null || \
-    warn "Trivy install failed — try: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin"
+    TRIVY_URL=$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest \
+        | grep "browser_download_url.*Linux-64bit.deb" | cut -d '"' -f 4 | head -1)
+    if [ -n "$TRIVY_URL" ]; then
+        wget -q "$TRIVY_URL" -O /tmp/trivy.deb && \
+        dpkg -i /tmp/trivy.deb 2>/dev/null && rm -f /tmp/trivy.deb
+        success "Trivy installed"
+    else
+        warn "Trivy .deb not found — trying apt..."
+        apt-get install -y trivy 2>/dev/null || warn "Trivy install failed"
+    fi
 fi
 
-# Kube-hunter (Kubernetes pentest)
-if ! command -v kube-hunter &>/dev/null; then
-    info "Installing kube-hunter..."
-    pip3 install kube-hunter 2>/dev/null || warn "kube-hunter install failed"
-fi
+# Kube-hunter
+pip3 install kube-hunter 2>/dev/null || warn "kube-hunter install failed"
 
-# Kube-bench (CIS Kubernetes assessment)
+# Kube-bench
 if ! command -v kube-bench &>/dev/null; then
     info "Installing kube-bench..."
-    KBENCH_VER=$(curl -s https://api.github.com/repos/aquasecurity/kube-bench/releases/latest | grep '"tag_name"' | cut -d '"' -f4)
-    wget -q "https://github.com/aquasecurity/kube-bench/releases/download/${KBENCH_VER}/kube-bench_${KBENCH_VER#v}_linux_amd64.tar.gz" \
-        -O /tmp/kube-bench.tar.gz 2>/dev/null && \
-    sudo tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/bin/ kube-bench && \
-    rm -f /tmp/kube-bench.tar.gz
-    success "kube-bench installed"
+    KBENCH_URL=$(curl -s https://api.github.com/repos/aquasecurity/kube-bench/releases/latest \
+        | grep "browser_download_url.*linux_amd64.tar.gz" | cut -d '"' -f 4 | head -1)
+    if [ -n "$KBENCH_URL" ]; then
+        wget -q "$KBENCH_URL" -O /tmp/kube-bench.tar.gz && \
+        tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/bin/ kube-bench 2>/dev/null && \
+        rm -f /tmp/kube-bench.tar.gz
+        success "kube-bench installed"
+    else
+        warn "kube-bench download failed"
+    fi
 fi
 
-# Checkov (Infrastructure as Code)
 pip3 install checkov 2>/dev/null || warn "checkov install failed"
 
-# Terrascan
-pip3 install terrascan 2>/dev/null || warn "terrascan install failed"
+success "Cloud security tools done"
 
-success "Cloud security tools installed"
-
-# ── 7. OSINT & Bug Bounty Tools ───────────────────────────────────────────
+# ── 7. OSINT & Bug Bounty ─────────────────────────────────────────────────
 section "OSINT & Bug Bounty (sherlock, recon-ng, spiderfoot)"
 
-# Sherlock (username searching)
+apt-get install -y theharvester dnsenum recon-ng 2>/dev/null || true
+
+# Sherlock
 if ! command -v sherlock &>/dev/null; then
-    info "Installing Sherlock..."
     pip3 install sherlock-project 2>/dev/null || \
-    (git clone https://github.com/sherlock-project/sherlock.git /opt/sherlock 2>/dev/null && \
-     sudo ln -sf /opt/sherlock/sherlock/sherlock.py /usr/local/bin/sherlock && \
-     chmod +x /usr/local/bin/sherlock) || warn "Sherlock install failed"
+    (git clone --depth=1 https://github.com/sherlock-project/sherlock.git /opt/sherlock 2>/dev/null && \
+     ln -sf /opt/sherlock/sherlock/sherlock.py /usr/local/bin/sherlock && \
+     chmod +x /usr/local/bin/sherlock && \
+     pip3 install -r /opt/sherlock/requirements.txt 2>/dev/null) || \
+    warn "Sherlock install failed"
 fi
 
-# Recon-ng (web reconnaissance framework)
-if ! command -v recon-ng &>/dev/null; then
-    info "Installing Recon-ng..."
-    sudo apt-get install -y recon-ng 2>/dev/null || \
-    (pip3 install recon-ng 2>/dev/null) || warn "Recon-ng install failed"
-fi
-
-# SpiderFoot (OSINT automation)
+# SpiderFoot
 if ! command -v spiderfoot &>/dev/null; then
-    info "Installing SpiderFoot..."
-    sudo apt-get install -y spiderfoot 2>/dev/null || \
-    (git clone https://github.com/smicallef/spiderfoot.git /opt/spiderfoot 2>/dev/null && \
+    apt-get install -y spiderfoot 2>/dev/null || \
+    (git clone --depth=1 https://github.com/smicallef/spiderfoot.git /opt/spiderfoot 2>/dev/null && \
      pip3 install -r /opt/spiderfoot/requirements.txt 2>/dev/null && \
-     sudo ln -sf /opt/spiderfoot/sf.py /usr/local/bin/spiderfoot) || \
+     ln -sf /opt/spiderfoot/sf.py /usr/local/bin/spiderfoot && \
+     chmod +x /usr/local/bin/spiderfoot) || \
     warn "SpiderFoot install failed"
 fi
 
-# TheHarvester
-sudo apt-get install -y theharvester 2>/dev/null || pip3 install theHarvester 2>/dev/null || true
+pip3 install wafw00f arjun shodan censys 2>/dev/null || warn "Some OSINT Python tools failed"
 
-# DNSenum
-sudo apt-get install -y dnsenum 2>/dev/null || true
-
-# Amass (already installed above)
-# Wafw00f (WAF detection)
-pip3 install wafw00f 2>/dev/null || true
-
-# Arjun (parameter discovery)
-pip3 install arjun 2>/dev/null || true
-
-# Shodan CLI
-pip3 install shodan 2>/dev/null || true
-
-# Censys CLI
-pip3 install censys 2>/dev/null || true
-
-success "OSINT & Bug Bounty tools installed"
+success "OSINT & Bug Bounty tools done"
 
 # ── 8. Password & Exploitation Tools ─────────────────────────────────────
 section "Password & Exploitation Tools"
 
-sudo apt-get install -y \
+apt-get install -y \
     hydra john hashcat \
     metasploit-framework \
     enum4linux enum4linux-ng \
-    rpcclient smbmap nbtscan arp-scan \
+    smbmap nbtscan arp-scan \
     responder evil-winrm \
-    steghide foremost exiftool \
-    volatility3 testdisk sleuthkit \
-    wireshark tcpdump aircrack-ng
+    steghide foremost \
+    testdisk sleuthkit \
+    wireshark tcpdump aircrack-ng 2>/dev/null || true
 
-success "Password & exploitation tools installed"
+# rpcclient is part of samba-common-bin
+apt-get install -y samba-common-bin 2>/dev/null || true
 
-# ── 9. Python Packages ────────────────────────────────────────────────────
-section "Python Packages"
+# exiftool
+apt-get install -y exiftool 2>/dev/null || apt-get install -y libimage-exiftool-perl 2>/dev/null || true
 
-pip3 install -r requirements.txt
-pip3 install \
-    shodan \
-    censys \
-    wafw00f \
-    arjun \
-    pwntools \
-    fastmcp \
-    mcp \
-    chromedriver-autoinstaller \
-    requests beautifulsoup4 aiohttp \
-    anthropic \
-    python-dotenv 2>/dev/null || warn "Some Python packages failed — check manually"
+# volatility3
+pip3 install volatility3 2>/dev/null || apt-get install -y volatility3 2>/dev/null || true
 
-success "Python packages installed"
+success "Password & exploitation tools done"
 
-# ── 10. FastMCP / MCP Framework ───────────────────────────────────────────
-section "FastMCP Framework (for Claude Desktop integration)"
+# ── 9. Google Chrome (browser agent) ─────────────────────────────────────
+section "Google Chrome (browser agent for Selenium)"
 
-pip3 install fastmcp mcp 2>/dev/null || warn "FastMCP install failed"
-success "FastMCP installed"
-
-# ── 11. Google Chrome + ChromeDriver ──────────────────────────────────────
-section "Google Chrome (browser agent)"
-
-if ! command -v google-chrome &>/dev/null; then
-    info "Installing Google Chrome..."
-    wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb
-    sudo apt-get install -y /tmp/chrome.deb || sudo apt-get -f install -y
+if ! command -v google-chrome &>/dev/null && ! command -v google-chrome-stable &>/dev/null; then
+    info "Downloading Google Chrome .deb directly (no apt repo needed)..."
+    wget -q "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" \
+        -O /tmp/chrome.deb && \
+    dpkg -i /tmp/chrome.deb 2>/dev/null || apt-get -f install -y 2>/dev/null || true
     rm -f /tmp/chrome.deb
+    command -v google-chrome-stable &>/dev/null && \
+        success "Google Chrome installed" || warn "Chrome install failed"
+else
+    success "Google Chrome already installed"
 fi
 
-# ChromeDriver via python (auto-matches Chrome version)
+# ChromeDriver via Python auto-installer
 pip3 install chromedriver-autoinstaller 2>/dev/null || true
 python3 -c "import chromedriver_autoinstaller; chromedriver_autoinstaller.install()" 2>/dev/null || true
 
-success "Google Chrome installed"
+# ── 10. Python Packages ───────────────────────────────────────────────────
+section "Python Packages"
 
-# ── 12. Environment Setup ─────────────────────────────────────────────────
+pip3 install --upgrade pip 2>/dev/null || true
+pip3 install -r requirements.txt 2>/dev/null || warn "Some requirements.txt packages failed"
+
+pip3 install \
+    fastmcp \
+    mcp \
+    python-dotenv \
+    requests beautifulsoup4 aiohttp \
+    rich colorama tabulate \
+    chromedriver-autoinstaller 2>/dev/null || warn "Some Python packages failed"
+
+success "Python packages installed"
+
+# ── 11. Go PATH setup ─────────────────────────────────────────────────────
+section "Go PATH Setup"
+
+for rcfile in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [ -f "$rcfile" ] && ! grep -q 'go/bin' "$rcfile"; then
+        echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> "$rcfile"
+        info "Added Go PATH to $rcfile"
+    fi
+done
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+
+# ── 12. Directories & Environment ────────────────────────────────────────
 section "Environment Setup"
 
 mkdir -p logs cache temp wordlists
 
-# Set up .env
 if [ ! -f .env ]; then
     cp .env.example .env
-    info ".env file created from .env.example"
-    warn "Edit .env and add your API keys (Shodan, HackerOne, Censys, VirusTotal)"
+    warn "Created .env from template — edit it to add your API keys:"
+    warn "  nano .env"
 fi
 
-chmod +x run.sh setup.sh cfai_server.py cfai_mcp.py 2>/dev/null || true
+chmod +x run.sh setup.sh cfai_server.py 2>/dev/null || true
 
-# ── 13. Go PATH ───────────────────────────────────────────────────────────
-section "Go PATH Setup"
+# ── 13. Systemd Service ────────────────────────────────────────────────────
+section "Systemd Service Setup"
 
-if ! grep -q 'go/bin' ~/.bashrc; then
-    echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> ~/.bashrc
-    info "Added Go to PATH in ~/.bashrc"
+if [ -f cfai.service ]; then
+    cp cfai.service /etc/systemd/system/cfai.service
+    systemctl daemon-reload
+    systemctl enable cfai
+    success "cfai systemd service installed and enabled"
+    info "Start with: systemctl start cfai"
+else
+    warn "cfai.service not found — skipping systemd setup"
 fi
-if ! grep -q 'go/bin' ~/.zshrc 2>/dev/null; then
-    echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> ~/.zshrc 2>/dev/null || true
-fi
-export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
-
-# ── 14. Nuclei Templates ──────────────────────────────────────────────────
-section "Nuclei Templates Update"
-nuclei -update-templates 2>/dev/null || true
-success "Nuclei templates updated"
 
 # ── Done ──────────────────────────────────────────────────────────────────
 echo ""
@@ -369,23 +354,24 @@ echo -e "${GREEN}  CF_AI Setup Complete!${NC}"
 echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${CYAN}Next steps:${NC}"
-echo "  1. Edit .env and add your API keys:"
+echo ""
+echo "  1. Add your API keys:"
 echo "       nano .env"
 echo ""
 echo "  2. Start the server:"
-echo "       ./run.sh"
-echo "     OR for production:"
-echo "       sudo systemctl start cfai"
+echo "       systemctl start cfai"
+echo "       # OR for manual test:"
+echo "       python3 cfai_server.py"
 echo ""
-echo "  3. Open dashboard:"
-echo "       http://localhost:8888"
+echo "  3. Open the dashboard:"
+echo "       http://$(hostname -I | awk '{print $1}'):8888"
 echo ""
-echo -e "${YELLOW}API Keys needed (see .env):${NC}"
-echo "  • SHODAN_API_KEY     — https://account.shodan.io"
-echo "  • HACKERONE_API_KEY  — https://hackerone.com/settings/api_token/edit"
-echo "  • HACKERONE_USERNAME — your HackerOne username"
-echo "  • CENSYS_API_ID      — https://search.censys.io/account"
-echo "  • VIRUSTOTAL_API_KEY — https://www.virustotal.com/gui/my-apikey"
-echo "  • ANTHROPIC_API_KEY  — https://console.anthropic.com/api-keys"
+echo -e "${YELLOW}Optional API keys (add to .env):${NC}"
+echo "  SHODAN_API_KEY     → https://account.shodan.io"
+echo "  HACKERONE_USERNAME → your HackerOne username"
+echo "  HACKERONE_API_KEY  → https://hackerone.com/settings/api_token/edit"
+echo "  CENSYS_API_ID      → https://search.censys.io/account"
+echo "  VIRUSTOTAL_API_KEY → https://www.virustotal.com/gui/my-apikey"
 echo ""
-echo -e "${GREEN}Run: source ~/.bashrc  (to reload PATH)${NC}"
+echo -e "${GREEN}Run: source ~/.bashrc   (to reload PATH for Go tools)${NC}"
+echo ""
