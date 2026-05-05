@@ -1,15 +1,53 @@
 #!/bin/bash
-# CF_AI — Install missing tools
+# CF_AI — Install missing tools (robust)
 # Run as root: bash install_missing_tools.sh
 
-VENV_PIP="/opt/CF_AI/venv/bin/pip"
+VENV_DIR="/opt/CF_AI/venv"
+VENV_BIN="$VENV_DIR/bin"
+VENV_PIP="$VENV_BIN/pip3"
+[ -f "$VENV_PIP" ] || VENV_PIP="$VENV_BIN/pip"
 [ -f "$VENV_PIP" ] || VENV_PIP="pip3"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 ok()   { echo -e "  ${GREEN}[+]${NC} $1"; }
 warn() { echo -e "  ${YELLOW}[!]${NC} $1"; }
+fail() { echo -e "  ${RED}[-]${NC} $1"; }
+
+# Install pip package AND symlink binary into /usr/local/bin so it is always in PATH.
+# Usage: pip_link <package-name> <binary-name>
+pip_link() {
+    local pkg="$1"
+    local bin="${2:-$1}"
+
+    $VENV_PIP install "$pkg" -q 2>/dev/null || pip3 install "$pkg" -q 2>/dev/null || {
+        warn "$pkg: pip install failed"; return 1
+    }
+
+    command -v "$bin" &>/dev/null && { ok "$bin (in PATH)"; return 0; }
+
+    # Search venv and common pip bin dirs for the binary (handles hyphen/underscore variants)
+    local found=""
+    for dir in "$VENV_BIN" /usr/local/lib/python3*/dist-packages/../../../bin /usr/local/bin /usr/bin; do
+        for name in "$bin" "${bin//-/_}" "${bin//_/-}"; do
+            if [ -f "$dir/$name" ]; then found="$dir/$name"; break 2; fi
+        done
+    done
+    # Also glob venv directly
+    if [ -z "$found" ]; then
+        found=$(find "$VENV_BIN" -maxdepth 1 \( -name "$bin" -o -name "${bin//-/_}" -o -name "${bin//_/-}" \) 2>/dev/null | head -1)
+    fi
+
+    if [ -n "$found" ]; then
+        ln -sf "$found" "/usr/local/bin/$bin"
+        chmod +x "/usr/local/bin/$bin"
+        ok "$bin linked -> $found"
+    else
+        warn "$bin: installed to venv but binary not located — check $VENV_BIN"
+    fi
+}
 
 echo "[*] Updating package lists..."
 apt-get update -q 2>/dev/null || true
@@ -17,242 +55,237 @@ apt-get update -q 2>/dev/null || true
 # ── Password / Binary tools ───────────────────────────────────────────────────
 echo "[*] Installing password & binary tools..."
 apt-get install -y medusa patator hash-identifier ophcrack 2>/dev/null || true
-$VENV_PIP install ropper pwntools 2>/dev/null || true
-ok "ropper/pwntools via pip"
 
-# one_gadget requires Ruby gem
-if command -v gem &>/dev/null; then
-    gem install one_gadget 2>/dev/null || true
-fi
+! command -v ropper &>/dev/null && pip_link "ropper" "ropper" || true
+! command -v pwn    &>/dev/null && pip_link "pwntools" "pwn"  || true
 
-# pwninit — download latest release binary
+command -v gem &>/dev/null && gem install one_gadget 2>/dev/null || true
+
 if ! command -v pwninit &>/dev/null; then
     PWNINIT_URL=$(curl -s https://api.github.com/repos/io12/pwninit/releases/latest \
-        | grep browser_download_url | grep -v '.sha256' | cut -d'"' -f4 | head -1)
-    if [ -n "$PWNINIT_URL" ]; then
-        curl -sL "$PWNINIT_URL" -o /usr/local/bin/pwninit && chmod +x /usr/local/bin/pwninit
-        ok "pwninit installed"
-    fi
+        | grep browser_download_url | grep -v '\.sha256' | cut -d'"' -f4 | head -1)
+    [ -n "$PWNINIT_URL" ] && \
+        curl -sL "$PWNINIT_URL" -o /usr/local/bin/pwninit 2>/dev/null && \
+        chmod +x /usr/local/bin/pwninit && ok "pwninit installed"
 fi
 
 # ── Forensics tools ───────────────────────────────────────────────────────────
 echo "[*] Installing forensics tools..."
 
-# hashpump — try apt first, build from source if needed
 if ! command -v hashpump &>/dev/null; then
-    apt-get install -y hashpump 2>/dev/null || \
-    (apt-get install -y libssl-dev build-essential 2>/dev/null && \
-     git clone https://github.com/bwall/HashPump /tmp/hashpump 2>/dev/null && \
-     cd /tmp/hashpump && make && cp hashpump /usr/local/bin/ && \
-     ok "hashpump built from source") || warn "hashpump install failed"
+    apt-get install -y hashpump 2>/dev/null && ok "hashpump from apt" || {
+        apt-get install -y libssl-dev build-essential 2>/dev/null
+        rm -rf /tmp/hashpump
+        git clone https://github.com/bwall/HashPump /tmp/hashpump 2>/dev/null
+        if [ -d /tmp/hashpump ]; then
+            (cd /tmp/hashpump && make 2>/dev/null && cp hashpump /usr/local/bin/ && ok "hashpump built from source") \
+                || warn "hashpump: build failed"
+        else
+            warn "hashpump: git clone failed"
+        fi
+    }
 fi
 
-# xxd — part of vim-common on Debian/Kali
 if ! command -v xxd &>/dev/null; then
-    apt-get install -y xxd 2>/dev/null || \
-    apt-get install -y vim-common 2>/dev/null || warn "xxd not available"
+    apt-get install -y xxd 2>/dev/null || apt-get install -y vim-common 2>/dev/null || true
 fi
 
-# scalpel
 if ! command -v scalpel &>/dev/null; then
-    apt-get install -y scalpel 2>/dev/null || warn "scalpel not available in apt"
+    apt-get install -y scalpel 2>/dev/null || warn "scalpel not in apt"
 fi
 
-# outguess
 if ! command -v outguess &>/dev/null; then
-    apt-get install -y outguess 2>/dev/null || \
-    (git clone https://github.com/resurrecting-open-source-projects/outguess /tmp/outguess 2>/dev/null && \
-     cd /tmp/outguess && autoreconf -i && ./configure && make && make install && \
-     ok "outguess built from source") || warn "outguess install failed"
+    apt-get install -y outguess 2>/dev/null && ok "outguess from apt" || {
+        apt-get install -y autoconf automake libjpeg-dev build-essential 2>/dev/null
+        rm -rf /tmp/outguess
+        git clone https://github.com/resurrecting-open-source-projects/outguess /tmp/outguess 2>/dev/null
+        if [ -d /tmp/outguess ]; then
+            (cd /tmp/outguess && autoreconf -i 2>/dev/null && ./configure 2>/dev/null \
+                && make 2>/dev/null && make install 2>/dev/null && ok "outguess built from source") \
+                || warn "outguess: build failed"
+        else
+            warn "outguess: git clone failed"
+        fi
+    }
 fi
 
-# bulk-extractor
 apt-get install -y bulk-extractor 2>/dev/null || true
+command -v gem &>/dev/null && gem install zsteg 2>/dev/null || true
 
-# zsteg requires Ruby gem
-if command -v gem &>/dev/null; then
-    gem install zsteg 2>/dev/null || true
+if ! command -v vol &>/dev/null && ! command -v vol3 &>/dev/null; then
+    pip_link "volatility3" "vol3"
 fi
-
-# volatility3
-if ! command -v vol &>/dev/null; then
-    $VENV_PIP install volatility3 2>/dev/null || true
-    if command -v vol3 &>/dev/null && [ ! -f /usr/local/bin/vol ]; then
-        ln -sf "$(which vol3)" /usr/local/bin/vol
-        ok "vol symlink -> vol3"
-    fi
+if command -v vol3 &>/dev/null && [ ! -f /usr/local/bin/vol ]; then
+    ln -sf "$(which vol3)" /usr/local/bin/vol && ok "vol symlink -> vol3"
 fi
 
 # ── Cloud security tools ──────────────────────────────────────────────────────
 echo "[*] Installing cloud tools..."
 
-# ScoutSuite
 if ! command -v scout-suite &>/dev/null; then
-    $VENV_PIP install scoutsuite 2>/dev/null || true
-    # ScoutSuite installs as 'scout' in some versions — create alias
+    pip_link "scoutsuite" "scout"
     if command -v scout &>/dev/null && [ ! -f /usr/local/bin/scout-suite ]; then
-        ln -sf "$(which scout)" /usr/local/bin/scout-suite
-        ok "scout-suite symlink created"
+        ln -sf "$(which scout)" /usr/local/bin/scout-suite && ok "scout-suite symlink -> scout"
     fi
 fi
 
-# checkov
-if ! command -v checkov &>/dev/null; then
-    $VENV_PIP install checkov 2>/dev/null || true
-    ok "checkov installed via pip"
-fi
+! command -v checkov &>/dev/null && pip_link "checkov" "checkov" || true
 
-# terrascan
 if ! command -v terrascan &>/dev/null; then
     TERRASCAN_VER=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest \
         | grep '"tag_name"' | cut -d'"' -f4)
-    if [ -n "$TERRASCAN_VER" ]; then
+    [ -n "$TERRASCAN_VER" ] && \
         curl -sL "https://github.com/tenable/terrascan/releases/download/${TERRASCAN_VER}/terrascan_${TERRASCAN_VER#v}_Linux_x86_64.tar.gz" \
             -o /tmp/terrascan.tar.gz 2>/dev/null \
-            && tar -xzf /tmp/terrascan.tar.gz -C /usr/local/bin terrascan 2>/dev/null \
-            && chmod +x /usr/local/bin/terrascan \
-            && ok "terrascan installed"
-    fi
+        && tar -xzf /tmp/terrascan.tar.gz -C /usr/local/bin terrascan 2>/dev/null \
+        && chmod +x /usr/local/bin/terrascan && ok "terrascan installed"
 fi
 
 # ── OSINT tools ───────────────────────────────────────────────────────────────
 echo "[*] Installing OSINT tools..."
 
-# fierce
-if ! command -v fierce &>/dev/null; then
-    $VENV_PIP install fierce 2>/dev/null || true
-    ok "fierce installed via pip"
-fi
+! command -v fierce          &>/dev/null && pip_link "fierce"          "fierce"          || true
+! command -v social-analyzer &>/dev/null && pip_link "social-analyzer" "social-analyzer" || true
+pip_link "shodan" "shodan" 2>/dev/null || true
 
-# social-analyzer
-if ! command -v social-analyzer &>/dev/null; then
-    $VENV_PIP install social-analyzer 2>/dev/null || true
-    ok "social-analyzer installed via pip"
-fi
-
-$VENV_PIP install shodan 2>/dev/null || true
-
-# rustscan — download release binary
+# rustscan — apt > cargo > GitHub release (deb then raw binary)
 if ! command -v rustscan &>/dev/null; then
-    RS_VER=$(curl -s https://api.github.com/repos/RustScan/RustScan/releases/latest \
-        | grep '"tag_name"' | cut -d'"' -f4)
-    if [ -n "$RS_VER" ]; then
-        curl -sL "https://github.com/RustScan/RustScan/releases/download/${RS_VER}/rustscan_${RS_VER#v}_amd64.deb" \
-            -o /tmp/rustscan.deb 2>/dev/null \
-            && dpkg -i /tmp/rustscan.deb 2>/dev/null \
-            && ok "rustscan installed" \
-            || warn "rustscan deb install failed"
-    fi
+    apt-get install -y rustscan 2>/dev/null && ok "rustscan from apt" || {
+        RS_JSON=$(curl -s https://api.github.com/repos/RustScan/RustScan/releases/latest)
+        RS_DEB=$(echo "$RS_JSON" | grep browser_download_url | grep '\.deb' | grep -i amd64 | cut -d'"' -f4 | head -1)
+        RS_BIN=$(echo "$RS_JSON" | grep browser_download_url | grep -v '\.deb\|\.sha\|windows\|macos\|darwin\|arm' \
+            | grep -i 'linux\|x86_64\|amd64' | cut -d'"' -f4 | head -1)
+        if [ -n "$RS_DEB" ]; then
+            curl -sL "$RS_DEB" -o /tmp/rustscan.deb 2>/dev/null \
+                && dpkg -i /tmp/rustscan.deb 2>/dev/null && ok "rustscan from .deb" \
+                || warn "rustscan deb failed"
+        elif [ -n "$RS_BIN" ]; then
+            curl -sL "$RS_BIN" -o /tmp/rustscan_dl 2>/dev/null
+            if file /tmp/rustscan_dl 2>/dev/null | grep -q "gzip\|tar\|Zip"; then
+                tar -xzf /tmp/rustscan_dl -C /tmp 2>/dev/null
+                RS_EXE=$(find /tmp -name "rustscan" -type f 2>/dev/null | head -1)
+                [ -n "$RS_EXE" ] && cp "$RS_EXE" /usr/local/bin/rustscan && chmod +x /usr/local/bin/rustscan && ok "rustscan installed"
+            else
+                cp /tmp/rustscan_dl /usr/local/bin/rustscan && chmod +x /usr/local/bin/rustscan && ok "rustscan binary installed"
+            fi
+        else
+            warn "rustscan: no release asset found — try: apt-get install rustscan"
+        fi
+    }
 fi
 
 # ── Web security tools ────────────────────────────────────────────────────────
 echo "[*] Installing web security tools..."
 
-# ZAP proxy — large download, skip if slow connection
 if ! command -v zap.sh &>/dev/null; then
-    apt-get install -y zaproxy 2>/dev/null && ok "zaproxy installed" || warn "zaproxy not in apt — download manually from zaproxy.org"
+    # Try apt/snap first
+    apt-get install -y zaproxy 2>/dev/null && ok "zaproxy from apt" || {
+        command -v snap &>/dev/null && snap install zaproxy --classic 2>/dev/null && ok "zaproxy via snap" || {
+            # Download OWASP release tar.gz
+            ZAP_VER=$(curl -s https://api.github.com/repos/zaproxy/zaproxy/releases/latest \
+                | grep '"tag_name"' | cut -d'"' -f4)
+            if [ -n "$ZAP_VER" ]; then
+                curl -sL "https://github.com/zaproxy/zaproxy/releases/download/${ZAP_VER}/ZAP_${ZAP_VER#v}_Linux.tar.gz" \
+                    -o /tmp/zap.tar.gz 2>/dev/null \
+                && mkdir -p /opt/zaproxy \
+                && tar -xzf /tmp/zap.tar.gz -C /opt/zaproxy --strip-components=1 2>/dev/null \
+                && ln -sf /opt/zaproxy/zap.sh /usr/local/bin/zap.sh \
+                && chmod +x /opt/zaproxy/zap.sh \
+                && ok "zaproxy installed to /opt/zaproxy" \
+                || warn "zaproxy install failed — download manually from zaproxy.org"
+            fi
+        }
+    }
 fi
 
 # ── API Security tools ────────────────────────────────────────────────────────
 echo "[*] Installing API security tools..."
 
-# graphql-cop
 if ! command -v graphql-cop &>/dev/null; then
-    $VENV_PIP install graphql-cop 2>/dev/null || true
-    # Some versions install as graphql_cop — create symlink
-    GQL_BIN=$(find /opt/CF_AI/venv/bin /usr/local/bin -name "graphql*" 2>/dev/null | head -1)
-    if [ -n "$GQL_BIN" ] && [ ! -f /usr/local/bin/graphql-cop ]; then
-        ln -sf "$GQL_BIN" /usr/local/bin/graphql-cop
-        chmod +x /usr/local/bin/graphql-cop
+    pip_link "graphql-cop" "graphql-cop"
+    # pip may use underscore variant
+    if ! command -v graphql-cop &>/dev/null; then
+        GQL=$(find "$VENV_BIN" /usr/local/bin /usr/bin -name "graphql*" 2>/dev/null | head -1)
+        if [ -n "$GQL" ]; then
+            ln -sf "$GQL" /usr/local/bin/graphql-cop && chmod +x /usr/local/bin/graphql-cop
+            ok "graphql-cop symlinked from $GQL"
+        fi
     fi
-    ok "graphql-cop installed"
 fi
 
-# jwt_tool
 if ! command -v jwt_tool &>/dev/null; then
-    $VENV_PIP install jwt_tool 2>/dev/null || \
-    (git clone https://github.com/ticarpi/jwt_tool /opt/jwt_tool 2>/dev/null \
-        && ln -sf /opt/jwt_tool/jwt_tool.py /usr/local/bin/jwt_tool \
-        && chmod +x /opt/jwt_tool/jwt_tool.py \
-        && ok "jwt_tool installed from source")
+    pip_link "jwt_tool" "jwt_tool" || {
+        rm -rf /opt/jwt_tool
+        git clone https://github.com/ticarpi/jwt_tool /opt/jwt_tool 2>/dev/null \
+            && ln -sf /opt/jwt_tool/jwt_tool.py /usr/local/bin/jwt_tool \
+            && chmod +x /opt/jwt_tool/jwt_tool.py && ok "jwt_tool from source"
+    }
 fi
 
-# arjun
-if ! command -v arjun &>/dev/null; then
-    $VENV_PIP install arjun 2>/dev/null || true
-    ok "arjun installed via pip"
-fi
+! command -v arjun &>/dev/null && pip_link "arjun" "arjun" || true
 
-# x8 — hidden parameter discovery
+# x8 — enumerate release assets and pick the Linux one
 if ! command -v x8 &>/dev/null; then
-    X8_VER=$(curl -s https://api.github.com/repos/Sh1Yo/x8/releases/latest \
-        | grep '"tag_name"' | cut -d'"' -f4 | head -1)
-    if [ -n "$X8_VER" ]; then
-        curl -sL "https://github.com/Sh1Yo/x8/releases/download/${X8_VER}/x86_64-linux-x8.tar.gz" \
-            -o /tmp/x8.tar.gz 2>/dev/null \
-            && tar -xzf /tmp/x8.tar.gz -C /usr/local/bin 2>/dev/null \
-            && chmod +x /usr/local/bin/x8 \
-            && ok "x8 installed" \
-            || warn "x8 install failed"
+    X8_URL=$(curl -s https://api.github.com/repos/Sh1Yo/x8/releases/latest \
+        | grep browser_download_url \
+        | grep -v '\.sha\|windows\|macos\|darwin\|arm' \
+        | grep -i 'linux\|x86_64' \
+        | cut -d'"' -f4 | head -1)
+    if [ -n "$X8_URL" ]; then
+        curl -sL "$X8_URL" -o /tmp/x8_dl 2>/dev/null
+        if file /tmp/x8_dl 2>/dev/null | grep -q "gzip\|tar"; then
+            tar -xzf /tmp/x8_dl -C /tmp 2>/dev/null
+            X8_EXE=$(find /tmp -name "x8" -type f 2>/dev/null | head -1)
+            [ -n "$X8_EXE" ] && cp "$X8_EXE" /usr/local/bin/x8 && chmod +x /usr/local/bin/x8 && ok "x8 installed"
+        else
+            cp /tmp/x8_dl /usr/local/bin/x8 && chmod +x /usr/local/bin/x8 && ok "x8 binary installed"
+        fi
+    else
+        warn "x8: no Linux release asset found at Sh1Yo/x8"
     fi
 fi
 
-# kiterunner
 if ! command -v kr &>/dev/null; then
     KR_VER=$(curl -s https://api.github.com/repos/assetnote/kiterunner/releases/latest \
         | grep '"tag_name"' | cut -d'"' -f4 | head -1)
-    if [ -n "$KR_VER" ]; then
+    [ -n "$KR_VER" ] && \
         curl -sL "https://github.com/assetnote/kiterunner/releases/download/${KR_VER}/kiterunner_${KR_VER#v}_linux_amd64.tar.gz" \
             -o /tmp/kiterunner.tar.gz 2>/dev/null \
-            && tar -xzf /tmp/kiterunner.tar.gz -C /usr/local/bin kr 2>/dev/null \
-            && chmod +x /usr/local/bin/kr \
-            && ok "kiterunner (kr) installed"
-    fi
+        && tar -xzf /tmp/kiterunner.tar.gz -C /usr/local/bin kr 2>/dev/null \
+        && chmod +x /usr/local/bin/kr && ok "kiterunner (kr) installed"
 fi
 
-# kiterunner wordlist
 if command -v kr &>/dev/null && [ ! -f /usr/share/kiterunner/routes-large.kite ]; then
     mkdir -p /usr/share/kiterunner
     curl -sL "https://wordlists-cdn.assetnote.io/data/kiterunner/routes-large.kite" \
-        -o /usr/share/kiterunner/routes-large.kite 2>/dev/null \
-        && ok "kiterunner wordlist downloaded" || true
+        -o /usr/share/kiterunner/routes-large.kite 2>/dev/null && ok "kiterunner wordlist" || true
 fi
 
-# ── Verify installs ────────────────────────────────────────────────────────────
+# ── Verify installs ───────────────────────────────────────────────────────────
 echo ""
 echo "[*] Tool verification:"
 
 ALL_TOOLS=(
-    # Password
     medusa patator hash-identifier hashcat
     ROPgadget ropper pwn one_gadget pwninit
-    # Forensics
     hashpump xxd scalpel outguess zsteg vol
-    # Cloud
     scout-suite terrascan checkov trivy
-    # OSINT
     fierce social-analyzer shodan
-    # Web
     zap.sh nuclei dalfox gobuster ffuf feroxbuster nikto wpscan sqlmap
-    # API Security
     graphql-cop jwt_tool arjun x8 kr
-    # Net
     nmap rustscan subfinder amass
 )
 
-PASS=0
-FAIL=0
+PASS=0; FAIL=0
 for tool in "${ALL_TOOLS[@]}"; do
     if command -v "$tool" &>/dev/null; then
-        echo "  [+] $tool"
-        PASS=$((PASS+1))
+        echo "  [+] $tool"; PASS=$((PASS+1))
     else
-        echo "  [-] $tool (not found)"
-        FAIL=$((FAIL+1))
+        echo "  [-] $tool (not found)"; FAIL=$((FAIL+1))
     fi
 done
 
 echo ""
 echo "[*] Results: $PASS installed, $FAIL missing"
-echo "[*] Done. Restart the CF_AI server:"
+echo "[*] Done. Restart CF_AI:"
 echo "      pkill -f cfai_server.py; bash /opt/CF_AI/run.sh"
