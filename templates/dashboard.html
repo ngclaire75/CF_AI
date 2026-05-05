@@ -6,7 +6,7 @@
   <title>CF_AI — Penetration Testing Framework</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=7" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=8" />
 </head>
 <body>
 
@@ -21,8 +21,8 @@
       <span class="status-label" id="server-status-label">Connecting...</span>
     </div>
     <div class="topbar-actions">
-      <button class="btn-ghost" onclick="clearChat()" title="Clear chat">
-        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      <button class="btn-ghost" onclick="clearChat()" title="Clear Chat History" style="width:auto;padding:0 10px;font-size:11px;font-weight:600;">
+        Clear Chat History
       </button>
       <button class="btn-ghost" onclick="toggleSidebar()" title="Toggle sidebar">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
@@ -60,7 +60,7 @@
           </div>
           <div class="tool-item" onclick="askCategory('vulnerability scanning: nuclei wpscan nikto')">
             <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             </div>
             <div class="tool-info">
               <div class="tool-name">Vuln Scanning</div>
@@ -96,7 +96,7 @@
           </div>
           <div class="tool-item" onclick="askCategory('digital forensics tools: volatility binwalk exiftool steghide')">
             <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 13s3-3 7-3 9 4 13 4-3 3-7 3-9-4-13-4z"/><circle cx="12" cy="13" r="3"/></svg>
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
             <div class="tool-info">
               <div class="tool-name">Forensics</div>
@@ -238,6 +238,7 @@
               <span onclick="fillInput('scan wordpress http://target.com')">wpscan</span>
               <span onclick="fillInput('shodan lookup 8.8.8.8')">shodan</span>
               <span onclick="fillInput('virustotal check google.com')">virustotal</span>
+              <span onclick="fillInput('hackerone programs')">hackerone</span>
               <span onclick="fillInput('help')">help</span>
             </div>
           </div>
@@ -428,6 +429,6 @@
     </main>
   </div>
 
-  <script src="{{ url_for('static', filename='script.js') }}?v=7"></script>
+  <script src="{{ url_for('static', filename='script.js') }}?v=8"></script>
 </body>
 </html>

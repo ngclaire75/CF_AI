@@ -9262,7 +9262,7 @@ class CFAIChatEngine:
         'feroxbuster', 'dirsearch', 'enum4linux', 'volatility', 'binwalk',
         'exiftool', 'steghide', 'hashcat', 'john', 'dalfox', 'katana', 'httpx',
         'theharvester', 'recon-ng', 'aircrack-ng', 'medusa', 'metasploit',
-        'msfconsole', 'searchsploit', 'shodan', 'trivy', 'prowler',
+        'msfconsole', 'searchsploit', 'trivy', 'prowler',
     }
 
     TOOL_GROUPS = {
