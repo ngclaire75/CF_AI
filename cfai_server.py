@@ -9251,6 +9251,7 @@ class CFAIChatEngine:
         self.bb_workflow: Optional[Any] = None
         self.ctf_workflow: Optional[Any] = None
         self.decision_engine: Optional[Any] = None
+        self.learning_engine: Optional[Any] = None
 
     def process_message(self, user_message: str) -> Dict[str, Any]:
         """Process a chat message and return AI response."""
@@ -10102,10 +10103,349 @@ class CFAIChatEngine:
 
         return "\n".join(lines)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # Multi-tool command parser, credential extractor, smart command builder
+    # ─────────────────────────────────────────────────────────────────────────
+
+    _ALL_TOOLS = {
+        # Tool name → its direct command base
+        "nmap": "nmap", "rustscan": "rustscan", "masscan": "masscan",
+        "gobuster": "gobuster", "ffuf": "ffuf", "feroxbuster": "feroxbuster",
+        "dirb": "dirb", "dirsearch": "dirsearch",
+        "nikto": "nikto", "sqlmap": "sqlmap", "dalfox": "dalfox",
+        "nuclei": "nuclei", "wpscan": "wpscan", "httpx": "httpx",
+        "subfinder": "subfinder", "amass": "amass", "dnsenum": "dnsenum",
+        "theharvester": "theHarvester", "fierce": "fierce",
+        "hydra": "hydra", "hashcat": "hashcat", "john": "john", "medusa": "medusa",
+        "gdb": "gdb", "checksec": "checksec", "ropgadget": "ROPgadget",
+        "r2": "r2", "radare2": "r2", "binwalk": "binwalk", "exiftool": "exiftool",
+        "steghide": "steghide",
+        "trivy": "trivy", "checkov": "checkov",
+        "msfvenom": "msfvenom", "searchsploit": "searchsploit",
+        "graphql-cop": "graphql-cop", "jwt_tool": "jwt_tool",
+        "kiterunner": "kr", "kr": "kr", "arjun": "arjun",
+        "enum4linux": "enum4linux", "enum4linux-ng": "enum4linux-ng",
+        "wafw00f": "wafw00f", "katana": "katana",
+    }
+
+    def _extract_credentials(self, text: str) -> Dict[str, str]:
+        """Extract username, password, token, cookie from natural language."""
+        creds: Dict[str, str] = {}
+        # username 'admin' or username admin or user: admin
+        u = re.search(r'(?:username|user|login|u)[:\s=\'\"]+([^\s\'",:;]+)', text, re.IGNORECASE)
+        if u:
+            creds["username"] = u.group(1).strip("'\"")
+        # password 'secret' or password: secret
+        p = re.search(r'(?:password|pass|pwd|p)[:\s=\'\"]+([^\s\'",:;]+)', text, re.IGNORECASE)
+        if p:
+            creds["password"] = p.group(1).strip("'\"")
+        # token or api key
+        t = re.search(r'(?:token|api[-_]?key|bearer)[:\s=\'\"]+([^\s\'",:;]+)', text, re.IGNORECASE)
+        if t:
+            creds["token"] = t.group(1).strip("'\"")
+        # cookie
+        c = re.search(r'(?:cookie|session)[:\s=\'\"]+([^\s\'",:;]+)', text, re.IGNORECASE)
+        if c:
+            creds["cookie"] = c.group(1).strip("'\"")
+        # shorthand admin:password
+        combo = re.search(r'(?:credentials?|creds?)[:\s]+([^\s:]+):([^\s,;]+)', text, re.IGNORECASE)
+        if combo and not creds.get("username"):
+            creds["username"] = combo.group(1)
+            creds["password"] = combo.group(2)
+        return creds
+
+    def _build_tool_command(self, tool: str, target: str,
+                            creds: Dict[str, str], context: str) -> List[str]:
+        """Build the correct command for a tool + target + credentials."""
+        ctx_lower = context.lower()
+        # Normalise target for URL-based tools
+        if tool in ("nikto", "sqlmap", "gobuster", "ffuf", "dirb", "dirsearch",
+                    "nuclei", "dalfox", "wpscan", "httpx", "arjun",
+                    "gobuster", "graphql-cop", "wafw00f", "katana"):
+            if target and not target.startswith("http"):
+                target_url = f"http://{target}"
+            else:
+                target_url = target
+        else:
+            target_url = target
+
+        if tool == "nmap":
+            extra = []
+            if "version" in ctx_lower or "service" in ctx_lower:
+                extra += ["-sV"]
+            if "script" in ctx_lower or "vuln" in ctx_lower:
+                extra += ["--script", "vuln"]
+            if "full" in ctx_lower or "all port" in ctx_lower:
+                extra += ["-p-"]
+            else:
+                extra += ["--open"]
+            return ["nmap", "-sT", "-Pn", "-T4"] + extra + [target]
+
+        if tool == "dirb":
+            wordlist = "/usr/share/wordlists/dirb/common.txt"
+            if "big" in ctx_lower:
+                wordlist = "/usr/share/wordlists/dirb/big.txt"
+            return ["dirb", target_url, wordlist, "-r", "-S"]
+
+        if tool == "gobuster":
+            wordlist = "/usr/share/wordlists/dirb/common.txt"
+            ext = ""
+            if "php" in ctx_lower: ext = "-x php,html,txt"
+            if "big" in ctx_lower: wordlist = "/usr/share/wordlists/dirb/big.txt"
+            cmd = ["gobuster", "dir", "-u", target_url, "-w", wordlist, "-t", "50", "-q"]
+            if ext:
+                cmd += ext.split()
+            return cmd
+
+        if tool == "ffuf":
+            wordlist = "/usr/share/wordlists/dirb/common.txt"
+            return ["ffuf", "-u", f"{target_url}/FUZZ", "-w", wordlist,
+                    "-mc", "200,201,204,301,302,307,401,403", "-t", "100", "-timeout", "10"]
+
+        if tool == "nikto":
+            cmd = ["nikto", "-h", target_url, "-C", "all"]
+            if creds.get("username") and creds.get("password"):
+                cmd += ["-id", f"{creds['username']}:{creds['password']}"]
+            return cmd
+
+        if tool == "sqlmap":
+            cmd = ["sqlmap", "-u", target_url, "--dbs", "--batch",
+                   "--level=3", "--risk=2", "--random-agent"]
+            if creds.get("username") and creds.get("password"):
+                # Try as POST data (login form attack)
+                cmd += ["--data", f"username={creds['username']}&password={creds['password']}",
+                        "--forms", "--crawl=2"]
+            if "cookie" in ctx_lower and creds.get("cookie"):
+                cmd += ["--cookie", creds["cookie"]]
+            if "blind" in ctx_lower or "time" in ctx_lower:
+                cmd += ["--technique=T"]
+            if "error" in ctx_lower:
+                cmd += ["--technique=E"]
+            return cmd
+
+        if tool == "hydra":
+            u = creds.get("username", "admin")
+            p = creds.get("password", "")
+            rockyou = "/usr/share/wordlists/rockyou.txt"
+            # Detect service from target
+            service = "http-post-form"
+            if "ssh" in ctx_lower or ":22" in target:
+                service = "ssh"
+            elif "ftp" in ctx_lower or ":21" in target:
+                service = "ftp"
+            elif "rdp" in ctx_lower or ":3389" in target:
+                service = "rdp"
+            if service == "ssh":
+                return ["hydra", "-l", u, "-P", rockyou, target, "ssh", "-t", "4"]
+            elif p:
+                return ["hydra", "-l", u, "-p", p, target_url,
+                        "http-post-form",
+                        f"/login:username=^USER^&password=^PASS^:Invalid", "-t", "4"]
+            else:
+                return ["hydra", "-l", u, "-P", rockyou, target_url,
+                        "http-post-form",
+                        f"/login:username=^USER^&password=^PASS^:Invalid", "-t", "4"]
+
+        if tool == "nuclei":
+            cmd = ["nuclei", "-u", target_url, "-severity", "medium,high,critical", "-silent"]
+            if "cve" in ctx_lower:
+                cmd += ["-t", "cves/"]
+            if "wordpress" in ctx_lower or "wp" in ctx_lower:
+                cmd += ["-t", "wordpress/"]
+            if "api" in ctx_lower:
+                cmd += ["-t", "exposures/apis/"]
+            return cmd
+
+        if tool == "dalfox":
+            return ["dalfox", "url", target_url, "--silence"]
+
+        if tool == "wpscan":
+            cmd = ["wpscan", "--url", target_url, "--enumerate", "vp,vu,vt,u",
+                   "--no-banner", "--no-update", "--random-user-agent"]
+            if creds.get("username") and creds.get("password"):
+                cmd += ["--username", creds["username"], "--password", creds["password"]]
+            return cmd
+
+        if tool == "sqlmap" and creds.get("token"):
+            return ["sqlmap", "-u", target_url, "--dbs", "--batch",
+                    "--headers", f"Authorization: Bearer {creds['token']}"]
+
+        if tool == "theHarvester":
+            domain = re.sub(r'https?://', '', target).split('/')[0]
+            return ["theHarvester", "-d", domain, "-b", "all", "-l", "100"]
+
+        if tool == "subfinder":
+            domain = re.sub(r'https?://', '', target).split('/')[0]
+            return ["subfinder", "-d", domain, "-silent"]
+
+        if tool == "amass":
+            domain = re.sub(r'https?://', '', target).split('/')[0]
+            return ["amass", "enum", "-d", domain, "-passive"]
+
+        if tool == "dnsenum":
+            domain = re.sub(r'https?://', '', target).split('/')[0]
+            return ["dnsenum", "--noreverse", domain]
+
+        if tool == "httpx":
+            domain = re.sub(r'https?://', '', target).split('/')[0]
+            return ["httpx", "-u", target_url, "-status-code", "-title", "-tech-detect", "-silent"]
+
+        if tool == "arjun":
+            return ["arjun", "-u", target_url, "--stable"]
+
+        if tool == "enum4linux":
+            return ["enum4linux", "-a", target]
+
+        if tool == "wafw00f":
+            return ["wafw00f", target_url]
+
+        if tool == "trivy":
+            return ["trivy", "image", target]
+
+        if tool == "searchsploit":
+            return ["searchsploit", target]
+
+        if tool in ("kr", "kiterunner"):
+            return ["kr", "scan", target_url, "-w", "/usr/share/kiterunner/routes-large.kite",
+                    "-x", "5"]
+
+        if tool == "graphql-cop":
+            return ["graphql-cop", "-t", target_url]
+
+        # Generic fallback
+        return [tool, target]
+
+    def _parse_run_command(self, message: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse natural language run commands into structured tool list + target.
+        Returns None if the message doesn't match a run-command pattern.
+
+        Handles:
+        - "run nmap and dirb on target localhost"
+        - "run nmap on 192.168.1.1 and then gobuster on port 80"
+        - "scan localhost with nmap and nikto"
+        - "run sqlmap on localhost:8089 use username 'admin' password 'password'"
+        - "use nmap -sV on scanme.nmap.org"
+        - "execute nikto against http://target.com"
+        """
+        msg = message.strip()
+        msg_lo = msg.lower()
+
+        # Must start with a run/scan/execute/use intent
+        has_run_intent = bool(re.match(
+            r'^(run|execute|use|scan|try|test|launch|perform|start|do)\b',
+            msg_lo, re.IGNORECASE
+        ))
+        if not has_run_intent:
+            return None
+
+        # Must mention at least one known tool
+        tools_mentioned = []
+        for tool_kw, tool_bin in self._ALL_TOOLS.items():
+            pattern = r'\b' + re.escape(tool_kw) + r'\b'
+            if re.search(pattern, msg_lo):
+                if tool_bin not in tools_mentioned:
+                    tools_mentioned.append(tool_bin)
+
+        if not tools_mentioned:
+            return None
+
+        # Extract target (URL, IP, domain, port combo)
+        target = self._extract_target(msg)
+        # Also try "on target X", "against X", "on X" patterns
+        if not target:
+            t_match = re.search(
+                r'(?:on target|on host|against|against target|on|at)\s+'
+                r'((?:https?://)?[\w.\-:/@]+(?:/[\w.\-/@?=&]*)?)',
+                msg, re.IGNORECASE
+            )
+            if t_match:
+                target = t_match.group(1).strip('.,;')
+
+        # Handle "localhost:PORT"
+        port_match = re.search(r'\blocalhost(?::(\d+))?\b', msg, re.IGNORECASE)
+        if port_match and not target:
+            port = port_match.group(1)
+            target = f"localhost:{port}" if port else "localhost"
+
+        if not target:
+            return None
+
+        # Extract credentials
+        creds = self._extract_credentials(msg)
+
+        # Extract full context (everything after the target)
+        context = msg  # pass full message as context for command building
+
+        return {
+            "tools": tools_mentioned,
+            "target": target,
+            "credentials": creds,
+            "context": context,
+            "raw_message": msg,
+        }
+
+    def _execute_parsed_command(self, parsed: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute tools from a parsed run-command, adapting between tools.
+        Returns a combined response dict.
+        """
+        tools    = parsed["tools"]
+        target   = parsed["target"]
+        creds    = parsed["credentials"]
+        context  = parsed["context"]
+        outputs  = []
+        all_cmds = []
+
+        for tool in tools:
+            cmd = self._build_tool_command(tool, target, creds, context)
+            cmd = self._preprocess_cmd(cmd)
+            out = self._run_tool(cmd, timeout=120)
+            label = f"[{tool.upper()}] on {target}"
+            outputs.append(f"{label}\n{'─'*60}\n{out}")
+            all_cmds.append(" ".join(cmd))
+
+            # Real-time adaptation: if nmap found HTTP, auto-add web tools
+            if tool == "nmap" and len(tools) == 1:
+                ports_found = re.findall(r'(\d+)/tcp\s+open\s+(\S+)', out)
+                for port, svc in ports_found:
+                    if svc in ("http", "https", "http-alt") and "gobuster" not in tools:
+                        proto = "https" if svc == "https" or port == "443" else "http"
+                        web_target = f"{proto}://{target}:{port}"
+                        web_cmd = self._build_tool_command("gobuster", web_target, {}, context)
+                        web_cmd = self._preprocess_cmd(web_cmd)
+                        web_out = self._run_tool(web_cmd, timeout=90)
+                        outputs.append(f"[AUTO-ADAPT] gobuster on {web_target}\n{'─'*60}\n{web_out}")
+                        all_cmds.append(" ".join(web_cmd))
+
+        combined = "\n\n".join(outputs)
+        creds_note = ""
+        if creds:
+            creds_note = f"\n\nCredentials used: {json.dumps(creds)}"
+
+        # Record in learning engine if available
+        if self.learning_engine:
+            for cmd in all_cmds:
+                self.learning_engine.record_execution(cmd, target, "executed")
+
+        return {
+            "success": True,
+            "response": f"```\n{combined}{creds_note}\n```",
+            "executed": True,
+            "command": " | ".join(all_cmds),
+            "category": self._detect_category(context.lower()),
+            "suggested_tools": [],
+        }
+
     def _generate_response(self, message: str, msg_lower: str) -> Dict[str, Any]:
         target = self._extract_target(message)
         words = message.strip().split()
         first_word = words[0].lower() if words else ""
+
+        # ── Multi-tool / natural language run command (highest priority) ─────
+        parsed = self._parse_run_command(message)
+        if parsed:
+            return self._execute_parsed_command(parsed)
 
         # Help / greeting
         if any(w in msg_lower for w in ["hello", "hi", "help", "what can you do", "capabilities"]):
@@ -11018,23 +11358,81 @@ class CFAIChatEngine:
                 "category": "ctf",
             }
 
+        # ── Learning engine stats ─────────────────────────────────────────────
+        if any(w in msg_lower for w in ["learning stats", "ai stats", "learning engine",
+                                         "what have you learned", "scan history",
+                                         "previous findings", "target history"]):
+            if self.learning_engine:
+                if target:
+                    profile = self.learning_engine.get_target_profile(target)
+                    findings = self.learning_engine.get_previous_findings(target)
+                    lines = [f"Target Profile: {target}"]
+                    if profile:
+                        lines += [
+                            f"  Last seen:   {profile.get('last_seen', 'never')}",
+                            f"  Tech stack:  {', '.join(profile.get('tech_stack', [])) or 'unknown'}",
+                            f"  Open ports:  {', '.join(profile.get('open_ports', [])) or 'unknown'}",
+                            f"  Vuln count:  {profile.get('vuln_count', 0)}",
+                            f"  Scan count:  {profile.get('scan_count', 0)}",
+                        ]
+                    if findings:
+                        lines.append("\nPrevious findings:")
+                        for f in findings:
+                            lines.append(f"  [{f['severity']}] {f['title']} (via {f['tool']})")
+                    next_tool = self.learning_engine.suggest_next_tool(target, [])
+                    if next_tool:
+                        lines.append(f"\nSuggested next tool: {next_tool}")
+                    return {"success": True, "response": f"```\n{chr(10).join(lines)}\n```",
+                            "category": "general", "suggested_tools": [next_tool] if next_tool else []}
+                else:
+                    return {"success": True, "response": f"```\n{self.learning_engine.stats_summary()}\n```",
+                            "category": "general", "suggested_tools": []}
+
         # ── LLM-powered intent router (Claude API) ────────────────────────────
         # Try Claude API to understand intent before falling back to nmap/help
         llm_result = self._llm_route(message, target)
         if llm_result:
             return llm_result
 
-        # ── Target given but intent unclear — default to nmap ─────────────────
+        # ── Target given but intent unclear — intelligent default ─────────────
         if target:
-            cmd = ["nmap", "-sT", "-Pn", "-sV", "--open", "-T4", target]
+            # Check learning engine for target profile — pick best entry tool
+            entry_tool = "nmap"
+            if self.learning_engine and self.degradation:
+                profile = self.learning_engine.get_target_profile(target)
+                if profile.get("scan_count", 0) > 0:
+                    # Already scanned before — skip nmap, go straight to vuln scan
+                    entry_tool = self.degradation.vuln_scanner()
+                else:
+                    entry_tool = self.degradation.port_scanner()
+
+            if entry_tool in ("nmap", "rustscan", "masscan"):
+                cmd = ["nmap", "-sT", "-Pn", "-sV", "--open", "-T4", target]
+            else:
+                cmd = self._build_tool_command(entry_tool, target, {}, "general scan")
+
+            cmd = self._preprocess_cmd(cmd)
             output = self._run_tool(cmd, timeout=120)
+
+            if self.learning_engine:
+                self.learning_engine.record_execution(" ".join(cmd), target, "executed", output=output)
+                # Extract port info and update profile
+                ports = re.findall(r'(\d+)/tcp\s+open', output)
+                if ports:
+                    self.learning_engine.update_target_profile(target, [], ports)
+
+            # If nmap found web ports, suggest follow-up
+            suggested = ["gobuster", "nuclei", "subfinder"]
+            if any(p in output for p in ["80/tcp", "443/tcp", "8080/tcp", "8443/tcp"]):
+                suggested = ["gobuster", "nuclei", "dalfox", "sqlmap"]
+
             return {
                 "success": True,
-                "response": f"Detected target `{target}` — running default port scan:\n\n```\n{output}\n```",
+                "response": f"Detected target `{target}` — running {entry_tool} scan:\n\n```\n{output}\n```",
                 "executed": True,
-                "command": f"nmap -sT -Pn -sV --open -T4 {target}",
+                "command": " ".join(cmd),
                 "category": "network",
-                "suggested_tools": ["gobuster", "nuclei", "subfinder"],
+                "suggested_tools": suggested,
             }
 
         # ── Specific tool keyword without target ──────────────────────────────
@@ -11693,6 +12091,211 @@ class IntelligentDecisionEngine:
         }
 
 
+class LearningEngine:
+    """
+    SQLite-backed learning engine. Records tool executions, target responses,
+    and vulnerability findings. Provides optimized parameter suggestions based
+    on historical data. Enables the AI to continuously improve over time.
+    """
+
+    DB_PATH = "/opt/CF_AI/cfai_learning.db"
+
+    def __init__(self) -> None:
+        self._db: Optional[Any] = None
+        self._lock = threading.Lock()
+        self._init_db()
+
+    def _init_db(self) -> None:
+        try:
+            import sqlite3
+            db_dir = os.path.dirname(self.DB_PATH)
+            os.makedirs(db_dir, exist_ok=True)
+            self._db = sqlite3.connect(self.DB_PATH, check_same_thread=False)
+            c = self._db.cursor()
+            c.executescript("""
+                CREATE TABLE IF NOT EXISTS executions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    tool TEXT,
+                    target TEXT,
+                    command TEXT,
+                    status TEXT,
+                    duration_s REAL,
+                    output_hash TEXT
+                );
+                CREATE TABLE IF NOT EXISTS findings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    target TEXT,
+                    tool TEXT,
+                    severity TEXT,
+                    title TEXT,
+                    detail TEXT
+                );
+                CREATE TABLE IF NOT EXISTS target_profile (
+                    target TEXT PRIMARY KEY,
+                    last_seen DATETIME,
+                    tech_stack TEXT,
+                    open_ports TEXT,
+                    vuln_count INTEGER DEFAULT 0,
+                    scan_count INTEGER DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS tool_effectiveness (
+                    tool TEXT,
+                    target_type TEXT,
+                    success_count INTEGER DEFAULT 0,
+                    fail_count INTEGER DEFAULT 0,
+                    avg_duration_s REAL DEFAULT 0,
+                    PRIMARY KEY (tool, target_type)
+                );
+            """)
+            self._db.commit()
+        except Exception as e:
+            logger.warning(f"[LearningEngine] DB init failed: {e}")
+            self._db = None
+
+    def record_execution(self, command: str, target: str, status: str,
+                         duration: float = 0.0, output: str = "") -> None:
+        if not self._db:
+            return
+        tool = command.split()[0] if command else "unknown"
+        output_hash = hashlib.md5(output.encode()).hexdigest()[:8] if output else ""
+        with self._lock:
+            try:
+                self._db.execute(
+                    "INSERT INTO executions (tool, target, command, status, duration_s, output_hash) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (tool, target, command, status, duration, output_hash)
+                )
+                self._db.execute(
+                    "INSERT INTO target_profile (target, last_seen, scan_count) VALUES (?, datetime('now'), 1) "
+                    "ON CONFLICT(target) DO UPDATE SET last_seen=datetime('now'), scan_count=scan_count+1",
+                    (target,)
+                )
+                self._db.commit()
+            except Exception:
+                pass
+
+    def record_finding(self, target: str, tool: str, severity: str,
+                       title: str, detail: str = "") -> None:
+        if not self._db:
+            return
+        with self._lock:
+            try:
+                self._db.execute(
+                    "INSERT INTO findings (target, tool, severity, title, detail) VALUES (?,?,?,?,?)",
+                    (target, tool, severity, title, detail)
+                )
+                self._db.execute(
+                    "UPDATE target_profile SET vuln_count=vuln_count+1 WHERE target=?",
+                    (target,)
+                )
+                self._db.commit()
+            except Exception:
+                pass
+
+    def update_target_profile(self, target: str, tech_stack: List[str],
+                              open_ports: List[str]) -> None:
+        if not self._db:
+            return
+        with self._lock:
+            try:
+                self._db.execute(
+                    "INSERT INTO target_profile (target, last_seen, tech_stack, open_ports) "
+                    "VALUES (?, datetime('now'), ?, ?) "
+                    "ON CONFLICT(target) DO UPDATE SET last_seen=datetime('now'), "
+                    "tech_stack=excluded.tech_stack, open_ports=excluded.open_ports",
+                    (target, json.dumps(tech_stack), json.dumps(open_ports))
+                )
+                self._db.commit()
+            except Exception:
+                pass
+
+    def get_target_profile(self, target: str) -> Dict[str, Any]:
+        if not self._db:
+            return {}
+        with self._lock:
+            try:
+                row = self._db.execute(
+                    "SELECT last_seen, tech_stack, open_ports, vuln_count, scan_count "
+                    "FROM target_profile WHERE target=?", (target,)
+                ).fetchone()
+                if row:
+                    return {
+                        "last_seen": row[0],
+                        "tech_stack": json.loads(row[1] or "[]"),
+                        "open_ports": json.loads(row[2] or "[]"),
+                        "vuln_count": row[3],
+                        "scan_count": row[4],
+                    }
+            except Exception:
+                pass
+        return {}
+
+    def get_previous_findings(self, target: str) -> List[Dict]:
+        if not self._db:
+            return []
+        with self._lock:
+            try:
+                rows = self._db.execute(
+                    "SELECT ts, tool, severity, title FROM findings WHERE target=? "
+                    "ORDER BY ts DESC LIMIT 20", (target,)
+                ).fetchall()
+                return [{"ts": r[0], "tool": r[1], "severity": r[2], "title": r[3]} for r in rows]
+            except Exception:
+                return []
+
+    def suggest_next_tool(self, target: str, already_run: List[str]) -> Optional[str]:
+        """Based on target profile + already-run tools, suggest the next best tool."""
+        profile = self.get_target_profile(target)
+        tech    = profile.get("tech_stack", [])
+        ports   = profile.get("open_ports", [])
+
+        candidates: List[Tuple[str, int]] = []
+        if "80" in ports or "443" in ports or not ports:
+            if "gobuster" not in already_run:  candidates.append(("gobuster", 10))
+            if "nuclei"   not in already_run:  candidates.append(("nuclei",   9))
+            if "nikto"    not in already_run:  candidates.append(("nikto",    8))
+            if "dalfox"   not in already_run:  candidates.append(("dalfox",   7))
+            if "sqlmap"   not in already_run:  candidates.append(("sqlmap",   7))
+        if "22" in ports and "hydra" not in already_run:
+            candidates.append(("hydra", 8))
+        if "3306" in ports and "sqlmap" not in already_run:
+            candidates.append(("sqlmap", 9))
+        if "WordPress" in tech and "wpscan" not in already_run:
+            candidates.append(("wpscan", 10))
+
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        for tool, _ in candidates:
+            if tool not in already_run:
+                return tool
+        return None
+
+    def stats_summary(self) -> str:
+        if not self._db:
+            return "Learning engine not initialized."
+        with self._lock:
+            try:
+                total = self._db.execute("SELECT COUNT(*) FROM executions").fetchone()[0]
+                top_tools = self._db.execute(
+                    "SELECT tool, COUNT(*) as n FROM executions GROUP BY tool ORDER BY n DESC LIMIT 10"
+                ).fetchall()
+                findings = self._db.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
+                targets = self._db.execute("SELECT COUNT(DISTINCT target) FROM executions").fetchone()[0]
+                lines = [
+                    f"Learning Engine Stats (persistent DB: {self.DB_PATH})",
+                    f"  Total executions: {total}",
+                    f"  Unique targets:   {targets}",
+                    f"  Total findings:   {findings}",
+                    "  Top tools used:",
+                ]
+                for tool, n in top_tools:
+                    lines.append(f"    {tool:20s} {n} runs")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Stats error: {e}"
+
+
 def _fix_tool_permissions():
     """
     One-time startup fix: chmod +x every known security tool binary.
@@ -11774,7 +12377,8 @@ chat_engine.exploit_gen      = AIExploitGenerator()
 chat_engine.bb_workflow      = BugBountyWorkflowManager()
 chat_engine.ctf_workflow     = CTFWorkflowManager()
 chat_engine.decision_engine  = IntelligentDecisionEngine(_tech_det, _param_opt, _degrade)
-logger.info("[startup] 12 AI agents wired into chat engine")
+chat_engine.learning_engine  = LearningEngine()
+logger.info("[startup] 12 AI agents + LearningEngine wired into chat engine")
 
 # API Routes
 
@@ -12046,9 +12650,10 @@ def _severity_label(finding: str) -> str:
 
 
 def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "") -> Dict[str, Any]:
-    """Scan the target WordPress site and generate a full findings-based report."""
+    """Scan the target WordPress site and generate a full findings-based report.
+    ALL data comes from real tool execution — nothing is hardcoded or fabricated."""
     import warnings
-    warnings.filterwarnings("ignore")  # suppress SSL warnings from urllib3
+    warnings.filterwarnings("ignore")
 
     report_date = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
     scan_start  = datetime.now()
@@ -12057,30 +12662,123 @@ def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "
     if not site_url.startswith("http"):
         site_url = "https://" + site_url
 
-    # ── Run scans ─────────────────────────────────────────────────────────────
-    http_data   = _check_http_surface(site_url)
-    wpscan_raw  = _run_wp_scan(site_url, timeout=180)
+    # ── Phase 1: HTTP surface checks (always runs, no tool dependency) ─────────
+    http_data = _check_http_surface(site_url)
+
+    # ── Phase 2: WPScan with JSON output for precise parsing ──────────────────
+    wpscan_raw  = ""
+    wpscan_json = {}
+    try:
+        env = dict(os.environ)
+        env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:' + env.get('PATH', '')
+        # Run JSON first (more precise), fall back to CLI output
+        json_cmd = [
+            "wpscan", "--url", site_url,
+            "--enumerate", "vp,vu,vt,u,ap,at",
+            "--no-banner", "--no-update",
+            "--random-user-agent",
+            "--format", "json",
+        ]
+        json_result = subprocess.run(json_cmd, capture_output=True, text=True, timeout=180, env=env)
+        wpscan_out = (json_result.stdout or '').strip()
+        if wpscan_out and wpscan_out.startswith('{'):
+            wpscan_json = json.loads(wpscan_out)
+        # Also get CLI output for human-readable summary
+        cli_cmd = [
+            "wpscan", "--url", site_url,
+            "--enumerate", "vp,vu,vt,u",
+            "--no-banner", "--no-update",
+            "--random-user-agent",
+            "--format", "cli",
+        ]
+        cli_result = subprocess.run(cli_cmd, capture_output=True, text=True, timeout=120, env=env)
+        wpscan_raw = ((cli_result.stdout or '') + (cli_result.stderr or '')).strip()
+    except subprocess.TimeoutExpired:
+        wpscan_raw = "wpscan timed out — proceeding with HTTP surface data only."
+    except FileNotFoundError:
+        wpscan_raw = "wpscan is not installed. Install: gem install wpscan"
+    except Exception as e:
+        wpscan_raw = f"wpscan error: {str(e)}"
+
+    # ── Phase 3: Nikto scan for additional web vulns ───────────────────────────
+    nikto_findings: List[str] = []
+    try:
+        nik_env = dict(os.environ)
+        nik_env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:' + nik_env.get('PATH', '')
+        nik_result = subprocess.run(
+            ["nikto", "-h", site_url, "-C", "all", "-maxtime", "60"],
+            capture_output=True, text=True, timeout=90, env=nik_env
+        )
+        for line in ((nik_result.stdout or '') + (nik_result.stderr or '')).splitlines():
+            if line.strip().startswith('+') and 'OSVDB' not in line and len(line) > 20:
+                nikto_findings.append(line.strip().lstrip('+ ').strip())
+    except Exception:
+        pass
+
+    # ── Phase 4: Nuclei WordPress templates ───────────────────────────────────
+    nuclei_findings: List[str] = []
+    try:
+        nuc_env = dict(os.environ)
+        nuc_env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:' + nuc_env.get('PATH', '')
+        nuc_result = subprocess.run(
+            ["nuclei", "-u", site_url, "-t", "wordpress/", "-silent", "-timeout", "10"],
+            capture_output=True, text=True, timeout=60, env=nuc_env
+        )
+        for line in ((nuc_result.stdout or '')).splitlines():
+            if line.strip():
+                nuclei_findings.append(line.strip())
+    except Exception:
+        pass
+
     scan_duration = int((datetime.now() - scan_start).total_seconds())
 
-    # ── Parse additional context from wpscan output ───────────────────────────
+    # ── Parse wpscan JSON (if available) for precise data ─────────────────────
     wp_version    = "Unknown"
-    plugins_found = []
-    themes_found  = []
-    users_found   = []
-    vulns_found   = []
+    plugins_found: List[str] = []
+    themes_found:  List[str] = []
+    users_found:   List[str] = []
+    vulns_found:   List[str] = []
 
-    for line in wpscan_raw.splitlines():
-        l = line.strip()
-        if "WordPress version" in l:
-            wp_version = l.split("WordPress version")[-1].strip().split()[0].strip("[](),")
-        if "| Plugin:" in l or "[+] Plugin:" in l or ("plugin" in l.lower() and l.startswith("[")):
-            plugins_found.append(l.lstrip("[+] ").strip())
-        if ("Theme:" in l or "theme" in l.lower()) and l.startswith("["):
-            themes_found.append(l.lstrip("[+] ").strip())
-        if "| User:" in l or "[+] User" in l:
-            users_found.append(l.lstrip("[+] User: ").strip())
-        if "vulnerability" in l.lower() or "CVE-" in l or "CVSS" in l:
-            vulns_found.append(l.strip())
+    if wpscan_json:
+        # Version
+        ver_data = wpscan_json.get("version", {})
+        if ver_data:
+            wp_version = ver_data.get("number", "Unknown")
+        # Plugins
+        for slug, pdata in wpscan_json.get("plugins", {}).items():
+            ver = pdata.get("version", {}).get("number", "?")
+            plugins_found.append(f"{slug} v{ver}")
+            for vuln in pdata.get("vulnerabilities", []):
+                cve = vuln.get("references", {}).get("cve", [""])[0]
+                vulns_found.append(f"Plugin {slug}: {vuln.get('title', 'unknown')} (CVE: {cve or 'N/A'})")
+        # Themes
+        for slug, tdata in wpscan_json.get("main_theme", {}).items() if isinstance(wpscan_json.get("main_theme"), dict) else []:
+            themes_found.append(str(slug))
+        for slug, tdata in wpscan_json.get("themes", {}).items():
+            ver = tdata.get("version", {}).get("number", "?")
+            themes_found.append(f"{slug} v{ver}")
+            for vuln in tdata.get("vulnerabilities", []):
+                vulns_found.append(f"Theme {slug}: {vuln.get('title', 'unknown')}")
+        # Users
+        for uid, udata in wpscan_json.get("users", {}).items():
+            users_found.append(udata.get("login", str(uid)))
+        # Core vulns
+        for vuln in wpscan_json.get("vulnerabilities", []):
+            vulns_found.append(f"Core: {vuln.get('title', 'unknown')}")
+    else:
+        # Fall back to parsing CLI output
+        for line in wpscan_raw.splitlines():
+            l = line.strip()
+            if "WordPress version" in l:
+                wp_version = l.split("WordPress version")[-1].strip().split()[0].strip("[](),")
+            if "| Plugin:" in l or "[+] Plugin:" in l or ("plugin" in l.lower() and l.startswith("[")):
+                plugins_found.append(l.lstrip("[+] ").strip())
+            if ("Theme:" in l or "theme" in l.lower()) and l.startswith("["):
+                themes_found.append(l.lstrip("[+] ").strip())
+            if "| User:" in l or "[+] User" in l:
+                users_found.append(l.lstrip("[+] User: ").strip())
+            if "vulnerability" in l.lower() or "CVE-" in l or "CVSS" in l:
+                vulns_found.append(l.strip())
 
     # ── Build findings list from HTTP checks ──────────────────────────────────
     findings = []
@@ -12166,7 +12864,31 @@ def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "
             "title": "Vulnerability Detected by WPScan",
             "detail": v,
             "remediation": "Update the affected plugin/theme/core to the latest version. Check vendor advisories for patched release.",
-            "evidence": f"wpscan output: {v[:200]}",
+            "evidence": f"wpscan: {v[:200]}",
+        })
+        fid += 1
+
+    # Findings from nikto
+    for nf in nikto_findings[:8]:
+        sev = "HIGH" if any(k in nf.lower() for k in ["xss", "sql", "injection", "shell", "rce"]) else "MEDIUM"
+        findings.append({
+            "id": f"F-{fid:03d}", "severity": sev,
+            "title": "Web Vulnerability Detected by Nikto",
+            "detail": nf,
+            "remediation": "Review the specific issue flagged by Nikto and apply vendor-recommended patches or configuration hardening.",
+            "evidence": f"nikto: {nf[:200]}",
+        })
+        fid += 1
+
+    # Findings from nuclei wordpress templates
+    for nuc in nuclei_findings[:8]:
+        sev = "HIGH" if any(k in nuc.lower() for k in ["critical", "high"]) else "MEDIUM"
+        findings.append({
+            "id": f"F-{fid:03d}", "severity": sev,
+            "title": "Vulnerability Detected by Nuclei",
+            "detail": nuc,
+            "remediation": "Review the nuclei finding and apply patches for the identified template.",
+            "evidence": f"nuclei: {nuc[:200]}",
         })
         fid += 1
 
@@ -12346,7 +13068,9 @@ SECTION 2 — SCOPE AND METHODOLOGY
 
 2.3  Tools Used
 ----------------
-    • WPScan v3.x               — WordPress vulnerability scanner
+    • WPScan v3.x               — WordPress vulnerability scanner (JSON + CLI mode)
+    • Nikto                      — Web server vulnerability scanner
+    • Nuclei (wordpress/ templates) — Template-based vulnerability detection
     • CF_AI HTTP Engine          — Header analysis & endpoint enumeration
     • requests / Python          — HTTP surface checks
 
@@ -12451,6 +13175,13 @@ Report Reference: CFAI-WP-{datetime.now().strftime('%Y%m%d-%H%M')}
         "risk_rating": risk_rating,
         "findings_count": len(findings),
         "severity_counts": sev_counts,
+        "findings_data": findings,          # for learning engine recording
+        "scan_duration_s": scan_duration,
+        "tools_used": ["wpscan", "nikto", "nuclei", "http-surface-check"],
+        "wordpress_version": wp_version,
+        "plugins": plugins_found[:20],
+        "themes": themes_found[:10],
+        "users": users_found[:10],
     }
 
 @app.route("/api/wordpress/report", methods=["POST"])
@@ -12466,6 +13197,23 @@ def wordpress_report():
             return jsonify({"error": "site_url is required"}), 400
 
         result = generate_wordpress_security_report(site_url, scope, notes)
+
+        # Record findings in learning engine
+        try:
+            if chat_engine.learning_engine:
+                chat_engine.learning_engine.record_execution(
+                    f"wpscan --url {site_url}", site_url, "executed"
+                )
+                for finding in result.get("findings_data", []):
+                    chat_engine.learning_engine.record_finding(
+                        site_url, "wpscan",
+                        finding.get("severity", "INFO"),
+                        finding.get("title", ""),
+                        finding.get("detail", "")[:200]
+                    )
+        except Exception:
+            pass
+
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error generating WordPress report: {str(e)}")

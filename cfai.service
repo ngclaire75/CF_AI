@@ -1,38 +1,21 @@
 [Unit]
-Description=CF_AI Penetration Testing Framework Server
-Documentation=https://github.com/ngclaire75/CF_AI
-After=network-online.target
-Wants=network-online.target
+Description=CF_AI Penetration Testing Framework
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
-User=cfai
-Group=cfai
+User=root
 WorkingDirectory=/opt/CF_AI
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin
-Environment=PYTHONPATH=/opt/CF_AI
-Environment=CFAI_PORT=8888
-Environment=CFAI_HOST=0.0.0.0
-Environment=LOG_LEVEL=INFO
 EnvironmentFile=-/opt/CF_AI/.env
 ExecStart=/opt/CF_AI/venv/bin/python3 /opt/CF_AI/cfai_server.py
-ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=cfai
-TimeoutStartSec=30
-TimeoutStopSec=30
-
-# Security hardening
-NoNewPrivileges=yes
-PrivateTmp=yes
-ProtectSystem=strict
-ReadWritePaths=/opt/CF_AI/logs /opt/CF_AI/cache /opt/CF_AI/temp
-ProtectHome=yes
-PrivateDevices=yes
-CapabilityBoundingSet=
+RuntimeMaxSec=86400
 
 [Install]
 WantedBy=multi-user.target
