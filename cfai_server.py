@@ -10552,104 +10552,236 @@ def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "
     themes_text  = "\n".join(f"  • {t}" for t in themes_found[:10]) or "  No themes detected by wpscan."
     users_text   = "\n".join(f"  • {u}" for u in users_found[:10]) or "  No users discovered."
 
-    # ── Build full report ─────────────────────────────────────────────────────
+    # ── Risk summary table row builder ────────────────────────────────────────
+    def risk_bar(count, sev):
+        return f"{count:>2}  {'█' * min(count, 20)}" if count else "  0"
+
+    # ── Remediation items filtered to actual findings ─────────────────────────
+    remed_immediate = []
+    remed_short     = []
+    remed_ongoing   = [
+        "Keep WordPress core, all plugins, and themes updated to latest stable releases.",
+        "Schedule quarterly automated and annual manual security assessments.",
+        "Enable and review audit logs for all administrator actions.",
+        "Maintain an asset inventory of all installed plugins and themes.",
+        "Conduct developer security training covering OWASP Top 10.",
+    ]
+
+    for f in findings:
+        sev = f.get("severity", "")
+        if sev in ("CRITICAL", "HIGH"):
+            remed_immediate.append(f['remediation'])
+        elif sev == "MEDIUM":
+            remed_short.append(f['remediation'])
+
+    remed_immediate = remed_immediate or ["No critical/high findings identified."]
+    remed_short     = remed_short or ["No medium findings identified."]
+
+    # ── Parse notes for metadata ───────────────────────────────────────────────
+    assessor_firm = ""
+    lead_assessor = ""
+    certifications = ""
+    for line in notes.splitlines():
+        if "Assessor firm:" in line:
+            assessor_firm = line.split("Assessor firm:")[-1].strip()
+        elif "Lead assessor:" in line:
+            lead_assessor = line.split("Lead assessor:")[-1].strip()
+        elif "Certifications:" in line:
+            certifications = line.split("Certifications:")[-1].strip()
+
+    imm_list  = "\n".join(f"  {i+1}. {r}" for i, r in enumerate(remed_immediate))
+    short_list= "\n".join(f"  {i+1+len(remed_immediate)}. {r}" for i, r in enumerate(remed_short))
+    ong_list  = "\n".join(f"  {i+1+len(remed_immediate)+len(remed_short)}. {r}" for i, r in enumerate(remed_ongoing))
+
+    # ── Build full PTES-aligned report ────────────────────────────────────────
     report = f"""
-CF_AI — WordPress Security Assessment Report
-============================================================
-  Target        : {site_url}
-  Scan Date     : {report_date}
-  Duration      : {scan_duration}s
-  Scope         : {scope}
-  WordPress     : {wp_version}
-  Server        : {http_data.get('server_header', 'Unknown')}
-  HTTPS         : {'Yes' if http_data.get('https') else 'NO — Unencrypted'}
-  Overall Risk  : {risk_rating}
-  Total Findings: {len(findings)} ({sev_counts['CRITICAL']} Critical, {sev_counts['HIGH']} High, {sev_counts['MEDIUM']} Medium, {sev_counts['LOW']} Low)
-============================================================
+================================================================================
+              WORDPRESS SECURITY ASSESSMENT REPORT
+               Prepared by CF_AI v6.0 — Penetration Testing Framework
+================================================================================
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. EXECUTIVE SUMMARY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-A security assessment was conducted against {site_url} using
-automated scanning tools (WPScan, HTTP header analysis, endpoint
-enumeration). The scan identified {len(findings)} finding(s) with an
-overall risk rating of {risk_rating}.
+DOCUMENT CONTROL
+--------------------------------------------------------------------------------
+Report Reference  : CFAI-WP-{datetime.now().strftime('%Y%m%d-%H%M')}
+Report Version    : 1.0 — Final
+Classification    : CONFIDENTIAL
+Prepared By       : {lead_assessor or 'CF_AI Automated Scanner'}
+Organisation      : {assessor_firm or 'CF_AI Security'}
+Certifications    : {certifications or 'N/A'}
+Report Date       : {report_date}
+Scan Duration     : {scan_duration} seconds
 
-{"IMMEDIATE ACTION REQUIRED — Critical vulnerabilities found." if sev_counts["CRITICAL"] > 0 else ""}
-{"High-risk findings require prompt remediation." if sev_counts["HIGH"] > 0 else ""}
-{"Medium-risk findings should be addressed in the next release cycle." if sev_counts["MEDIUM"] > 0 else ""}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2. SCOPE & METHODOLOGY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Target URL   : {site_url}
-Scope        : {scope}
-Tools Used   : WPScan, HTTP endpoint checks, header analysis
-Test Type    : Black-box automated assessment
-Tester       : CF_AI v6.0 — Automated Security Scanner
-
-Checks performed:
-  • WordPress core version detection
-  • Plugin & theme enumeration and CVE matching
-  • User enumeration (REST API & author redirect)
-  • XML-RPC exposure check
-  • Security header audit
-  • Sensitive file exposure (readme.html, license.txt, wp-config backups)
-  • wp-login.php access control check
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-3. FINDINGS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{findings_text}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-4. DETECTED COMPONENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+--------------------------------------------------------------------------------
+TARGET INFORMATION
+--------------------------------------------------------------------------------
+Target URL        : {site_url}
 WordPress Version : {wp_version}
+Web Server        : {http_data.get('server_header', 'Unknown')}
+X-Powered-By      : {http_data.get('x_powered_by', 'Not disclosed')}
+HTTPS Enforced    : {'Yes' if http_data.get('https') else 'NO — Traffic transmitted in plaintext'}
+Assessment Scope  : {scope}
 
-Plugins Detected:
+--------------------------------------------------------------------------------
+RISK SUMMARY
+--------------------------------------------------------------------------------
+  Severity        Count
+  ─────────────────────────────────────
+  CRITICAL        {risk_bar(sev_counts['CRITICAL'], 'CRITICAL')}
+  HIGH            {risk_bar(sev_counts['HIGH'], 'HIGH')}
+  MEDIUM          {risk_bar(sev_counts['MEDIUM'], 'MEDIUM')}
+  LOW             {risk_bar(sev_counts['LOW'], 'LOW')}
+  INFO            {risk_bar(sev_counts['INFO'], 'INFO')}
+  ─────────────────────────────────────
+  TOTAL           {len(findings):>2}
+  OVERALL RISK    {risk_rating}
+
+================================================================================
+SECTION 1 — EXECUTIVE SUMMARY
+================================================================================
+
+A black-box automated security assessment was conducted against the WordPress
+installation at {site_url} on {report_date}. The assessment was performed
+using WPScan, HTTP endpoint analysis, and security header inspection in
+accordance with the OWASP Testing Guide (OTG) and the Penetration Testing
+Execution Standard (PTES).
+
+The assessment identified {len(findings)} finding(s). The overall risk rating
+for this engagement is {risk_rating}.
+
+{"  !! IMMEDIATE ACTION REQUIRED — One or more critical vulnerabilities were" if sev_counts["CRITICAL"] > 0 else ""}
+{"     identified that pose an immediate risk to confidentiality, integrity," if sev_counts["CRITICAL"] > 0 else ""}
+{"     or availability of the target system." if sev_counts["CRITICAL"] > 0 else ""}
+{"  >> High-risk findings were identified and should be remediated promptly." if sev_counts["HIGH"] > 0 else ""}
+{"  >> Medium-risk findings should be addressed within the next patch cycle." if sev_counts["MEDIUM"] > 0 else ""}
+{"  -- No high-severity findings were identified during automated testing." if sev_counts["CRITICAL"] == 0 and sev_counts["HIGH"] == 0 else ""}
+
+================================================================================
+SECTION 2 — SCOPE AND METHODOLOGY
+================================================================================
+
+2.1  Scope
+-----------
+  In-Scope URL    : {site_url}
+  Test Type       : Black-box automated assessment (no credentials provided)
+  Assessment Date : {report_date}
+  Authorisation   : Client-authorised assessment — {scope}
+
+2.2  Methodology
+-----------------
+  This assessment follows the OWASP WordPress Security Testing Guide and
+  the Penetration Testing Execution Standard (PTES). The following test
+  categories were executed:
+
+    [WP-01]  WordPress core version detection and CVE matching
+    [WP-02]  Plugin enumeration and vulnerability identification
+    [WP-03]  Theme enumeration and vulnerability identification
+    [WP-04]  User enumeration (REST API /wp-json/wp/v2/users)
+    [WP-05]  User enumeration via author URL redirect (?author=1)
+    [WP-06]  XML-RPC availability and brute-force exposure (OWASP OTG-AUTHN-007)
+    [WP-07]  HTTP security header audit (OWASP OTG-CONFIG-007)
+    [WP-08]  Sensitive file exposure (readme.html, license.txt, wp-config backups)
+    [WP-09]  wp-login.php access control and brute-force protection
+    [WP-10]  HTTPS / TLS enforcement check
+
+2.3  Tools Used
+----------------
+    • WPScan v3.x               — WordPress vulnerability scanner
+    • CF_AI HTTP Engine          — Header analysis & endpoint enumeration
+    • requests / Python          — HTTP surface checks
+
+================================================================================
+SECTION 3 — DETAILED FINDINGS
+================================================================================
+
+{findings_text}
+================================================================================
+SECTION 4 — DETECTED COMPONENTS
+================================================================================
+
+4.1  WordPress Core
+--------------------
+  Version Detected : {wp_version}
+  {"Version appears current — no core CVEs identified by scanner." if wp_version == "Unknown" else f"Verify {wp_version} against https://wordpress.org/news/category/security/ for known CVEs."}
+
+4.2  Installed Plugins
+-----------------------
 {plugins_text}
 
-Themes Detected:
+4.3  Installed Themes
+----------------------
 {themes_text}
 
-Users Discovered:
+4.4  Discovered User Accounts
+------------------------------
 {users_text}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-5. REMEDIATION PRIORITY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-IMMEDIATE (Critical/High):
-  1. Delete any exposed wp-config backup files and rotate DB credentials.
-  2. Disable XML-RPC if not required.
-  3. Block user enumeration via REST API and ?author= redirect.
-  4. Enforce HTTPS with a valid TLS certificate.
+================================================================================
+SECTION 5 — REMEDIATION RECOMMENDATIONS
+================================================================================
 
-SHORT TERM (Medium):
-  5. Add all missing HTTP security headers.
-  6. Protect wp-login.php with 2FA, CAPTCHA, or IP restriction.
-  7. Delete readme.html and license.txt from web root.
+5.1  Immediate Actions (Critical / High — remediate within 24–72 hours)
+-------------------------------------------------------------------------
+{imm_list}
 
-ONGOING:
-  8. Keep WordPress core, all plugins, and themes fully updated.
-  9. Schedule quarterly security scans.
-  10. Enable audit logging for admin actions.
+5.2  Short-Term Actions (Medium — remediate within next sprint / release)
+--------------------------------------------------------------------------
+{short_list}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-6. RAW WPSCAN OUTPUT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5.3  Ongoing Security Hygiene
+------------------------------
+{ong_list}
+
+================================================================================
+SECTION 6 — APPENDIX A — RAW WPSCAN OUTPUT
+================================================================================
+
 {wpscan_summary}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-7. ADDITIONAL NOTES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+================================================================================
+SECTION 7 — APPENDIX B — REFERENCES
+================================================================================
+
+  • OWASP WordPress Security Testing Guide
+    https://owasp.org/www-project-web-security-testing-guide/
+
+  • PTES — Penetration Testing Execution Standard
+    http://www.pentest-standard.org/
+
+  • WPScan Vulnerability Database
+    https://wpscan.com/vulnerability-database
+
+  • NIST NVD — National Vulnerability Database
+    https://nvd.nist.gov/
+
+  • WordPress Hardening Guide
+    https://developer.wordpress.org/advanced-administration/security/hardening/
+
+================================================================================
+SECTION 8 — ADDITIONAL NOTES
+================================================================================
+
 {notes if notes else "No additional notes provided."}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Generated by CF_AI v6.0 | {report_date}
-This report is based on automated scanning. Manual verification
-of findings and comprehensive manual testing is recommended.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+================================================================================
+DISCLAIMER
+================================================================================
+
+This report was produced by CF_AI v6.0 using automated scanning techniques.
+Automated assessments may not identify all vulnerabilities present on the target.
+This report should be supplemented by manual penetration testing conducted by a
+certified security professional (OSCP, CREST CRT, CEH, or equivalent) before
+being used as the sole basis for security decisions.
+
+All findings require validation and the remediation steps are provided as
+general guidance — implementation details may vary by hosting environment.
+
+Confidentiality Notice: This document contains sensitive security information.
+Distribution should be limited to authorised personnel only.
+
+================================================================================
+END OF REPORT | CF_AI v6.0 | {report_date}
+Report Reference: CFAI-WP-{datetime.now().strftime('%Y%m%d-%H%M')}
+================================================================================
 """
 
     return {
