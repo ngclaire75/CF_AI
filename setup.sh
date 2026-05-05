@@ -30,9 +30,16 @@ echo -e "${NC}"
 
 # ── 1. Fix Chrome repo key issue before update ────────────────────────────
 section "Fixing APT Sources"
-# Remove broken Google Chrome apt source if present (we install via .deb directly)
-rm -f /etc/apt/sources.list.d/google-chrome.list 2>/dev/null || true
-rm -f /etc/apt/sources.list.d/google.list 2>/dev/null || true
+# Remove every known Chrome/Google apt source so update doesn't fail on bad GPG key
+rm -f /etc/apt/sources.list.d/google-chrome.list \
+       /etc/apt/sources.list.d/google.list \
+       /etc/apt/sources.list.d/google-chrome-stable.list \
+       /etc/apt/sources.list.d/dl_google_com_linux_chrome_deb.list \
+       2>/dev/null || true
+# Also scrub any inline google chrome entries from sources.list
+sed -i '/dl\.google\.com\/linux\/chrome/d' /etc/apt/sources.list 2>/dev/null || true
+# Remove stale GPG key if present
+apt-key del 0F06FF86BEEAF4E71866EE5232EE5355A6BC6E42 2>/dev/null || true
 
 apt-get update -y 2>/dev/null || true
 apt-get upgrade -y 2>/dev/null || true
@@ -90,9 +97,9 @@ fi
 # AutoRecon
 if ! command -v autorecon &>/dev/null; then
     info "Installing AutoRecon..."
-    pip3 install autorecon 2>/dev/null || \
-    pip3 install git+https://github.com/Tib3rius/AutoRecon.git 2>/dev/null || \
-    warn "AutoRecon install failed — run: pip3 install autorecon"
+    pipx install autorecon 2>/dev/null || \
+    pip3 install autorecon --break-system-packages 2>/dev/null || \
+    warn "AutoRecon install failed — run: pipx install autorecon"
 fi
 
 # ── 4. Web Application Tools ──────────────────────────────────────────────
@@ -166,13 +173,13 @@ else
 fi
 
 # Python binary tools
-pip3 install ropgadget pwntools 2>/dev/null || warn "pwntools/ropgadget install failed"
+pip3 install ropgadget pwntools --break-system-packages 2>/dev/null || warn "pwntools/ropgadget install failed"
 gem install one_gadget --no-document 2>/dev/null || true
-apt-get install -y checksec 2>/dev/null || pip3 install checksec 2>/dev/null || true
+apt-get install -y checksec 2>/dev/null || pip3 install checksec --break-system-packages 2>/dev/null || true
 
 # Angr (large package — may take several minutes)
 info "Installing angr (this may take a few minutes)..."
-pip3 install angr 2>/dev/null || warn "angr install failed — run: pip3 install angr"
+pip3 install angr --break-system-packages 2>/dev/null || warn "angr install failed"
 
 success "Binary analysis tools done"
 
@@ -180,10 +187,12 @@ success "Binary analysis tools done"
 section "Cloud Security Tools (prowler, scout-suite, trivy, kube-hunter, kube-bench)"
 
 # Prowler
-pip3 install prowler 2>/dev/null || warn "prowler install failed"
+pip3 install prowler --break-system-packages 2>/dev/null || \
+    pipx install prowler 2>/dev/null || warn "prowler install failed"
 
 # Scout Suite
-pip3 install scoutsuite 2>/dev/null || warn "scoutsuite install failed"
+pip3 install scoutsuite --break-system-packages 2>/dev/null || \
+    pipx install scoutsuite 2>/dev/null || warn "scoutsuite install failed"
 
 # Trivy
 if ! command -v trivy &>/dev/null; then
@@ -201,7 +210,8 @@ if ! command -v trivy &>/dev/null; then
 fi
 
 # Kube-hunter
-pip3 install kube-hunter 2>/dev/null || warn "kube-hunter install failed"
+pip3 install kube-hunter --break-system-packages 2>/dev/null || \
+    pipx install kube-hunter 2>/dev/null || warn "kube-hunter install failed"
 
 # Kube-bench
 if ! command -v kube-bench &>/dev/null; then
@@ -218,7 +228,8 @@ if ! command -v kube-bench &>/dev/null; then
     fi
 fi
 
-pip3 install checkov 2>/dev/null || warn "checkov install failed"
+pip3 install checkov --break-system-packages 2>/dev/null || \
+    pipx install checkov 2>/dev/null || warn "checkov install failed"
 
 success "Cloud security tools done"
 
@@ -229,11 +240,12 @@ apt-get install -y theharvester dnsenum recon-ng 2>/dev/null || true
 
 # Sherlock
 if ! command -v sherlock &>/dev/null; then
-    pip3 install sherlock-project 2>/dev/null || \
+    pipx install sherlock-project 2>/dev/null || \
+    pip3 install sherlock-project --break-system-packages 2>/dev/null || \
     (git clone --depth=1 https://github.com/sherlock-project/sherlock.git /opt/sherlock 2>/dev/null && \
      ln -sf /opt/sherlock/sherlock/sherlock.py /usr/local/bin/sherlock && \
      chmod +x /usr/local/bin/sherlock && \
-     pip3 install -r /opt/sherlock/requirements.txt 2>/dev/null) || \
+     pip3 install -r /opt/sherlock/requirements.txt --break-system-packages 2>/dev/null) || \
     warn "Sherlock install failed"
 fi
 
@@ -241,13 +253,13 @@ fi
 if ! command -v spiderfoot &>/dev/null; then
     apt-get install -y spiderfoot 2>/dev/null || \
     (git clone --depth=1 https://github.com/smicallef/spiderfoot.git /opt/spiderfoot 2>/dev/null && \
-     pip3 install -r /opt/spiderfoot/requirements.txt 2>/dev/null && \
+     pip3 install -r /opt/spiderfoot/requirements.txt --break-system-packages 2>/dev/null && \
      ln -sf /opt/spiderfoot/sf.py /usr/local/bin/spiderfoot && \
      chmod +x /usr/local/bin/spiderfoot) || \
     warn "SpiderFoot install failed"
 fi
 
-pip3 install wafw00f arjun shodan censys 2>/dev/null || warn "Some OSINT Python tools failed"
+pip3 install wafw00f arjun shodan censys --break-system-packages 2>/dev/null || warn "Some OSINT Python tools failed"
 
 success "OSINT & Bug Bounty tools done"
 
@@ -271,7 +283,7 @@ apt-get install -y samba-common-bin 2>/dev/null || true
 apt-get install -y exiftool 2>/dev/null || apt-get install -y libimage-exiftool-perl 2>/dev/null || true
 
 # volatility3
-pip3 install volatility3 2>/dev/null || apt-get install -y volatility3 2>/dev/null || true
+pip3 install volatility3 --break-system-packages 2>/dev/null || apt-get install -y volatility3 2>/dev/null || true
 
 success "Password & exploitation tools done"
 
@@ -291,24 +303,35 @@ else
 fi
 
 # ChromeDriver via Python auto-installer
-pip3 install chromedriver-autoinstaller 2>/dev/null || true
+pip3 install chromedriver-autoinstaller --break-system-packages 2>/dev/null || true
 python3 -c "import chromedriver_autoinstaller; chromedriver_autoinstaller.install()" 2>/dev/null || true
 
-# ── 10. Python Packages ───────────────────────────────────────────────────
+# ── 10. Python Packages (venv) ────────────────────────────────────────────
 section "Python Packages"
 
-pip3 install --upgrade pip 2>/dev/null || true
-pip3 install -r requirements.txt 2>/dev/null || warn "Some requirements.txt packages failed"
+VENV_DIR="/opt/CF_AI/venv"
 
-pip3 install \
-    fastmcp \
-    mcp \
-    python-dotenv \
-    requests beautifulsoup4 aiohttp \
-    rich colorama tabulate \
-    chromedriver-autoinstaller 2>/dev/null || warn "Some Python packages failed"
+if [ ! -d "$VENV_DIR" ]; then
+    info "Creating Python virtual environment at $VENV_DIR..."
+    python3 -m venv "$VENV_DIR"
+fi
 
-success "Python packages installed"
+PIP="$VENV_DIR/bin/pip"
+PYTHON="$VENV_DIR/bin/python3"
+
+$PIP install --upgrade pip 2>/dev/null || true
+
+# Core server requirements first (must succeed)
+$PIP install flask flask-cors requests python-dotenv psutil beautifulsoup4 aiohttp rich colorama tabulate || \
+    warn "Some core packages failed to install"
+
+# Full requirements.txt
+$PIP install -r requirements.txt 2>/dev/null || warn "Some requirements.txt packages failed (non-critical)"
+
+# Additional tools
+$PIP install fastmcp mcp chromedriver-autoinstaller shodan censys 2>/dev/null || true
+
+success "Python packages installed into $VENV_DIR"
 
 # ── 11. Go PATH setup ─────────────────────────────────────────────────────
 section "Go PATH Setup"
@@ -361,7 +384,7 @@ echo ""
 echo "  2. Start the server:"
 echo "       systemctl start cfai"
 echo "       # OR for manual test:"
-echo "       python3 cfai_server.py"
+echo "       ./run.sh"
 echo ""
 echo "  3. Open the dashboard:"
 echo "       http://$(hostname -I | awk '{print $1}'):8888"

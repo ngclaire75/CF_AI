@@ -15,7 +15,7 @@ Environment=CFAI_PORT=8888
 Environment=CFAI_HOST=0.0.0.0
 Environment=LOG_LEVEL=INFO
 EnvironmentFile=-/opt/CF_AI/.env
-ExecStart=/usr/bin/python3 /opt/CF_AI/cfai_server.py
+ExecStart=/opt/CF_AI/venv/bin/python3 /opt/CF_AI/cfai_server.py
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
