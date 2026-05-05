@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CF_AI Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CF_AI - Advanced Penetration Testing Framework</h1>
+            <p>Bug Bounty | CTF | Red Team | Security Research</p>
+        </header>
+
+        <div class="main-content">
+            <div class="chat-section">
+                <div class="chat-header">
+                    <h2>AI Assistant</h2>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message ai-message">
+                        <div class="message-content">
+                            <strong>CF_AI:</strong> Welcome to CF_AI! I'm your advanced penetration testing assistant. How can I help you today?
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="user-input" placeholder="Type your command or question here..." />
+                    <button id="send-button">Send</button>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="tool-categories">
+                    <h3>Tool Categories</h3>
+                    <ul>
+                        <li><a href="#" onclick="showCategory('essential')">Essential Tools</a></li>
+                        <li><a href="#" onclick="showCategory('network')">Network Tools</a></li>
+                        <li><a href="#" onclick="showCategory('web')">Web Security</a></li>
+                        <li><a href="#" onclick="showCategory('vulnerability')">Vulnerability Scanning</a></li>
+                        <li><a href="#" onclick="showCategory('password')">Password Tools</a></li>
+                        <li><a href="#" onclick="showCategory('binary')">Binary Analysis</a></li>
+                        <li><a href="#" onclick="showCategory('forensics')">Forensics</a></li>
+                        <li><a href="#" onclick="showCategory('cloud')">Cloud Security</a></li>
+                        <li><a href="#" onclick="showCategory('osint')">OSINT</a></li>
+                        <li><a href="#" onclick="showCategory('exploitation')">Exploitation</a></li>
+                    </ul>
+                </div>
+
+                <div class="system-status">
+                    <h3>System Status</h3>
+                    <div id="status-info">
+                        <p>Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

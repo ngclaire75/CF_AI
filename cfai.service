@@ -1,0 +1,28 @@
+[Unit]
+Description=CF_AI Penetration Testing Framework Server
+After=network.target
+
+[Service]
+Type=simple
+User=cfai
+Group=cfai
+WorkingDirectory=/path/to/CF_AI
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/path/to/CF_AI
+ExecStart=/usr/bin/python3 cfai_server.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cfai
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/path/to/CF_AI/logs /path/to/CF_AI/cache /path/to/CF_AI/temp
+ProtectHome=yes
+PrivateDevices=yes
+
+[Install]
+WantedBy=multi-user.target

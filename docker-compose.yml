@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  cfai:
+    build: .
+    ports:
+      - "${CFAI_PORT:-8888}:8888"
+    environment:
+      - CFAI_HOST=0.0.0.0
+      - CFAI_PORT=8888
+      - DEBUG_MODE=0
+    volumes:
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+      - ./temp:/app/temp
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    networks:
+      - cfai-network
+
+networks:
+  cfai-network:
+    driver: bridge
+
+volumes:
+  cfai-logs:
+  cfai-cache:
+  cfai-temp:

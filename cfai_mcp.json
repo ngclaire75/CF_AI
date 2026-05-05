@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "cfai": {
+      "command": "python3",
+      "args": [
+        "cfai_mcp.py",
+        "--server",
+        "http://127.0.0.1:8888"
+      ],
+      "description": "CF_AI v6.0 - Advanced Cybersecurity Automation Platform. Turn off alwaysAllow if you dont want autonomous execution!",
+      "timeout": 300,
+      "alwaysAllow": []
+    }
+  }
+}
