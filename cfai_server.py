@@ -9272,10 +9272,20 @@ class CFAIChatEngine:
 
     # Tools that are interactive by nature — wrap with non-interactive flags
     INTERACTIVE_TOOLS = {
-        'gdb':     lambda args: ['gdb', '--batch', '-ex', 'file ' + (args[0] if args else ''), '-ex', 'info file', '-ex', 'checksec', '-ex', 'quit'] if args else ['gdb', '--help'],
-        'r2':      lambda args: ['r2', '-q', '-A', '-e', 'scr.color=false', args[0]] if args else ['r2', '-h'],
-        'radare2': lambda args: ['r2', '-q', '-A', '-e', 'scr.color=false', args[0]] if args else ['r2', '-h'],
-        'pwndbg':  lambda args: ['gdb', '--batch', '-ex', 'file ' + (args[0] if args else ''), '-ex', 'checksec', '-ex', 'quit'] if args else ['gdb', '--help'],
+        'gdb':     lambda args: ['gdb', '--batch',
+                                 '-ex', 'file ' + args[0],
+                                 '-ex', 'info file',
+                                 '-ex', 'info functions',
+                                 '-ex', 'info variables',
+                                 '-ex', 'quit'] if args else ['gdb', '--version'],
+        'r2':      lambda args: ['r2', '-q', '-A', '-e', 'scr.color=false',
+                                 '-e', 'anal.timeout=15', args[0]] if args else ['r2', '-v'],
+        'radare2': lambda args: ['r2', '-q', '-A', '-e', 'scr.color=false',
+                                 '-e', 'anal.timeout=15', args[0]] if args else ['r2', '-v'],
+        'pwndbg':  lambda args: ['gdb', '--batch',
+                                 '-ex', 'file ' + args[0],
+                                 '-ex', 'info file',
+                                 '-ex', 'quit'] if args else ['gdb', '--version'],
     }
 
     TOOL_GROUPS = {
@@ -9436,11 +9446,23 @@ class CFAIChatEngine:
 
         return cmd
 
+    # Tools that need HOME=/root because they write to ~/.msf4 / ~/.cache etc.
+    _HOME_ROOT_TOOLS = {'msfvenom', 'msfconsole', 'metasploit', 'beef-xss', 'armitage'}
+    # Tools that may not be marked executable — run via bash -c
+    _BASH_WRAP_TOOLS  = {'searchsploit', 'exploitdb'}
+
     def _run_tool(self, cmd: List[str], timeout: int = 90) -> str:
         try:
             cmd = self._preprocess_cmd(cmd)
             env = dict(os.environ)
             env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/root/go/bin:' + env.get('PATH', '')
+            # Metasploit / Ruby tools need a writable HOME
+            if cmd[0] in self._HOME_ROOT_TOOLS or any(t in cmd[0] for t in ('msf', 'msfvenom')):
+                env['HOME'] = '/root'
+                env['MSF_DATABASE_CONFIG'] = '/tmp/msf_database.yml'
+            # Wrap tools that may lack execute bit
+            if cmd[0] in self._BASH_WRAP_TOOLS:
+                cmd = ['bash', '-c', ' '.join(cmd)]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
             out = (result.stdout or '') + (result.stderr or '')
             out = out.strip()
@@ -9451,6 +9473,15 @@ class CFAIChatEngine:
             return f"Scan timed out after {timeout}s. Try a more targeted command, e.g. add -T4 for nmap or reduce scan scope."
         except FileNotFoundError:
             return f"Tool '{cmd[0]}' is not installed. Run: bash /opt/CF_AI/install_missing_tools.sh"
+        except PermissionError:
+            # Binary exists but lacks execute bit — retry via bash
+            try:
+                shell_cmd = ' '.join(cmd)
+                result = subprocess.run(['bash', '-c', shell_cmd], capture_output=True, text=True, timeout=timeout, env=env)
+                out = (result.stdout or '') + (result.stderr or '')
+                return out.strip()[:6000] or f"Command ran (exit {result.returncode}) with no output."
+            except Exception as e2:
+                return f"Permission error running '{cmd[0]}': {str(e2)}"
         except Exception as e:
             return f"Execution error: {str(e)}"
 
@@ -9604,13 +9635,46 @@ class CFAIChatEngine:
 
         # ── Direct tool command (user typed the tool name first) ──────────────
         # Also handle interactive tools (gdb, r2, radare2) with non-interactive flags
+        _binary_tools = {'gdb', 'r2', 'radare2', 'checksec', 'ROPgadget', 'ropper',
+                         'objdump', 'strings', 'readelf', 'xxd', 'hexdump', 'file'}
         is_interactive = first_word in self.INTERACTIVE_TOOLS
         if (first_word in self.DIRECT_TOOLS or is_interactive) and len(words) > 1:
             if is_interactive:
                 args = words[1:]
+                # Warn if the file argument doesn't exist
+                file_arg = next((a for a in args if not a.startswith('-')), None)
+                if file_arg and not os.path.exists(file_arg):
+                    return {
+                        "success": True,
+                        "response": (
+                            f"File not found: `{file_arg}`\n\n"
+                            f"Upload a binary to the server first, then run:\n"
+                            f"  `{first_word} /path/to/binary`\n\n"
+                            f"Example with a real binary on the VPS:\n"
+                            f"  `{first_word} /bin/ls`"
+                        ),
+                        "category": "binary",
+                        "suggested_tools": list(_binary_tools - {first_word}),
+                    }
                 cmd = self.INTERACTIVE_TOOLS[first_word](args)
             else:
                 cmd = message.strip().split()
+                # For binary analysis tools, check the file arg exists
+                if first_word in _binary_tools:
+                    file_arg = next((a for a in cmd[1:] if not a.startswith('-') and ('/' in a or '.' in a)), None)
+                    if file_arg and not os.path.exists(file_arg):
+                        return {
+                            "success": True,
+                            "response": (
+                                f"File not found: `{file_arg}`\n\n"
+                                f"Upload your binary to the VPS first, then run:\n"
+                                f"  `{first_word} /path/to/binary`\n\n"
+                                f"To test with an existing binary:\n"
+                                f"  `{first_word} /bin/ls`"
+                            ),
+                            "category": "binary",
+                            "suggested_tools": [],
+                        }
             output = self._run_tool(cmd, timeout=60)
             return {
                 "success": True,
