@@ -192,7 +192,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -203,7 +203,7 @@ body {
 }
 
 /* ── Tool List ────────────────────────────────────────────────────────────── */
-.tool-list { padding: 6px; }
+.tool-list { padding: 2px 6px 6px; }
 
 .tool-item {
   display: flex;
