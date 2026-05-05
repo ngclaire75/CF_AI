@@ -13,9 +13,9 @@ services:
       - path: .env
         required: false
     volumes:
-      - cfai-logs:/app/logs
-      - cfai-cache:/app/cache
-      - cfai-temp:/app/temp
+      - cfai-logs:/opt/CF_AI/logs
+      - cfai-cache:/opt/CF_AI/cache
+      - cfai-data:/opt/CF_AI/cfai_learning.db
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
@@ -38,6 +38,6 @@ networks:
     driver: bridge
 
 volumes:
-  cfai-logs: {}
-  cfai-cache: {}
-  cfai-temp: {}
+  cfai-logs:
+  cfai-cache:
+  cfai-data:
