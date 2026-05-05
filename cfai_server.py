@@ -9467,22 +9467,56 @@ class CFAIChatEngine:
             open(log, 'w').close()
         return home
 
+    # All directories where security tools may be installed
+    _TOOL_PATH = (
+        '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+        ':/usr/local/go/bin:/root/go/bin:/home/kali/go/bin'
+        ':/opt/homebrew/bin:/snap/bin'
+        ':/usr/share/metasploit-framework'
+        ':/opt/CF_AI/venv/bin'
+    )
+
+    @staticmethod
+    def _resolve_bin(name: str, path_str: str) -> str:
+        """Return full path of binary, trying path_str dirs then shutil.which."""
+        import shutil
+        for d in path_str.split(':'):
+            full = os.path.join(d, name)
+            if os.path.isfile(full):
+                # Ensure it's executable; fix the bit if we can
+                if not os.access(full, os.X_OK):
+                    try:
+                        os.chmod(full, 0o755)
+                    except OSError:
+                        pass
+                return full
+        found = shutil.which(name)
+        return found or name  # fall back to bare name so error is descriptive
+
     def _run_tool(self, cmd: List[str], timeout: int = 90) -> str:
         try:
             cmd = self._preprocess_cmd(cmd)
             env = dict(os.environ)
-            env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/root/go/bin:' + env.get('PATH', '')
-            # Always set TERM so curses-based tools don't warn
+            full_path = self._TOOL_PATH + ':' + env.get('PATH', '')
+            env['PATH'] = full_path
             env['TERM'] = env.get('TERM') or 'xterm'
+
+            # Resolve the binary to its full path and fix execute bit if needed
+            resolved = self._resolve_bin(cmd[0], full_path)
+            cmd[0] = resolved
+
             # Metasploit / Ruby tools need a writable HOME and .msf4 dirs
-            if cmd[0] in self._HOME_ROOT_TOOLS or any(t in cmd[0] for t in ('msf', 'msfvenom')):
+            if os.path.basename(cmd[0]) in self._HOME_ROOT_TOOLS or \
+               any(t in os.path.basename(cmd[0]) for t in ('msf', 'msfvenom')):
                 msf_home = self._msf_home()
                 env['HOME'] = msf_home
                 env['MSF_CFGROOT_CONFIG'] = f'{msf_home}/.msf4'
                 env['BOOTSNAP_CACHE_DIR'] = '/tmp/bootsnap_cache'
-            # Wrap tools that may lack execute bit
+
+            # Wrap tools that may lack execute bit (belt-and-suspenders)
             if cmd[0] in self._BASH_WRAP_TOOLS:
-                cmd = ['bash', '-c', ' '.join(cmd)]
+                cmd = ['bash', '-c', f'export PATH="{full_path}"; ' + ' '.join(cmd)]
+
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
             out = (result.stdout or '') + (result.stderr or '')
             out = out.strip()
@@ -9492,12 +9526,15 @@ class CFAIChatEngine:
         except subprocess.TimeoutExpired:
             return f"Scan timed out after {timeout}s. Try a more targeted command, e.g. add -T4 for nmap or reduce scan scope."
         except FileNotFoundError:
-            return f"Tool '{cmd[0]}' is not installed. Run: bash /opt/CF_AI/install_missing_tools.sh"
+            tool_name = cmd[0] if cmd else 'unknown'
+            return f"Tool '{tool_name}' not found. Run: bash /opt/CF_AI/install_missing_tools.sh"
         except PermissionError:
-            # Binary exists but lacks execute bit — retry via bash
+            # Last resort: run the original command through bash with explicit PATH
             try:
                 shell_cmd = ' '.join(cmd)
-                result = subprocess.run(['bash', '-c', shell_cmd], capture_output=True, text=True, timeout=timeout, env=env)
+                bash_cmd = f'export PATH="{self._TOOL_PATH}"; {shell_cmd}'
+                result = subprocess.run(['bash', '-c', bash_cmd],
+                                        capture_output=True, text=True, timeout=timeout, env=env)
                 out = (result.stdout or '') + (result.stderr or '')
                 return out.strip()[:6000] or f"Command ran (exit {result.returncode}) with no output."
             except Exception as e2:
