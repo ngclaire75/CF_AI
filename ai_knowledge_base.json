@@ -1,0 +1,171 @@
+{
+  "version": "1.0",
+  "description": "CF_AI tool knowledge base for AI-guided execution and error recovery",
+
+  "common_errors": {
+    "command_not_found": {
+      "patterns": ["command not found", "not found", "No such file"],
+      "action": "suggest_install",
+      "fix": "sudo apt install {tool} -y"
+    },
+    "permission_denied": {
+      "patterns": ["Permission denied", "Operation not permitted", "EPERM"],
+      "action": "suggest_sudo",
+      "fix": "sudo {command}"
+    },
+    "connection_refused": {
+      "patterns": ["Connection refused", "ECONNREFUSED", "connect: connection refused"],
+      "action": "check_target",
+      "fix": "Verify the target is online: ping {target}"
+    },
+    "timeout": {
+      "patterns": ["Timeout", "timed out", "ETIMEDOUT"],
+      "action": "reduce_threads",
+      "fix": "Reduce thread count or increase timeout"
+    },
+    "rate_limited": {
+      "patterns": ["Too many requests", "429", "Rate limit", "throttl"],
+      "action": "slow_down",
+      "fix": "Add --delay 1 or reduce --threads"
+    },
+    "ssl_error": {
+      "patterns": ["SSL", "certificate", "HTTPS", "TLS"],
+      "action": "disable_ssl_verify",
+      "fix": "Add --insecure or -k flag"
+    },
+    "no_results": {
+      "patterns": ["No results", "Nothing found", "0 results"],
+      "action": "try_alternative_wordlist",
+      "fix": "Try a larger wordlist or different parameters"
+    }
+  },
+
+  "tool_alternatives": {
+    "nmap":         ["rustscan", "masscan", "zmap"],
+    "gobuster":     ["ffuf", "feroxbuster", "dirb", "dirsearch", "wfuzz"],
+    "sqlmap":       ["ghauri", "sqlninja"],
+    "hydra":        ["medusa", "ncrack", "patator"],
+    "john":         ["hashcat", "crack"],
+    "wpscan":       ["nuclei --tags wordpress", "nikto"],
+    "amass":        ["subfinder", "assetfinder", "findomain"],
+    "subfinder":    ["amass", "assetfinder", "findomain"],
+    "nuclei":       ["nikto", "nessus", "openvas"],
+    "dalfox":       ["xsser", "xsstrike"],
+    "nikto":        ["whatweb", "w3af"],
+    "volatility":   ["volatility3"],
+    "metasploit":   ["searchsploit + manual exploitation"]
+  },
+
+  "attack_chains": {
+    "web_application": {
+      "description": "Standard web application penetration test",
+      "phases": [
+        { "phase": "recon",      "tools": ["subfinder", "httpx", "nmap"],         "description": "Asset discovery and port mapping" },
+        { "phase": "enum",       "tools": ["gobuster", "ffuf", "nikto"],           "description": "Directory and endpoint enumeration" },
+        { "phase": "param",      "tools": ["arjun", "paramspider", "katana"],      "description": "Parameter and input discovery" },
+        { "phase": "vuln_scan",  "tools": ["nuclei", "dalfox", "sqlmap"],          "description": "Automated vulnerability detection" },
+        { "phase": "exploit",    "tools": ["sqlmap", "metasploit"],                "description": "Exploitation of confirmed vulnerabilities" },
+        { "phase": "report",     "tools": ["cf_ai_report"],                        "description": "Generate findings report" }
+      ]
+    },
+    "wordpress": {
+      "description": "WordPress security assessment",
+      "phases": [
+        { "phase": "fingerprint", "tools": ["wpscan", "whatweb"],                  "description": "Detect WP version, plugins, themes" },
+        { "phase": "enum",        "tools": ["wpscan --enumerate p,t,u"],           "description": "Enumerate users, plugins, themes" },
+        { "phase": "vuln_scan",   "tools": ["nuclei --tags wordpress", "nikto"],   "description": "Vulnerability scanning" },
+        { "phase": "brute",       "tools": ["wpscan --bruteforce", "hydra"],       "description": "Credential testing (with permission)" },
+        { "phase": "report",      "tools": ["cf_ai_wp_report"],                    "description": "Generate formal WordPress security report" }
+      ]
+    },
+    "network": {
+      "description": "Internal network penetration test",
+      "phases": [
+        { "phase": "discovery",  "tools": ["nmap -sn", "arp-scan"],               "description": "Host discovery" },
+        { "phase": "port_scan",  "tools": ["rustscan", "nmap -sC -sV"],           "description": "Port and service enumeration" },
+        { "phase": "smb",        "tools": ["enum4linux", "smbmap", "rpcclient"],  "description": "Windows/SMB enumeration" },
+        { "phase": "vuln_scan",  "tools": ["nuclei", "nmap --script vuln"],       "description": "Vulnerability detection" },
+        { "phase": "exploit",    "tools": ["metasploit"],                          "description": "Exploitation" }
+      ]
+    },
+    "bug_bounty": {
+      "description": "Bug bounty program reconnaissance and hunting",
+      "phases": [
+        { "phase": "scope",       "tools": ["amass", "subfinder", "httpx"],        "description": "Scope mapping and live host detection" },
+        { "phase": "tech_detect", "tools": ["whatweb", "wappalyzer", "httpx"],     "description": "Technology stack fingerprinting" },
+        { "phase": "crawl",       "tools": ["katana", "hakrawler", "waybackurls"], "description": "Web crawling and historical URLs" },
+        { "phase": "params",      "tools": ["arjun", "paramspider"],               "description": "Parameter discovery" },
+        { "phase": "fuzz",        "tools": ["ffuf", "gobuster"],                   "description": "Directory and endpoint fuzzing" },
+        { "phase": "vuln",        "tools": ["nuclei", "sqlmap", "dalfox"],         "description": "Vulnerability hunting" }
+      ]
+    }
+  },
+
+  "wordpress_report_criteria": {
+    "certified_firm_requirements": [
+      "Holds minimum one of: OSCP, CREST, CEH, CISSP, PCI QSA, ISO 27001 Lead Auditor",
+      "Has a publicly accessible company website",
+      "Provides documented case studies or portfolio",
+      "Delivers formal written report with executive summary",
+      "Provides CVSS risk ratings for each finding",
+      "Includes step-by-step reproduction steps for each vulnerability",
+      "Provides remediation guidance per finding",
+      "Offers re-test after remediation",
+      "Maintains professional liability / cyber insurance",
+      "Signs NDA before engagement"
+    ],
+    "report_sections": [
+      "Executive Summary",
+      "Scope and Methodology",
+      "Assessment Timeline",
+      "Findings — Critical",
+      "Findings — High",
+      "Findings — Medium",
+      "Findings — Low / Informational",
+      "Remediation Recommendations",
+      "Evidence and Screenshots",
+      "Compliance Mapping (if applicable)",
+      "Appendix — Tools Used"
+    ],
+    "common_wordpress_vulnerabilities": [
+      "Outdated WordPress core version",
+      "Outdated or vulnerable plugins",
+      "Outdated or vulnerable themes",
+      "User enumeration (exposed wp-json/users)",
+      "XML-RPC brute force",
+      "File upload vulnerabilities",
+      "SQL injection in plugins",
+      "Stored / reflected XSS in plugins",
+      "Authentication bypass",
+      "Insecure file permissions (wp-config.php readable)",
+      "Directory listing enabled",
+      "Exposed sensitive files (.env, debug.log)",
+      "Weak administrator passwords",
+      "Missing security headers",
+      "No HTTPS or mixed content",
+      "Unrestricted access to wp-admin",
+      "CSRF vulnerabilities"
+    ]
+  },
+
+  "ctf_hints": {
+    "web": {
+      "sql_injection": ["Try ' or 1=1--", "Use sqlmap for automation", "Check for error-based, time-based blind SQLi"],
+      "xss": ["Try <script>alert(1)</script>", "Check for stored vs reflected XSS", "Try polyglot payloads"],
+      "lfi": ["Try ../../../etc/passwd", "Check php://filter wrapper", "Look for log poisoning opportunities"],
+      "ssrf": ["Try http://127.0.0.1/", "Check for cloud metadata endpoints", "Try http://169.254.169.254/"]
+    },
+    "crypto": {
+      "hints": ["Check if it's base64, hex, or ROT13 first", "Try CyberChef magic function", "Look for repeating patterns — may be XOR"],
+      "tools": ["CyberChef", "hashid", "hashcat", "john", "rsactftool"]
+    },
+    "forensics": {
+      "hints": ["Run file command first", "Check for steganography with binwalk/steghide", "Examine metadata with exiftool"],
+      "tools": ["binwalk", "steghide", "exiftool", "volatility3", "foremost", "strings"]
+    },
+    "pwn": {
+      "hints": ["Run checksec first", "Look for buffer overflow with fuzzing", "Find RIP/EIP offset with pattern_create"],
+      "tools": ["gdb + peda/pwndbg", "pwntools", "ROPgadget", "one_gadget", "checksec"]
+    }
+  }
+}

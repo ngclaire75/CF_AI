@@ -1,0 +1,124 @@
+{
+  "version": "1.0",
+  "description": "Technology detection signatures and tool output parsers for CF_AI",
+
+  "technology_signatures": {
+    "wordpress": {
+      "indicators": [
+        "/wp-content/",
+        "/wp-includes/",
+        "wp-login.php",
+        "WordPress",
+        "wp-json",
+        "xmlrpc.php",
+        "generator.*WordPress"
+      ],
+      "recommended_tools": ["wpscan", "nuclei --tags wordpress", "gobuster"]
+    },
+    "drupal": {
+      "indicators": ["/sites/default/", "Drupal", "drupal.js", "/node/"],
+      "recommended_tools": ["droopescan", "nuclei --tags drupal"]
+    },
+    "joomla": {
+      "indicators": ["/administrator/", "Joomla", "/components/", "option=com_"],
+      "recommended_tools": ["joomscan", "nuclei --tags joomla"]
+    },
+    "laravel": {
+      "indicators": ["laravel_session", "XSRF-TOKEN", "Laravel"],
+      "recommended_tools": ["nuclei --tags laravel", "ffuf"]
+    },
+    "django": {
+      "indicators": ["csrfmiddlewaretoken", "Django", "djdt_", "django.contrib"],
+      "recommended_tools": ["nuclei --tags django", "sqlmap"]
+    },
+    "spring": {
+      "indicators": ["X-Application-Context", "Spring", "Whitelabel Error Page", "spring.io"],
+      "recommended_tools": ["nuclei --tags spring", "ffuf"]
+    },
+    "apache": {
+      "indicators": ["Apache", "Server: Apache"],
+      "recommended_tools": ["nikto", "nuclei --tags apache"]
+    },
+    "nginx": {
+      "indicators": ["nginx", "Server: nginx"],
+      "recommended_tools": ["nikto", "nuclei --tags nginx"]
+    },
+    "iis": {
+      "indicators": ["IIS", "Microsoft-IIS", "ASP.NET"],
+      "recommended_tools": ["nikto", "nuclei --tags iis"]
+    },
+    "phpmyadmin": {
+      "indicators": ["phpMyAdmin", "pma_", "PMA_"],
+      "recommended_tools": ["nuclei --tags phpmyadmin"]
+    },
+    "tomcat": {
+      "indicators": ["Apache Tomcat", "Coyote", "/manager/html"],
+      "recommended_tools": ["nuclei --tags tomcat", "hydra http-get /manager/html"]
+    },
+    "jenkins": {
+      "indicators": ["Jenkins", "hudson", "/jenkins/"],
+      "recommended_tools": ["nuclei --tags jenkins"]
+    },
+    "grafana": {
+      "indicators": ["Grafana", "grafana/", "grafana_session"],
+      "recommended_tools": ["nuclei --tags grafana"]
+    },
+    "kubernetes": {
+      "indicators": [":6443", ":10250", "kubernetes", "kubectl"],
+      "recommended_tools": ["kube-hunter", "nuclei --tags kubernetes"]
+    }
+  },
+
+  "output_parsers": {
+    "nmap": {
+      "open_port_pattern": "^(\\d+)\\/(tcp|udp)\\s+open\\s+(.+)$",
+      "service_pattern": "(\\d+\\.\\d+\\.\\d+\\.\\d+|[a-zA-Z0-9.-]+)\\s+Host is (up|down)",
+      "vuln_pattern": "VULNERABLE:"
+    },
+    "gobuster": {
+      "found_pattern": "/(\\S+)\\s+\\(Status: (\\d+)\\)",
+      "progress_pattern": "Progress: (\\d+) / (\\d+)"
+    },
+    "sqlmap": {
+      "injectable_pattern": "Parameter '(\\w+)' is vulnerable",
+      "dbms_pattern": "back-end DBMS: (.+)",
+      "db_found_pattern": "available databases \\[(\\d+)\\]"
+    },
+    "nuclei": {
+      "finding_pattern": "\\[(CVE-[\\w-]+|[\\w-]+)\\] \\[(critical|high|medium|low|info)\\] (https?://\\S+)",
+      "summary_pattern": "(\\d+) issues? reported"
+    },
+    "wpscan": {
+      "version_pattern": "WordPress version (\\d+\\.\\d+(?:\\.\\d+)?) identified",
+      "plugin_pattern": "\\[\\+\\] (.+)\\n.*Location: (https?://\\S+)",
+      "user_pattern": "\\[\\+\\] (\\w+)"
+    },
+    "hydra": {
+      "success_pattern": "\\[DATA\\] .* login: (\\S+)\\s+password: (\\S+)"
+    },
+    "subfinder": {
+      "subdomain_pattern": "^([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})$"
+    }
+  },
+
+  "severity_weights": {
+    "critical": 10,
+    "high":     8,
+    "medium":   5,
+    "low":      2,
+    "info":     0
+  },
+
+  "owasp_mapping": {
+    "A01:2021": { "name": "Broken Access Control",             "tools": ["nuclei", "burpsuite", "ffuf"] },
+    "A02:2021": { "name": "Cryptographic Failures",            "tools": ["testssl", "nuclei --tags ssl"] },
+    "A03:2021": { "name": "Injection",                         "tools": ["sqlmap", "dalfox", "nuclei"] },
+    "A04:2021": { "name": "Insecure Design",                   "tools": ["manual", "nuclei"] },
+    "A05:2021": { "name": "Security Misconfiguration",         "tools": ["nuclei", "nikto", "nmap --script vuln"] },
+    "A06:2021": { "name": "Vulnerable and Outdated Components","tools": ["nuclei", "retire.js", "wpscan"] },
+    "A07:2021": { "name": "Identification and Auth Failures",  "tools": ["hydra", "wpscan", "nuclei"] },
+    "A08:2021": { "name": "Software and Data Integrity",       "tools": ["nuclei", "manual"] },
+    "A09:2021": { "name": "Security Logging Failures",         "tools": ["manual", "nuclei"] },
+    "A10:2021": { "name": "SSRF",                              "tools": ["nuclei --tags ssrf", "ffuf"] }
+  }
+}
