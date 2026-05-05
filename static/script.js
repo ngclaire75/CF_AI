@@ -1,137 +1,391 @@
-// CF_AI Dashboard JavaScript
+/* CF_AI Dashboard — Enhanced Frontend */
 
-document.addEventListener('DOMContentLoaded', function() {
-    const userInput = document.getElementById('user-input');
-    const sendButton = document.getElementById('send-button');
-    const chatMessages = document.getElementById('chat-messages');
-    const statusInfo = document.getElementById('status-info');
+let isSending = false;
+let reportText = '';
+let sidebarOpen = true;
 
-    // Load system status on page load
-    loadSystemStatus();
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
 
-    // Send message on button click
-    sendButton.addEventListener('click', sendMessage);
-
-    // Send message on Enter key
-    userInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
-    });
-
-    function addMessage(sender, content) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${sender}-message`;
-
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-
-        if (sender === 'ai') {
-            contentDiv.innerHTML = `<strong>CF_AI:</strong> ${content.replace(/\n/g, '<br>')}`;
-        } else {
-            contentDiv.innerHTML = `<strong>You:</strong> ${content}`;
-        }
-
-        messageDiv.appendChild(contentDiv);
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
+  });
 
-    function loadSystemStatus() {
-        fetch('/health')
-        .then(response => response.json())
-        .then(data => {
-            statusInfo.innerHTML = `
-                <p><strong>Status:</strong> ${data.status}</p>
-                <p><strong>Version:</strong> ${data.version}</p>
-                <p><strong>Tools Available:</strong> ${data.total_tools_available}/${data.total_tools_count}</p>
-                <p><strong>Uptime:</strong> ${Math.floor(data.uptime / 60)} minutes</p>
-                <p><strong>Essential Tools:</strong> ${data.all_essential_tools_available ? 'All Available' : 'Some Missing'}</p>
-            `;
-        })
-        .catch(error => {
-            statusInfo.innerHTML = `<p>Error loading status: ${error.message}</p>`;
-        });
-    }
+  sendBtn.addEventListener('click', sendMessage);
 
-    const generateReportButton = document.getElementById('generate-report-button');
-    if (generateReportButton) {
-        generateReportButton.addEventListener('click', generateWordpressReport);
-    }
+  // Set today's date in WP report form
+  const dateField = document.getElementById('report-date');
+  if (dateField) dateField.value = new Date().toISOString().split('T')[0];
 
-    function sendMessage() {
-        const message = userInput.value.trim();
-        if (message === '') return;
-
-        // Add user message to chat
-        addMessage('user', message);
-        userInput.value = '';
-
-        // Send to API
-        fetch('/api/command', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                command: message,
-                timeout: 30
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                addMessage('ai', `Command executed successfully:\n${data.output}`);
-            } else {
-                addMessage('ai', `Error: ${data.error}`);
-            }
-        })
-        .catch(error => {
-            addMessage('ai', `Network error: ${error.message}`);
-        });
-    }
-
-    function generateWordpressReport() {
-        const siteUrl = document.getElementById('site-url').value.trim();
-        const scope = document.getElementById('report-scope').value.trim();
-        const notes = document.getElementById('report-notes').value.trim();
-
-        if (!siteUrl) {
-            addMessage('ai', 'Please enter a site URL to generate the WordPress security report.');
-            return;
-        }
-
-        addMessage('user', `Requesting WordPress report for ${siteUrl}`);
-
-        fetch('/api/wordpress/report', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                site_url: siteUrl,
-                scope: scope || 'WordPress website review',
-                notes: notes
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                addMessage('ai', data.report);
-            } else {
-                addMessage('ai', `Error: ${data.error}`);
-            }
-        })
-        .catch(error => {
-            addMessage('ai', `Network error: ${error.message}`);
-        });
-    }
-
-    function showCategory(category) {
-        // This could be expanded to show tools in each category
-        addMessage('ai', `Showing tools in category: ${category}`);
-    }
-
-    // Auto-refresh status every 30 seconds
-    setInterval(loadSystemStatus, 30000);
+  loadSystemStatus();
+  setInterval(loadSystemStatus, 30000);
 });
+
+// ── Tab Switching ────────────────────────────────────────────────────────
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  const tab = document.getElementById(`tab-${name}`);
+  const content = document.getElementById(`content-${name}`);
+  if (tab) tab.classList.add('active');
+  if (content) content.classList.add('active');
+
+  // Remove active from all tool items then highlight wp if that tab
+  document.querySelectorAll('.tool-item').forEach(i => i.classList.remove('active'));
+  if (name === 'wordpress') {
+    document.querySelectorAll('.tool-item').forEach(i => {
+      if (i.textContent.includes('WordPress')) i.classList.add('active');
+    });
+  }
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  if (window.innerWidth <= 768) {
+    sidebar.classList.toggle('open');
+  } else {
+    sidebar.classList.toggle('hidden');
+  }
+}
+
+// ── Chat ─────────────────────────────────────────────────────────────────
+
+function sendMessage() {
+  if (isSending) return;
+
+  const input = document.getElementById('user-input');
+  const message = input.value.trim();
+  if (!message) return;
+
+  input.value = '';
+  isSending = true;
+
+  const sendBtn = document.getElementById('send-btn');
+  sendBtn.disabled = true;
+
+  appendMessage('user', message);
+  const typingId = showTyping();
+
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message })
+  })
+    .then(r => r.json())
+    .then(data => {
+      removeTyping(typingId);
+      if (data.blocked) {
+        appendMessage('bot', data.response || 'Request blocked by injection protection.', {
+          blocked: true
+        });
+      } else if (data.success) {
+        appendMessage('bot', data.response, {
+          suggestedTools: data.suggested_tools || []
+        });
+      } else {
+        appendMessage('bot', 'Error: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(err => {
+      removeTyping(typingId);
+      appendMessage('bot', 'Network error: ' + err.message);
+    })
+    .finally(() => {
+      isSending = false;
+      sendBtn.disabled = false;
+      document.getElementById('user-input').focus();
+    });
+}
+
+function appendMessage(role, text, opts = {}) {
+  const container = document.getElementById('chat-messages');
+  const isUser = role === 'user';
+
+  const msg = document.createElement('div');
+  msg.className = `message ${isUser ? 'user' : 'bot'}${opts.blocked ? ' blocked' : ''}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = isUser ? 'YOU' : 'AI';
+
+  const body = document.createElement('div');
+  body.className = 'msg-body';
+
+  const textDiv = document.createElement('div');
+  textDiv.className = 'msg-text';
+  textDiv.innerHTML = formatText(text);
+
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = isUser ? 'You · ' + timeNow() : 'CF_AI · ' + timeNow();
+
+  body.appendChild(textDiv);
+
+  if (!isUser && opts.suggestedTools && opts.suggestedTools.length > 0) {
+    const chips = document.createElement('div');
+    chips.className = 'suggested-tools';
+    opts.suggestedTools.forEach(tool => {
+      const chip = document.createElement('span');
+      chip.className = 'tool-chip';
+      chip.textContent = tool;
+      chip.onclick = () => fillInput(tool);
+      chips.appendChild(chip);
+    });
+    body.appendChild(chips);
+  }
+
+  body.appendChild(meta);
+  msg.appendChild(avatar);
+  msg.appendChild(body);
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  const container = document.getElementById('chat-messages');
+  const id = 'typing-' + Date.now();
+
+  const msg = document.createElement('div');
+  msg.className = 'message bot typing-indicator';
+  msg.id = id;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = 'AI';
+
+  const body = document.createElement('div');
+  body.className = 'msg-body';
+
+  const textDiv = document.createElement('div');
+  textDiv.className = 'msg-text';
+  [1, 2, 3].forEach(() => {
+    const dot = document.createElement('div');
+    dot.className = 'typing-dot';
+    textDiv.appendChild(dot);
+  });
+
+  body.appendChild(textDiv);
+  msg.appendChild(avatar);
+  msg.appendChild(body);
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function formatText(text) {
+  if (!text) return '';
+
+  // Escape HTML
+  let escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Bold: **text**
+  escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+  // Code: `text`
+  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Bullet points: • or -
+  escaped = escaped.replace(/^[•\-]\s+(.+)$/gm, '<span style="display:block;padding-left:12px">• $1</span>');
+
+  // Line breaks
+  escaped = escaped.replace(/\n/g, '<br>');
+
+  return escaped;
+}
+
+function timeNow() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function fillInput(text) {
+  const input = document.getElementById('user-input');
+  if (input) {
+    input.value = text;
+    input.focus();
+  }
+}
+
+function askCategory(desc) {
+  fillInput(desc);
+  showTab('chat');
+}
+
+function clearChat() {
+  if (!confirm('Clear conversation history?')) return;
+  fetch('/api/chat/clear', { method: 'POST' });
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = '';
+  appendMessage('bot', 'Conversation cleared. How can I help you?');
+}
+
+// ── System Status ─────────────────────────────────────────────────────────
+
+function loadSystemStatus() {
+  fetch('/health')
+    .then(r => r.json())
+    .then(data => {
+      const dot = document.getElementById('server-dot');
+      const label = document.getElementById('server-status-label');
+      if (dot) { dot.className = 'status-dot online'; }
+      if (label) label.textContent = 'Online';
+
+      setStatus('st-status', 'Healthy', 'good');
+      setStatus('st-version', data.version || '6.0.0', '');
+      setStatus('st-tools', `${data.total_tools_available}/${data.total_tools_count}`, '');
+      setStatus('st-uptime', formatUptime(data.uptime || 0), '');
+      setStatus(
+        'st-essential',
+        data.all_essential_tools_available ? 'All OK' : 'Some Missing',
+        data.all_essential_tools_available ? 'good' : 'warn'
+      );
+    })
+    .catch(() => {
+      const dot = document.getElementById('server-dot');
+      const label = document.getElementById('server-status-label');
+      if (dot) dot.className = 'status-dot offline';
+      if (label) label.textContent = 'Offline';
+      setStatus('st-status', 'Unreachable', 'bad');
+    });
+}
+
+function setStatus(id, text, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'status-val' + (cls ? ` status-${cls}` : '');
+}
+
+function formatUptime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+// ── WordPress Report ───────────────────────────────────────────────────────
+
+function generateWordpressReport() {
+  const siteUrl  = document.getElementById('site-url').value.trim();
+  const scope    = document.getElementById('report-scope').value.trim();
+  const notes    = document.getElementById('report-notes').value.trim();
+  const company  = document.getElementById('company-name').value.trim();
+  const assessor = document.getElementById('assessor-name').value.trim();
+  const certs    = document.getElementById('cert-type').value.trim();
+  const date     = document.getElementById('report-date').value;
+  const aiTools  = document.querySelector('input[name="ai-tools"]:checked')?.value || 'yes';
+
+  if (!siteUrl) {
+    alert('Please enter the target site URL.');
+    return;
+  }
+
+  const btn = document.getElementById('generate-report-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+
+  const fullNotes = [
+    notes,
+    company  ? `Assessor firm: ${company}` : '',
+    assessor ? `Lead assessor: ${assessor}` : '',
+    certs    ? `Certifications: ${certs}` : '',
+    date     ? `Report date: ${date}` : '',
+    `AI tools: ${aiTools === 'yes' ? 'Acceptable' : 'Manual only'}`,
+  ].filter(Boolean).join('\n');
+
+  fetch('/api/wordpress/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      site_url: siteUrl,
+      scope: scope || 'WordPress security assessment',
+      notes: fullNotes,
+    })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        reportText = data.report;
+        const resultEl = document.getElementById('wp-result');
+        const outputEl = document.getElementById('wp-report-output');
+        outputEl.textContent = data.report;
+        resultEl.style.display = 'block';
+        resultEl.scrollIntoView({ behavior: 'smooth' });
+
+        showTab('chat');
+        showTab('wordpress');
+      } else {
+        alert('Error: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(err => alert('Network error: ' + err.message))
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Generate Formal Security Report';
+    });
+}
+
+function copyReport() {
+  if (!reportText) return;
+  navigator.clipboard.writeText(reportText)
+    .then(() => showToast('Report copied to clipboard'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = reportText;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Report copied');
+    });
+}
+
+function downloadReport() {
+  if (!reportText) return;
+  const siteUrl = document.getElementById('site-url').value || 'report';
+  const filename = 'cfai-wp-report-' + siteUrl.replace(/[^a-z0-9]/gi, '_') + '.txt';
+  const blob = new Blob([reportText], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Toast Notifications ────────────────────────────────────────────────────
+
+function showToast(msg) {
+  const toast = document.createElement('div');
+  toast.textContent = msg;
+  Object.assign(toast.style, {
+    position: 'fixed',
+    bottom: '24px',
+    right: '24px',
+    background: '#0d1117',
+    border: '1px solid #dc143c',
+    color: '#e6edf3',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    fontSize: '12px',
+    fontFamily: 'JetBrains Mono, monospace',
+    zIndex: '9999',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+    transition: 'opacity 0.3s',
+  });
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+  setTimeout(() => toast.remove(), 2400);
+}

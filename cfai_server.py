@@ -1,21 +1,10 @@
 #!/usr/bin/env python3
 """
-CF_AI - Advanced Penetration Testing Framework Server
+CF_AI v6.0 — Advanced Penetration Testing Framework
+Bug Bounty | CTF | Red Team | Security Research
 
-Enhanced with AI-Powered Intelligence & Automation
-🚀 Bug Bounty | CTF | Red Team | Security Research
-
-RECENT ENHANCEMENTS (v6.0):
-✅ Complete color consistency with reddish hacker theme
-✅ Removed duplicate classes (PythonEnvironmentManager, CVEIntelligenceManager)
-✅ Enhanced visual output with ModernVisualEngine
-✅ Organized code structure with proper section headers
-✅ 100+ security tools with intelligent parameter optimization
-✅ AI-driven decision engine for tool selection
-✅ Advanced error handling and recovery systems
-
-Architecture: Two-script system (cfai_server.py + cfai_mcp.py)
-Framework: FastMCP integration for AI agent communication
+Architecture: Flask REST API + AI decision engine + 150+ tool integrations
+Dashboard: http://0.0.0.0:8888
 """
 
 import argparse
@@ -53,17 +42,27 @@ import asyncio
 import aiohttp
 from urllib.parse import urljoin, urlparse, parse_qs
 from bs4 import BeautifulSoup
-import selenium
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, WebDriverException
-import mitmproxy
-from mitmproxy import http as mitmhttp
-from mitmproxy.tools.dump import DumpMaster
-from mitmproxy.options import Options as MitmOptions
+try:
+    import selenium
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException, WebDriverException
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    SELENIUM_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+
+try:
+    import mitmproxy
+    from mitmproxy import http as mitmhttp
+    from mitmproxy.tools.dump import DumpMaster
+    from mitmproxy.options import Options as MitmOptions
+    MITMPROXY_AVAILABLE = True
+except ImportError:
+    MITMPROXY_AVAILABLE = False
 
 # ============================================================================
 # LOGGING CONFIGURATION (MUST BE FIRST)
@@ -9018,6 +9017,405 @@ class FileOperationsManager:
 # Global file operations manager
 file_manager = FileOperationsManager()
 
+# ============================================================================
+# PROMPT INJECTION PROTECTION SYSTEM
+# ============================================================================
+
+class PromptInjectionProtector:
+    """Detects and blocks prompt injection, jailbreak, and command injection attempts."""
+
+    PROMPT_INJECTION_PATTERNS = [
+        r'ignore\s+(previous|all|above|prior)\s+(instructions?|context|system|prompt)',
+        r'disregard\s+(previous|all|above|prior)\s+(instructions?|context|rules)',
+        r'forget\s+(everything|all|previous|what\s+you\s+were)',
+        r'you\s+are\s+now\s+(?!cf_ai)',
+        r'act\s+as\s+(?:if\s+you\s+are\s+)?(?!cf_ai)',
+        r'pretend\s+(you\s+are|to\s+be)',
+        r'new\s+persona\s*:',
+        r'override\s+(safety|guidelines|rules|restrictions|instructions)',
+        r'bypass\s+(safety|guidelines|rules|restrictions|filters|protections)',
+        r'\bjailbreak\b',
+        r'\bdan\s+mode\b',
+        r'\bdeveloper\s+mode\b',
+        r'system\s*:\s*you\s+are',
+        r'<\s*system\s*>',
+        r'\[system\s*prompt\]',
+        r'###\s*system',
+        r'assistant\s*:\s*i\s+will\s+ignore',
+        r'end\s+of\s+system\s+prompt',
+        r'new\s+instructions?\s*:',
+        r'your\s+real\s+instructions?\s+(are|is)',
+        r'secret\s+mode\b',
+        r'unrestricted\s+mode\b',
+        r'do\s+anything\s+now',
+    ]
+
+    COMMAND_INJECTION_PATTERNS = [
+        r';\s*rm\s+',
+        r';\s*wget\s+',
+        r';\s*curl\s+',
+        r';\s*bash\s+',
+        r';\s*sh\s+',
+        r'\|\s*bash',
+        r'\|\s*sh\b',
+        r'`[^`]+`',
+        r'\$\([^)]+\)',
+        r'>\s*/etc/',
+        r'>\s*/root/',
+        r'rm\s+-rf\s+/',
+        r':\(\)\s*\{.*\}',
+        r'/proc/self/environ',
+        r'\.\.\/\.\.\/\.\.\/etc',
+    ]
+
+    TEMPLATE_INJECTION_PATTERNS = [
+        r'\{\{.*\}\}',
+        r'\{%.*%\}',
+        r'\${.*}',
+    ]
+
+    def __init__(self):
+        import re as _re
+        self._re = _re
+        self.injection_patterns = [
+            _re.compile(p, _re.IGNORECASE) for p in self.PROMPT_INJECTION_PATTERNS
+        ]
+        self.cmd_patterns = [
+            _re.compile(p, _re.IGNORECASE) for p in self.COMMAND_INJECTION_PATTERNS
+        ]
+        self.tpl_patterns = [
+            _re.compile(p, _re.IGNORECASE) for p in self.TEMPLATE_INJECTION_PATTERNS
+        ]
+        self.blocked_count = 0
+        self.blocked_log = []
+
+    def check(self, text: str) -> Dict[str, Any]:
+        """Returns a dict with 'safe' bool and 'reason' string."""
+        if not isinstance(text, str):
+            return {"safe": True, "reason": None, "type": None}
+
+        for pattern in self.injection_patterns:
+            if pattern.search(text):
+                self.blocked_count += 1
+                reason = f"Prompt injection attempt detected: '{pattern.pattern}'"
+                self._log_block(text, "prompt_injection", reason)
+                return {"safe": False, "reason": reason, "type": "prompt_injection"}
+
+        for pattern in self.cmd_patterns:
+            if pattern.search(text):
+                self.blocked_count += 1
+                reason = f"Command injection pattern detected"
+                self._log_block(text, "command_injection", reason)
+                return {"safe": False, "reason": reason, "type": "command_injection"}
+
+        for pattern in self.tpl_patterns:
+            if pattern.search(text):
+                self.blocked_count += 1
+                reason = "Template injection pattern detected"
+                self._log_block(text, "template_injection", reason)
+                return {"safe": False, "reason": reason, "type": "template_injection"}
+
+        return {"safe": True, "reason": None, "type": None}
+
+    def _log_block(self, text: str, injection_type: str, reason: str):
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "type": injection_type,
+            "reason": reason,
+            "input_preview": text[:100] + ("..." if len(text) > 100 else ""),
+        }
+        self.blocked_log.append(entry)
+        if len(self.blocked_log) > 500:
+            self.blocked_log = self.blocked_log[-500:]
+        logger.warning(f"[PromptInjectionProtector] BLOCKED — {injection_type}: {text[:80]}")
+
+    def get_stats(self) -> Dict[str, Any]:
+        return {"total_blocked": self.blocked_count, "recent_blocks": self.blocked_log[-10:]}
+
+
+# ============================================================================
+# AI CHAT ENGINE
+# ============================================================================
+
+class CFAIChatEngine:
+    """Processes natural language commands and routes them to the correct tools."""
+
+    TOOL_KEYWORDS = {
+        "nmap": ["nmap", "port scan", "port scanning", "open ports", "network scan"],
+        "gobuster": ["gobuster", "directory brute", "dir brute", "directory enum", "web dirs"],
+        "sqlmap": ["sqlmap", "sql injection", "sqli", "sql vuln", "database injection"],
+        "nikto": ["nikto", "web vuln", "web vulnerability scan", "http vulns"],
+        "hydra": ["hydra", "brute force", "credential brute", "login brute"],
+        "wpscan": ["wpscan", "wordpress scan", "wp scan", "wordpress vuln"],
+        "nuclei": ["nuclei", "template scan", "vulnerability template"],
+        "ffuf": ["ffuf", "fuzz", "fuzzing", "web fuzzing"],
+        "amass": ["amass", "subdomain", "subdomain enum", "subdomain discovery"],
+        "subfinder": ["subfinder", "subdomain finder", "passive recon"],
+        "dnsenum": ["dnsenum", "dns enum", "dns enumeration"],
+        "dirb": ["dirb", "directory scan"],
+        "feroxbuster": ["feroxbuster", "recursive dir"],
+        "dirsearch": ["dirsearch", "dir search"],
+        "enum4linux": ["enum4linux", "smb enum", "windows enum", "samba"],
+        "volatility": ["volatility", "memory forensics", "memory dump"],
+        "binwalk": ["binwalk", "firmware", "binary extract"],
+        "exiftool": ["exiftool", "metadata", "exif"],
+        "steghide": ["steghide", "steganography", "stego"],
+        "hashcat": ["hashcat", "hash crack", "gpu crack"],
+        "john": ["john", "john the ripper", "password crack"],
+        "metasploit": ["metasploit", "msfconsole", "exploit framework"],
+        "dalfox": ["dalfox", "xss scan", "cross-site scripting"],
+        "katana": ["katana", "web crawl", "crawler"],
+        "httpx": ["httpx", "http probe", "live hosts"],
+    }
+
+    CATEGORY_KEYWORDS = {
+        "network": ["network", "port", "scan", "host", "ip", "tcp", "udp", "ping", "traceroute"],
+        "web": ["web", "http", "https", "url", "website", "directory", "fuzz", "waf"],
+        "exploitation": ["exploit", "payload", "shell", "rce", "injection", "bypass"],
+        "forensics": ["forensic", "memory", "dump", "artifact", "stego", "metadata"],
+        "osint": ["osint", "recon", "subdomain", "email", "dns", "whois", "social"],
+        "password": ["password", "hash", "crack", "brute", "credential", "login"],
+        "cloud": ["cloud", "aws", "azure", "gcp", "docker", "kubernetes", "container"],
+        "wordpress": ["wordpress", "wp-", "wpscan", "wp plugin", "wp theme"],
+    }
+
+    def __init__(self, injection_protector: PromptInjectionProtector):
+        self.protector = injection_protector
+        self.conversation_history = []
+        self.max_history = 50
+
+    def process_message(self, user_message: str) -> Dict[str, Any]:
+        """Process a chat message and return AI response."""
+        check = self.protector.check(user_message)
+        if not check["safe"]:
+            return {
+                "success": False,
+                "blocked": True,
+                "response": (
+                    "I detected a potentially unsafe input pattern and cannot process this request. "
+                    "Please rephrase your question about penetration testing tools or targets."
+                ),
+                "injection_type": check["type"],
+            }
+
+        msg_lower = user_message.lower().strip()
+
+        # Add to history
+        self.conversation_history.append({"role": "user", "content": user_message})
+        if len(self.conversation_history) > self.max_history:
+            self.conversation_history = self.conversation_history[-self.max_history:]
+
+        response = self._generate_response(user_message, msg_lower)
+        self.conversation_history.append({"role": "assistant", "content": response["response"]})
+        return response
+
+    def _generate_response(self, message: str, msg_lower: str) -> Dict[str, Any]:
+        """Generate contextual AI response for security tool queries."""
+
+        # Help/greeting
+        if any(w in msg_lower for w in ["hello", "hi", "help", "what can you do", "capabilities"]):
+            return {
+                "success": True,
+                "response": self._help_response(),
+                "suggested_tools": [],
+                "category": "general",
+            }
+
+        # WordPress
+        if any(w in msg_lower for w in ["wordpress", "wp ", "wpscan", "wp plugin", "wp theme"]):
+            tools = ["wpscan", "nikto", "nuclei", "gobuster"]
+            return {
+                "success": True,
+                "response": (
+                    "For WordPress security assessment I recommend:\n\n"
+                    "• **WPScan** — dedicated WordPress vulnerability scanner\n"
+                    "• **Nuclei** — template-based vuln detection for WP\n"
+                    "• **Gobuster** — enumerate WP directories/plugins\n"
+                    "• **Nikto** — web server misconfiguration detection\n\n"
+                    "Use the WordPress Security Report section on the sidebar to generate a formal report. "
+                    "Type a command like `wpscan --url https://target.com` to run a scan."
+                ),
+                "suggested_tools": tools,
+                "category": "wordpress",
+            }
+
+        # SQL injection
+        if any(w in msg_lower for w in ["sql", "sqli", "injection", "database"]):
+            return {
+                "success": True,
+                "response": (
+                    "SQL Injection testing workflow:\n\n"
+                    "• **SQLMap** — automated SQL injection detection and exploitation\n"
+                    "• **Nuclei** — template-based SQLi detection\n"
+                    "• **Ghauri** — advanced SQLi tool with tamper scripts\n\n"
+                    "Example: `sqlmap -u https://target.com/page?id=1 --dbs --batch`\n\n"
+                    "Always ensure you have written authorization before testing."
+                ),
+                "suggested_tools": ["sqlmap", "nuclei"],
+                "category": "web",
+            }
+
+        # XSS
+        if any(w in msg_lower for w in ["xss", "cross-site", "cross site scripting"]):
+            return {
+                "success": True,
+                "response": (
+                    "XSS Testing tools:\n\n"
+                    "• **Dalfox** — fast XSS scanner with parameter analysis\n"
+                    "• **XSSer** — automated XSS injection tool\n"
+                    "• **Nuclei** — XSS detection templates\n\n"
+                    "Example: `dalfox url https://target.com/search?q=test`"
+                ),
+                "suggested_tools": ["dalfox", "nuclei"],
+                "category": "web",
+            }
+
+        # Port scan / network
+        if any(w in msg_lower for w in ["port", "scan", "nmap", "network", "host", "service"]):
+            return {
+                "success": True,
+                "response": (
+                    "Network scanning tools:\n\n"
+                    "• **Nmap** — industry-standard port/service scanner\n"
+                    "• **RustScan** — ultra-fast port discovery\n"
+                    "• **Masscan** — internet-scale port scanning\n\n"
+                    "Example: `nmap -sC -sV -oN scan.txt <target>`\n"
+                    "Quick scan: `rustscan -a <target> -- -sC -sV`"
+                ),
+                "suggested_tools": ["nmap", "rustscan", "masscan"],
+                "category": "network",
+            }
+
+        # Subdomain
+        if any(w in msg_lower for w in ["subdomain", "amass", "subfinder", "recon", "dns"]):
+            return {
+                "success": True,
+                "response": (
+                    "Subdomain enumeration tools:\n\n"
+                    "• **Amass** — comprehensive ASN & subdomain discovery\n"
+                    "• **Subfinder** — passive subdomain finder\n"
+                    "• **DNSenum** — DNS zone transfer & brute force\n"
+                    "• **Fierce** — DNS reconnaissance\n\n"
+                    "Example: `subfinder -d target.com -all -o subs.txt`"
+                ),
+                "suggested_tools": ["amass", "subfinder", "dnsenum"],
+                "category": "osint",
+            }
+
+        # Brute force / password
+        if any(w in msg_lower for w in ["brute", "password", "hydra", "hash", "crack"]):
+            return {
+                "success": True,
+                "response": (
+                    "Password & credential testing tools:\n\n"
+                    "• **Hydra** — multi-protocol login brute forcer\n"
+                    "• **Hashcat** — GPU-accelerated hash cracking\n"
+                    "• **John the Ripper** — versatile password cracker\n"
+                    "• **Medusa** — parallel network login brute forcer\n\n"
+                    "Example: `hydra -l admin -P wordlist.txt ssh://target.com`\n"
+                    "**Only use on systems you own or have written permission to test.**"
+                ),
+                "suggested_tools": ["hydra", "hashcat", "john"],
+                "category": "password",
+            }
+
+        # Bug bounty
+        if any(w in msg_lower for w in ["bug bounty", "bugbounty", "recon workflow"]):
+            return {
+                "success": True,
+                "response": (
+                    "Bug Bounty Recon Workflow:\n\n"
+                    "**Phase 1 — Asset Discovery:**\n"
+                    "• Subfinder + Amass (subdomains)\n"
+                    "• HTTPx (live host probing)\n"
+                    "• Nmap (port/service scan)\n\n"
+                    "**Phase 2 — Web Attack Surface:**\n"
+                    "• Katana + Hakrawler (crawling)\n"
+                    "• Ffuf + Gobuster (directory brute)\n"
+                    "• Arjun + Paramspider (parameter discovery)\n\n"
+                    "**Phase 3 — Vulnerability Discovery:**\n"
+                    "• Nuclei (automated templates)\n"
+                    "• Dalfox (XSS), SQLMap (SQLi)\n"
+                    "• Manual testing for business logic\n\n"
+                    "Use `/api/bugbounty/reconnaissance-workflow` for automated pipeline."
+                ),
+                "suggested_tools": ["subfinder", "httpx", "nuclei", "dalfox", "sqlmap"],
+                "category": "bugbounty",
+            }
+
+        # CTF
+        if any(w in msg_lower for w in ["ctf", "capture the flag", "challenge"]):
+            return {
+                "success": True,
+                "response": (
+                    "CTF Challenge Toolkit:\n\n"
+                    "• **Web:** Burp Suite, SQLMap, Dalfox, Gobuster\n"
+                    "• **Crypto:** CyberChef, Hashcat, John\n"
+                    "• **Forensics:** Volatility, Binwalk, Exiftool, Steghide\n"
+                    "• **Binary/PWN:** GDB, Radare2, ROPgadget, Pwntools\n"
+                    "• **OSINT:** Recon-ng, Maltego, Shodan\n\n"
+                    "Use `/api/ctf/auto-solve-challenge` for automated challenge analysis."
+                ),
+                "suggested_tools": ["volatility", "binwalk", "gdb", "sqlmap"],
+                "category": "ctf",
+            }
+
+        # Identify specific tool mention
+        for tool, keywords in self.TOOL_KEYWORDS.items():
+            if any(kw in msg_lower for kw in keywords):
+                return {
+                    "success": True,
+                    "response": (
+                        f"Recognized tool: **{tool}**\n\n"
+                        f"To execute, type the full command. Example usages are shown in the tool categories panel. "
+                        f"I can also run this via API — use the `/api/{tool}` endpoint or type the command directly."
+                    ),
+                    "suggested_tools": [tool],
+                    "category": self._detect_category(msg_lower),
+                }
+
+        # Generic fallback
+        return {
+            "success": True,
+            "response": (
+                f"I understand you're asking about: **{message[:80]}**\n\n"
+                "CF_AI supports 150+ security tools. Here's how to get started:\n\n"
+                "• Type a tool name to get usage guidance (e.g. `nmap`, `sqlmap`, `wpscan`)\n"
+                "• Type a task description (e.g. `scan ports on 192.168.1.1`)\n"
+                "• Use the sidebar tool categories to browse available tools\n"
+                "• Use the WordPress Report section for WP security assessments\n\n"
+                "Type `help` for a full list of capabilities."
+            ),
+            "suggested_tools": [],
+            "category": "general",
+        }
+
+    def _detect_category(self, text: str) -> str:
+        for cat, kws in self.CATEGORY_KEYWORDS.items():
+            if any(k in text for k in kws):
+                return cat
+        return "general"
+
+    def _help_response(self) -> str:
+        return (
+            "**CF_AI — Advanced Penetration Testing Framework**\n\n"
+            "I can help you with:\n\n"
+            "**Network Recon:** Nmap, RustScan, Masscan, HTTPx\n"
+            "**Web Security:** SQLMap, Dalfox, Gobuster, Nikto, Nuclei, WPScan\n"
+            "**OSINT:** Amass, Subfinder, TheHarvester, Recon-ng\n"
+            "**Password:** Hydra, Hashcat, John the Ripper\n"
+            "**Forensics:** Volatility, Binwalk, Exiftool, Steghide\n"
+            "**Exploitation:** Metasploit, SearchSploit, custom payloads\n"
+            "**Bug Bounty:** Automated recon → discovery → exploitation pipelines\n"
+            "**CTF:** Challenge solvers for web, crypto, forensics, pwn\n"
+            "**WordPress:** Dedicated WP security report generation\n\n"
+            "Type any tool name, task description, or question to get started."
+        )
+
+
+prompt_guard = PromptInjectionProtector()
+chat_engine = CFAIChatEngine(prompt_guard)
+
 # API Routes
 
 @app.route("/health", methods=["GET"])
@@ -9220,26 +9618,80 @@ def wordpress_report():
 
 @app.route("/api/command", methods=["POST"])
 def generic_command():
-    """Execute any command provided in the request with enhanced logging"""
+    """Execute any command provided in the request with enhanced logging and injection protection"""
     try:
         params = request.json
         command = params.get("command", "")
         use_cache = params.get("use_cache", True)
 
         if not command:
-            logger.warning("⚠️  Command endpoint called without command parameter")
+            logger.warning("Command endpoint called without command parameter")
+            return jsonify({"error": "Command parameter is required"}), 400
+
+        # Prompt injection check on raw input
+        check = prompt_guard.check(command)
+        if not check["safe"]:
+            logger.warning(f"Injection blocked in /api/command: {command[:80]}")
             return jsonify({
-                "error": "Command parameter is required"
+                "success": False,
+                "blocked": True,
+                "error": "Input blocked by injection protection: " + (check["reason"] or "unsafe pattern detected"),
+                "injection_type": check["type"],
             }), 400
 
         result = execute_command(command, use_cache=use_cache)
         return jsonify(result)
     except Exception as e:
-        logger.error(f"💥 Error in command endpoint: {str(e)}")
+        logger.error(f"Error in command endpoint: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({
-            "error": f"Server error: {str(e)}"
-        }), 500
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+
+@app.route("/api/chat", methods=["POST"])
+def ai_chat():
+    """AI chat endpoint with natural language understanding and injection protection"""
+    try:
+        params = request.json or {}
+        message = params.get("message", "").strip()
+
+        if not message:
+            return jsonify({"error": "message field is required"}), 400
+
+        if len(message) > 2000:
+            return jsonify({"error": "Message too long (max 2000 characters)"}), 400
+
+        result = chat_engine.process_message(message)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error in /api/chat: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+
+@app.route("/api/chat/history", methods=["GET"])
+def chat_history():
+    """Get conversation history"""
+    return jsonify({
+        "success": True,
+        "history": chat_engine.conversation_history[-20:],
+        "total_messages": len(chat_engine.conversation_history),
+    })
+
+
+@app.route("/api/chat/clear", methods=["POST"])
+def clear_chat():
+    """Clear conversation history"""
+    chat_engine.conversation_history = []
+    return jsonify({"success": True, "message": "Conversation history cleared."})
+
+
+@app.route("/api/security/injection-stats", methods=["GET"])
+def injection_stats():
+    """Get prompt injection protection statistics"""
+    return jsonify({
+        "success": True,
+        "stats": prompt_guard.get_stats(),
+    })
 
 # File Operations API Endpoints
 
