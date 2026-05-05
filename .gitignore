@@ -66,6 +66,7 @@ screenshots/
 
 # Sensitive files
 .env
+.env.example
 secrets.json
 api_keys.json
 
