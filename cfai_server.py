@@ -9530,7 +9530,7 @@ class CFAIChatEngine:
         # ── Direct tool command (user typed the tool name first) ──────────────
         if first_word in self.DIRECT_TOOLS and len(words) > 1:
             cmd = message.strip().split()
-            output = self._run_tool(cmd, timeout=120)
+            output = self._run_tool(cmd, timeout=180)
             return {
                 "success": True,
                 "response": f"Executed: `{' '.join(cmd)}`\n\n```\n{output}\n```",
@@ -9721,6 +9721,77 @@ class CFAIChatEngine:
                 "executed": True,
                 "category": "password",
                 "suggested_tools": ["hashcat", "john"],
+            }
+
+        # ── Cloud Security ────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["trivy", "cloud scan", "container scan", "docker scan", "image scan"]):
+            img = re.sub(r'(trivy|cloud scan|container scan|docker scan|image scan)\s*', '', message, flags=re.IGNORECASE).strip()
+            if not img:
+                img = "nginx:latest"
+            cmd = ["trivy", "image", "--severity", "HIGH,CRITICAL", img]
+            output = self._run_tool(cmd, timeout=180)
+            return {
+                "success": True,
+                "response": f"Trivy scan on `{img}`:\n\n```\n{output}\n```",
+                "executed": True,
+                "command": f"trivy image {img}",
+                "category": "cloud",
+                "suggested_tools": ["checkov", "prowler"],
+            }
+
+        if any(w in msg_lower for w in ["checkov", "iac scan", "terraform scan", "infrastructure scan"]):
+            path = re.sub(r'(checkov|iac scan|terraform scan|infrastructure scan)\s*(-d)?\s*', '', message, flags=re.IGNORECASE).strip() or "/opt/CF_AI"
+            cmd = ["checkov", "-d", path, "--quiet"]
+            output = self._run_tool(cmd, timeout=120)
+            return {
+                "success": True,
+                "response": f"Checkov IaC scan on `{path}`:\n\n```\n{output}\n```",
+                "executed": True,
+                "command": f"checkov -d {path}",
+                "category": "cloud",
+                "suggested_tools": ["trivy"],
+            }
+
+        if any(w in msg_lower for w in ["prowler", "aws scan", "cloud audit"]):
+            return {
+                "success": True,
+                "response": (
+                    "Prowler requires AWS credentials configured.\n\n"
+                    "Setup:\n"
+                    "  aws configure\n\n"
+                    "Then run:\n"
+                    "  prowler aws\n"
+                    "  prowler aws --service s3 ec2\n\n"
+                    "Or scan a specific region:\n"
+                    "  prowler aws -r us-east-1"
+                ),
+                "category": "cloud",
+                "suggested_tools": ["trivy", "checkov"],
+            }
+
+        # ── Forensics ─────────────────────────────────────────────────────────
+        if any(w in msg_lower for w in ["binwalk", "firmware", "binary extract"]):
+            target_file = self._extract_target(message) or message.split()[-1]
+            cmd = ["binwalk", target_file]
+            output = self._run_tool(cmd, timeout=60)
+            return {
+                "success": True,
+                "response": f"Binwalk analysis of `{target_file}`:\n\n```\n{output}\n```",
+                "executed": True,
+                "category": "forensics",
+                "suggested_tools": ["exiftool"],
+            }
+
+        if any(w in msg_lower for w in ["exiftool", "metadata", "exif data"]):
+            target_file = message.split()[-1]
+            cmd = ["exiftool", target_file]
+            output = self._run_tool(cmd, timeout=30)
+            return {
+                "success": True,
+                "response": f"Exiftool metadata for `{target_file}`:\n\n```\n{output}\n```",
+                "executed": True,
+                "category": "forensics",
+                "suggested_tools": ["steghide", "binwalk"],
             }
 
         # ── Bug bounty ────────────────────────────────────────────────────────
