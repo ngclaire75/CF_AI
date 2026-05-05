@@ -9373,7 +9373,7 @@ class CFAIChatEngine:
                 return f"Command completed (exit code {result.returncode}) with no output."
             return out[:6000]
         except subprocess.TimeoutExpired:
-            return f"Scan timed out after {timeout}s. The target may be slow or the scan too broad."
+            return f"Scan timed out after {timeout}s. Try a more targeted command, e.g. add -T4 for nmap or reduce scan scope."
         except FileNotFoundError:
             return f"Tool '{cmd[0]}' is not installed. Run: sudo bash /opt/CF_AI/setup.sh"
         except Exception as e:
@@ -9646,8 +9646,8 @@ class CFAIChatEngine:
         # ── Nikto ────────────────────────────────────────────────────────────
         if any(w in msg_lower for w in ["nikto", "web vuln", "http vuln", "web server scan"]):
             if target:
-                cmd = ["nikto", "-h", target, "-maxtime", "60"]
-                output = self._run_tool(cmd, timeout=90)
+                cmd = ["nikto", "-h", target, "-maxtime", "90", "-timeout", "10", "-Tuning", "1234578b"]
+                output = self._run_tool(cmd, timeout=180)
                 return {
                     "success": True,
                     "response": f"Nikto scan on `{target}`:\n\n```\n{output}\n```",
