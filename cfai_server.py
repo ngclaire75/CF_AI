@@ -9676,30 +9676,53 @@ class CFAIChatEngine:
         # ── Port Scan / Network ───────────────────────────────────────────────
         if any(w in msg_lower for w in ["port", "scan", "nmap", "network", "host", "service", "open ports", "rustscan", "masscan"]):
             if target:
-                cmd = ["nmap", "-sT", "-sV", "--open", "-T4", target]
+                # -sT: TCP connect (no raw sockets), -Pn: skip ICMP host discovery (raw socket), -T4: fast
+                cmd = ["nmap", "-sT", "-Pn", "-sV", "--open", "-T4", target]
                 output = self._run_tool(cmd, timeout=120)
                 return {
                     "success": True,
                     "response": f"Nmap scan on `{target}`:\n\n```\n{output}\n```",
                     "executed": True,
-                    "command": f"nmap -sT -sV --open -T4 {target}",
+                    "command": f"nmap -sT -Pn -sV --open -T4 {target}",
                     "category": "network",
                     "suggested_tools": ["rustscan", "gobuster", "nuclei"],
                 }
             return {"success": True, "response": self._tools_list("network"), "category": "network", "suggested_tools": ["nmap", "rustscan", "masscan"]}
 
         # ── Subdomain / OSINT ─────────────────────────────────────────────────
-        if any(w in msg_lower for w in ["subdomain", "amass", "subfinder", "dns", "theharvester", "recon-ng"]):
+        if any(w in msg_lower for w in [
+            "subdomain", "amass", "subfinder", "dnsenum", "theharvester", "recon-ng",
+            "osint", "fierce", "whois", "recon", "spiderfoot", "social-analyzer",
+            "social analyzer", "enumerate domain", "find domain", "dns enum",
+        ]):
             if target:
-                cmd = ["subfinder", "-d", target, "-silent"]
+                # Route to the specific tool requested, default to subfinder
+                if "amass" in msg_lower:
+                    cmd = ["amass", "enum", "-d", target, "-passive"]
+                    label = f"Amass enumeration for `{target}`"
+                elif "theharvester" in msg_lower or "harvester" in msg_lower:
+                    cmd = ["theHarvester", "-d", target, "-b", "all", "-l", "100"]
+                    label = f"theHarvester OSINT for `{target}`"
+                elif "dnsenum" in msg_lower:
+                    cmd = ["dnsenum", "--noreverse", target]
+                    label = f"DNS enumeration for `{target}`"
+                elif "fierce" in msg_lower:
+                    cmd = ["fierce", "--domain", target]
+                    label = f"Fierce DNS scan for `{target}`"
+                elif "recon-ng" in msg_lower:
+                    cmd = ["recon-ng", "-m", "recon/domains-hosts/hackertarget", "-x", f"set SOURCE {target}; run"]
+                    label = f"Recon-ng scan for `{target}`"
+                else:
+                    cmd = ["subfinder", "-d", target, "-silent"]
+                    label = f"Subdomain enumeration for `{target}`"
                 output = self._run_tool(cmd, timeout=90)
                 return {
                     "success": True,
-                    "response": f"Subdomain enumeration for `{target}`:\n\n```\n{output}\n```",
+                    "response": f"{label}:\n\n```\n{output}\n```",
                     "executed": True,
-                    "command": f"subfinder -d {target}",
+                    "command": " ".join(cmd),
                     "category": "osint",
-                    "suggested_tools": ["amass", "dnsenum", "httpx"],
+                    "suggested_tools": ["amass", "dnsenum", "httpx", "theharvester"],
                 }
             return {"success": True, "response": self._tools_list("osint"), "category": "osint", "suggested_tools": ["subfinder", "amass", "dnsenum"]}
 
