@@ -11,67 +11,97 @@ from tools.generic_linux_command import generic_linux_command, read_file, write_
 _TOOLS = [generic_linux_command, read_file, write_file]
 _MODEL = os.environ.get('CAI_MODEL', 'gpt-4o')
 
-RULES = """
+_BUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+
+RULES = f"""
 RULES:
 - Execute every check with generic_linux_command using real commands.
 - Never fabricate findings — only report what actual command output shows.
 - If a tool is missing, substitute: curl / nmap / python3 one-liners.
-- Always add -4 --connect-timeout 8 to curl (forces IPv4, avoids 120s IPv6 hang).
-- Add -Pn to nmap if host appears down. Use --max-time on curl.
-- If curl returns no output or exit code 28, immediately retry with:
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    -H "Referer: https://www.google.com/"
-  Then try X-Forwarded-For: 127.0.0.1 bypass. Then fall back to passive recon.
-- After all checks output: FINDING | WSTG-ID | Severity | Evidence
+- Always add -4 --connect-timeout 8 to every curl call (forces IPv4).
+- Always spoof the browser UA on every curl: -A "{_BUA}"
+- Add -H "Referer: https://www.google.com/" when fetching page bodies.
+- Add -Pn --host-timeout 30s to nmap scans to prevent 90s+ hangs.
+- If curl still returns no output, retry with X-Forwarded-For: 127.0.0.1 bypass,
+  then try HTTP (port 80), then fall back to passive recon (whois/dig/Wayback).
+- Format the final findings as a markdown table:
+  | # | WSTG-ID | Severity | Finding | Evidence |
+  |---|---------|----------|---------|----------|
 """
 
 
-def _agent(category: str, desc: str, instructions: str) -> Agent:
+def _agent(category: str, desc: str, instructions: str, max_turns: int = 25) -> Agent:
     return Agent(
         name=f'WSTG-{category}',
         description=desc,
         instructions=RULES + instructions,
         tools=_TOOLS,
         model=_MODEL,
-        max_turns=25,
+        max_turns=max_turns,
     )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-INFO  (INFO-02, 06, 07, 08, 09, 10)
 # ─────────────────────────────────────────────────────────────────────────────
-INFO_AGENT = _agent('INFO', 'Information Gathering', """
-You are the WSTG-INFO agent. Target: {domain}
+_UA  = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+_REF = 'https://www.google.com/'
 
-IMPORTANT — FIREWALL/WAF STRATEGY:
-If direct curl/HTTP returns no output or times out, the target is blocking the VPS IP.
-Switch immediately to:
-  1. Passive recon (whois, DNS, crt.sh, Wayback Machine — no HTTP needed)
-  2. Browser-spoofed curl (-A with real UA + Referer header)
-  3. X-Forwarded-For bypass headers
-  4. whatweb / wafw00f (use their own bypass modes)
-Never give up after one failure — try all fallbacks before reporting blocked.
+INFO_AGENT = _agent('INFO', 'Information Gathering', f"""
+You are the WSTG-INFO agent. Target: {{domain}}
 
-─── STEP 0 — PASSIVE RECON (always run first, works through any firewall) ───
+════════════════════════════════════════════════════════════════
+FIREWALL / WAF BYPASS — try ALL techniques in this order.
+Stop when one returns real data, but run ALL passive steps first.
+════════════════════════════════════════════════════════════════
 
-  whois {domain} 2>/dev/null | grep -iE "registrar|registrant|name server|created|expires|admin|tech|org" | head -20
-  dig {domain} ANY +short 2>/dev/null | head -20
-  dig {domain} MX +short 2>/dev/null
-  dig {domain} TXT +short 2>/dev/null | head -10
-  host {domain} 2>/dev/null
+BYPASS CASCADE:
+  A. Passive APIs   — whois/dig/crt.sh/Wayback/Shodan/BGP (always works)
+  B. Browser spoof  — Chrome UA + Accept + Referer headers
+  C. XFF injection  — X-Forwarded-For: 127.0.0.1 / X-Real-IP / CF-Connecting-IP
+  D. Full headers   — exact Chrome header set
+  E. HTTP 1.0       — some WAFs only inspect HTTP 1.1
+  F. Port 80        — HTTP fallback if HTTPS filtered
+  G. Alt ports      — 8080, 8443
+  H. whatweb -a 3   — its own UA rotation + evasion
+  I. Tor proxy      — real IP change (torify or socks5://127.0.0.1:9050)
+  J. Origin IP      — bypass CDN by hitting the real server IP directly
+  K. Subdomains     — api.*, staging.*, dev.* often not behind WAF
+  L. Wayback replay — archived HTML for framework/path info
 
-  # Certificate transparency — reveals subdomains and server info without HTTP
-  curl -s "https://crt.sh/?q={domain}&output=json" --max-time 15 2>/dev/null \
+Always add to every curl: -4 --connect-timeout 8 --max-time 15
+
+════════════════════════════════════════════════════════════════
+PHASE 1 — PASSIVE RECON (no HTTP to target, firewall-proof)
+════════════════════════════════════════════════════════════════
+
+  # 1a. WHOIS + DNS
+  whois {{domain}} 2>/dev/null | grep -iE "registrar|registrant|name server|created|expires|org|country" | head -20
+  dig {{domain}} A +short 2>/dev/null
+  dig {{domain}} AAAA +short 2>/dev/null
+  dig {{domain}} MX +short 2>/dev/null
+  dig {{domain}} TXT +short 2>/dev/null | head -10
+  dig {{domain}} NS +short 2>/dev/null
+  dig {{domain}} CNAME +short 2>/dev/null
+  host {{domain}} 2>/dev/null
+
+  # 1b. SSL cert — reveals SANs, real hostnames, even behind Cloudflare
+  echo | openssl s_client -connect {{domain}}:443 -servername {{domain}} 2>/dev/null \
+    | openssl x509 -noout -text 2>/dev/null \
+    | grep -iE "subject:|issuer:|dns:|not before|not after" | head -20
+
+  # 1c. Certificate Transparency (crt.sh) — subdomains without HTTP
+  curl -4 -s "https://crt.sh/?q=%25.{{domain}}&output=json" --max-time 20 \
     | python3 -c "
 import sys,json
 try:
   d=json.load(sys.stdin)
-  subs=sorted(set(e['name_value'].replace('*.','') for e in d if '{domain}' in e.get('name_value','')))
-  [print(s) for s in subs[:30]]
-except Exception as e: print(e)"
+  subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split()))
+  [print(s) for s in subs[:40] if '{{domain}}' in s]
+except: pass"
 
-  # Wayback Machine CDX — historical URLs cached without live connection
-  curl -s "http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&limit=25&fl=original,statuscode,mimetype&collapse=urlkey" --max-time 15 2>/dev/null \
+  # 1d. Wayback Machine CDX — historical URLs (paths, API routes, old tech)
+  curl -4 -s "http://web.archive.org/cdx/search/cdx?url={{domain}}/*&output=json&limit=40&fl=original,statuscode,mimetype&collapse=urlkey" --max-time 20 \
     | python3 -c "
 import sys,json
 try:
@@ -79,83 +109,299 @@ try:
   [print(r[1],r[2],r[0]) for r in rows]
 except: pass"
 
-  # HackerTarget passive DNS
-  curl -s "https://api.hackertarget.com/hostsearch/?q={domain}" --max-time 10 2>/dev/null | head -20
+  # 1e. HackerTarget passive DNS + DNS history
+  curl -4 -s "https://api.hackertarget.com/hostsearch/?q={{domain}}" --max-time 10 | head -20
+  curl -4 -s "https://api.hackertarget.com/dnslookup/?q={{domain}}" --max-time 10 | head -15
 
-─── STEP 1 — DIRECT HTTP (try these in order, stop when one works) ───
+  # 1f. Shodan InternetDB — open ports/CVEs/hostnames, NO API key needed
+  TARGET_IP=$(dig {{domain}} A +short 2>/dev/null | head -1)
+  if [ -n "$TARGET_IP" ]; then
+    curl -4 -s "https://internetdb.shodan.io/$TARGET_IP" --max-time 10 \
+      | python3 -c "
+import sys,json
+try:
+  d=json.load(sys.stdin)
+  print('IPs:',d.get('ip'))
+  print('Ports:',d.get('ports'))
+  print('Hostnames:',d.get('hostnames'))
+  print('CPEs:',d.get('cpes'))
+  print('Vulns:',d.get('vulns'))
+except: pass"
+  fi
 
-  # Attempt A: plain curl with -4 and short timeout
-  curl -4 -sI https://{domain}/ --max-time 10
+  # 1g. IP info / ASN (ipinfo.io — no API key needed)
+  if [ -n "$TARGET_IP" ]; then
+    curl -4 -s "https://ipinfo.io/$TARGET_IP/json" --max-time 10 \
+      | python3 -c "
+import sys,json
+try:
+  d=json.load(sys.stdin)
+  for k in ['ip','hostname','org','city','country','asn']:
+    if k in d: print(k+':', d[k])
+except: pass"
+  fi
 
-  # Attempt B: browser-spoofed (bypasses basic bot/IP blocking)
-  curl -4 -sI https://{domain}/ --max-time 10 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-    -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
-    -H "Accept-Language: en-US,en;q=0.5" \
-    -H "Referer: https://www.google.com/"
+  # 1h. BGP/ASN detail (bgpview.io)
+  if [ -n "$TARGET_IP" ]; then
+    curl -4 -s "https://api.bgpview.io/ip/$TARGET_IP" --max-time 10 \
+      | python3 -c "
+import sys,json
+try:
+  d=json.load(sys.stdin).get('data',{{}})
+  for pfx in d.get('prefixes',[])[:3]:
+    print('ASN:',pfx.get('asn',{{}}).get('asn'),'ORG:',pfx.get('asn',{{}}).get('description'),'PREFIX:',pfx.get('prefix'))
+except: pass"
+  fi
 
-  # Attempt C: X-Forwarded-For bypass (some WAFs whitelist localhost/trusted IPs)
-  curl -4 -sI https://{domain}/ --max-time 10 \
+  # 1i. Subdomain brute-force via free APIs (passive, no HTTP to target)
+  curl -4 -s "https://jldc.me/anubis/subdomains/{{domain}}" --max-time 15 \
+    | python3 -c "import sys,json; [print(s) for s in json.load(sys.stdin)[:30]]" 2>/dev/null || true
+
+════════════════════════════════════════════════════════════════
+PHASE 2 — ORIGIN IP DISCOVERY (bypass CDN / Cloudflare)
+════════════════════════════════════════════════════════════════
+
+  # MX records often point to mail server on origin IP (not behind CDN)
+  MX_HOST=$(dig {{domain}} MX +short 2>/dev/null | awk '{{print $2}}' | head -1 | tr -d '.')
+  if [ -n "$MX_HOST" ]; then
+    MX_IP=$(dig $MX_HOST A +short | head -1)
+    echo "MX IP (potential origin): $MX_IP"
+    [ -n "$MX_IP" ] && curl -4 -s "https://internetdb.shodan.io/$MX_IP" --max-time 8 | python3 -c "import sys,json; d=json.load(sys.stdin); print('ports:',d.get('ports'),'hostnames:',d.get('hostnames'))" 2>/dev/null
+  fi
+
+  # SPF record often has origin IP range
+  dig {{domain}} TXT +short 2>/dev/null | grep spf | head -3
+
+  # Historical DNS — find old A records before CDN was added
+  curl -4 -s "https://api.hackertarget.com/dnslookup/?q={{domain}}" --max-time 10
+
+  # Enumerate subdomains that might bypass WAF (api.*, staging.*, dev.*, admin.*)
+  for sub in api staging dev test admin mail smtp ftp direct origin backend; do
+    ip=$(dig $sub.{{domain}} A +short 2>/dev/null | head -1)
+    if [ -n "$ip" ]; then
+      echo "SUBDOMAIN $sub.{{domain}} -> $ip"
+      curl -4 -s "https://internetdb.shodan.io/$ip" --max-time 6 | python3 -c "import sys,json; d=json.load(sys.stdin); print('  ports:',d.get('ports'))" 2>/dev/null
+    fi
+  done
+
+════════════════════════════════════════════════════════════════
+PHASE 3 — HTTP BYPASS CASCADE (try all, use whatever returns data)
+════════════════════════════════════════════════════════════════
+
+  # B. Browser spoof — Chrome UA + standard browser headers
+  curl -4 -sI https://{{domain}}/ --max-time 12 \
+    -A "{_UA}" \
+    -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8" \
+    -H "Accept-Language: en-US,en;q=0.9" \
+    -H "Accept-Encoding: gzip, deflate, br" \
+    -H "Referer: {_REF}" \
+    -H "Upgrade-Insecure-Requests: 1" \
+    -H "Connection: keep-alive"
+
+  # C. XFF injection — many WAFs whitelist these IPs
+  curl -4 -sI https://{{domain}}/ --max-time 12 \
+    -A "{_UA}" \
     -H "X-Forwarded-For: 127.0.0.1" \
     -H "X-Real-IP: 127.0.0.1" \
     -H "X-Originating-IP: 127.0.0.1" \
-    -H "X-Remote-IP: 127.0.0.1"
+    -H "X-Remote-IP: 127.0.0.1" \
+    -H "X-Client-IP: 127.0.0.1" \
+    -H "CF-Connecting-IP: 127.0.0.1" \
+    -H "True-Client-IP: 127.0.0.1" \
+    -H "Forwarded: for=127.0.0.1"
 
-  # Attempt D: try HTTP (port 80) if HTTPS is blocked
-  curl -4 -sI http://{domain}/ --max-time 10
+  # E. HTTP 1.0 — some WAFs only inspect 1.1
+  curl -4 -sI --http1.0 https://{{domain}}/ --max-time 12 -A "{_UA}"
 
-  # Attempt E: whatweb — has its own UA and fingerprinting bypass
-  whatweb -a 3 --colour=never https://{domain}/ 2>/dev/null | head -20 \
-    || whatweb -a 1 --colour=never http://{domain}/ 2>/dev/null | head -20
+  # F. HTTP port 80 fallback
+  curl -4 -sI http://{{domain}}/ --max-time 10 -A "{_UA}"
 
+  # G. Alt ports
+  for port in 8080 8443 8888 3000 5000; do
+    result=$(curl -4 -sI https://{{domain}}:$port/ --max-time 6 -A "{_UA}" 2>/dev/null | head -3)
+    [ -n "$result" ] && echo "PORT $port: $result"
+  done
+
+  # H. whatweb + wafw00f (own UA rotation, aggressive mode)
+  whatweb -a 3 --colour=never https://{{domain}}/ 2>/dev/null | head -20 || true
+  wafw00f -a https://{{domain}}/ 2>/dev/null | head -15 || true
+
+  # I. Tor proxy (if Tor is running on the VPS)
+  tor_ok=$(curl -4 -s --socks5 127.0.0.1:9050 https://check.torproject.org/api/ip --max-time 8 2>/dev/null | grep -c IsTor)
+  if [ "$tor_ok" = "1" ]; then
+    echo "=== TOR BYPASS ==="
+    curl -s --socks5 127.0.0.1:9050 -sI https://{{domain}}/ --max-time 20 -A "{_UA}"
+    curl -s --socks5 127.0.0.1:9050 -s https://{{domain}}/ --max-time 25 -A "{_UA}" | head -100
+  fi
+
+  # J. Direct origin IP bypass (if target has a real origin IP different from CDN)
+  ORIGIN_IP=$(dig {{domain}} A +short 2>/dev/null | grep -v '^;' | head -1)
+  if [ -n "$ORIGIN_IP" ]; then
+    echo "Trying origin IP $ORIGIN_IP directly with Host header..."
+    curl -4 -sI --resolve {{domain}}:443:$ORIGIN_IP https://{{domain}}/ --max-time 10 -A "{_UA}"
+  fi
+
+  # K. Wayback Machine replay of last known good snapshot
+  SNAP_URL=$(curl -4 -s "http://archive.org/wayback/available?url={{domain}}" --max-time 10 \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('archived_snapshots',{{}}).get('closest',{{}}).get('url',''))" 2>/dev/null)
+  if [ -n "$SNAP_URL" ]; then
+    echo "=== WAYBACK SNAPSHOT: $SNAP_URL ==="
+    curl -4 -s "$SNAP_URL" --max-time 15 -A "{_UA}" | head -80
+  fi
+
+════════════════════════════════════════════════════════════════
 [INFO-02] Fingerprint Web Server
-  # Collect server header from whichever attempt above worked
-  # Also try nmap NSE script (works even when HTTP is firewalled)
-  nmap -Pn -sV -p 80,443 --script http-server-header,http-headers {domain} 2>/dev/null | head -30
-  wafw00f https://{domain}/ 2>/dev/null | head -15 || true
+════════════════════════════════════════════════════════════════
 
+  # nmap with script timeout to prevent 90s hangs
+  nmap -Pn --host-timeout 30s --script-timeout 10s -sV -p 80,443 \
+    --script http-server-header,http-headers {{domain}} 2>/dev/null | head -35
+
+════════════════════════════════════════════════════════════════
 [INFO-06] Application Entry Points
-  # robots.txt / sitemap — try browser UA if plain curl fails
-  curl -4 -s https://{domain}/robots.txt --max-time 10 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-  curl -4 -s https://{domain}/sitemap.xml --max-time 10 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-    | grep -o '<loc>[^<]*' | head -20
-  # Use Wayback Machine paths as fallback entry-point map (already fetched above)
-  gobuster dir -u https://{domain} -w /usr/share/wordlists/dirb/common.txt -q -t 10 --timeout 8s \
-    -a "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" 2>/dev/null | head -30 || true
+════════════════════════════════════════════════════════════════
 
-[INFO-07] Map Execution Paths
-  curl -4 -s https://{domain}/ --max-time 15 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-    -H "Referer: https://www.google.com/" \
-    | grep -Eo '(href|src|action)="[^"#]*"' | sort -u | head -40
+  curl -4 -s https://{{domain}}/robots.txt --max-time 10 -A "{_UA}" -H "Referer: {_REF}"
+  curl -4 -s https://{{domain}}/sitemap.xml --max-time 10 -A "{_UA}" | grep -o '<loc>[^<]*' | head -20
+  curl -4 -s https://{{domain}}/.well-known/security.txt --max-time 8 -A "{_UA}"
 
-[INFO-08] Fingerprint Framework
-  curl -4 -sI https://{domain}/ --max-time 10 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-    | grep -iE "x-powered-by|x-generator|x-drupal|x-wordpress|cf-ray|x-shopify|server"
-  curl -4 -s https://{domain}/ --max-time 15 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-    | grep -iEo "(wp-content|wp-includes|drupal|joomla|shopify|magento|laravel|django|next\\.js|gatsby|wix|squarespace)" | sort -u | head -10
+  # SPA DETECTION: same HTML for all paths = client-side routing, NOT real endpoints
+  python3 << 'PYEOF'
+import urllib.request, urllib.error, hashlib, ssl
+ctx = ssl.create_default_context()
+ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+UA = '{_UA}'
+def fetch(url):
+    req = urllib.request.Request(url, headers={{'User-Agent': UA}})
+    try:
+        return urllib.request.urlopen(req, timeout=8, context=ctx).read()
+    except: return b''
+base = fetch('https://{{domain}}/')
+h0 = hashlib.md5(base).hexdigest() if base else ''
+spa_count, real = 0, []
+for p in ['/admin','/login','/wp-admin','/api','/dashboard','/register','/notexist-cfai-xyz999']:
+    try:
+        req = urllib.request.Request('https://{{domain}}'+p, headers={{'User-Agent': UA}})
+        r = urllib.request.urlopen(req, timeout=6, context=ctx)
+        body = r.read()
+        h = hashlib.md5(body).hexdigest()
+        if h == h0: spa_count += 1
+        else: real.append((r.getcode(), p))
+    except urllib.error.HTTPError as e:
+        if e.code not in (404, 410): real.append((e.code, p))
+    except: pass
+if spa_count >= 2:
+    print('SPA=YES — client-side routing. 200 on all paths = same index.html. Do NOT report these as real endpoints.')
+else:
+    print('SPA=NO — server-side routing')
+    for code,p in real: print(code, p)
+PYEOF
 
+  gobuster dir -u https://{{domain}} -w /usr/share/wordlists/dirb/common.txt \
+    -q -t 15 --timeout 8s -a "{_UA}" --no-error 2>/dev/null | head -30 || true
+
+════════════════════════════════════════════════════════════════
+[INFO-07] Map Execution Paths + JS Bundle Analysis
+════════════════════════════════════════════════════════════════
+
+  # Fetch HTML + extract all links in one shot (avoid variable scope issues)
+  python3 << 'PYEOF'
+import urllib.request, re, ssl, json
+ctx = ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+UA = '{_UA}'
+def get(url):
+    try:
+        req = urllib.request.Request(url, headers={{'User-Agent':UA,'Referer':'{_REF}'}})
+        return urllib.request.urlopen(req,timeout=15,context=ctx).read().decode('utf-8','ignore')
+    except: return ''
+html = get('https://{{domain}}/')
+print('=== LINKS ===')
+links = sorted(set(re.findall(r'(?:href|src|action)="([^"#]*)"', html)))
+[print(l) for l in links[:40]]
+print()
+print('=== FRAMEWORK DETECTION ===')
+checks = [
+  ('React SPA',  r'<div\s+id=["\']root["\']'),
+  ('Vue SPA',    r'<div\s+id=["\']app["\']'),
+  ('Next.js',    r'__NEXT_DATA__|/_next/static'),
+  ('Nuxt.js',    r'__NUXT__|/_nuxt/'),
+  ('WordPress',  r'wp-content|wp-includes'),
+  ('Joomla',     r'/components/com_'),
+  ('Drupal',     r'Drupal\.settings'),
+  ('Laravel',    r'laravel_session'),
+  ('Django',     r'csrfmiddlewaretoken'),
+  ('Rails',      r'authenticity_token'),
+  ('Shopify',    r'Shopify\.shop|cdn\.shopify'),
+  ('Vite',       r'/assets/index-[A-Za-z0-9]{{8,12}}\.js'),
+  ('Webpack',    r'__webpack_require__|webpackChunk'),
+  ('Bootstrap',  r'bootstrap\.min\.css|bootstrap@[0-9]'),
+  ('Tailwind',   r'tailwindcss'),
+  ('jQuery',     r'jquery[./-][0-9]'),
+  ('Angular',    r'ng-version=|angular\.js'),
+  ('Svelte',     r'__svelte_|svelte@'),
+  ('Ember',      r'ember\.js|Ember\.VERSION'),
+]
+for name,pat in checks:
+    if re.search(pat, html, re.I): print('DETECTED:', name)
+# Find JS bundle URL and analyse it
+js_urls = re.findall(r'src="(/[^"]+\.js)"', html)[:3]
+print()
+print('=== JS BUNDLE ANALYSIS ===')
+for js_path in js_urls:
+    js = get('https://{{domain}}' + js_path)
+    if not js: continue
+    print(f'Bundle: {{js_path}} ({{len(js)}} bytes)')
+    # Framework versions
+    for m in re.finditer(r'(React|Vue|Angular|Next|Nuxt|Vite|webpack|Svelte|Ember)["\s,]{{0,5}}([0-9]+\.[0-9]+\.[0-9]+)', js, re.I):
+        print(f'  Version: {{m.group(1)}} {{m.group(2)}}')
+    # API endpoints inside the bundle
+    api_routes = sorted(set(re.findall(r'["\`](/(?:api|v[0-9]|graphql|rest|auth|users?|admin)[^"\`\s]{{0,60}})', js)))
+    if api_routes:
+        print('  API routes found:')
+        [print('   ', r) for r in api_routes[:30]]
+PYEOF
+
+════════════════════════════════════════════════════════════════
+[INFO-08] Fingerprint Framework — Headers
+════════════════════════════════════════════════════════════════
+
+  curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" -H "Referer: {_REF}" \
+    | grep -iE "server|x-powered-by|x-generator|x-drupal|x-wordpress|cf-ray|x-shopify|x-runtime|via|x-vercel|x-netlify|x-amz"
+
+════════════════════════════════════════════════════════════════
 [INFO-09] Fingerprint Web Application
-  curl -4 -s https://{domain}/ --max-time 15 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+════════════════════════════════════════════════════════════════
+
+  curl -4 -s https://{{domain}}/ --max-time 15 -A "{_UA}" -H "Referer: {_REF}" \
     | grep -iEo "<meta[^>]+generator[^>]+>" | head -5
-  curl -4 -s https://{domain}/ --max-time 15 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-    | grep -iEo "(jquery|bootstrap|angular|react|vue|nuxt|next)[/-][0-9.]+" | sort -u | head -10
+  # Check API / GraphQL endpoints
+  for p in /api /graphql /api/v1 /api/v2 /v1 /v2 /rest /swagger.json /openapi.json /.api; do
+    code=$(curl -4 -so /dev/null -w "%{{http_code}}" https://{{domain}}$p --max-time 6 -A "{_UA}")
+    [ "$code" != "404" ] && [ "$code" != "000" ] && echo "$code $p"
+  done
 
+════════════════════════════════════════════════════════════════
 [INFO-10] Map Application Architecture
-  nmap -Pn -sV -p 80,443,8080,8443,3000,4000,5000,9000 {domain} 2>/dev/null | head -30
-  curl -4 -sI https://{domain}/ --max-time 10 \
-    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-    | grep -iE "via|x-cache|cf-ray|x-amz|x-varnish|fastly|akamai|cloudflare"
+════════════════════════════════════════════════════════════════
 
-After all checks, list:
-FINDING | WSTG-INFO-XX | Severity (Info/Low/Medium/High) | Evidence
-""")
+  nmap -Pn --host-timeout 30s --script-timeout 8s -p 80,443,8080,8443,3000,4000,5000,9000 \
+    {{domain}} 2>/dev/null | head -25
+  curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" \
+    | grep -iE "via|x-cache|cf-ray|x-amz|x-varnish|fastly|akamai|cloudflare|x-vercel|x-netlify"
+
+════════════════════════════════════════════════════════════════
+FINAL OUTPUT
+════════════════════════════════════════════════════════════════
+
+Format all findings as a single markdown table:
+
+| # | WSTG-ID | Severity | Finding | Evidence |
+|---|---------|----------|---------|----------|
+| 1 | INFO-02 | Info     | ...     | ...      |
+
+Severity scale: Info → Low → Medium → High → Critical
+Include every finding. Be specific — paste the actual evidence value (header, version, port).
+""", max_turns=40)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
