@@ -13258,69 +13258,17 @@ def start_scan(site_id):
     return _json.dumps({'scan_id': scan['id']}), 202, {'Content-Type': 'application/json'}
 
 def _run_site_scan(scan_id: str, site: dict):
-    """Background scan runner — runs tools and stores findings via Claude analysis."""
+    """Background scan runner — uses ScannerAgent + guardrails + telemetry."""
     try:
-        from agents.claude_agent import analyze_scan_output
+        from agents.scanner_agent import get_scanner
+        from agents.telemetry import scans_started, scans_done, findings_found
         url = site['url']
+        scans_started.inc()
         _push_log(f"[⚡] Scan started: {url}", 'info')
-        _update_scan(scan_id, 'running', 'Fingerprinting...', 10)
+        _update_scan(scan_id, 'running', 'Running multi-tool scan...', 10)
 
-        all_findings = []
-        engine = chat_engine
-
-        # Phase 1: nmap (skip DNS, direct scan)
-        _update_scan(scan_id, 'running', 'Port scanning...', 20)
-        try:
-            import urllib.parse as _up
-            host = _up.urlparse(url).hostname
-            nmap_out = engine._run_tool(['nmap', '-sT', '-Pn', '-T4', '--open', '-p',
-                                         '21,22,80,443,8080,8443,3306,5432', host], timeout=60)
-            _push_log(f"[nmap] {host}: {len(nmap_out)} chars", 'info')
-            parsed = analyze_scan_output('nmap', nmap_out, url)
-            all_findings.extend(parsed)
-        except Exception as e:
-            _push_log(f"[!] nmap: {e}", 'warning')
-
-        # Phase 2: nikto
-        _update_scan(scan_id, 'running', 'Web scanning (nikto)...', 40)
-        try:
-            nikto_out = engine._run_tool(['nikto', '-h', url, '-nointeractive', '-maxtime', '60'], timeout=90)
-            parsed = analyze_scan_output('nikto', nikto_out, url)
-            all_findings.extend(parsed)
-        except Exception as e:
-            _push_log(f"[!] nikto: {e}", 'warning')
-
-        # Phase 3: nuclei
-        _update_scan(scan_id, 'running', 'Vulnerability scanning (nuclei)...', 60)
-        try:
-            nuclei_out = engine._run_tool(
-                ['nuclei', '-u', url, '-severity', 'critical,high,medium',
-                 '-silent', '-timeout', '10', '-rate-limit', '50'], timeout=120)
-            parsed = analyze_scan_output('nuclei', nuclei_out, url)
-            all_findings.extend(parsed)
-        except Exception as e:
-            _push_log(f"[!] nuclei: {e}", 'warning')
-
-        # Phase 4: gobuster
-        _update_scan(scan_id, 'running', 'Directory enumeration...', 75)
-        try:
-            gb_out = engine._run_tool(
-                ['gobuster', 'dir', '-u', url, '-w', '/usr/share/wordlists/dirb/common.txt',
-                 '-t', '30', '-q', '--no-error'], timeout=90)
-            parsed = analyze_scan_output('gobuster', gb_out, url)
-            all_findings.extend(parsed)
-        except Exception as e:
-            _push_log(f"[!] gobuster: {e}", 'warning')
-
-        # Platform-specific: WordPress
-        if site.get('platform') == 'wordpress':
-            _update_scan(scan_id, 'running', 'WordPress scan (wpscan)...', 85)
-            try:
-                wp_out = engine._run_tool(['wpscan', '--url', url, '--no-update', '--random-user-agent'], timeout=120)
-                parsed = analyze_scan_output('wpscan', wp_out, url)
-                all_findings.extend(parsed)
-            except Exception as e:
-                _push_log(f"[!] wpscan: {e}", 'warning')
+        scanner      = get_scanner()
+        all_findings = scanner.run(site)
 
         # Save findings
         _update_scan(scan_id, 'running', 'Saving findings...', 95)
@@ -13342,6 +13290,8 @@ def _run_site_scan(scan_id: str, site: dict):
                 s['last_scan'] = datetime.utcnow().isoformat()
         _save(_SITES_FILE, sites)
 
+        findings_found.inc(len(all_findings))
+        scans_done.inc()
         _update_scan(scan_id, 'complete', 'Done', 100)
         _push_log(f"[✓] Scan complete: {url} — {len(all_findings)} findings", 'success')
 
@@ -13400,6 +13350,8 @@ def get_findings():
 # ── Auto-Fix ───────────────────────────────────────────────────────────────
 @app.route("/api/autofix", methods=["POST"])
 def apply_autofix():
+    from agents.autofix_agent import get_autofix
+    from agents.telemetry import fixes_applied, fixes_blocked
     data       = request.get_json() or {}
     finding_id = data.get('finding_id')
     findings   = _load(_FINDINGS_FILE)
@@ -13407,36 +13359,57 @@ def apply_autofix():
     if not finding:
         return _json.dumps({'error': 'Finding not found'}), 404, {'Content-Type': 'application/json'}
 
-    fix_cmd = finding.get('fix_command', '')
-    result  = {'success': False, 'message': ''}
+    fix_result = get_autofix().run(finding)
+    if fix_result.blocked:
+        fixes_blocked.inc()
+        _push_log(f"[!] AutoFix blocked: {fix_result.block_reason}", 'warning')
+    elif fix_result.success:
+        fixes_applied.inc()
+        finding['status']   = 'fixed'
+        finding['fixed_at'] = datetime.utcnow().isoformat()
+        _save(_FINDINGS_FILE, findings)
+        _push_log(f"[✓] Auto-fix applied: {finding.get('title')}", 'success')
 
-    if fix_cmd:
-        try:
-            import subprocess as _sp
-            res = _sp.run(['bash', '-c', fix_cmd], capture_output=True, text=True, timeout=30)
-            out = (res.stdout + res.stderr).strip()
-            result = {'success': True, 'message': out or 'Fix applied'}
-            finding['status'] = 'fixed'
-            finding['fixed_at'] = datetime.utcnow().isoformat()
-            _save(_FINDINGS_FILE, findings)
-            _push_log(f"[✓] Auto-fix applied: {finding.get('title')}", 'success')
-        except Exception as e:
-            result = {'success': False, 'error': str(e)}
-    else:
-        result = {'success': False, 'error': 'No fix command available for this finding'}
-
-    return _json.dumps(result), 200, {'Content-Type': 'application/json'}
+    return _json.dumps(fix_result.to_dict()), 200, {'Content-Type': 'application/json'}
 
 # ── AI Analysis ────────────────────────────────────────────────────────────
 @app.route("/api/ai/analyze", methods=["POST"])
 def ai_analyze():
     try:
         from agents.claude_agent import analyze_findings
+        from agents.guardrails import Guardian
         ctx = request.get_json() or {}
+        # Guardrail-check any free-text field before forwarding to Claude
+        for key in ('prompt', 'query', 'message'):
+            if key in ctx:
+                safe, result = Guardian.safe_check_input(str(ctx[key]))
+                if not safe:
+                    return _json.dumps({'analysis': f'[Blocked] {result}'}), 400, {'Content-Type': 'application/json'}
+                ctx[key] = result
         analysis = analyze_findings(ctx)
         return _json.dumps({'analysis': analysis}), 200, {'Content-Type': 'application/json'}
     except Exception as e:
         return _json.dumps({'analysis': f'Error: {e}'}), 200, {'Content-Type': 'application/json'}
+
+# ── Jobs (orchestrator) ────────────────────────────────────────────────────
+@app.route("/api/jobs", methods=["GET"])
+def get_jobs():
+    try:
+        from agents.orchestrator import get_orchestrator
+        site_id = request.args.get('site_id', '')
+        jobs = get_orchestrator().list_jobs(site_id=site_id)
+        return _json.dumps({'jobs': jobs}), 200, {'Content-Type': 'application/json'}
+    except Exception as e:
+        return _json.dumps({'jobs': [], 'error': str(e)}), 200, {'Content-Type': 'application/json'}
+
+# ── Metrics ────────────────────────────────────────────────────────────────
+@app.route("/api/metrics", methods=["GET"])
+def get_metrics():
+    try:
+        from agents.telemetry import all_metrics
+        return _json.dumps(all_metrics()), 200, {'Content-Type': 'application/json'}
+    except Exception as e:
+        return _json.dumps({'error': str(e)}), 200, {'Content-Type': 'application/json'}
 
 # ── Stats ──────────────────────────────────────────────────────────────────
 @app.route("/api/stats", methods=["GET"])
@@ -22828,5 +22801,34 @@ if __name__ == "__main__":
     for line in startup_info.strip().split('\n'):
         if line.strip():
             logger.info(line)
+
+    # Start Phase-2 orchestrator
+    try:
+        from agents.orchestrator import get_orchestrator
+        from agents.scanner_agent import get_scanner, ScannerAgent
+        from agents.recon_agent import get_recon, ReconAgent
+        from agents.autofix_agent import get_autofix, AutoFixAgent
+        from agents.orchestrator import JobType
+
+        orch = get_orchestrator()
+
+        def _scan_handler(job):
+            site = job.params.get('site', {})
+            return get_scanner().run(site)
+
+        def _recon_handler(job):
+            site = job.params.get('site', {})
+            return get_recon().run(site)
+
+        def _autofix_handler(job):
+            finding = job.params.get('finding', {})
+            return get_autofix().run(finding).to_dict()
+
+        orch.register(JobType.SCAN,    _scan_handler)
+        orch.register(JobType.RECON,   _recon_handler)
+        orch.register(JobType.AUTOFIX, _autofix_handler)
+        logger.info('[Phase-2] Orchestrator started with scan/recon/autofix handlers')
+    except Exception as _orch_err:
+        logger.warning('[Phase-2] Orchestrator init skipped: %s', _orch_err)
 
     app.run(host="0.0.0.0", port=API_PORT, debug=DEBUG_MODE)
