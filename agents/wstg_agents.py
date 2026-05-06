@@ -67,11 +67,13 @@ You are the WSTG-INFO agent. Target: {{domain}}
 
 CRITICAL RULES FOR EVERY COMMAND YOU CALL:
 1. Each generic_linux_command call is a NEW subprocess — never use $VARS set in a prior call.
-2. For Python parsing: NEVER write "python3 -c '... try: ...'" as a semicolon one-liner.
-   Use either (a) pure Python urllib with no try/except, or (b) a heredoc block.
-3. Use Python's socket.gethostbyname() to resolve IPs inside the same call.
-4. Every curl must include: -4 --connect-timeout 8 --max-time 15 -A "{_UA}"
-5. If plain HTTPS returns nothing: retry with XFF headers, then HTTP port 80, then whatweb.
+2. ALL Python commands MUST be true single-liners with semicolons (no newlines, no heredoc, no try/except).
+   gpt-4o collapses multi-line strings and heredocs — single-liners only.
+3. For IP resolution use dig: subprocess.run(['dig',host,'A','+short'],...).stdout.strip().splitlines()[0]
+   NEVER use socket.gethostbyname() — it raises exceptions that break single-liners.
+4. For HTTP/JSON fetching use subprocess curl, NEVER urllib (urllib stalls on this VPS).
+5. Every curl must include: -4 --connect-timeout 8 --max-time 15 -A "{_UA}"
+6. If plain HTTPS returns nothing: retry with XFF headers, then HTTP port 80, then whatweb.
 
 SHARED PLATFORMS: {_SHARED}
 If target is on a shared platform (vercel.app, netlify.app, github.io etc.) report it and
@@ -90,109 +92,40 @@ dig {{domain}} A +short 2>/dev/null && dig {{domain}} AAAA +short 2>/dev/null &&
 # [P1-C] SSL certificate (issuer, SANs, expiry) — works even when HTTP is blocked
 echo | openssl s_client -connect {{domain}}:443 -servername {{domain}} 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -iE "subject:|issuer:|DNS:|not before|not after" | head -20
 
-# [P1-D] Certificate Transparency — subdomains via curl (urllib read-timeout on some VPS)
-python3 -c "
-import subprocess, json
-raw=subprocess.run(['curl','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.{{domain}}&output=json'],capture_output=True,text=True,timeout=25).stdout
-d=json.loads(raw) if raw.strip().startswith('[') else []
-subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v))
-[print(s) for s in subs[:40]] or print('(no crt.sh results)')
-"
+# [P1-D] Certificate Transparency — subdomains via curl
+python3 -c "import subprocess,json; raw=subprocess.run(['curl','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.{{domain}}&output=json'],capture_output=True,text=True,timeout=25).stdout; d=json.loads(raw) if raw.strip().startswith('[') else []; subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v)); [print(s) for s in subs[:40]] or print('(no crt.sh results)')"
 
 # [P1-E] Wayback Machine CDX — historical URLs via curl
-python3 -c "
-import subprocess, json
-url='http://web.archive.org/cdx/search/cdx?url={{domain}}/*&output=json&limit=40&fl=original,statuscode,mimetype&collapse=urlkey'
-raw=subprocess.run(['curl','-4','-s','--max-time','20','--connect-timeout','8','-A','curl/7.88',url],capture_output=True,text=True,timeout=25).stdout
-rows=json.loads(raw)[1:] if raw.strip().startswith('[') else []
-[print(r[1],r[2],r[0]) for r in rows] or print('(no Wayback results)')
-"
+python3 -c "import subprocess,json; url='http://web.archive.org/cdx/search/cdx?url={{domain}}/*&output=json&limit=40&fl=original,statuscode,mimetype&collapse=urlkey'; raw=subprocess.run(['curl','-4','-s','--max-time','20','--connect-timeout','8','-A','curl/7.88',url],capture_output=True,text=True,timeout=25).stdout; rows=json.loads(raw)[1:] if raw.strip().startswith('[') else []; [print(r[1],r[2],r[0]) for r in rows] or print('(no Wayback results)')"
 
-# [P1-F] Wayback Machine latest snapshot — fetch cached HTML for framework clues
-python3 -c "
-import urllib.request, json, ssl
-ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
-req=urllib.request.Request('https://archive.org/wayback/available?url={{domain}}',headers={{'User-Agent':'curl/7.88'}})
-raw=urllib.request.urlopen(req,timeout=12,context=ctx).read().decode()
-d=json.loads(raw) if raw.strip().startswith('{{') else {{}}
-url=d.get('archived_snapshots',{{}}).get('closest',{{}}).get('url','')
-print('Snapshot:',url or 'none')
-if url:
-    req2=urllib.request.Request(url,headers={{'User-Agent':'{_UA}'}})
-    html=urllib.request.urlopen(req2,timeout=15,context=ctx).read().decode('utf-8','ignore')
-    print(html[:3000])
-"
+# [P1-F] Wayback Machine latest snapshot
+python3 -c "import subprocess,json; raw=subprocess.run(['curl','-4','-sk','--max-time','12','--connect-timeout','8','-A','curl/7.88','https://archive.org/wayback/available?url={{domain}}'],capture_output=True,text=True,timeout=15).stdout; d=json.loads(raw) if raw.strip().startswith('{{') else {{}}; url=d.get('archived_snapshots',{{}}).get('closest',{{}}).get('url',''); print('Wayback snapshot:',url or 'none')"
 
 # [P1-G] HackerTarget — passive DNS + subdomain list
 curl -4 -s "https://api.hackertarget.com/hostsearch/?q={{domain}}" --max-time 12 -A "{_UA}" | head -25
 curl -4 -s "https://api.hackertarget.com/dnslookup/?q={{domain}}" --max-time 12 -A "{_UA}" | head -20
 
-# [P1-H] Shodan InternetDB — open ports/CVEs, no API key, self-contained IP resolution
-python3 -c "
-import socket, urllib.request, json
-ip=socket.gethostbyname('{{domain}}')
-print('Resolved IP:',ip)
-req=urllib.request.Request('https://internetdb.shodan.io/'+ip,headers={{'User-Agent':'curl/7.88'}})
-d=json.loads(urllib.request.urlopen(req,timeout=10).read())
-print('Ports:',d.get('ports'))
-print('Hostnames:',d.get('hostnames'))
-print('CPEs:',d.get('cpes'))
-print('Vulns:',d.get('vulns'))
-"
+# [P1-H] Shodan InternetDB — open ports/CVEs, no API key
+python3 -c "import subprocess,json; ip_r=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=10).stdout.strip(); ip=ip_r.splitlines()[0] if ip_r else ''; print('Resolved IP:',ip); raw=subprocess.run(['curl','-4','-sk','--max-time','10','--connect-timeout','8','https://internetdb.shodan.io/'+ip],capture_output=True,text=True,timeout=15).stdout if ip else ''; d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; print('Ports:',d.get('ports')); print('Hostnames:',d.get('hostnames')); print('CPEs:',d.get('cpes')); print('Vulns:',d.get('vulns'))"
 
-# [P1-I] IP geolocation + ASN — self-contained
-python3 -c "
-import socket, urllib.request, json
-ip=socket.gethostbyname('{{domain}}')
-d=json.loads(urllib.request.urlopen('https://ipinfo.io/'+ip+'/json',timeout=10).read())
-for k in ['ip','hostname','org','city','region','country','asn']: print(k+':',d.get(k,''))
-"
+# [P1-I] IP geolocation + ASN
+python3 -c "import subprocess,json; ip_r=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=10).stdout.strip(); ip=ip_r.splitlines()[0] if ip_r else ''; raw=subprocess.run(['curl','-4','-sk','--max-time','10','--connect-timeout','8','https://ipinfo.io/'+ip+'/json'],capture_output=True,text=True,timeout=15).stdout if ip else ''; d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; [print(k+':',d.get(k,'')) for k in ['ip','hostname','org','city','region','country','asn']]"
 
-# [P1-J] jldc.me subdomain API — graceful fallback on non-JSON
-python3 -c "
-import urllib.request, json, ssl
-ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
-d='{{domain}}'; root='.'.join(d.split('.')[-2:])
-req=urllib.request.Request('https://jldc.me/anubis/subdomains/'+root,headers={{'User-Agent':'curl/7.88'}})
-raw=urllib.request.urlopen(req,timeout=15,context=ctx).read().decode()
-subs=json.loads(raw) if raw.strip().startswith('[') else []
-[print(s) for s in subs[:30]] or print('(no jldc.me results for',root,')')
-"
+# [P1-J] jldc.me subdomain API
+python3 -c "import subprocess,json; dom='{{domain}}'; root='.'.join(dom.split('.')[-2:]); raw=subprocess.run(['curl','-4','-sk','--max-time','15','--connect-timeout','8','-A','curl/7.88','https://jldc.me/anubis/subdomains/'+root],capture_output=True,text=True,timeout=20).stdout; subs=json.loads(raw) if raw.strip().startswith('[') else []; [print(s) for s in subs[:30]] or print('(no jldc.me results for',root,')')"
 
 ══════════════════════════════════════════════════════════
 PHASE 2 — ORIGIN IP / CDN BYPASS DISCOVERY
 ══════════════════════════════════════════════════════════
 
-# [P2-A] MX → origin IP (mail servers often bypass CDN) — self-contained Python
-python3 -c "
-import subprocess, socket, urllib.request, json
-mx_raw=subprocess.run(['dig','{{domain}}','MX','+short'],capture_output=True,text=True,timeout=10).stdout.strip()
-mx_hosts=[x.split()[-1].rstrip('.') for x in mx_raw.splitlines() if x]
-for mh in mx_hosts[:2]:
-    try:
-        ip=socket.gethostbyname(mh)
-        print('MX',mh,'->',ip)
-        d=json.loads(urllib.request.urlopen('https://internetdb.shodan.io/'+ip,timeout=8).read())
-        print('  ports:',d.get('ports'),'hostnames:',d.get('hostnames'))
-    except Exception as e: print('MX lookup error:',e)
-"
+# [P2-A] MX → origin IP (mail servers often bypass CDN)
+python3 -c "import subprocess; dig=lambda h,t: subprocess.run(['dig',h,t,'+short'],capture_output=True,text=True,timeout=10).stdout.strip(); mx=[m.split()[-1].rstrip('.') for m in dig('{{domain}}','MX').splitlines() if m]; [print('MX',mh,'->',ip) for mh in mx[:2] for ip in [dig(mh,'A').splitlines()[0] if dig(mh,'A') else 'NXDOMAIN']]"
 
 # [P2-B] SPF / TXT records reveal hosting infrastructure
 dig {{domain}} TXT +short 2>/dev/null | grep -iE "spf|include|ip4|ip6"
 
 # [P2-C] Subdomain probe — api.*, staging.*, dev.* often skip WAF
-python3 -c "
-import socket, urllib.request, json
-subs=['api','staging','dev','test','admin','mail','direct','origin','backend','app','beta']
-for sub in subs:
-    host=sub+'.{{domain}}'
-    try:
-        ip=socket.gethostbyname(host)
-        print('FOUND:',host,'->',ip)
-        d=json.loads(urllib.request.urlopen('https://internetdb.shodan.io/'+ip,timeout=6).read())
-        print('  ports:',d.get('ports'))
-    except: pass
-"
+python3 -c "import subprocess; subs=['api','staging','dev','test','admin','mail','direct','origin','backend','app','beta']; [print('FOUND:',h,'->',a.splitlines()[0]) for s in subs for h in [s+'.{{domain}}'] for a in [subprocess.run(['dig',h,'A','+short'],capture_output=True,text=True,timeout=3).stdout.strip()] if a]"
 
 ══════════════════════════════════════════════════════════
 PHASE 3 — HTTP BYPASS CASCADE
@@ -241,26 +174,8 @@ curl -4 -s https://{{domain}}/sitemap.xml.gz --max-time 10 -A "{_UA}" -o /tmp/sm
 # security.txt
 curl -4 -s https://{{domain}}/.well-known/security.txt --max-time 8 -A "{_UA}"
 
-# SPA detection + real entry point discovery (pure Python, self-contained)
-python3 -c "
-import urllib.request, urllib.error, hashlib, ssl
-ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
-UA='{_UA}'
-def get(url):
-    req=urllib.request.Request(url,headers={{'User-Agent':UA,'Referer':'{_REF}'}})
-    try: r=urllib.request.urlopen(req,timeout=8,context=ctx); return r.getcode(),r.read()
-    except urllib.error.HTTPError as e: return e.code,b''
-    except: return 0,b''
-base_code,base_body=get('https://{{domain}}/')
-h0=hashlib.md5(base_body).hexdigest() if base_body else ''
-spa,real=0,[]
-for p in ['/admin','/login','/wp-admin','/api','/dashboard','/register','/signup','/user','/backup','/config','/upload','/notexist-xyz-cfai-999']:
-    code,body=get('https://{{domain}}'+p)
-    if code==200 and hashlib.md5(body).hexdigest()==h0: spa+=1
-    elif code not in (0,404,410): real.append((code,p))
-print('SPA=YES (all paths serve same HTML — do NOT report 200s as real endpoints)' if spa>=3 else 'SPA=NO (server-side routing)')
-[print(c,p) for c,p in real]
-"
+# SPA detection + real entry point discovery
+python3 -c "import subprocess,hashlib; get=lambda p: subprocess.run(['curl','-4','-sk','--max-time','8','--connect-timeout','5','-A','{_UA}','-H','Referer: {_REF}','https://{{domain}}'+p],capture_output=True,timeout=12).stdout; base=get('/'); h0=hashlib.md5(base).hexdigest() if base else ''; spa=sum(1 for p in ['/notexist-xyz-cfai-999','/xyz-bogus-cfai-888'] if base and hashlib.md5(get(p)).hexdigest()==h0); print('SPA=YES (same HTML for all paths — 200s are NOT real endpoints)' if spa>=2 else 'SPA=NO (server-side routing)'); code=lambda p: subprocess.run(['curl','-4','-sk','-o','/dev/null','-w','%{{http_code}}','--max-time','6','--connect-timeout','4','-A','{_UA}','https://{{domain}}'+p],capture_output=True,text=True,timeout=10).stdout.strip(); results=[(code(p),p) for p in ['/admin','/login','/wp-admin','/api','/dashboard','/register','/signup','/user','/backup','/config','/upload']]; [print(c,p) for c,p in results if c and c not in ('000','404','410')]"
 
 # Directory brute-force
 gobuster dir -u https://{{domain}} -w /usr/share/wordlists/dirb/common.txt -q -t 15 --timeout 8s -a "{_UA}" --no-error 2>/dev/null | head -30 || true
@@ -269,52 +184,8 @@ gobuster dir -u https://{{domain}} -w /usr/share/wordlists/dirb/common.txt -q -t
 [INFO-07] Map Execution Paths + JS Bundle Analysis
 ══════════════════════════════════════════════════════════
 
-# Full HTML fetch + framework detection + JS bundle analysis
-# heredoc avoids shell double-quote issues; subprocess curl avoids urllib read-timeout
-python3 - << 'PYEOF'
-import subprocess, re, json
-UA='{_UA}'
-REF='{_REF}'
-def get(url):
-    r=subprocess.run(['curl','-4','-sk','--max-time','15','--connect-timeout','8','-A',UA,'-H','Referer: '+REF,url],capture_output=True,text=True,timeout=20)
-    return r.stdout
-html=get('https://{{domain}}/')
-print('=== LINKS ===')
-links=sorted(set(re.findall(r'(?:href|src|action)=\"([^\"#]+)\"',html)))
-[print(l) for l in links[:40]]
-print()
-print('=== FRAMEWORK DETECTION ===')
-checks=[
- ('React SPA', r'<div\\s+id=\"root\"'),
- ('Vue SPA',   r'<div\\s+id=\"app\"'),
- ('Next.js',   r'__NEXT_DATA__|/_next/static'),
- ('Nuxt.js',   r'__NUXT__|/_nuxt/'),
- ('WordPress', r'wp-content|wp-includes|wp-json'),
- ('Joomla',    r'/components/com_'),
- ('Drupal',    r'Drupal\\.settings|drupal\\.js'),
- ('Laravel',   r'laravel_session|csrf-token.*laravel'),
- ('Django',    r'csrfmiddlewaretoken'),
- ('Rails',     r'authenticity_token'),
- ('Shopify',   r'Shopify\\.shop|cdn\\.shopify'),
- ('Vite',      r'/assets/index-[A-Za-z0-9]{{8,}}\\.js'),
- ('Webpack',   r'__webpack_require__|webpackChunk'),
- ('Bootstrap', r'bootstrap\\.min\\.css|bootstrap@[0-9]'),
- ('Tailwind',  r'tailwindcss'),
- ('jQuery',    r'jquery[./-][0-9]'),
- ('Angular',   r'ng-version=|angular\\.js'),
- ('Svelte',    r'__svelte_|svelte@'),
-]
-[print('DETECTED:',name) for name,pat in checks if re.search(pat,html,re.I)]
-print()
-print('=== JS BUNDLE ANALYSIS ===')
-for js_path in re.findall(r'src=\"(/[^\"]+\\.js)\"',html)[:3]:
-    js=get('https://{{domain}}'+js_path)
-    if not js: continue
-    print('Bundle:',js_path,'('+str(len(js)),'bytes)')
-    [print('  Version:',m.group(1),m.group(2)) for m in re.finditer(r'(React|Vue|Angular|Next|Nuxt|Vite|webpack|Svelte)[\"\\s,]{{0,5}}([0-9]+\\.[0-9]+\\.[0-9]+)',js,re.I)]
-    routes=sorted(set(re.findall(r'[\"`](/(?:api|v[0-9]|graphql|rest|auth|users?|admin)[^\"`\\s]{{0,60}})',js)))
-    [print('  API route:',r) for r in routes[:25]]
-PYEOF
+# Full HTML fetch + framework detection + JS bundle analysis (single-liner, no heredoc)
+python3 -c "import subprocess,re; get=lambda u: subprocess.run(['curl','-4','-sk','--max-time','15','--connect-timeout','8','-A','{_UA}','-H','Referer: {_REF}',u],capture_output=True,text=True,timeout=20).stdout; html=get('https://{{domain}}/'); print('=== LINKS ==='); [print(l) for l in sorted(set(re.findall(r'(?:href|src|action)=[\\x22\\x27]([^\\x22\\x27#]+)[\\x22\\x27]',html)))[:40]]; print('=== FRAMEWORK ==='); checks=[('React SPA',r'id=[\\x22\\x27]root[\\x22\\x27]'),('Vue SPA',r'id=[\\x22\\x27]app[\\x22\\x27]'),('Next.js',r'__NEXT_DATA__|/_next/'),('Nuxt.js',r'__NUXT__|/_nuxt/'),('WordPress',r'wp-content|wp-includes'),('Joomla',r'/com_'),('Drupal',r'Drupal\\.settings'),('Laravel',r'laravel_session'),('Django',r'csrfmiddlewaretoken'),('Rails',r'authenticity_token'),('Shopify',r'Shopify\\.shop|cdn\\.shopify'),('Vite',r'/assets/index-[A-Za-z0-9]{{8,}}\\.js'),('Webpack',r'webpackChunk|__webpack_require__'),('Bootstrap',r'bootstrap\\.min\\.css|bootstrap@'),('Tailwind',r'tailwindcss'),('jQuery',r'jquery[./-][0-9]'),('Angular',r'ng-version=|angular\\.js'),('Svelte',r'__svelte_|svelte@')]; [print('DETECTED:',n) for n,p in checks if re.search(p,html,re.I)]; print('=== JS BUNDLES ==='); [print('Bundle:',p,chr(10),get('https://{{domain}}'+p)[:300]) for p in re.findall(r'src=[\\x22\\x27](/[^\\x22\\x27]+\\.js)[\\x22\\x27]',html)[:3]]"
 
 ══════════════════════════════════════════════════════════
 [INFO-08] Fingerprint Framework — Response Headers
