@@ -83,14 +83,14 @@ focus recon on the APPLICATION layer, not the platform infrastructure.
 PHASE 1 — PASSIVE RECON (firewall-proof, run all of these)
 ══════════════════════════════════════════════════════════
 
-# [P1-A] WHOIS — use root domain (strip subdomain prefix first)
-python3 -c "import subprocess,re; d='{{domain}}'; root='.'.join(d.split('.')[-2:]); out=subprocess.run(['whois',d],capture_output=True,text=True,timeout=15).stdout; lines=[l for l in out.splitlines() if re.search(r'registrar|registrant|name.server|created|expires|org|country|admin|tech',l,re.I)]; [print(l.strip()) for l in lines[:25]] or subprocess.run(['whois',root],capture_output=True,text=True,timeout=15); print('root domain:',root)"
+# [P1-A] WHOIS — use root domain (handles .com.au / .co.uk style 2-part TLDs)
+python3 -c "import subprocess,re; d='{{domain}}'; parts=d.split('.'); root='.'.join(parts[-3:]) if len(parts)>=3 and len(parts[-1])<=2 else '.'.join(parts[-2:]); out=subprocess.run(['whois',d],capture_output=True,text=True,timeout=15).stdout; lines=[l for l in out.splitlines() if re.search(r'registrar|registrant|name.server|created|expires|org|country|admin|tech',l,re.I)]; [print(l.strip()) for l in lines[:25]] or subprocess.run(['whois',root],capture_output=True,text=True,timeout=15); print('root domain:',root)"
 
 # [P1-B] DNS records (A, AAAA, MX, TXT, NS, CNAME, SOA)
 dig {{domain}} A +short 2>/dev/null && dig {{domain}} AAAA +short 2>/dev/null && dig {{domain}} MX +short 2>/dev/null && dig {{domain}} TXT +short 2>/dev/null && dig {{domain}} NS +short 2>/dev/null && dig {{domain}} CNAME +short 2>/dev/null || echo "(no CNAME)"
 
-# [P1-C] SSL certificate (issuer, SANs, expiry) — works even when HTTP is blocked
-echo | openssl s_client -connect {{domain}}:443 -servername {{domain}} 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -iE "subject:|issuer:|DNS:|not before|not after" | head -20
+# [P1-C] SSL certificate (issuer, SANs, expiry) — timeout 20s prevents 130s hang
+timeout 20 openssl s_client -connect {{domain}}:443 -servername {{domain}} </dev/null 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -iE "subject:|issuer:|DNS:|not before|not after" | head -20 || echo "(TLS: timed out or no response — SNI may be required or port filtered)"
 
 # [P1-D] Certificate Transparency — subdomains via curl
 python3 -c "import subprocess,json; raw=subprocess.run(['curl','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.{{domain}}&output=json'],capture_output=True,text=True,timeout=25).stdout; d=json.loads(raw) if raw.strip().startswith('[') else []; subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v)); [print(s) for s in subs[:40]] or print('(no crt.sh results)')"
@@ -111,8 +111,8 @@ python3 -c "import subprocess,json; ip_r=subprocess.run(['dig','+short','{{domai
 # [P1-I] IP geolocation + ASN
 python3 -c "import subprocess,json; ip_r=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=10).stdout.strip(); ip=ip_r.splitlines()[0] if ip_r else ''; raw=subprocess.run(['curl','-4','-sk','--max-time','10','--connect-timeout','8','https://ipinfo.io/'+ip+'/json'],capture_output=True,text=True,timeout=15).stdout if ip else ''; d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; [print(k+':',d.get(k,'')) for k in ['ip','hostname','org','city','region','country','asn']]"
 
-# [P1-J] jldc.me subdomain API
-python3 -c "import subprocess,json; dom='{{domain}}'; root='.'.join(dom.split('.')[-2:]); raw=subprocess.run(['curl','-4','-sk','--max-time','15','--connect-timeout','8','-A','curl/7.88','https://jldc.me/anubis/subdomains/'+root],capture_output=True,text=True,timeout=20).stdout; subs=json.loads(raw) if raw.strip().startswith('[') else []; [print(s) for s in subs[:30]] or print('(no jldc.me results for',root,')')"
+# [P1-J] jldc.me subdomain API (handles .com.au / .co.uk style 2-part TLDs)
+python3 -c "import subprocess,json; dom='{{domain}}'; parts=dom.split('.'); root='.'.join(parts[-3:]) if len(parts)>=3 and len(parts[-1])<=2 else '.'.join(parts[-2:]); raw=subprocess.run(['curl','-4','-sk','--max-time','15','--connect-timeout','8','-A','curl/7.88','https://jldc.me/anubis/subdomains/'+root],capture_output=True,text=True,timeout=20).stdout; subs=json.loads(raw) if raw.strip().startswith('[') else []; [print(s) for s in subs[:30]] or print('(no jldc.me results for',root,')')"
 
 ══════════════════════════════════════════════════════════
 PHASE 2 — ORIGIN IP / CDN BYPASS DISCOVERY
@@ -228,6 +228,12 @@ Rules for table:
 - Severity: Info / Low / Medium / High / Critical
 - Evidence: paste the exact value from command output (header value, version string, IP, path)
 - Include ALL findings — passive recon, active HTTP, framework, architecture
+Severity guide (do NOT over-score):
+- Info:   hosting provider, ASN/org, IP geolocation, registrar, SPF/MX records, DNS records, CDN detected
+- Low:    open non-essential port, missing security header, banner disclosure without version
+- Medium: exposed framework/CMS name, version string in header, directory listing, sensitive path accessible
+- High:   specific exploitable version with known CVE, admin panel exposed, credentials/keys disclosed
+- Critical: active RCE/SQLi/auth bypass confirmed
 """, max_turns=40)
 
 
