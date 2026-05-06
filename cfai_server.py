@@ -13111,6 +13111,349 @@ chat_engine.decision_engine  = IntelligentDecisionEngine(_tech_det, _param_opt, 
 chat_engine.learning_engine  = LearningEngine()
 logger.info("[startup] 12 AI agents + LearningEngine wired into chat engine")
 
+# ── Platform: Site Management + Findings + AI + AutoFix ──────────────────
+
+import uuid as _uuid
+import json as _json
+from pathlib import Path as _Path
+
+_SITES_FILE    = _Path("/opt/CF_AI/data/sites.json")
+_FINDINGS_FILE = _Path("/opt/CF_AI/data/findings.json")
+_SCANS_FILE    = _Path("/opt/CF_AI/data/scans.json")
+
+def _ensure_data():
+    _Path("/opt/CF_AI/data").mkdir(parents=True, exist_ok=True)
+    for f in (_SITES_FILE, _FINDINGS_FILE, _SCANS_FILE):
+        if not f.exists():
+            f.write_text("[]")
+
+def _load(path):
+    _ensure_data()
+    try:
+        return _json.loads(path.read_text())
+    except Exception:
+        return []
+
+def _save(path, data):
+    _ensure_data()
+    path.write_text(_json.dumps(data, indent=2))
+
+def _detect_platform(url: str) -> str:
+    """Auto-detect platform by probing common paths."""
+    try:
+        import requests as _req
+        r = _req.get(url, timeout=8, verify=False, allow_redirects=True)
+        text = r.text.lower()
+        hdrs = str(r.headers).lower()
+        if 'wp-content' in text or 'wp-json' in text or 'wordpress' in text:
+            return 'wordpress'
+        if 'shopify' in text or 'myshopify' in url:
+            return 'shopify'
+        if 'laravel' in hdrs or 'x-powered-by' in hdrs and 'laravel' in hdrs:
+            return 'laravel'
+        if 'next' in text and '__next' in text:
+            return 'nextjs'
+        if 'django' in hdrs:
+            return 'django'
+        if 'rails' in hdrs:
+            return 'rails'
+        return 'other'
+    except Exception:
+        return 'other'
+
+# ── SSE log queue ──────────────────────────────────────────────────────────
+import queue as _queue
+_log_queue: _queue.Queue = _queue.Queue(maxsize=500)
+
+def _push_log(msg: str, level: str = 'info'):
+    try:
+        _log_queue.put_nowait({'msg': msg, 'level': level})
+    except _queue.Full:
+        pass
+
+@app.route("/api/logs/stream")
+def logs_stream():
+    def generate():
+        while True:
+            try:
+                item = _log_queue.get(timeout=20)
+                yield f"data: {_json.dumps(item)}\n\n"
+            except _queue.Empty:
+                yield "data: {\"msg\":\"\",\"level\":\"ping\"}\n\n"
+    return app.response_class(generate(), mimetype='text/event-stream',
+                               headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+# ── Sites ──────────────────────────────────────────────────────────────────
+@app.route("/api/sites", methods=["GET"])
+def get_sites():
+    sites = _load(_SITES_FILE)
+    findings = _load(_FINDINGS_FILE)
+    for s in sites:
+        sf = [f for f in findings if f.get('site_id') == s['id']]
+        s['findings_critical'] = sum(1 for f in sf if f.get('severity') == 'critical')
+        s['findings_high']     = sum(1 for f in sf if f.get('severity') == 'high')
+        s['findings_medium']   = sum(1 for f in sf if f.get('severity') == 'medium')
+        s['findings_low']      = sum(1 for f in sf if f.get('severity') == 'low')
+        sevs = [f.get('severity') for f in sf]
+        for sev in ['critical','high','medium','low']:
+            if sev in sevs:
+                s['worst_severity'] = sev
+                break
+        else:
+            s['worst_severity'] = 'none'
+    return _json.dumps({'sites': sites}), 200, {'Content-Type': 'application/json'}
+
+@app.route("/api/sites", methods=["POST"])
+def add_site():
+    data = request.get_json() or {}
+    url  = data.get('url', '').strip().rstrip('/')
+    if not url:
+        return _json.dumps({'error': 'URL required'}), 400, {'Content-Type': 'application/json'}
+    if not url.startswith('http'):
+        url = 'https://' + url
+    sites = _load(_SITES_FILE)
+    if any(s['url'] == url for s in sites):
+        return _json.dumps({'error': 'Site already added'}), 409, {'Content-Type': 'application/json'}
+    platform = data.get('platform', 'auto')
+    if platform == 'auto':
+        platform = _detect_platform(url)
+    site = {
+        'id':        str(_uuid.uuid4())[:8],
+        'url':       url,
+        'name':      data.get('name') or None,
+        'platform':  platform,
+        'scan_freq': data.get('scan_freq', 'weekly'),
+        'added':     datetime.utcnow().isoformat(),
+        'last_scan': None,
+    }
+    sites.append(site)
+    _save(_SITES_FILE, sites)
+    _push_log(f"[+] Site connected: {url} ({platform})", 'success')
+    return _json.dumps({'site': site}), 201, {'Content-Type': 'application/json'}
+
+@app.route("/api/sites/<site_id>", methods=["DELETE"])
+def remove_site(site_id):
+    sites = [s for s in _load(_SITES_FILE) if s['id'] != site_id]
+    findings = [f for f in _load(_FINDINGS_FILE) if f.get('site_id') != site_id]
+    _save(_SITES_FILE, sites)
+    _save(_FINDINGS_FILE, findings)
+    _push_log(f"[-] Site removed: {site_id}", 'warning')
+    return _json.dumps({'ok': True}), 200, {'Content-Type': 'application/json'}
+
+@app.route("/api/sites/<site_id>/scan", methods=["POST"])
+def start_scan(site_id):
+    sites = _load(_SITES_FILE)
+    site  = next((s for s in sites if s['id'] == site_id), None)
+    if not site:
+        return _json.dumps({'error': 'Site not found'}), 404, {'Content-Type': 'application/json'}
+    scans = _load(_SCANS_FILE)
+    scan = {'id': str(_uuid.uuid4())[:8], 'site_id': site_id, 'url': site['url'],
+            'status': 'running', 'phase': 'Starting...', 'progress': 0,
+            'started': datetime.utcnow().isoformat()}
+    scans.append(scan)
+    _save(_SCANS_FILE, scans)
+    # Run scan in background thread
+    import threading as _thr
+    _thr.Thread(target=_run_site_scan, args=(scan['id'], site), daemon=True).start()
+    return _json.dumps({'scan_id': scan['id']}), 202, {'Content-Type': 'application/json'}
+
+def _run_site_scan(scan_id: str, site: dict):
+    """Background scan runner — runs tools and stores findings via Claude analysis."""
+    try:
+        from agents.claude_agent import analyze_scan_output
+        url = site['url']
+        _push_log(f"[⚡] Scan started: {url}", 'info')
+        _update_scan(scan_id, 'running', 'Fingerprinting...', 10)
+
+        all_findings = []
+        engine = chat_engine
+
+        # Phase 1: nmap (skip DNS, direct scan)
+        _update_scan(scan_id, 'running', 'Port scanning...', 20)
+        try:
+            import urllib.parse as _up
+            host = _up.urlparse(url).hostname
+            nmap_out = engine._run_tool(['nmap', '-sT', '-Pn', '-T4', '--open', '-p',
+                                         '21,22,80,443,8080,8443,3306,5432', host], timeout=60)
+            _push_log(f"[nmap] {host}: {len(nmap_out)} chars", 'info')
+            parsed = analyze_scan_output('nmap', nmap_out, url)
+            all_findings.extend(parsed)
+        except Exception as e:
+            _push_log(f"[!] nmap: {e}", 'warning')
+
+        # Phase 2: nikto
+        _update_scan(scan_id, 'running', 'Web scanning (nikto)...', 40)
+        try:
+            nikto_out = engine._run_tool(['nikto', '-h', url, '-nointeractive', '-maxtime', '60'], timeout=90)
+            parsed = analyze_scan_output('nikto', nikto_out, url)
+            all_findings.extend(parsed)
+        except Exception as e:
+            _push_log(f"[!] nikto: {e}", 'warning')
+
+        # Phase 3: nuclei
+        _update_scan(scan_id, 'running', 'Vulnerability scanning (nuclei)...', 60)
+        try:
+            nuclei_out = engine._run_tool(
+                ['nuclei', '-u', url, '-severity', 'critical,high,medium',
+                 '-silent', '-timeout', '10', '-rate-limit', '50'], timeout=120)
+            parsed = analyze_scan_output('nuclei', nuclei_out, url)
+            all_findings.extend(parsed)
+        except Exception as e:
+            _push_log(f"[!] nuclei: {e}", 'warning')
+
+        # Phase 4: gobuster
+        _update_scan(scan_id, 'running', 'Directory enumeration...', 75)
+        try:
+            gb_out = engine._run_tool(
+                ['gobuster', 'dir', '-u', url, '-w', '/usr/share/wordlists/dirb/common.txt',
+                 '-t', '30', '-q', '--no-error'], timeout=90)
+            parsed = analyze_scan_output('gobuster', gb_out, url)
+            all_findings.extend(parsed)
+        except Exception as e:
+            _push_log(f"[!] gobuster: {e}", 'warning')
+
+        # Platform-specific: WordPress
+        if site.get('platform') == 'wordpress':
+            _update_scan(scan_id, 'running', 'WordPress scan (wpscan)...', 85)
+            try:
+                wp_out = engine._run_tool(['wpscan', '--url', url, '--no-update', '--random-user-agent'], timeout=120)
+                parsed = analyze_scan_output('wpscan', wp_out, url)
+                all_findings.extend(parsed)
+            except Exception as e:
+                _push_log(f"[!] wpscan: {e}", 'warning')
+
+        # Save findings
+        _update_scan(scan_id, 'running', 'Saving findings...', 95)
+        findings = _load(_FINDINGS_FILE)
+        for f in all_findings:
+            f['id']        = str(_uuid.uuid4())[:12]
+            f['site_id']   = site['id']
+            f['site_name'] = site.get('name') or site['url']
+            f['site_url']  = site['url']
+            f['platform']  = site.get('platform', 'other')
+            f['discovered']= datetime.utcnow().isoformat()
+            findings.append(f)
+        _save(_FINDINGS_FILE, findings)
+
+        # Update site last_scan
+        sites = _load(_SITES_FILE)
+        for s in sites:
+            if s['id'] == site['id']:
+                s['last_scan'] = datetime.utcnow().isoformat()
+        _save(_SITES_FILE, sites)
+
+        _update_scan(scan_id, 'complete', 'Done', 100)
+        _push_log(f"[✓] Scan complete: {url} — {len(all_findings)} findings", 'success')
+
+    except Exception as e:
+        _update_scan(scan_id, 'error', str(e), 0)
+        _push_log(f"[!] Scan error: {e}", 'error')
+
+def _update_scan(scan_id, status, phase, progress):
+    scans = _load(_SCANS_FILE)
+    for s in scans:
+        if s['id'] == scan_id:
+            s.update({'status': status, 'phase': phase, 'progress': progress})
+    _save(_SCANS_FILE, scans)
+
+@app.route("/api/sites/<site_id>/scan/status", methods=["GET"])
+def scan_status(site_id):
+    scans = _load(_SCANS_FILE)
+    scan  = next((s for s in reversed(scans) if s['site_id'] == site_id), None)
+    if not scan:
+        return _json.dumps({'status': 'none'}), 200, {'Content-Type': 'application/json'}
+    return _json.dumps(scan), 200, {'Content-Type': 'application/json'}
+
+@app.route("/api/sites/<site_id>/report", methods=["POST"])
+def site_report(site_id):
+    sites    = _load(_SITES_FILE)
+    findings = [f for f in _load(_FINDINGS_FILE) if f.get('site_id') == site_id]
+    site     = next((s for s in sites if s['id'] == site_id), {})
+    lines = [
+        f"CF_AI Security Report — {site.get('url','unknown')}",
+        f"Generated: {datetime.utcnow().isoformat()}",
+        "=" * 60,
+        f"Platform: {site.get('platform','unknown')}",
+        f"Total Findings: {len(findings)}",
+        "",
+    ]
+    for sev in ['critical','high','medium','low','info']:
+        sf = [f for f in findings if f.get('severity') == sev]
+        if sf:
+            lines.append(f"[{sev.upper()}] ({len(sf)} findings)")
+            for f in sf:
+                lines.append(f"  • {f.get('title','')}")
+                if f.get('description'):
+                    lines.append(f"    {f['description']}")
+                if f.get('poc'):
+                    lines.append(f"    PoC: {f['poc']}")
+                if f.get('recommendation'):
+                    lines.append(f"    Fix: {f['recommendation']}")
+            lines.append("")
+    return _json.dumps({'report': '\n'.join(lines)}), 200, {'Content-Type': 'application/json'}
+
+# ── Findings ───────────────────────────────────────────────────────────────
+@app.route("/api/findings", methods=["GET"])
+def get_findings():
+    return _json.dumps({'findings': _load(_FINDINGS_FILE)}), 200, {'Content-Type': 'application/json'}
+
+# ── Auto-Fix ───────────────────────────────────────────────────────────────
+@app.route("/api/autofix", methods=["POST"])
+def apply_autofix():
+    data       = request.get_json() or {}
+    finding_id = data.get('finding_id')
+    findings   = _load(_FINDINGS_FILE)
+    finding    = next((f for f in findings if f.get('id') == finding_id), None)
+    if not finding:
+        return _json.dumps({'error': 'Finding not found'}), 404, {'Content-Type': 'application/json'}
+
+    fix_cmd = finding.get('fix_command', '')
+    result  = {'success': False, 'message': ''}
+
+    if fix_cmd:
+        try:
+            import subprocess as _sp
+            res = _sp.run(['bash', '-c', fix_cmd], capture_output=True, text=True, timeout=30)
+            out = (res.stdout + res.stderr).strip()
+            result = {'success': True, 'message': out or 'Fix applied'}
+            finding['status'] = 'fixed'
+            finding['fixed_at'] = datetime.utcnow().isoformat()
+            _save(_FINDINGS_FILE, findings)
+            _push_log(f"[✓] Auto-fix applied: {finding.get('title')}", 'success')
+        except Exception as e:
+            result = {'success': False, 'error': str(e)}
+    else:
+        result = {'success': False, 'error': 'No fix command available for this finding'}
+
+    return _json.dumps(result), 200, {'Content-Type': 'application/json'}
+
+# ── AI Analysis ────────────────────────────────────────────────────────────
+@app.route("/api/ai/analyze", methods=["POST"])
+def ai_analyze():
+    try:
+        from agents.claude_agent import analyze_findings
+        ctx = request.get_json() or {}
+        analysis = analyze_findings(ctx)
+        return _json.dumps({'analysis': analysis}), 200, {'Content-Type': 'application/json'}
+    except Exception as e:
+        return _json.dumps({'analysis': f'Error: {e}'}), 200, {'Content-Type': 'application/json'}
+
+# ── Stats ──────────────────────────────────────────────────────────────────
+@app.route("/api/stats", methods=["GET"])
+def get_stats():
+    sites    = _load(_SITES_FILE)
+    findings = _load(_FINDINGS_FILE)
+    scans    = _load(_SCANS_FILE)
+    return _json.dumps({
+        'sites':    len(sites),
+        'critical': sum(1 for f in findings if f.get('severity') == 'critical'),
+        'high':     sum(1 for f in findings if f.get('severity') == 'high'),
+        'medium':   sum(1 for f in findings if f.get('severity') == 'medium'),
+        'findings': len(findings),
+        'scans':    sum(1 for s in scans if s.get('status') == 'running'),
+        'fixes':    sum(1 for f in findings if f.get('autofix_available') and f.get('status') != 'fixed'),
+    }), 200, {'Content-Type': 'application/json'}
+
 # API Routes
 
 @app.route("/health", methods=["GET"])

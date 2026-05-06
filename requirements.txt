@@ -1,5 +1,8 @@
 # CF_AI Python Dependencies
 
+# Anthropic Claude AI
+anthropic>=0.40.0
+
 # Web framework
 Flask==2.3.3
 Werkzeug==2.3.7

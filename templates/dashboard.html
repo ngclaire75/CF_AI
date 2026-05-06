@@ -3,441 +3,333 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CF_AI — Penetration Testing Framework</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=17" />
+  <title>CF_AI — Security Platform</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=18" />
 </head>
 <body>
 
-  <nav class="topbar">
-    <div class="topbar-brand">
-      <div class="brand-icon">CF</div>
-      <span class="brand-name">CF_AI</span>
-      <span class="brand-tag">v6.0</span>
+<!-- ── Top Bar ──────────────────────────────────────────────────────────── -->
+<nav class="topbar">
+  <a class="topbar-logo" href="#">
+    <div class="topbar-logo-icon">CF</div>
+    CF_AI
+  </a>
+  <div class="topbar-divider"></div>
+  <div class="topbar-stats">
+    <div class="topbar-stat">
+      <span class="dot dot-green pulse"></span>
+      <span class="val" id="stat-sites">0</span> sites
     </div>
-    <div class="topbar-status">
-      <span class="status-dot" id="server-dot"></span>
-      <span class="status-label" id="server-status-label">Connecting...</span>
+    <div class="topbar-stat">
+      <span class="dot dot-red"></span>
+      <span class="val" id="stat-critical">0</span> critical
     </div>
-    <div class="topbar-actions">
-      <button class="btn-ghost" onclick="clearChat()" title="Clear Chat History" style="width:auto;padding:0 10px;font-size:11px;font-weight:600;">
-        Clear Chat History
-      </button>
-      <button class="btn-ghost" onclick="toggleSidebar()" title="Toggle sidebar">
-        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-      </button>
+    <div class="topbar-stat">
+      <span class="dot dot-yellow"></span>
+      <span class="val" id="stat-scans">0</span> active scans
     </div>
-  </nav>
-
-  <div class="app-layout">
-
-    <aside class="sidebar" id="sidebar">
-
-      <div class="panel">
-        <div class="panel-header">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
-          Tool Categories
-        </div>
-        <div class="tool-list">
-          <div class="tool-item" onclick="askCategory('network recon tools: nmap rustscan masscan')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Network</div>
-              <div class="tool-desc">Nmap, RustScan, Masscan</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('web security tools: gobuster ffuf nikto dalfox sqlmap')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Web Security</div>
-              <div class="tool-desc">SQLMap, Dalfox, Gobuster</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('vulnerability scanning: nuclei wpscan nikto')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Vuln Scanning</div>
-              <div class="tool-desc">Nuclei, WPScan, Nikto</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('subdomain and osint tools: amass subfinder dnsenum theharvester')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">OSINT</div>
-              <div class="tool-desc">Amass, Subfinder, Recon-ng</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('password cracking tools: hydra hashcat john medusa')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Password</div>
-              <div class="tool-desc">Hydra, Hashcat, John</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('binary analysis and exploitation: gdb radare2 pwntools ropgadget')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Binary / PWN</div>
-              <div class="tool-desc">GDB, Radare2, Pwntools</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('digital forensics tools: volatility binwalk exiftool steghide')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Forensics</div>
-              <div class="tool-desc">Volatility, Binwalk, Exiftool</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('cloud security tools: prowler trivy kube-hunter checkov')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Cloud Security</div>
-              <div class="tool-desc">Prowler, Trivy, Kube-hunter</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('shodan hackerone virustotal censys api lookup')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Intel APIs</div>
-              <div class="tool-desc">Shodan, VirusTotal, HackerOne</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('api security test: graphql jwt rest api endpoint discovery')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">API Security</div>
-              <div class="tool-desc">GraphQL, JWT, REST API</div>
-            </div>
-          </div>
-          <div class="tool-item" onclick="askCategory('exploitation framework: metasploit searchsploit msfvenom')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">Exploitation</div>
-              <div class="tool-desc">Metasploit, SearchSploit</div>
-            </div>
-          </div>
-          <div class="tool-item active" onclick="showTab('wordpress')">
-            <div class="tool-icon">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            </div>
-            <div class="tool-info">
-              <div class="tool-name">WordPress Report</div>
-              <div class="tool-desc">Formal security report</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel" id="status-panel">
-        <div class="panel-header">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          System Status
-        </div>
-        <div id="status-content" class="status-content">
-          <div class="status-row">
-            <span class="status-key">Status</span>
-            <span class="status-val" id="st-status">—</span>
-          </div>
-          <div class="status-row">
-            <span class="status-key">Version</span>
-            <span class="status-val" id="st-version">—</span>
-          </div>
-          <div class="status-row">
-            <span class="status-key">Tools</span>
-            <span class="status-val" id="st-tools">—</span>
-          </div>
-          <div class="status-row">
-            <span class="status-key">Uptime</span>
-            <span class="status-val" id="st-uptime">—</span>
-          </div>
-          <div class="status-row">
-            <span class="status-key">Essential</span>
-            <span class="status-val" id="st-essential">—</span>
-          </div>
-          <div class="status-row">
-            <span class="status-key">Injection Guard</span>
-            <span class="status-val status-good">Active</span>
-          </div>
-        </div>
-      </div>
-
-    </aside>
-
-    <main class="main-content">
-
-      <div class="tab-bar">
-        <button class="tab active" id="tab-chat" onclick="showTab('chat')">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-          AI Assistant
-        </button>
-        <button class="tab" id="tab-wordpress" onclick="showTab('wordpress')">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          WP Report
-        </button>
-        <button class="tab" id="tab-tools" onclick="showTab('tools')">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 19.07a10 10 0 010-14.14"/></svg>
-          API Docs
-        </button>
-      </div>
-
-      <!-- Chat Tab -->
-      <div class="tab-content active" id="content-chat">
-        <div class="chat-container">
-          <div class="chat-messages" id="chat-messages">
-            <div class="message bot">
-              <div class="msg-avatar">AI</div>
-              <div class="msg-body">
-                <div class="msg-text">
-                  Welcome to <strong>CF_AI</strong> — Advanced Penetration Testing Framework.<br><br>
-                  Provide a target and I will execute the right tool automatically.<br><br>
-                  <strong>Examples:</strong><br>
-                  <code>scan 192.168.1.1</code><br>
-                  <code>enumerate directories on http://target.com</code><br>
-                  <code>find subdomains for example.com</code><br>
-                  <code>scan wordpress http://target.com</code><br>
-                  <code>shodan lookup 8.8.8.8</code><br>
-                  <code>virustotal check domain.com</code><br><br>
-                  Type <code>help</code> for a full command reference.
-                </div>
-                <div class="msg-meta">CF_AI · just now</div>
-              </div>
-            </div>
-          </div>
-          <div class="chat-input-area">
-            <div class="chat-input-wrapper">
-              <input
-                type="text"
-                id="user-input"
-                class="chat-input"
-                placeholder="Enter a target or command — e.g. scan 192.168.1.1"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button class="send-btn" id="send-btn" onclick="sendMessage()">
-                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              </button>
-            </div>
-            <div class="chat-hints">
-              <span onclick="fillInput('scan 192.168.1.1')">port scan</span>
-              <span onclick="fillInput('enumerate directories on http://target.com')">dir scan</span>
-              <span onclick="fillInput('find subdomains for example.com')">subdomains</span>
-              <span onclick="fillInput('scan wordpress http://target.com')">wpscan</span>
-              <span onclick="fillInput('shodan lookup 8.8.8.8')">shodan</span>
-              <span onclick="fillInput('virustotal check google.com')">virustotal</span>
-              <span onclick="fillInput('hackerone programs')">hackerone</span>
-              <span onclick="fillInput('help')">help</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- WordPress Report Tab -->
-      <div class="tab-content" id="content-wordpress">
-        <div class="wp-report-container">
-          <div class="wp-report-header">
-            <div class="wp-header-icon">WP</div>
-            <div>
-              <h2>WordPress Security Assessment Report</h2>
-              <p>Generate a formal penetration test report for a WordPress site. Suitable for bug bounty submissions, client deliverables, and internal security reviews.</p>
-            </div>
-          </div>
-
-          <div class="wp-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="site-url">Target Site URL <span class="required">*</span></label>
-                <input type="url" id="site-url" placeholder="https://example.com" class="form-input" />
-              </div>
-              <div class="form-group">
-                <label for="report-scope">Assessment Scope</label>
-                <input type="text" id="report-scope" placeholder="WordPress security assessment" class="form-input" />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="company-name">Security Firm / Company Name</label>
-                <input type="text" id="company-name" placeholder="Security Firm Inc." class="form-input" />
-              </div>
-              <div class="form-group">
-                <label for="assessor-name">Lead Assessor</label>
-                <input type="text" id="assessor-name" placeholder="John Doe, OSCP" class="form-input" />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="cert-type">Certifications Held</label>
-                <input type="text" id="cert-type" placeholder="OSCP, CEH, CREST, CISSP..." class="form-input" />
-              </div>
-              <div class="form-group">
-                <label for="report-date">Report Date</label>
-                <input type="date" id="report-date" class="form-input" />
-              </div>
-            </div>
-
-            <div class="form-group full-width">
-              <label for="report-notes">Additional Notes / Special Requirements</label>
-              <textarea id="report-notes" class="form-textarea" placeholder="PCI DSS scope, compliance requirements, specific areas of concern, known technologies..."></textarea>
-            </div>
-
-            <div class="form-group full-width">
-              <label>AI Tools Usage</label>
-              <div class="radio-group">
-                <label class="radio-label">
-                  <input type="radio" name="ai-tools" value="yes" checked /> AI-assisted testing tools acceptable
-                </label>
-                <label class="radio-label">
-                  <input type="radio" name="ai-tools" value="no" /> Manual testing only
-                </label>
-              </div>
-            </div>
-
-            <button class="btn-primary" id="generate-report-btn" onclick="generateWordpressReport()">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              Generate Formal Security Report
-            </button>
-          </div>
-
-          <div class="wp-result" id="wp-result" style="display:none">
-            <div class="wp-result-header">
-              <span>Generated Report</span>
-              <button class="btn-ghost-sm" onclick="copyReport()">Copy</button>
-              <button class="btn-ghost-sm" onclick="downloadReport()">Download</button>
-            </div>
-            <pre class="wp-report-output" id="wp-report-output"></pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- API Docs Tab -->
-      <div class="tab-content" id="content-tools">
-        <div class="api-docs">
-          <h2>API Reference</h2>
-          <p class="api-desc">All endpoints accept and return JSON. Base URL: <code>http://server:8888</code></p>
-
-          <div class="api-section">
-            <div class="api-section-title">Core</div>
-            <div class="api-endpoint">
-              <span class="method get">GET</span>
-              <span class="path">/health</span>
-              <span class="endpoint-desc">Server health and tool availability</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/chat</span>
-              <span class="endpoint-desc">AI chat — natural language tool execution</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/command</span>
-              <span class="endpoint-desc">Execute any security tool command directly</span>
-            </div>
-          </div>
-
-          <div class="api-section">
-            <div class="api-section-title">Intelligence APIs</div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/shodan/host</span>
-              <span class="endpoint-desc">Shodan host lookup by IP</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/shodan/search</span>
-              <span class="endpoint-desc">Shodan search query</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/virustotal/lookup</span>
-              <span class="endpoint-desc">VirusTotal IP/domain/hash reputation</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method get">GET</span>
-              <span class="path">/api/hackerone/programs</span>
-              <span class="endpoint-desc">List HackerOne bug bounty programs</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/censys/search</span>
-              <span class="endpoint-desc">Censys internet-wide host search</span>
-            </div>
-          </div>
-
-          <div class="api-section">
-            <div class="api-section-title">Bug Bounty</div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/bugbounty/reconnaissance-workflow</span>
-              <span class="endpoint-desc">Automated recon pipeline</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/bugbounty/comprehensive-assessment</span>
-              <span class="endpoint-desc">Full assessment pipeline</span>
-            </div>
-          </div>
-
-          <div class="api-section">
-            <div class="api-section-title">WordPress</div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/wordpress/report</span>
-              <span class="endpoint-desc">Generate formal WP security report</span>
-            </div>
-          </div>
-
-          <div class="api-section">
-            <div class="api-section-title">CTF</div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/ctf/auto-solve-challenge</span>
-              <span class="endpoint-desc">Automated CTF challenge analysis</span>
-            </div>
-          </div>
-
-          <div class="api-section">
-            <div class="api-section-title">Security</div>
-            <div class="api-endpoint">
-              <span class="method get">GET</span>
-              <span class="path">/api/security/injection-stats</span>
-              <span class="endpoint-desc">Prompt injection protection stats</span>
-            </div>
-            <div class="api-endpoint">
-              <span class="method post">POST</span>
-              <span class="path">/api/chat/clear</span>
-              <span class="endpoint-desc">Clear conversation history</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </main>
+    <div class="topbar-stat">
+      <span class="dot dot-blue"></span>
+      <span class="val" id="stat-fixes">0</span> fixes available
+    </div>
   </div>
+  <div class="topbar-actions">
+    <button class="btn btn-ghost btn-sm" onclick="openScanAll()">⚡ Scan All</button>
+    <button class="btn btn-primary btn-sm" onclick="openAddSite()">+ Add Site</button>
+  </div>
+</nav>
 
-  <script src="{{ url_for('static', filename='script.js') }}?v=15"></script>
+<!-- ── Layout ────────────────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Connected Sites</div>
+    </div>
+    <div class="site-list" id="sidebar-sites">
+      <div class="empty-state" style="padding:30px 10px">
+        <div class="empty-state-icon">🌐</div>
+        <div class="empty-state-title">No sites yet</div>
+        <div class="empty-state-sub">Add a site to start monitoring</div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="openAddSite()">
+        + Add Site
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Tab Nav -->
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="sites">Sites</button>
+      <button class="tab-btn" data-tab="findings">Findings</button>
+      <button class="tab-btn" data-tab="autofix">Auto-Fix</button>
+      <button class="tab-btn" data-tab="wst">WST Coverage</button>
+      <button class="tab-btn" data-tab="logs">Live Logs</button>
+      <div class="tab-actions">
+        <button class="btn-icon" onclick="refreshAll()" title="Refresh">↻</button>
+      </div>
+    </div>
+
+    <!-- ── Overview Tab ───────────────────────────────────────────────────── -->
+    <div class="tab-pane active" id="tab-overview">
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Sites Monitored</div>
+          <div class="stat-value" id="ov-sites">0</div>
+          <div class="stat-sub">Connected to platform</div>
+        </div>
+        <div class="stat-card critical">
+          <div class="stat-label">Critical Findings</div>
+          <div class="stat-value" id="ov-critical">0</div>
+          <div class="stat-sub">Require immediate action</div>
+        </div>
+        <div class="stat-card high">
+          <div class="stat-label">High Findings</div>
+          <div class="stat-value" id="ov-high">0</div>
+          <div class="stat-sub">Exploitable vulnerabilities</div>
+        </div>
+        <div class="stat-card medium">
+          <div class="stat-label">Auto-Fixes Ready</div>
+          <div class="stat-value" id="ov-fixes">0</div>
+          <div class="stat-sub">One-click remediation</div>
+        </div>
+      </div>
+
+      <!-- Active Scans -->
+      <div class="card" id="active-scans-card">
+        <div class="card-header">
+          <div class="card-title">⚡ Active Scans</div>
+          <div class="text-muted" id="scan-count">None running</div>
+        </div>
+        <div class="card-body" id="active-scans-list">
+          <div class="text-muted" style="text-align:center;padding:16px 0">No scans running</div>
+        </div>
+      </div>
+
+      <!-- AI Analysis -->
+      <div class="ai-panel">
+        <div class="ai-panel-header">
+          <span class="ai-panel-icon">🤖</span>
+          <span class="ai-panel-title">AI Security Analyst</span>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="aiAnalyze()">Analyze Now</button>
+        </div>
+        <div class="ai-response" id="ai-response">
+          Ask the AI to analyze your connected sites and generate a prioritized action plan.
+        </div>
+      </div>
+
+      <!-- Recent Findings -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Findings</div>
+          <button class="btn btn-ghost btn-sm" onclick="switchTab('findings')">View All →</button>
+        </div>
+        <table class="data-table" id="recent-findings-table">
+          <thead>
+            <tr>
+              <th>Site</th>
+              <th>Severity</th>
+              <th>Category</th>
+              <th>Finding</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="recent-findings-body">
+            <tr>
+              <td colspan="5" style="text-align:center;color:var(--text-3);padding:24px">
+                No findings yet — add a site and run a scan
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /overview -->
+
+    <!-- ── Sites Tab ──────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-sites">
+      <div class="flex items-center gap-8" style="margin-bottom:4px">
+        <div style="flex:1;font-size:13px;color:var(--text-2)">Manage connected sites. Supports any website — WordPress, Shopify, Laravel, Next.js, custom.</div>
+        <button class="btn btn-primary" onclick="openAddSite()">+ Add Site</button>
+      </div>
+      <div class="site-grid" id="sites-grid">
+        <div class="card" style="padding:40px;text-align:center;color:var(--text-3)">
+          <div style="font-size:32px;margin-bottom:10px">🌐</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-2)">No sites connected</div>
+          <div style="font-size:12px;margin-top:4px">Click "Add Site" to connect your first website</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Findings Tab ───────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-findings">
+      <div class="flex items-center gap-8" style="margin-bottom:4px">
+        <select class="form-select" style="width:160px" id="findings-filter-site" onchange="renderFindings()">
+          <option value="">All Sites</option>
+        </select>
+        <select class="form-select" style="width:140px" id="findings-filter-sev" onchange="renderFindings()">
+          <option value="">All Severities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" onclick="exportFindings()">⬇ Export</button>
+      </div>
+      <div class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Site</th>
+              <th>Severity</th>
+              <th>Category (WST)</th>
+              <th>Finding</th>
+              <th>Discovered</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="findings-body">
+            <tr>
+              <td colspan="6" style="text-align:center;color:var(--text-3);padding:32px">
+                No findings yet
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Auto-Fix Tab ───────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-autofix">
+      <div style="font-size:13px;color:var(--text-2);margin-bottom:4px">
+        AI-generated remediation steps. Review and apply with one click. All actions are logged.
+      </div>
+      <div id="autofix-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">🛡️</div>
+          <div class="empty-state-title">No fixes queued</div>
+          <div class="empty-state-sub">Run a scan to discover vulnerabilities and auto-fix suggestions</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── WST Coverage Tab ───────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-wst">
+      <div class="card" style="padding:18px 20px;display:flex;align-items:center;gap:16px">
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--green)" id="wst-covered-count">0</div>
+          <div style="font-size:11px;color:var(--text-2)">Tests Covered</div>
+        </div>
+        <div class="wst-progress-bar">
+          <div class="wst-progress-fill" id="wst-progress-fill" style="width:0%"></div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--text-2)" id="wst-total-count">0</div>
+          <div style="font-size:11px;color:var(--text-2)">Total Tests</div>
+        </div>
+      </div>
+      <div id="wst-list"></div>
+    </div>
+
+    <!-- ── Logs Tab ───────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-logs">
+      <div class="log-container" style="flex:1;min-height:calc(100vh - 160px)">
+        <div class="log-toolbar">
+          <span style="font-size:11px;font-weight:600;color:var(--text-2)">Live Logs</span>
+          <span class="dot dot-green pulse" style="margin-left:6px"></span>
+          <div style="flex:1"></div>
+          <select class="form-select" style="width:140px;padding:4px 8px;font-size:11px" id="log-level-filter" onchange="filterLogs()">
+            <option value="">All Levels</option>
+            <option value="success">Success</option>
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="clearLogs()">Clear</button>
+        </div>
+        <div class="log-output" id="log-output">
+          <span class="log-line info">[CF_AI] Security platform initialized. Add a site to begin.</span>
+        </div>
+      </div>
+    </div>
+
+  </main><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ── Add Site Modal ────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="add-site-modal">
+  <div class="modal">
+    <div class="modal-title">Connect a Website</div>
+    <div class="modal-sub">Any website — WordPress, Shopify, Laravel, custom, or static sites.</div>
+
+    <div class="form-group">
+      <label class="form-label">Site URL *</label>
+      <input class="form-input" id="new-site-url" placeholder="https://example.com" type="url" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Display Name</label>
+      <input class="form-input" id="new-site-name" placeholder="My Website (optional)" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Platform</label>
+      <div class="platform-grid">
+        <button class="platform-btn" data-platform="auto" onclick="selectPlatform(this)">
+          <span class="platform-icon">🔍</span>Auto-detect
+        </button>
+        <button class="platform-btn" data-platform="wordpress" onclick="selectPlatform(this)">
+          <span class="platform-icon">🟦</span>WordPress
+        </button>
+        <button class="platform-btn" data-platform="shopify" onclick="selectPlatform(this)">
+          <span class="platform-icon">🟩</span>Shopify
+        </button>
+        <button class="platform-btn" data-platform="laravel" onclick="selectPlatform(this)">
+          <span class="platform-icon">🔴</span>Laravel
+        </button>
+        <button class="platform-btn" data-platform="nextjs" onclick="selectPlatform(this)">
+          <span class="platform-icon">⬛</span>Next.js
+        </button>
+        <button class="platform-btn" data-platform="other" onclick="selectPlatform(this)">
+          <span class="platform-icon">🌐</span>Other
+        </button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Scan Frequency</label>
+      <select class="form-select" id="new-site-freq">
+        <option value="manual">Manual only</option>
+        <option value="daily">Daily</option>
+        <option value="weekly" selected>Weekly</option>
+      </select>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('add-site-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addSite()">Connect Site</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Finding Drawer ─────────────────────────────────────────────────────── -->
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
+<div class="drawer" id="finding-drawer">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+    <button class="btn-icon" onclick="closeDrawer()">✕</button>
+    <div class="drawer-title" id="drawer-title">Finding Details</div>
+  </div>
+  <div id="drawer-content"></div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}?v=18"></script>
 </body>
 </html>
