@@ -15,6 +15,7 @@ WSTG_CATEGORIES = {
     'info', 'conf', 'idnt', 'athn', 'athz',
     'sess', 'inpv', 'cryp', 'clnt', 'apit',
 }
+SPECIAL_CATEGORIES = {'ctf', 'ot'}
 
 
 # ── Local history (in-memory ring buffer) ────────────────────────────────────
@@ -118,6 +119,56 @@ def _run_wstg(category: str, target: str, model: str = ''):
         print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
 
 
+# ── Special agent runner (ctf / ot) ──────────────────────────────────────────
+
+def _run_special(category: str, target: str, model: str = ''):
+    """Run CTF or OT/ICS agent against target."""
+    import dataclasses as dc
+    from agents.special_agents import SPECIAL_REGISTRY
+    from sdk.agents import Runner
+    from sdk import tracing
+
+    if not target:
+        _print_err(f'Usage: agent {category} <target|challenge-url>')
+        return
+
+    base  = SPECIAL_REGISTRY.get(category)
+    if base is None:
+        _print_err(f'Unknown special category: {category}')
+        return
+
+    # Substitute {target} in instructions
+    instructions = base.instructions.replace('{target}', target)
+    agent = dc.replace(base, instructions=instructions)
+    if model:
+        agent = dc.replace(agent, model=model)
+
+    label = {'ctf': 'CTF Solver', 'ot': 'OT/ICS Security'}.get(category, category.upper())
+    print(f'\n  {A.dim(f"{label} agent  ·  target: {target}  ·  model: {agent.model}")}\n'
+          f'  {A.dim("Press Ctrl+C at any time for Human-In-The-Loop (HITL)")}\n')
+
+    _record('agent', f'agent {category} {target}')
+    t0 = time.time()
+
+    with tracing.span(f'agent:{category}') as span:
+        span.set_attribute('cfai.category', category)
+        span.set_attribute('cfai.target', target)
+        try:
+            Runner.run(
+                agent,
+                f'Begin {label} on {target}.',
+                on_text=lambda t: A.print_agent_text(t),
+                on_tool=lambda n, a: A.print_tool_call(n, a),
+                on_result=lambda n, r, e: A.print_tool_result(n, r, e),
+            )
+        except KeyboardInterrupt:
+            print(f'\n  {A.warn("[HITL] Agent interrupted.")}')
+
+    elapsed = time.time() - t0
+    if elapsed > 0.5:
+        print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
+
+
 # ── Agent / Chat ──────────────────────────────────────────────────────────────
 
 def cmd_agent(args: str, model: str = ''):
@@ -133,6 +184,11 @@ def cmd_agent(args: str, model: str = ''):
     # ── Single WSTG category ──────────────────────────────────────────────────
     if verb in WSTG_CATEGORIES:
         _run_wstg(verb, rest, model=model)
+        return
+
+    # ── Special agents (ctf / ot) ─────────────────────────────────────────────
+    if verb in SPECIAL_CATEGORIES:
+        _run_special(verb, rest, model=model)
         return
 
     # ── Full pentest (all 10 agents) ──────────────────────────────────────────

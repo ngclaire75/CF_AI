@@ -82,8 +82,10 @@ class CFAI_REPL:
         'agent', 'recon', 'chat', 'model', 'history', 'clear', 'help', 'exit', 'quit',
         # WSTG categories (used as: agent <category> <target>)
         'info', 'conf', 'idnt', 'athn', 'athz', 'sess', 'inpv', 'cryp', 'clnt', 'apit',
+        # Special agents
+        'ctf', 'ot',
         # Agent roles
-        'pentest', 'ctf', 'exploit', 'analyst',
+        'pentest', 'exploit', 'analyst',
         # Common security tools (shell passthrough)
         'nmap', 'nikto', 'nuclei', 'gobuster', 'wpscan', 'sqlmap',
         'subfinder', 'amass', 'wafw00f', 'whatweb', 'hydra', 'ffuf',
