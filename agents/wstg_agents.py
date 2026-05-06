@@ -74,6 +74,9 @@ CRITICAL RULES FOR EVERY COMMAND YOU CALL:
 4. For HTTP/JSON fetching use subprocess curl, NEVER urllib (urllib stalls on this VPS).
 5. Every curl must include: -4 --connect-timeout 8 --max-time 15 -A "{_UA}"
 6. If plain HTTPS returns nothing: retry with XFF headers, then HTTP port 80, then whatweb.
+7. ALWAYS run ALL phases (1, 2, 3) regardless of Phase 1 results. Phase 1 failures
+   (no cert, no crt.sh, no Wayback) do NOT mean stop — run Phase 2 origin bypass and
+   Phase 3 HTTP bypass cascade anyway. Passive recon failing = active bypass MORE important.
 
 SHARED PLATFORMS: {_SHARED}
 If target is on a shared platform (vercel.app, netlify.app, github.io etc.) report it and
@@ -89,9 +92,9 @@ python3 -c "import subprocess,re; d='{{domain}}'; parts=d.split('.'); root='.'.j
 # [P1-B] DNS records (A, AAAA, MX, TXT, NS, CNAME, SOA)
 dig {{domain}} A +short 2>/dev/null && dig {{domain}} AAAA +short 2>/dev/null && dig {{domain}} MX +short 2>/dev/null && dig {{domain}} TXT +short 2>/dev/null && dig {{domain}} NS +short 2>/dev/null && dig {{domain}} CNAME +short 2>/dev/null || echo "(no CNAME)"
 
-# [P1-C] SSL certificate — curl -v sets SNI + Host header automatically (required for virtual hosting / Cloudways)
-# openssl s_client stalls on shared IPs because it does not send a Host header; curl does both correctly
-python3 -c "import subprocess; r=subprocess.run(['curl','-4','-vsk','--max-time','15','--connect-timeout','8','https://{{domain}}/'],capture_output=True,text=True,timeout=20); lines=[l.strip('* ') for l in r.stderr.splitlines() if any(k in l.lower() for k in ['subject','issuer','expire','start date','ssl cert','subjectalt','server cert','tls version','common name'])]; [print(l) for l in lines[:20]] or print('(TLS: no certificate info — server may be filtering this VPS IP; try manually: curl -vsk https://{{domain}}/)')"
+# [P1-C] SSL certificate — 4-stage bypass cascade for IP-filtered / virtual-hosting servers
+# curl sets SNI + Host automatically; tries XFF spoof → www → Googlebot → HTTP/1.0
+python3 -c "import subprocess; ua='{_UA}'; kw=('subject','issuer','expire','subjectalt','start date','ssl cert'); getcert=lambda args: [l.strip('* ') for l in subprocess.run(args,capture_output=True,text=True,timeout=13).stderr.splitlines() if any(k in l.lower() for k in kw)]; b=['curl','-4','-vsk','--max-time','10','--connect-timeout','6']; tries=[b+['-A',ua,'-H','X-Forwarded-For: 66.249.66.1','-H','X-Real-IP: 66.249.66.1','-H','Referer: https://www.google.com/','https://{{domain}}/'],b+['-A',ua,'https://www.{{domain}}/'],b+['-A','Googlebot/2.1 (+http://www.google.com/bot.html)','-H','From: googlebot(at)googlebot.com','https://{{domain}}/'],b+['--http1.0','-A',ua,'https://{{domain}}/'  ]]; found=next((r for a in tries for r in [getcert(a)] if r),[]); [print(l) for l in found[:15]] or print('(TLS: VPS IP filtered — all 4 bypass attempts failed; cert info unavailable)')"
 
 # [P1-D] Certificate Transparency — subdomains via curl
 python3 -c "import subprocess,json; raw=subprocess.run(['curl','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.{{domain}}&output=json'],capture_output=True,text=True,timeout=25).stdout; d=json.loads(raw) if raw.strip().startswith('[') else []; subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v)); [print(s) for s in subs[:40]] or print('(no crt.sh results)')"
@@ -152,6 +155,18 @@ wafw00f https://{{domain}}/ 2>/dev/null | head -15 || echo "(wafw00f not availab
 
 # [P3-G] Tor proxy bypass (if Tor running on VPS)
 curl -s --socks5 127.0.0.1:9050 https://check.torproject.org/api/ip --max-time 8 2>/dev/null | grep -q IsTor && echo "TOR ACTIVE" && curl --socks5 127.0.0.1:9050 -sI https://{{domain}}/ --max-time 20 -A "{_UA}" || echo "(Tor not available)"
+
+# [P3-H] Crawler/bot UA bypass — Googlebot + Bingbot are typically whitelisted by WAFs
+curl -4 -sI https://{{domain}}/ --max-time 12 -A "Googlebot/2.1 (+http://www.google.com/bot.html)" -H "From: googlebot(at)googlebot.com" -H "Accept: text/html"
+curl -4 -sI https://{{domain}}/ --max-time 12 -A "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)"
+
+# [P3-I] Cloudways internal hostname bypass — if P1-H Shodan revealed *.cloudwaysapps.com
+# or similar platform hostname, try it directly (bypasses domain-level firewall rules).
+# Use the actual hostname from P1-H output, e.g.: curl -4 -sk --max-time 12 -A "{_UA}" https://XXXX.cloudwaysapps.com/
+# The platform vhost often has no IP filtering — report any headers/HTML it returns.
+
+# [P3-J] HEAD request (lighter — less likely to trigger rate-limit or WAF block)
+curl -4 -sI --request HEAD https://{{domain}}/ --max-time 10 -A "{_UA}" -H "Referer: {_REF}"
 
 ══════════════════════════════════════════════════════════
 [INFO-02] Fingerprint Web Server
