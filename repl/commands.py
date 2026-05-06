@@ -1,5 +1,6 @@
 """CF_AI REPL command handlers — standalone CLI, no dashboard required."""
 from __future__ import annotations
+import dataclasses
 import os
 import time
 import subprocess
@@ -7,7 +8,13 @@ from collections import deque
 from datetime import datetime
 
 from repl import aesthetics as A
-from util import parse_target, truncate, format_duration
+from util import truncate, format_duration
+
+# WSTG categories that can be passed directly to `agent`
+WSTG_CATEGORIES = {
+    'info', 'conf', 'idnt', 'athn', 'athz',
+    'sess', 'inpv', 'cryp', 'clnt', 'apit',
+}
 
 
 # ── Local history (in-memory ring buffer) ────────────────────────────────────
@@ -58,30 +65,108 @@ def cmd_shell(line: str) -> str:
         output = f'[error: {exc}]'
         _print_err(output)
 
-    elapsed = time.time() - t0
     _record('shell', line, output)
     return output
+
+
+# ── WSTG agent runner ─────────────────────────────────────────────────────────
+
+def _run_wstg(category: str, target: str, model: str = ''):
+    """Run a single WSTG category agent against target."""
+    import dataclasses as dc
+    from agents.wstg_agents import WSTG_REGISTRY
+    from sdk.agents import Runner
+    from sdk import tracing
+
+    domain = target.replace('https://', '').replace('http://', '').rstrip('/')
+    if not domain:
+        _print_err(f'Usage: agent {category} <target>')
+        return
+
+    base  = WSTG_REGISTRY.get(category)
+    if base is None:
+        _print_err(f'Unknown WSTG category: {category}')
+        return
+
+    agent = dc.replace(base, instructions=base.instructions.replace('{domain}', domain))
+    if model:
+        agent = dc.replace(agent, model=model)
+
+    cat = category.upper()
+    print(f'\n  {A.dim(f"WSTG-{cat} agent  ·  target: {domain}  ·  model: {agent.model}")}\n'
+          f'  {A.dim("Press Ctrl+C at any time for Human-In-The-Loop (HITL)")}\n')
+
+    _record('agent', f'agent {category} {domain}')
+    t0 = time.time()
+
+    with tracing.span(f'agent:WSTG-{cat}') as span:
+        span.set_attribute('cfai.category', category)
+        span.set_attribute('cfai.target', domain)
+        try:
+            Runner.run(
+                agent,
+                f'Run all WSTG-{cat} checks on {domain}.',
+                on_text=lambda t: A.print_agent_text(t),
+                on_tool=lambda n, a: A.print_tool_call(n, a),
+                on_result=lambda n, r, e: A.print_tool_result(n, r, e),
+            )
+        except KeyboardInterrupt:
+            print(f'\n  {A.warn("[HITL] Agent interrupted.")}')
+
+    elapsed = time.time() - t0
+    if elapsed > 0.5:
+        print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
 
 
 # ── Agent / Chat ──────────────────────────────────────────────────────────────
 
 def cmd_agent(args: str, model: str = ''):
-    """Spawn a ReACT agent with all security tools."""
-    from sdk.agents import Agent, Runner
-    from tools.generic_linux_command import (generic_linux_command,
-                                              read_file, write_file)
-    from prompts.security import get as get_prompt
-
+    """Route to WSTG agent, full pentest, or generic AI agent."""
     tokens = args.strip().split(maxsplit=1)
-    roles  = ('pentest', 'ctf', 'recon', 'exploit', 'analyst')
-    if tokens and tokens[0] in roles:
-        role    = tokens[0]
-        message = tokens[1] if len(tokens) > 1 else ''
+    if not tokens:
+        _print_err('Usage: agent <category|pentest> <target>')
+        return
+
+    verb    = tokens[0].lower()
+    rest    = tokens[1].strip() if len(tokens) > 1 else ''
+
+    # ── Single WSTG category ──────────────────────────────────────────────────
+    if verb in WSTG_CATEGORIES:
+        _run_wstg(verb, rest, model=model)
+        return
+
+    # ── Full pentest (all 10 agents) ──────────────────────────────────────────
+    if verb == 'pentest':
+        target = rest
+        if not target:
+            _print_err('Usage: agent pentest <url>')
+            return
+        from agents.pentest import run_full_pentest
+        _eff = model or os.environ.get('CAI_MODEL', 'gpt-4o')
+        print(f'\n  {A.dim(f"Full WSTG pentest  ·  target: {target}  ·  model: {_eff}")}\n'
+              f'  {A.dim("Running all 10 WSTG agents sequentially — Ctrl+C skips current agent")}\n')
+        _record('agent', f'agent pentest {target}')
+        try:
+            run_full_pentest(
+                target,
+                model=model,
+                on_text=lambda t: A.print_agent_text(t),
+                on_tool=lambda n, a: A.print_tool_call(n, a),
+                on_result=lambda n, r, e: A.print_tool_result(n, r, e),
+            )
+        except KeyboardInterrupt:
+            print(f'\n  {A.warn("[HITL] Pentest aborted.")}')
+        return
+
+    # ── Legacy role-based agent (ctf / recon / exploit / analyst) ────────────
+    roles = ('ctf', 'recon', 'exploit', 'analyst')
+    if verb in roles:
+        role    = verb
+        message = rest
     else:
         role    = 'pentest'
         message = args.strip()
 
-    # Extract target URL/domain from the message so the prompt can substitute it
     target = ''
     for word in message.split():
         if '.' in word and not word.startswith('-'):
@@ -89,7 +174,11 @@ def cmd_agent(args: str, model: str = ''):
             break
 
     if not message:
-        message = f'Run all WSTG checks on {target}.' if target else 'Begin reconnaissance and report your findings.'
+        message = f'Begin reconnaissance on {target}.' if target else 'Begin reconnaissance and report findings.'
+
+    from sdk.agents import Agent, Runner
+    from tools.generic_linux_command import generic_linux_command, read_file, write_file
+    from prompts.security import get as get_prompt
 
     eff_model = model or os.environ.get('CAI_MODEL', 'gpt-4o')
     system    = get_prompt(role, target=target)
@@ -105,15 +194,15 @@ def cmd_agent(args: str, model: str = ''):
         max_turns=50,
     )
 
-    t0 = time.time()
     _record('agent', f'agent {role} {message[:100]}')
+    t0 = time.time()
 
     try:
         Runner.run(
             agent, message,
-            on_text   = lambda t: A.print_agent_text(t),
-            on_tool   = lambda n, a: A.print_tool_call(n, a),
-            on_result = lambda n, r, e: A.print_tool_result(n, r, e),
+            on_text=lambda t: A.print_agent_text(t),
+            on_tool=lambda n, a: A.print_tool_call(n, a),
+            on_result=lambda n, r, e: A.print_tool_result(n, r, e),
         )
     except KeyboardInterrupt:
         print(f'\n  {A.warn("[HITL] Agent interrupted.")}')
@@ -129,7 +218,7 @@ def cmd_recon(args: str, model: str = ''):
     if not target:
         _print_err('Usage: recon <target>')
         return
-    cmd_agent(f'recon {target}', model=model)
+    _run_wstg('info', target, model=model)
 
 
 def cmd_chat(args: str, model: str = ''):

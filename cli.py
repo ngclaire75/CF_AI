@@ -9,10 +9,22 @@ Usage:
 from __future__ import annotations
 import os
 import sys
-import readline
 import argparse
 import traceback
 import textwrap
+
+# ── UTF-8 console on Windows ──────────────────────────────────────────────────
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
+try:
+    import readline  # Unix only — tab completion and history
+except ImportError:
+    readline = None  # Windows fallback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -46,6 +58,8 @@ class CFAI_REPL:
         self._setup_readline()
 
     def _setup_readline(self):
+        if readline is None:
+            return
         try:
             readline.set_history_length(1000)
             if os.path.exists(self.HISTORY_FILE):
@@ -56,17 +70,24 @@ class CFAI_REPL:
             pass
 
     def _save_history(self):
+        if readline is None:
+            return
         try:
             readline.write_history_file(self.HISTORY_FILE)
         except Exception:
             pass
 
     _KEYWORDS = [
+        # REPL commands
         'agent', 'recon', 'chat', 'model', 'history', 'clear', 'help', 'exit', 'quit',
+        # WSTG categories (used as: agent <category> <target>)
+        'info', 'conf', 'idnt', 'athn', 'athz', 'sess', 'inpv', 'cryp', 'clnt', 'apit',
+        # Agent roles
         'pentest', 'ctf', 'exploit', 'analyst',
+        # Common security tools (shell passthrough)
         'nmap', 'nikto', 'nuclei', 'gobuster', 'wpscan', 'sqlmap',
         'subfinder', 'amass', 'wafw00f', 'whatweb', 'hydra', 'ffuf',
-        'curl', 'wget', 'dig', 'whois',
+        'curl', 'wget', 'dig', 'whois', 'dirb', 'feroxbuster',
     ]
 
     def _completer(self, text: str, state: int) -> str | None:
@@ -95,7 +116,7 @@ class CFAI_REPL:
             return
 
         if verb == 'help':
-            print(A.HELP_TEXT)
+            print(A.help_text())
             return
 
         if verb == 'history':
@@ -125,7 +146,7 @@ class CFAI_REPL:
         print(A.banner())
         if _tracing_active:
             print(f'  {A.ok("●")}  Phoenix tracing active → {_phoenix_url()}\n')
-        print(f'  {A.dim("Model: " + self.model + "   Type help for commands.")}\n')
+        print(f'  {A.dim("Model: " + self.model + "   Type  help  for the full command table.")}\n')
 
         while self.running:
             try:
