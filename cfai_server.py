@@ -9292,7 +9292,33 @@ class CFAIChatEngine:
         'one_gadget', 'patchelf', 'pwninit',
         # API security tools
         'graphql-cop', 'jwt_tool', 'kiterunner', 'kr', 'arjun',
+        # Forensics extras
+        'zsteg', 'foremost', 'scalpel', 'outguess', 'vol3', 'volatility3',
+        'hashpump', 'bulk_extractor', 'bulk-extractor', 'photorec', 'testdisk',
+        'tcpdump', 'wireshark', 'tshark',
     }
+
+    # Linux/Kali system commands — executed directly via bash
+    SYSTEM_CMDS = {
+        'ls', 'll', 'la', 'pwd', 'cat', 'head', 'tail', 'grep', 'find', 'locate',
+        'which', 'whereis', 'stat', 'wc', 'sort', 'uniq', 'cut',
+        'awk', 'sed', 'tr', 'touch', 'mkdir', 'rmdir', 'cp', 'mv', 'rm', 'ln',
+        'chmod', 'chown', 'echo', 'printf', 'env', 'printenv',
+        'ps', 'df', 'du', 'free', 'uname', 'id', 'whoami',
+        'date', 'uptime', 'hostname', 'ifconfig', 'ip', 'netstat', 'ss',
+        'tar', 'zip', 'unzip', 'gzip', 'gunzip', 'base64', 'md5sum', 'sha256sum',
+        'python3', 'python', 'perl', 'ruby', 'bash', 'sh',
+        'apt', 'apt-get', 'dpkg', 'pip3', 'pip', 'gem', 'cargo',
+        'git', 'diff', 'patch', 'tee', 'xargs', 'watch', 'crontab',
+        'service', 'systemctl', 'journalctl', 'lsof', 'netcat', 'nc',
+        'ping', 'traceroute', 'dig', 'host', 'nslookup', 'curl', 'wget',
+        'openssl', 'ssh', 'scp', 'rsync', 'screen', 'tmux',
+        'type', 'hash', 'compgen', 'ldd', 'lscpu', 'lsblk', 'mount',
+        'iptables', 'ufw', 'firewalld',
+    }
+
+    # Interactive editors — can't run in web chat; show helpful message
+    INTERACTIVE_EDITORS = {'nano', 'vim', 'vi', 'pico', 'emacs', 'less', 'more', 'man'}
 
     # Tools that are interactive by nature — wrap with non-interactive flags
     INTERACTIVE_TOOLS = {
@@ -9581,6 +9607,14 @@ class CFAIChatEngine:
                 self.perf_monitor.record(os.path.basename(cmd[0]), _elapsed)
             out = (result.stdout or '') + (result.stderr or '')
             out = out.strip()
+            # Filter nikto's "out of date" noise — it's just a version warning
+            if tool_base == 'nikto':
+                out = '\n'.join(
+                    l for l in out.splitlines()
+                    if 'out of date' not in l.lower()
+                    and "run 'git pull'" not in l
+                    and 'git pull to update' not in l.lower()
+                ).strip()
             if not out:
                 return f"Command completed (exit code {result.returncode}) with no output."
             return out[:6000]
@@ -10203,7 +10237,7 @@ class CFAIChatEngine:
                     "-mc", "200,201,204,301,302,307,401,403", "-t", "100", "-timeout", "10"]
 
         if tool == "nikto":
-            cmd = ["nikto", "-h", target_url, "-C", "all"]
+            cmd = ["nikto", "-h", target_url, "-nointeractive", "-C", "all"]
             if creds.get("username") and creds.get("password"):
                 cmd += ["-id", f"{creds['username']}:{creds['password']}"]
             return cmd
@@ -10503,6 +10537,50 @@ class CFAIChatEngine:
                 "suggested_tools": [],
             }
 
+        # ── Interactive editors (nano/vim) — can't run in web UI ─────────────
+        if first_word in self.INTERACTIVE_EDITORS:
+            return {
+                "success": True,
+                "response": (
+                    f"`{first_word}` is an interactive editor and can't run inside the chat UI.\n\n"
+                    f"To create or edit files from here:\n"
+                    f"  `touch filename.txt`                    — create empty file\n"
+                    f"  `echo 'content' > filename.txt`         — write to file\n"
+                    f"  `echo 'more lines' >> filename.txt`     — append to file\n"
+                    f"  `cat filename.txt`                      — view file contents\n"
+                    f"  `mkdir -p /path/to/dir`                 — create directory tree\n\n"
+                    f"For full interactive editing, SSH directly into the VPS."
+                ),
+                "category": "system",
+                "suggested_tools": [],
+            }
+
+        # ── Linux / Kali system commands passthrough ──────────────────────────
+        if first_word in self.SYSTEM_CMDS:
+            cmd_str = message.strip()
+            _env = dict(os.environ)
+            _env['PATH'] = self._TOOL_PATH + ':' + _env.get('PATH', '')
+            try:
+                result = subprocess.run(
+                    ['bash', '-c', cmd_str],
+                    capture_output=True, text=True, timeout=30, env=_env
+                )
+                out = ((result.stdout or '') + (result.stderr or '')).strip()[:6000]
+                if not out:
+                    out = f"Command completed (exit code {result.returncode}) with no output."
+                return {
+                    "success": True,
+                    "response": f"```\n{out}\n```",
+                    "executed": True,
+                    "command": cmd_str,
+                    "category": "system",
+                    "suggested_tools": [],
+                }
+            except subprocess.TimeoutExpired:
+                return {"success": True, "response": "Command timed out after 30 seconds.", "category": "system", "suggested_tools": []}
+            except Exception as _e:
+                return {"success": True, "response": f"Error: {_e}", "category": "system", "suggested_tools": []}
+
         # ── Intelligence APIs ─────────────────────────────────────────────────
         if any(w in msg_lower for w in ["shodan"]):
             q = re.sub(r'shodan\s*(lookup|search|host|query|check)?\s*', '', message, flags=re.IGNORECASE).strip()
@@ -10609,7 +10687,7 @@ class CFAIChatEngine:
         # ── Nikto ────────────────────────────────────────────────────────────
         if any(w in msg_lower for w in ["nikto", "web vuln", "http vuln", "web server scan"]):
             if target:
-                cmd = ["nikto", "-h", target, "-maxtime", "90", "-timeout", "10", "-Tuning", "1234578b"]
+                cmd = ["nikto", "-h", target, "-nointeractive", "-maxtime", "90", "-timeout", "10", "-Tuning", "1234578b"]
                 output = self._run_tool(cmd, timeout=180)
                 return {
                     "success": True,
@@ -10775,46 +10853,92 @@ class CFAIChatEngine:
             "volatility", "memory dump", "memory analysis",
             "foremost", "file carv", "bulk_extractor",
         ]):
-            # Only treat as a file path if it contains '.' or '/' — not bare tool names
-            _forensic_tools = {
+            _forensic_kw = {
                 "forensics", "forensic", "volatility", "binwalk", "exiftool",
                 "steghide", "steganography", "steg", "foremost", "firmware",
-                "metadata", "memory", "dump", "analysis", "digital", "tools",
-                "bulk_extractor", "scalpel", "strings", "file", "carv",
+                "metadata", "memory", "analysis", "digital", "tools", "zsteg",
+                "bulk_extractor", "scalpel", "strings", "carv", "analyze",
+                "on", "the", "a", "an", "for", "with", "and", "in", "of",
+                "outguess", "hashpump", "run", "use", "check", "scan",
             }
             parts = message.strip().split()
+            # Prefer a word with '/' or '.' (explicit path/filename)
             target_file = next(
                 (p for p in reversed(parts)
-                 if ('/' in p or '.' in p) and p.lower() not in _forensic_tools),
+                 if ('/' in p or '.' in p) and p.lower() not in _forensic_kw),
                 None
             )
+            # Fallback: last non-keyword, non-flag word (e.g. bare filename 'dump')
+            if not target_file:
+                target_file = next(
+                    (p for p in reversed(parts)
+                     if not p.startswith('-') and p.lower() not in _forensic_kw),
+                    None
+                )
 
-            if any(w in msg_lower for w in ["volatility", "memory dump", "memory analysis"]):
-                if target_file and target_file not in ("forensics", "forensic", "volatility"):
-                    cmd = ["vol", "-f", target_file, "windows.pslist"]
-                    output = self._run_tool(cmd, timeout=60)
+            # Resolve vol/vol3 — use whichever is available
+            import shutil as _shutil
+            _vol_bin = "vol" if _shutil.which("vol") else ("vol3" if _shutil.which("vol3") else "vol")
+
+            if any(w in msg_lower for w in ["volatility", "memory dump", "memory analysis", "vol "]):
+                if target_file:
+                    _vol_plugin = "windows.pslist" if "windows" in msg_lower else "linux.pslist" if "linux" in msg_lower else "windows.pslist"
+                    cmd = [_vol_bin, "-f", target_file, _vol_plugin]
+                    output = self._run_tool(cmd, timeout=90)
+                    # If pslist fails, fallback to imageinfo
+                    if "error" in output.lower() or "no attribute" in output.lower():
+                        output += "\n\n" + self._run_tool([_vol_bin, "-f", target_file, "windows.info"], timeout=60)
                     return {
                         "success": True,
                         "response": f"Volatility memory analysis of `{target_file}`:\n\n```\n{output}\n```",
                         "executed": True,
                         "category": "forensics",
-                        "suggested_tools": ["binwalk", "foremost"],
+                        "suggested_tools": ["binwalk", "foremost", "strings"],
                     }
 
-            if any(w in msg_lower for w in ["steghide", "steganography", "steg"]):
-                if target_file and target_file not in ("steghide", "steganography", "steg", "forensics"):
-                    cmd = ["steghide", "info", target_file]
+            if any(w in msg_lower for w in ["zsteg", "png steg", "bmp steg"]):
+                if target_file:
+                    cmd = ["zsteg", target_file]
                     output = self._run_tool(cmd, timeout=30)
                     return {
                         "success": True,
-                        "response": f"Steghide analysis of `{target_file}`:\n\n```\n{output}\n```",
+                        "response": f"Zsteg PNG/BMP steg analysis of `{target_file}`:\n\n```\n{output}\n```",
                         "executed": True,
                         "category": "forensics",
-                        "suggested_tools": ["exiftool", "binwalk"],
+                        "suggested_tools": ["steghide", "exiftool", "binwalk"],
+                    }
+
+            if any(w in msg_lower for w in ["steghide", "steganography", "steg"]):
+                if target_file:
+                    cmd = ["steghide", "info", "-p", "", target_file]
+                    output = self._run_tool(cmd, timeout=30)
+                    # Also try zsteg for PNG
+                    if target_file.lower().endswith(('.png', '.bmp')):
+                        zout = self._run_tool(["zsteg", target_file], timeout=30)
+                        output += f"\n\n[zsteg]\n{zout}"
+                    return {
+                        "success": True,
+                        "response": f"Steganography analysis of `{target_file}`:\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "forensics",
+                        "suggested_tools": ["exiftool", "binwalk", "zsteg"],
+                    }
+
+            if any(w in msg_lower for w in ["foremost", "file carv", "carving"]):
+                if target_file:
+                    out_dir = f"/tmp/foremost_{os.path.basename(target_file)}"
+                    cmd = ["foremost", "-i", target_file, "-o", out_dir, "-T"]
+                    output = self._run_tool(cmd, timeout=120)
+                    return {
+                        "success": True,
+                        "response": f"Foremost file carving on `{target_file}` (output: {out_dir}):\n\n```\n{output}\n```",
+                        "executed": True,
+                        "category": "forensics",
+                        "suggested_tools": ["scalpel", "binwalk"],
                     }
 
             if any(w in msg_lower for w in ["binwalk", "firmware", "binary extract"]):
-                if target_file and target_file not in ("binwalk", "firmware", "forensics"):
+                if target_file:
                     cmd = ["binwalk", target_file]
                     output = self._run_tool(cmd, timeout=60)
                     return {
@@ -10826,7 +10950,7 @@ class CFAIChatEngine:
                     }
 
             if any(w in msg_lower for w in ["exiftool", "metadata", "exif"]):
-                if target_file and target_file not in ("exiftool", "metadata", "exif", "forensics"):
+                if target_file:
                     cmd = ["exiftool", target_file]
                     output = self._run_tool(cmd, timeout=30)
                     return {
@@ -10837,29 +10961,48 @@ class CFAIChatEngine:
                         "suggested_tools": ["steghide", "binwalk"],
                     }
 
+            # Auto-select tool based on file extension when target is known
+            if target_file:
+                ext = os.path.splitext(target_file)[1].lower()
+                if ext in ('.dmp', '.mem', '.raw', '.vmem', '.dump'):
+                    output = self._run_tool([_vol_bin, "-f", target_file, "windows.pslist"], timeout=90)
+                    return {"success": True, "response": f"Auto: Volatility on `{target_file}`:\n\n```\n{output}\n```",
+                            "executed": True, "category": "forensics", "suggested_tools": ["strings", "binwalk"]}
+                elif ext in ('.png', '.bmp'):
+                    out1 = self._run_tool(["zsteg", target_file], timeout=30)
+                    out2 = self._run_tool(["exiftool", target_file], timeout=20)
+                    return {"success": True, "response": f"Auto: steg scan on `{target_file}`:\n\n**zsteg:**\n```\n{out1}\n```\n**exiftool:**\n```\n{out2}\n```",
+                            "executed": True, "category": "forensics", "suggested_tools": ["steghide", "binwalk"]}
+                elif ext in ('.jpg', '.jpeg', '.gif', '.tiff', '.mp3', '.wav'):
+                    out1 = self._run_tool(["exiftool", target_file], timeout=20)
+                    out2 = self._run_tool(["steghide", "info", "-p", "", target_file], timeout=20)
+                    return {"success": True, "response": f"Auto: forensic scan on `{target_file}`:\n\n**exiftool:**\n```\n{out1}\n```\n**steghide:**\n```\n{out2}\n```",
+                            "executed": True, "category": "forensics", "suggested_tools": ["binwalk", "zsteg"]}
+                elif ext in ('.bin', '.fw', '.img', '.iso', '.gz', '.zip'):
+                    output = self._run_tool(["binwalk", target_file], timeout=60)
+                    return {"success": True, "response": f"Auto: Binwalk on `{target_file}`:\n\n```\n{output}\n```",
+                            "executed": True, "category": "forensics", "suggested_tools": ["foremost", "exiftool"]}
+
             # No specific target — show tools list
             return {
                 "success": True,
                 "response": (
-                    "Available Digital Forensics tools:\n\n"
-                    "  vol          — Memory forensics (Volatility3)\n"
-                    "  binwalk      — Firmware analysis & extraction\n"
-                    "  exiftool     — File metadata extraction\n"
-                    "  steghide     — Steganography detection\n"
-                    "  foremost     — File carving from disk images\n"
-                    "  scalpel      — File carving\n"
-                    "  bulk_extractor — Extract artifacts from images\n"
-                    "  zsteg        — PNG/BMP steganography\n"
-                    "  outguess     — Steganography tool\n\n"
-                    "Examples:\n"
-                    "  vol -f memory.dmp windows.pslist\n"
-                    "  binwalk firmware.bin\n"
-                    "  exiftool image.jpg\n"
-                    "  steghide info image.jpg\n"
-                    "  foremost -i disk.img -o /tmp/output"
+                    "Digital Forensics tools — provide a file to analyze:\n\n"
+                    "  vol -f memory.dmp windows.pslist   — Memory forensics (Volatility3)\n"
+                    "  binwalk firmware.bin               — Firmware analysis & extraction\n"
+                    "  exiftool image.jpg                 — File metadata extraction\n"
+                    "  steghide info image.jpg            — Steganography detection\n"
+                    "  zsteg image.png                    — PNG/BMP steganography\n"
+                    "  foremost -i disk.img -o /tmp/out   — File carving\n"
+                    "  scalpel disk.img -o /tmp/out       — File carving (scalpel)\n"
+                    "  hashpump                           — Hash length extension attacks\n\n"
+                    "Auto-detect by extension:\n"
+                    "  forensics memory.dmp               — auto picks Volatility\n"
+                    "  forensics image.png                — auto picks zsteg + exiftool\n"
+                    "  forensics firmware.bin             — auto picks binwalk"
                 ),
                 "category": "forensics",
-                "suggested_tools": ["vol", "binwalk", "exiftool", "steghide"],
+                "suggested_tools": ["vol", "binwalk", "exiftool", "steghide", "zsteg"],
             }
 
         # ── Binary Analysis / Exploitation ────────────────────────────────────
@@ -12706,7 +12849,7 @@ def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "
         nik_env = dict(os.environ)
         nik_env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:' + nik_env.get('PATH', '')
         nik_result = subprocess.run(
-            ["nikto", "-h", site_url, "-C", "all", "-maxtime", "60"],
+            ["nikto", "-h", site_url, "-nointeractive", "-C", "all", "-maxtime", "60"],
             capture_output=True, text=True, timeout=90, env=nik_env
         )
         for line in ((nik_result.stdout or '') + (nik_result.stderr or '')).splitlines():

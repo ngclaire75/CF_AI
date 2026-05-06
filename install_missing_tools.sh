@@ -52,6 +52,12 @@ pip_link() {
 echo "[*] Updating package lists..."
 apt-get update -q 2>/dev/null || true
 
+# ── Update nikto to avoid "out of date" warning ───────────────────────────
+if [ -d /usr/share/nikto ]; then
+    echo "[*] Updating nikto..."
+    (cd /usr/share/nikto && git pull -q 2>/dev/null && ok "nikto updated") || true
+fi
+
 # ── Password / Binary tools ───────────────────────────────────────────────────
 echo "[*] Installing password & binary tools..."
 apt-get install -y medusa patator hash-identifier ophcrack 2>/dev/null || true
