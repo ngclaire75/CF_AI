@@ -22,7 +22,10 @@ pip_link() {
     local pkg="$1"
     local bin="${2:-$1}"
 
-    $VENV_PIP install "$pkg" -q 2>/dev/null || pip3 install "$pkg" -q 2>/dev/null || {
+    # Try venv first, then system pip with --break-system-packages (Kali PEP 668)
+    $VENV_PIP install "$pkg" -q 2>/dev/null \
+        || pip3 install --break-system-packages "$pkg" -q 2>/dev/null \
+        || pip3 install "$pkg" -q 2>/dev/null || {
         warn "$pkg: pip install failed"; return 1
     }
 
@@ -472,6 +475,13 @@ if command -v kr &>/dev/null && [ ! -f /usr/share/kiterunner/routes-large.kite ]
     curl -sL "https://wordlists-cdn.assetnote.io/data/kiterunner/routes-large.kite" \
         -o /usr/share/kiterunner/routes-large.kite 2>/dev/null && ok "kiterunner wordlist" || true
 fi
+
+# ── Python AI packages (CF_AI core) ──────────────────────────────────────────
+echo "[*] Installing Python AI packages..."
+pip3 install --break-system-packages --upgrade anthropic openai 2>/dev/null \
+    || pip3 install anthropic openai 2>/dev/null \
+    || warn "Failed to install anthropic/openai — run: pip3 install --break-system-packages anthropic openai"
+ok "anthropic + openai Python packages installed"
 
 # ── Verify installs ───────────────────────────────────────────────────────────
 echo ""
