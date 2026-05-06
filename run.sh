@@ -11,9 +11,8 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     set +a
 fi
 
-# Prefer venv python, fall back to system python3
-PYTHON="$SCRIPT_DIR/venv/bin/python3"
-[ -f "$PYTHON" ] || PYTHON="$(command -v python3)"
+# Always use system python3 (venv may have old openai 0.28.x)
+PYTHON="$(command -v python3)"
 
 if [ -z "$PYTHON" ]; then
     echo "Error: python3 not found"
