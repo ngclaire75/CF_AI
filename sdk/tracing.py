@@ -1,20 +1,29 @@
-"""CF_AI — Phoenix / OpenTelemetry AI observability.
+"""CF_AI — OpenTelemetry AI observability → Arize Phoenix UI.
 
-Mirrors how aliasrobotics/CAI integrates tracing:
-  - arize-phoenix provides the web UI (localhost:6006)
-  - openinference instrumentors auto-patch the OpenAI/Anthropic clients
-  - every ChatCompletion, tool call, and agent turn is traced automatically
+Architecture (avoids compiling pandas from source on Python 3.13):
+  - VPS: only needs opentelemetry-sdk + opentelemetry-exporter-otlp-proto-http
+          + openinference instrumentors  (no pandas, no arize-phoenix)
+  - Phoenix UI: run locally on your laptop (has pre-built pandas wheels)
 
-Enable:
-    CFAI_TRACING=1  in .env  (disabled by default)
-
-Install on Kali VPS:
+VPS install:
     pip3 install --break-system-packages \
-        arize-phoenix \
-        openinference-instrumentation-openai \
-        openinference-instrumentation-anthropic \
         opentelemetry-sdk \
-        opentelemetry-exporter-otlp-proto-http
+        opentelemetry-exporter-otlp-proto-http \
+        openinference-instrumentation-openai \
+        openinference-instrumentation-anthropic
+
+Local (Windows/Mac) — Phoenix server:
+    pip install arize-phoenix
+    python -m phoenix.server.main serve
+    # opens http://localhost:6006
+
+SSH tunnel (forward VPS traces → local Phoenix):
+    ssh -R 6006:localhost:6006 root@<vps-ip>
+    # VPS sends to localhost:6006 which tunnels to your laptop
+
+Enable tracing:
+    CFAI_TRACING=1                   # required
+    CFAI_PHOENIX_URL=http://localhost:6006  # default, override if needed
 """
 from __future__ import annotations
 import os
@@ -34,30 +43,25 @@ def setup() -> bool:
     if not os.environ.get('CFAI_TRACING'):
         return False
 
-    # ── 1. Import required packages ───────────────────────────────────────
+    # ── 1. Import OTel packages (no phoenix/pandas needed on VPS) ─────────
     try:
-        import phoenix as px
         from opentelemetry import trace as otel_trace
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     except ImportError:
         log.warning(
-            'Phoenix tracing packages not found.\n'
+            'OTel packages not found. Install on VPS:\n'
             '  pip3 install --break-system-packages \\\n'
-            '      arize-phoenix openinference-instrumentation-openai \\\n'
-            '      openinference-instrumentation-anthropic \\\n'
-            '      opentelemetry-sdk opentelemetry-exporter-otlp-proto-http'
+            '      opentelemetry-sdk \\\n'
+            '      opentelemetry-exporter-otlp-proto-http \\\n'
+            '      openinference-instrumentation-openai \\\n'
+            '      openinference-instrumentation-anthropic'
         )
         return False
 
-    # ── 2. Launch Phoenix web UI ──────────────────────────────────────────
-    try:
-        session = px.launch_app()
-        _phoenix_url = str(session.url)
-    except Exception as exc:
-        log.debug(f'Phoenix launch: {exc} — assuming already running at :6006')
-        _phoenix_url = 'http://localhost:6006'
+    # ── 2. Resolve Phoenix URL (env var or default) ────────────────────────
+    _phoenix_url = os.environ.get('CFAI_PHOENIX_URL', 'http://localhost:6006')
 
     # ── 3. Wire OTel provider → Phoenix OTLP endpoint ─────────────────────
     endpoint = _phoenix_url.rstrip('/') + '/v1/traces'
@@ -66,15 +70,14 @@ def setup() -> bool:
         BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
     )
     otel_trace.set_tracer_provider(provider)
+    log.info(f'Tracing → {endpoint}')
 
     # ── 4. Auto-instrument AI provider SDKs ───────────────────────────────
-    # This patches the OpenAI/Anthropic clients so every ChatCompletion call
-    # is automatically captured in Phoenix — no manual span code needed.
     try:
         from openinference.instrumentation.openai import OpenAIInstrumentor
         OpenAIInstrumentor().instrument(tracer_provider=provider)
     except ImportError:
-        pass  # openai not installed or instrumentor missing
+        pass
 
     try:
         from openinference.instrumentation.anthropic import AnthropicInstrumentor
