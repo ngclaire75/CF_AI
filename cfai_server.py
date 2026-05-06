@@ -81,7 +81,7 @@ try:
     from selenium.webdriver.support import expected_conditions as EC  # type: ignore[import]
     from selenium.common.exceptions import TimeoutException, WebDriverException  # type: ignore[import]
     SELENIUM_AVAILABLE = True
-except ImportError:
+except (ImportError, AttributeError, Exception):
     webdriver = None  # type: ignore[assignment]
     ChromeOptions = None  # type: ignore[assignment,misc]
     By = None  # type: ignore[assignment]
