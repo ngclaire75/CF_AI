@@ -83,7 +83,7 @@ class CFAI_REPL:
         # WSTG categories (used as: agent <category> <target>)
         'info', 'conf', 'idnt', 'athn', 'athz', 'sess', 'inpv', 'cryp', 'clnt', 'apit',
         # Special agents
-        'ctf', 'ot',
+        'ctf', 'ot', 'enum',
         # Agent roles
         'pentest', 'exploit', 'analyst',
         # Common security tools (shell passthrough)

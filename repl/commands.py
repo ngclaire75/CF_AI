@@ -15,7 +15,7 @@ WSTG_CATEGORIES = {
     'info', 'conf', 'idnt', 'athn', 'athz',
     'sess', 'inpv', 'cryp', 'clnt', 'apit',
 }
-SPECIAL_CATEGORIES = {'ctf', 'ot'}
+SPECIAL_CATEGORIES = {'ctf', 'ot', 'enum'}
 
 
 # ── Local history (in-memory ring buffer) ────────────────────────────────────
@@ -143,7 +143,11 @@ def _run_special(category: str, target: str, model: str = ''):
     if model:
         agent = dc.replace(agent, model=model)
 
-    label = {'ctf': 'CTF Solver', 'ot': 'OT/ICS Security'}.get(category, category.upper())
+    label = {
+        'ctf':  'CTF Solver',
+        'ot':   'OT/ICS Security',
+        'enum': 'API Enumeration / IDOR',
+    }.get(category, category.upper())
     print(f'\n  {A.dim(f"{label} agent  ·  target: {target}  ·  model: {agent.model}")}\n'
           f'  {A.dim("Press Ctrl+C at any time for Human-In-The-Loop (HITL)")}\n')
 

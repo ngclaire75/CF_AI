@@ -165,6 +165,7 @@ def help_text() -> str:
         _hdiv(),
         _row('agent ctf  <target|url>', 'CTF solver — web/crypto/RE/OT/forensics'),
         _row('agent ot   <target|ip>', 'OT/ICS — Modbus DNP3 SCADA PLC HMI'),
+        _row('agent enum <target|url>', 'API enum — IDOR rate-limit anti-bot'),
         _blank(),
         _sep(),
         _blank(),

