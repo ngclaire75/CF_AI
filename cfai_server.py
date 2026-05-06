@@ -9585,15 +9585,48 @@ class CFAIChatEngine:
                 env['MSF_CFGROOT_CONFIG'] = f'{msf_home}/.msf4'
                 env['BOOTSNAP_CACHE_DIR'] = '/tmp/bootsnap_cache'
 
-            # john/hashcat write session files to $HOME — redirect to /tmp
-            elif tool_base in ('john', 'hashcat'):
+            # john/hashcat/medusa/hydra/john write session files to $HOME — redirect to /tmp
+            elif tool_base in ('john', 'hashcat', 'medusa', 'hydra', 'patator', 'ncrack'):
                 tmp_home = '/tmp/tool_home'
                 os.makedirs(tmp_home, exist_ok=True)
                 env['HOME'] = tmp_home
-                # hashcat also uses XDG dirs
+
+            if tool_base == 'hashcat':
+                # VPS has no GPU — always force CPU mode regardless of how command was built
                 hc_data = '/tmp/hashcat_work'
                 os.makedirs(f'{hc_data}/sessions', exist_ok=True)
                 env['XDG_DATA_HOME'] = hc_data
+                cmd_str = ' '.join(cmd)
+                if '--force' not in cmd_str:
+                    cmd += ['--force']
+                if '-D' not in cmd_str and '--opencl-device-types' not in cmd_str:
+                    cmd += ['-D', '1,2']
+                if '--potfile-path' not in cmd_str:
+                    cmd += ['--potfile-path', f'{hc_data}/hashcat.pot']
+                if '--session' not in cmd_str:
+                    cmd += ['--session', 'cfai']
+
+            elif tool_base == 'john':
+                # john: always write pot/session to /tmp
+                jw = '/tmp/john_work'
+                os.makedirs(jw, exist_ok=True)
+                cmd_str = ' '.join(cmd)
+                if '--pot=' not in cmd_str and '--pot ' not in cmd_str:
+                    cmd += [f'--pot={jw}/john.pot']
+                if '--session=' not in cmd_str:
+                    cmd += [f'--session={jw}/session']
+
+            elif tool_base == 'hydra':
+                # hydra: add -t 4 (threads) if not set, prevents connection flood on VPS
+                cmd_str = ' '.join(cmd)
+                if '-t ' not in cmd_str and '-t\t' not in cmd_str:
+                    cmd += ['-t', '4']
+
+            elif tool_base == 'medusa':
+                # medusa: add -t 4 threads if not set
+                cmd_str = ' '.join(cmd)
+                if '-t ' not in cmd_str:
+                    cmd += ['-t', '4']
 
             # Wrap tools that may lack execute bit (belt-and-suspenders)
             if cmd[0] in self._BASH_WRAP_TOOLS:

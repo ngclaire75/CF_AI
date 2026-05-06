@@ -58,6 +58,15 @@ if [ -d /usr/share/nikto ]; then
     (cd /usr/share/nikto && git pull -q 2>/dev/null && ok "nikto updated") || true
 fi
 
+# ── OpenCL CPU runtime (required for hashcat on VPS — no GPU) ────────────────
+echo "[*] Installing CPU OpenCL runtime for hashcat..."
+apt-get install -y pocl-opencl-icd ocl-icd-opencl-dev ocl-icd-libopencl1 2>/dev/null || true
+# Verify hashcat can see the CPU device
+if command -v hashcat &>/dev/null; then
+    hashcat -I 2>/dev/null | grep -q "Device\|Platform" && ok "hashcat CPU OpenCL: ready" \
+        || warn "hashcat: OpenCL not detected — try: apt-get install pocl-opencl-icd"
+fi
+
 # ── Password / Binary tools ───────────────────────────────────────────────────
 echo "[*] Installing password & binary tools..."
 apt-get install -y medusa patator hash-identifier ophcrack 2>/dev/null || true
