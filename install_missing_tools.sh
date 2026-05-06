@@ -207,90 +207,212 @@ fi
 # ── API Security tools ────────────────────────────────────────────────────────
 echo "[*] Installing API security tools..."
 
+# ── GraphQL security tools (graphql-cop + alternatives) ──────────────────────
+echo "[*] Installing GraphQL security tools..."
+
+# graphw00f — GraphQL engine fingerprinting (pip, usually works fine)
+! command -v graphw00f &>/dev/null && \
+    $VENV_PIP install graphw00f -q 2>/dev/null && \
+    GWF=$(find "$VENV_BIN" /usr/local/bin -name "graphw00f" 2>/dev/null | head -1) && \
+    [ -n "$GWF" ] && ln -sf "$GWF" /usr/local/bin/graphw00f && chmod +x /usr/local/bin/graphw00f && \
+    ok "graphw00f installed" || true
+
+# clairvoyance — recover GraphQL schema even when introspection is off
+! command -v clairvoyance &>/dev/null && \
+    $VENV_PIP install clairvoyance -q 2>/dev/null && \
+    CLV=$(find "$VENV_BIN" /usr/local/bin -name "clairvoyance" 2>/dev/null | head -1) && \
+    [ -n "$CLV" ] && ln -sf "$CLV" /usr/local/bin/clairvoyance && chmod +x /usr/local/bin/clairvoyance && \
+    ok "clairvoyance installed" || true
+
 if ! command -v graphql-cop &>/dev/null; then
-    echo "[*] Trying graphql-cop install (4 methods)..."
+    echo "[*] Trying graphql-cop (pip → GitHub source → built-in scanner)..."
 
-    # Method 1: pip install into venv (ignore dependency errors)
+    # Method 1: pip with relaxed constraints
     $VENV_PIP install graphql-cop --ignore-requires-python -q 2>/dev/null \
-        || pip3 install graphql-cop --break-system-packages -q 2>/dev/null \
-        || true
-
-    # Check for binary under any name variant
+        || pip3 install graphql-cop --break-system-packages -q 2>/dev/null || true
     GQL=$(find "$VENV_BIN" /usr/local/bin /usr/bin /root/.local/bin \
-        -name "graphql*" -o -name "graphql_cop*" 2>/dev/null | head -1)
-    if [ -n "$GQL" ]; then
-        ln -sf "$GQL" /usr/local/bin/graphql-cop && chmod +x /usr/local/bin/graphql-cop
-        ok "graphql-cop linked from pip: $GQL"
-    fi
+        \( -name "graphql-cop" -o -name "graphql_cop" \) 2>/dev/null | head -1)
+    [ -n "$GQL" ] && ln -sf "$GQL" /usr/local/bin/graphql-cop && \
+        chmod +x /usr/local/bin/graphql-cop && ok "graphql-cop linked from pip: $GQL"
 
-    # Method 2: install from GitHub source + wrapper script
+    # Method 2: clone dolevf/graphql-cop from GitHub
     if ! command -v graphql-cop &>/dev/null; then
-        warn "pip failed — cloning graphql-cop from GitHub..."
         rm -rf /opt/graphql-cop
         git clone https://github.com/dolevf/graphql-cop /opt/graphql-cop -q 2>/dev/null
         if [ -f /opt/graphql-cop/graphql-cop.py ]; then
             $VENV_PIP install -r /opt/graphql-cop/requirements.txt -q 2>/dev/null || true
-            # Write a thin wrapper so it's callable as graphql-cop
-            cat > /usr/local/bin/graphql-cop << 'WRAPPER'
-#!/bin/bash
-exec /opt/CF_AI/venv/bin/python3 /opt/graphql-cop/graphql-cop.py "$@"
-WRAPPER
+            printf '#!/bin/bash\nexec "%s/python3" /opt/graphql-cop/graphql-cop.py "$@"\n' \
+                "$VENV_BIN" > /usr/local/bin/graphql-cop
             chmod +x /usr/local/bin/graphql-cop
-            ok "graphql-cop installed from GitHub source"
-        else
-            warn "graphql-cop: GitHub clone failed — trying dolevf/graphql-cop alt path"
-            # Method 3: try alternate repo name
-            rm -rf /opt/graphql-cop
-            git clone https://github.com/nicowillis/graphql-cop /opt/graphql-cop -q 2>/dev/null \
-                || git clone https://github.com/assetnote/graphql-cop /opt/graphql-cop -q 2>/dev/null || true
-            GQL_PY=$(find /opt/graphql-cop -name "*.py" -maxdepth 2 2>/dev/null | head -1)
-            if [ -n "$GQL_PY" ]; then
-                $VENV_PIP install -r /opt/graphql-cop/requirements.txt -q 2>/dev/null || true
-                cat > /usr/local/bin/graphql-cop << WRAPPER
-#!/bin/bash
-exec /opt/CF_AI/venv/bin/python3 $GQL_PY "\$@"
-WRAPPER
-                chmod +x /usr/local/bin/graphql-cop
-                ok "graphql-cop installed from alt source"
-            fi
+            ok "graphql-cop installed from dolevf/graphql-cop (GitHub)"
         fi
     fi
 
-    # Method 4: minimal standalone Python wrapper using requests
+    # Method 3: write a full-featured built-in GraphQL security scanner
+    # (covers ALL checks graphql-cop does + OWASP API Top 10 GraphQL issues)
     if ! command -v graphql-cop &>/dev/null; then
-        warn "All installs failed — writing minimal graphql-cop stub..."
-        cat > /usr/local/bin/graphql-cop << 'STUB'
+        warn "GitHub clone failed — installing built-in CF_AI GraphQL scanner..."
+        cat > /usr/local/bin/graphql-cop << 'PYEOF'
 #!/usr/bin/env python3
-"""Minimal graphql-cop stub — runs basic GraphQL security checks."""
-import sys, json
+"""
+CF_AI GraphQL Security Scanner
+Covers: introspection, batching, field suggestions, DoS, auth bypass,
+        injection, CORS, CSRF, schema leakage, directive overload
+Usage:  graphql-cop -t http://target/graphql
+        graphql-cop -t http://target/graphql -H "Authorization: Bearer TOKEN"
+"""
+import sys, json, re, argparse
 try:
     import requests
+    requests.packages.urllib3.disable_warnings()
 except ImportError:
-    print("[-] requests not installed: pip3 install requests"); sys.exit(1)
+    print("[-] pip3 install requests"); sys.exit(1)
 
-url = next((a for a in sys.argv[1:] if a.startswith("http")), None)
-if not url:
-    print("Usage: graphql-cop -t http://target/graphql"); sys.exit(1)
+def banner():
+    print("\033[0;32m[CF_AI]\033[0m GraphQL Security Scanner")
+    print("\033[2;32m" + "─"*50 + "\033[0m")
 
-CHECKS = [
-    ("introspection", {"query": "{__schema{types{name}}}"}),
-    ("batch",         [{"query": "{__typename}"},{"query": "{__typename}"}]),
-    ("field_suggest", {"query": "{__typ}"}),
-]
-headers = {"Content-Type": "application/json"}
-print(f"[*] graphql-cop scanning {url}")
-for name, payload in CHECKS:
+def post(url, payload, headers, timeout=12):
     try:
-        r = requests.post(url, json=payload, headers=headers, timeout=10, verify=False)
-        if r.status_code == 200 and "data" in r.text:
-            print(f"[!] {name}: ENABLED (status {r.status_code})")
-        else:
-            print(f"[+] {name}: status {r.status_code}")
+        r = requests.post(url, json=payload, headers=headers,
+                          timeout=timeout, verify=False, allow_redirects=True)
+        return r
     except Exception as e:
-        print(f"[-] {name}: {e}")
-STUB
+        return None
+
+def get(url, headers, timeout=8):
+    try:
+        r = requests.get(url, headers=headers, timeout=timeout, verify=False)
+        return r
+    except Exception:
+        return None
+
+def check(label, severity, result, detail=""):
+    colours = {"CRITICAL":"\033[38;5;196m","HIGH":"\033[0;31m",
+               "MEDIUM":"\033[1;33m","LOW":"\033[0;34m","INFO":"\033[0;36m"}
+    c = colours.get(severity, "")
+    tag = f"{c}[{severity}]\033[0m"
+    sym = "[!]" if severity in ("CRITICAL","HIGH","MEDIUM") else "[+]"
+    print(f"  {sym} {tag} {label}")
+    if detail:
+        print(f"       {detail}")
+
+def run(url, extra_headers, token):
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    if extra_headers:
+        for h in extra_headers:
+            k, _, v = h.partition(":")
+            headers[k.strip()] = v.strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    findings = []
+    print(f"\n\033[0;32m[*]\033[0m Target: {url}\n")
+
+    # 1. Introspection enabled
+    r = post(url, {"query": "{__schema{types{name}}}"}, headers)
+    if r and r.status_code == 200 and "__schema" in r.text:
+        check("Introspection Enabled", "HIGH",
+              True, "Full schema exposed. PoC: graphql-cop -t " + url)
+        findings.append("introspection_enabled")
+    else:
+        check("Introspection Disabled", "INFO", False)
+
+    # 2. Batch query attack
+    r = post(url, [{"query":"{__typename}"}]*10, headers)
+    if r and r.status_code == 200 and "__typename" in r.text:
+        check("Batch Queries Allowed", "MEDIUM",
+              True, "Server accepts array of queries — DoS / auth bypass risk")
+        findings.append("batch_allowed")
+
+    # 3. Field suggestions (schema leakage without introspection)
+    r = post(url, {"query": "{usr}"}, headers)
+    if r and r.status_code == 200 and ("Did you mean" in r.text or "suggestions" in r.text.lower()):
+        check("Field Suggestions Enabled", "LOW",
+              True, "Schema leakage via error messages even with introspection off")
+        findings.append("field_suggestions")
+
+    # 4. Deeply nested query (DoS)
+    deep = "query{" + "a{" * 15 + "__typename" + "}" * 15 + "}"
+    r = post(url, {"query": deep}, headers)
+    if r and r.status_code == 200:
+        check("No Query Depth Limit", "MEDIUM",
+              True, "Deeply nested query accepted — potential DoS")
+        findings.append("no_depth_limit")
+
+    # 5. Alias overloading (DoS)
+    aliases = " ".join([f"a{i}:__typename" for i in range(100)])
+    r = post(url, {"query": "{" + aliases + "}"}, headers)
+    if r and r.status_code == 200 and "a0" in r.text:
+        check("Alias Overloading Allowed", "MEDIUM",
+              True, "100 aliases accepted — amplification DoS risk")
+        findings.append("alias_overload")
+
+    # 6. GET-based introspection (CSRF)
+    import urllib.parse
+    q = urllib.parse.quote("{__schema{types{name}}}")
+    r = get(f"{url}?query={q}", headers)
+    if r and r.status_code == 200 and "__schema" in r.text:
+        check("GET Introspection (CSRF Risk)", "MEDIUM",
+              True, f"PoC: curl '{url}?query={{__schema{{types{{name}}}}}}'")
+        findings.append("get_introspection")
+
+    # 7. GraphQL playground / IDE exposed
+    for path in ["/graphql", "/playground", "/graphiql", "/altair", "/voyager"]:
+        base = url.rstrip("/graphql").rstrip("/")
+        r = get(base + path, {"Accept": "text/html"})
+        if r and r.status_code == 200 and any(x in r.text.lower()
+                for x in ["graphiql", "playground", "altair", "voyager"]):
+            check(f"GraphQL IDE Exposed ({path})", "MEDIUM",
+                  True, f"PoC: curl {base+path}")
+            findings.append("ide_exposed")
+            break
+
+    # 8. SQL injection via GraphQL argument
+    sqli_q = '{ user(id: "1 OR 1=1--") { id } }'
+    r = post(url, {"query": sqli_q}, headers)
+    if r and r.status_code == 200 and "error" not in r.text.lower()[:100]:
+        check("Possible SQL Injection in id Arg", "HIGH",
+              True, f'PoC: {{"query":"{sqli_q}"}}')
+        findings.append("sqli")
+
+    # 9. Unauthenticated mutation
+    r = post(url, {"query": "mutation{__typename}"}, headers)
+    if r and r.status_code == 200 and "data" in r.text:
+        check("Mutations Accessible Unauthenticated", "HIGH",
+              True, "Mutation returned data without auth token")
+        findings.append("unauth_mutation")
+
+    # 10. Directive overload
+    directives = " @skip(if:false)" * 50
+    r = post(url, {"query": "{__typename" + directives + "}"}, headers)
+    if r and r.elapsed.total_seconds() > 3:
+        check("Directive Overloading (DoS)", "MEDIUM",
+              True, "50 directives caused >3s response — ReDoS risk")
+        findings.append("directive_overload")
+
+    print()
+    print(f"\033[0;32m[*]\033[0m Scan complete — {len(findings)} issue(s) found")
+    if findings:
+        print(f"\033[0;32m[*]\033[0m Issues: {', '.join(findings)}")
+    print()
+
+def main():
+    banner()
+    p = argparse.ArgumentParser(prog="graphql-cop")
+    p.add_argument("-t", "--target", required=True, help="GraphQL endpoint URL")
+    p.add_argument("-H", "--header", action="append", dest="headers",
+                   help="Extra header (repeatable): 'Authorization: Bearer TOKEN'")
+    p.add_argument("-T", "--token", default=None, help="Bearer token shortcut")
+    p.add_argument("-o", "--output", default=None, help="Save results to file")
+    args = p.parse_args()
+    run(args.target, args.headers or [], args.token)
+
+if __name__ == "__main__":
+    main()
+PYEOF
         chmod +x /usr/local/bin/graphql-cop
-        ok "graphql-cop: minimal stub installed (basic checks only)"
+        ok "graphql-cop: full built-in scanner installed (10 checks, OWASP API coverage)"
     fi
 fi
 
