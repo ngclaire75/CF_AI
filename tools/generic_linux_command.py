@@ -1,12 +1,28 @@
 """CF_AI tool: generic Linux command execution with real-time output."""
 import os
+import re
 import subprocess
-import shlex
-import threading
 from sdk.agents import function_tool
 
 TOOL_TIMEOUT = int(os.environ.get('CFAI_TOOL_TIMEOUT', '300'))
 CWD          = os.environ.get('CFAI_CWD', '/root')
+
+# Inject speed flags into every curl call:
+#   -4              force IPv4 (avoids ~20s IPv6 fallback on most VPS)
+#   --connect-timeout 8  give up on connection after 8s instead of waiting forever
+_CURL_SPEED_FLAGS = '-4 --connect-timeout 8'
+_CURL_RE = re.compile(r'\bcurl\b')
+
+def _patch_curl(cmd: str) -> str:
+    """Prepend speed flags to every curl invocation in the command."""
+    def _inject(m):
+        pos = m.end()
+        # Don't double-inject if flags already present
+        rest = cmd[pos:pos+5]
+        if rest.lstrip().startswith('-4'):
+            return m.group(0)
+        return f'curl {_CURL_SPEED_FLAGS}'
+    return _CURL_RE.sub(_inject, cmd)
 
 
 @function_tool
@@ -19,9 +35,10 @@ def generic_linux_command(command: str) -> str:
 
     Returns stdout + stderr combined. Truncated to 8000 chars if very long.
     """
+    patched = _patch_curl(command)
     try:
         result = subprocess.run(
-            command,
+            patched,
             shell=True,
             capture_output=True,
             text=True,
