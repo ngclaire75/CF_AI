@@ -351,8 +351,15 @@ def cmd_history(_: str):
 def cmd_model(args: str, set_cb=None) -> str:
     """Show or set the active AI model."""
     known = [
-        'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5',
+        # Anthropic (requires credits)
+        'claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5',
+        # OpenAI (requires credits)
         'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1', 'o3-mini',
+        # Ollama — local, FREE (run: ollama pull <model>)
+        'llama3.2', 'llama3.1', 'mistral', 'mistral-nemo',
+        'qwen2.5', 'qwen2.5:14b', 'qwen2.5:32b',
+        'gemma2', 'gemma2:9b', 'phi4', 'deepseek-r1',
+        'deepseek-r1:7b', 'deepseek-r1:14b', 'codellama',
     ]
     if not args.strip():
         current = os.environ.get('CAI_MODEL', 'claude-sonnet-4-6')

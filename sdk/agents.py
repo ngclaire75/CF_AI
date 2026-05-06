@@ -25,16 +25,35 @@ PROVIDERS = {
     'o3-mini':               'openai',
 }
 
+# Ollama models (runs locally — free, no API key needed)
+OLLAMA_MODELS = {
+    'llama3.2', 'llama3.1', 'llama3', 'llama2',
+    'mistral', 'mistral-nemo', 'mixtral',
+    'qwen2.5', 'qwen2.5:7b', 'qwen2.5:14b', 'qwen2.5:32b',
+    'qwen2', 'qwen',
+    'gemma2', 'gemma2:9b', 'gemma2:27b', 'gemma',
+    'phi3', 'phi3:mini', 'phi4',
+    'deepseek-r1', 'deepseek-r1:7b', 'deepseek-r1:14b',
+    'codellama', 'codellama:13b',
+    'dolphin-mistral', 'neural-chat',
+    'llava', 'bakllava',
+}
+
 DEFAULT_MODEL = os.environ.get('CAI_MODEL', 'claude-sonnet-4-6')
+OLLAMA_BASE   = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434/v1')
 
 
 def _provider(model: str) -> str:
+    # Exact/prefix match against known providers
     for key, prov in PROVIDERS.items():
         if key in model:
             return prov
     if 'claude' in model.lower():
         return 'anthropic'
-    return 'openai'
+    if model.lower().startswith(('gpt-', 'o1', 'o3')):
+        return 'openai'
+    # Anything else → try Ollama
+    return 'ollama'
 
 
 # ── function_tool decorator ───────────────────────────────────────────────────
@@ -153,12 +172,13 @@ class Runner:
         Ctrl+C during execution triggers HITL (Human-In-The-Loop) pause.
         """
         provider = _provider(agent.model)
+        turns = max_turns or agent.max_turns
         if provider == 'anthropic':
-            return cls._run_anthropic(agent, message, on_text, on_tool, on_result,
-                                      max_turns or agent.max_turns)
+            return cls._run_anthropic(agent, message, on_text, on_tool, on_result, turns)
+        elif provider == 'ollama':
+            return cls._run_ollama(agent, message, on_text, on_tool, on_result, turns)
         else:
-            return cls._run_openai(agent, message, on_text, on_tool, on_result,
-                                   max_turns or agent.max_turns)
+            return cls._run_openai(agent, message, on_text, on_tool, on_result, turns)
 
     # ── Anthropic path ────────────────────────────────────────────────────
 
@@ -333,6 +353,120 @@ class Runner:
                     args  = json.loads(tc.function.arguments or '{}')
                 except Exception:
                     args  = {}
+                if on_tool:
+                    on_tool(tc.function.name, args)
+                t0 = time.time()
+                try:
+                    result = fn(**args) if fn else f'[unknown tool: {tc.function.name}]'
+                except HandoffRequest as hoff:
+                    return cls.run(hoff.target_agent, hoff.message,
+                                   on_text, on_tool, on_result, max_turns - turns)
+                except Exception as exc:
+                    result = f'[tool error: {exc}]'
+                elapsed = time.time() - t0
+                if on_result:
+                    on_result(tc.function.name, str(result), elapsed)
+                tool_results.append({
+                    'role':         'tool',
+                    'tool_call_id': tc.id,
+                    'content':      str(result)[:8000],
+                })
+
+            messages.append(msg)
+            messages.extend(tool_results)
+
+        return final
+
+
+    # ── Ollama path (local, free) ─────────────────────────────────────────
+
+    @classmethod
+    def _run_ollama(cls, agent: Agent, message: str,
+                    on_text, on_tool, on_result, max_turns) -> str:
+
+        def _emit(msg: str):
+            if on_text:
+                on_text(msg)
+            else:
+                print(msg)
+
+        try:
+            from openai import OpenAI
+        except ImportError:
+            _emit('openai package not installed. Run: pip3 install --break-system-packages openai')
+            return ''
+
+        base_url = OLLAMA_BASE
+        try:
+            client = OpenAI(base_url=base_url, api_key='ollama')
+            # Quick connectivity check
+            client.models.list()
+        except Exception as exc:
+            _emit(f'Ollama not reachable at {base_url} — is it running?\n'
+                  f'  Start with: ollama serve\n'
+                  f'  Install:    curl -fsSL https://ollama.ai/install.sh | sh\n'
+                  f'  Pull model: ollama pull {agent.model}\n'
+                  f'  Error: {exc}')
+            return ''
+
+        # Check model is available, pull if not
+        try:
+            available = [m.id for m in client.models.list().data]
+            if agent.model not in available:
+                _emit(f'Pulling {agent.model} — this may take a minute…')
+                import subprocess
+                subprocess.run(['ollama', 'pull', agent.model],
+                               capture_output=False, timeout=300)
+        except Exception:
+            pass  # best-effort, proceed anyway
+
+        messages  = [
+            {'role': 'system', 'content': agent.instructions},
+            {'role': 'user',   'content': message},
+        ]
+        tools    = agent._openai_specs()
+        tool_map = {t.__name__: t for t in agent.all_tools() if callable(t)}
+        turns    = 0
+        final    = ''
+
+        while turns < max_turns:
+            turns += 1
+            try:
+                create_kwargs = dict(
+                    model=agent.model,
+                    messages=messages,
+                )
+                if tools:
+                    create_kwargs['tools']       = tools
+                    create_kwargs['tool_choice'] = 'auto'
+                resp = client.chat.completions.create(**create_kwargs)
+            except KeyboardInterrupt:
+                instr = _hitl_pause(messages)
+                if instr is None:
+                    return '[Agent aborted by operator]'
+                continue
+            except Exception as exc:
+                _emit(f'[Ollama error: {exc}]')
+                return ''
+
+            choice = resp.choices[0]
+            msg    = choice.message
+            text   = msg.content or ''
+            if text and on_text:
+                on_text(text)
+            final = text
+
+            if choice.finish_reason in ('stop', 'length') or not msg.tool_calls:
+                break
+
+            tool_results = []
+            for tc in (msg.tool_calls or []):
+                import json as _json
+                fn = tool_map.get(tc.function.name)
+                try:
+                    args = _json.loads(tc.function.arguments or '{}')
+                except Exception:
+                    args = {}
                 if on_tool:
                     on_tool(tc.function.name, args)
                 t0 = time.time()
