@@ -231,7 +231,28 @@ if command -v graphql-cop &>/dev/null; then
     ok "graphql-cop — installed"
 else
     fail "graphql-cop"
-    try_install "graphql-cop" "$VENV_PIP install graphql-cop"
+    warn "Trying all install methods for graphql-cop..."
+    # Method 1: pip with relaxed constraints
+    $VENV_PIP install graphql-cop --ignore-requires-python -q 2>/dev/null \
+        || pip3 install graphql-cop --break-system-packages -q 2>/dev/null || true
+    GQL=$(find /opt/CF_AI/venv/bin /usr/local/bin /usr/bin /root/.local/bin \
+        -name "graphql*" 2>/dev/null | head -1)
+    if [ -n "$GQL" ]; then
+        ln -sf "$GQL" /usr/local/bin/graphql-cop && chmod +x /usr/local/bin/graphql-cop
+        ok "graphql-cop linked from pip"
+    else
+        # Method 2: GitHub source
+        rm -rf /opt/graphql-cop
+        git clone https://github.com/dolevf/graphql-cop /opt/graphql-cop -q 2>/dev/null
+        if [ -f /opt/graphql-cop/graphql-cop.py ]; then
+            $VENV_PIP install -r /opt/graphql-cop/requirements.txt -q 2>/dev/null || true
+            printf '#!/bin/bash\nexec /opt/CF_AI/venv/bin/python3 /opt/graphql-cop/graphql-cop.py "$@"\n' \
+                > /usr/local/bin/graphql-cop && chmod +x /usr/local/bin/graphql-cop
+            ok "graphql-cop from GitHub source"
+        else
+            warn "graphql-cop: all methods failed — run: bash /opt/CF_AI/install_missing_tools.sh"
+        fi
+    fi
 fi
 
 # jwt_tool

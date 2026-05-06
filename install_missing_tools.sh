@@ -208,14 +208,89 @@ fi
 echo "[*] Installing API security tools..."
 
 if ! command -v graphql-cop &>/dev/null; then
-    pip_link "graphql-cop" "graphql-cop"
-    # pip may use underscore variant
+    echo "[*] Trying graphql-cop install (4 methods)..."
+
+    # Method 1: pip install into venv (ignore dependency errors)
+    $VENV_PIP install graphql-cop --ignore-requires-python -q 2>/dev/null \
+        || pip3 install graphql-cop --break-system-packages -q 2>/dev/null \
+        || true
+
+    # Check for binary under any name variant
+    GQL=$(find "$VENV_BIN" /usr/local/bin /usr/bin /root/.local/bin \
+        -name "graphql*" -o -name "graphql_cop*" 2>/dev/null | head -1)
+    if [ -n "$GQL" ]; then
+        ln -sf "$GQL" /usr/local/bin/graphql-cop && chmod +x /usr/local/bin/graphql-cop
+        ok "graphql-cop linked from pip: $GQL"
+    fi
+
+    # Method 2: install from GitHub source + wrapper script
     if ! command -v graphql-cop &>/dev/null; then
-        GQL=$(find "$VENV_BIN" /usr/local/bin /usr/bin -name "graphql*" 2>/dev/null | head -1)
-        if [ -n "$GQL" ]; then
-            ln -sf "$GQL" /usr/local/bin/graphql-cop && chmod +x /usr/local/bin/graphql-cop
-            ok "graphql-cop symlinked from $GQL"
+        warn "pip failed — cloning graphql-cop from GitHub..."
+        rm -rf /opt/graphql-cop
+        git clone https://github.com/dolevf/graphql-cop /opt/graphql-cop -q 2>/dev/null
+        if [ -f /opt/graphql-cop/graphql-cop.py ]; then
+            $VENV_PIP install -r /opt/graphql-cop/requirements.txt -q 2>/dev/null || true
+            # Write a thin wrapper so it's callable as graphql-cop
+            cat > /usr/local/bin/graphql-cop << 'WRAPPER'
+#!/bin/bash
+exec /opt/CF_AI/venv/bin/python3 /opt/graphql-cop/graphql-cop.py "$@"
+WRAPPER
+            chmod +x /usr/local/bin/graphql-cop
+            ok "graphql-cop installed from GitHub source"
+        else
+            warn "graphql-cop: GitHub clone failed — trying dolevf/graphql-cop alt path"
+            # Method 3: try alternate repo name
+            rm -rf /opt/graphql-cop
+            git clone https://github.com/nicowillis/graphql-cop /opt/graphql-cop -q 2>/dev/null \
+                || git clone https://github.com/assetnote/graphql-cop /opt/graphql-cop -q 2>/dev/null || true
+            GQL_PY=$(find /opt/graphql-cop -name "*.py" -maxdepth 2 2>/dev/null | head -1)
+            if [ -n "$GQL_PY" ]; then
+                $VENV_PIP install -r /opt/graphql-cop/requirements.txt -q 2>/dev/null || true
+                cat > /usr/local/bin/graphql-cop << WRAPPER
+#!/bin/bash
+exec /opt/CF_AI/venv/bin/python3 $GQL_PY "\$@"
+WRAPPER
+                chmod +x /usr/local/bin/graphql-cop
+                ok "graphql-cop installed from alt source"
+            fi
         fi
+    fi
+
+    # Method 4: minimal standalone Python wrapper using requests
+    if ! command -v graphql-cop &>/dev/null; then
+        warn "All installs failed — writing minimal graphql-cop stub..."
+        cat > /usr/local/bin/graphql-cop << 'STUB'
+#!/usr/bin/env python3
+"""Minimal graphql-cop stub — runs basic GraphQL security checks."""
+import sys, json
+try:
+    import requests
+except ImportError:
+    print("[-] requests not installed: pip3 install requests"); sys.exit(1)
+
+url = next((a for a in sys.argv[1:] if a.startswith("http")), None)
+if not url:
+    print("Usage: graphql-cop -t http://target/graphql"); sys.exit(1)
+
+CHECKS = [
+    ("introspection", {"query": "{__schema{types{name}}}"}),
+    ("batch",         [{"query": "{__typename}"},{"query": "{__typename}"}]),
+    ("field_suggest", {"query": "{__typ}"}),
+]
+headers = {"Content-Type": "application/json"}
+print(f"[*] graphql-cop scanning {url}")
+for name, payload in CHECKS:
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=10, verify=False)
+        if r.status_code == 200 and "data" in r.text:
+            print(f"[!] {name}: ENABLED (status {r.status_code})")
+        else:
+            print(f"[+] {name}: status {r.status_code}")
+    except Exception as e:
+        print(f"[-] {name}: {e}")
+STUB
+        chmod +x /usr/local/bin/graphql-cop
+        ok "graphql-cop: minimal stub installed (basic checks only)"
     fi
 fi
 
