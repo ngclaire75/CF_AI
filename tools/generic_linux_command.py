@@ -12,7 +12,10 @@ CWD          = os.environ.get('CFAI_CWD', '/root')
 #   --connect-timeout 8  give up on TCP connect after 8s
 #   --max-time 20        overall cap so a blocked host can't hang the agent forever
 _CURL_SPEED_FLAGS = '-4 --connect-timeout 8 --max-time 20'
-_CURL_RE = re.compile(r'\bcurl\b')
+# Only match curl when it is NOT inside a Python string literal (preceded by ' or ").
+# Without this, _patch_curl corrupts subprocess.run(['curl',...]) list args by merging
+# flags into the first element: ['curl -4 --connect-timeout 8 ...'] → FileNotFoundError.
+_CURL_RE = re.compile(r"""(?<!['"])\bcurl\b""")
 _HAS_MAX_TIME = re.compile(r'--max-time\s')
 
 def _patch_curl(cmd: str) -> str:
