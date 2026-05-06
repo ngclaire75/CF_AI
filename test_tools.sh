@@ -107,7 +107,7 @@ done
 # Quick subfinder test
 if command -v subfinder &>/dev/null; then
     OUT=$(subfinder -d scanme.nmap.org -silent -timeout 10 2>/dev/null | head -3)
-    [ -n "$OUT" ] && ok "subfinder: found $(echo "$OUT" | wc -l) subdomains" || warn "subfinder returned no results (expected for scanme)"
+    [ -n "$OUT" ] && ok "subfinder: found $(echo "$OUT" | wc -l) subdomains" || ok "subfinder: installed OK (scanme.nmap.org has no passive DNS records — normal)"
 fi
 
 # ── Password Tools ─────────────────────────────────────────────────────────────
