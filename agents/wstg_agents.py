@@ -101,9 +101,9 @@ python3 -c "import subprocess,json; url='http://web.archive.org/cdx/search/cdx?u
 # [P1-F] Wayback Machine latest snapshot
 python3 -c "import subprocess,json; raw=subprocess.run(['curl','-4','-sk','--max-time','12','--connect-timeout','8','-A','curl/7.88','https://archive.org/wayback/available?url={{domain}}'],capture_output=True,text=True,timeout=15).stdout; d=json.loads(raw) if raw.strip().startswith('{{') else {{}}; url=d.get('archived_snapshots',{{}}).get('closest',{{}}).get('url',''); print('Wayback snapshot:',url or 'none')"
 
-# [P1-G] HackerTarget — passive DNS + subdomain list
-curl -4 -s "https://api.hackertarget.com/hostsearch/?q={{domain}}" --max-time 12 -A "{_UA}" | head -25
-curl -4 -s "https://api.hackertarget.com/dnslookup/?q={{domain}}" --max-time 12 -A "{_UA}" | head -20
+# [P1-G] HackerTarget — passive DNS + subdomain list (detects rate-limit error)
+python3 -c "import subprocess; r=subprocess.run(['curl','-4','-s','--max-time','12','-A','{_UA}','https://api.hackertarget.com/hostsearch/?q={{domain}}'],capture_output=True,text=True,timeout=15).stdout.strip(); print(r[:2000]) if r and 'API count' not in r and 'error' not in r.lower()[:30] else print('(HackerTarget hostsearch: daily quota exceeded for this IP)')"
+python3 -c "import subprocess; r=subprocess.run(['curl','-4','-s','--max-time','12','-A','{_UA}','https://api.hackertarget.com/dnslookup/?q={{domain}}'],capture_output=True,text=True,timeout=15).stdout.strip(); print(r[:2000]) if r and 'API count' not in r and 'error' not in r.lower()[:30] else print('(HackerTarget dnslookup: daily quota exceeded for this IP)')"
 
 # [P1-H] Shodan InternetDB — open ports/CVEs, no API key
 python3 -c "import subprocess,json; ip_r=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=10).stdout.strip(); ip=ip_r.splitlines()[0] if ip_r else ''; print('Resolved IP:',ip); raw=subprocess.run(['curl','-4','-sk','--max-time','10','--connect-timeout','8','https://internetdb.shodan.io/'+ip],capture_output=True,text=True,timeout=15).stdout if ip else ''; d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; print('Ports:',d.get('ports')); print('Hostnames:',d.get('hostnames')); print('CPEs:',d.get('cpes')); print('Vulns:',d.get('vulns'))"
