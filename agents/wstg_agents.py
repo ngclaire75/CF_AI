@@ -89,8 +89,9 @@ python3 -c "import subprocess,re; d='{{domain}}'; parts=d.split('.'); root='.'.j
 # [P1-B] DNS records (A, AAAA, MX, TXT, NS, CNAME, SOA)
 dig {{domain}} A +short 2>/dev/null && dig {{domain}} AAAA +short 2>/dev/null && dig {{domain}} MX +short 2>/dev/null && dig {{domain}} TXT +short 2>/dev/null && dig {{domain}} NS +short 2>/dev/null && dig {{domain}} CNAME +short 2>/dev/null || echo "(no CNAME)"
 
-# [P1-C] SSL certificate (issuer, SANs, expiry) — timeout 20s prevents 130s hang
-timeout 20 openssl s_client -connect {{domain}}:443 -servername {{domain}} </dev/null 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -iE "subject:|issuer:|DNS:|not before|not after" | head -20 || echo "(TLS: timed out or no response — SNI may be required or port filtered)"
+# [P1-C] SSL certificate — curl -v sets SNI + Host header automatically (required for virtual hosting / Cloudways)
+# openssl s_client stalls on shared IPs because it does not send a Host header; curl does both correctly
+python3 -c "import subprocess; r=subprocess.run(['curl','-4','-vsk','--max-time','15','--connect-timeout','8','https://{{domain}}/'],capture_output=True,text=True,timeout=20); lines=[l.strip('* ') for l in r.stderr.splitlines() if any(k in l.lower() for k in ['subject','issuer','expire','start date','ssl cert','subjectalt','server cert','tls version','common name'])]; [print(l) for l in lines[:20]] or print('(TLS: no certificate info — server may be filtering this VPS IP; try manually: curl -vsk https://{{domain}}/)')"
 
 # [P1-D] Certificate Transparency — subdomains via curl
 python3 -c "import subprocess,json; raw=subprocess.run(['curl','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.{{domain}}&output=json'],capture_output=True,text=True,timeout=25).stdout; d=json.loads(raw) if raw.strip().startswith('[') else []; subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v)); [print(s) for s in subs[:40]] or print('(no crt.sh results)')"
