@@ -827,13 +827,15 @@ label {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 16px;
-  height: 42px;
+  padding: 10px 16px;
+  min-height: 52px;
   background: var(--bg-panel-2);
   border-bottom: 1px solid var(--border);
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .wp-result-header span { flex: 1; color: var(--green); }
@@ -863,7 +865,8 @@ label {
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 500px;
+  min-height: 120px;
+  max-height: calc(100vh - 260px);
   overflow-y: auto;
 }
 

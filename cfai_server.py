@@ -10884,14 +10884,16 @@ class CFAIChatEngine:
             cmd_str = message.strip()
             _env = dict(os.environ)
             _env['PATH'] = self._TOOL_PATH + ':' + _env.get('PATH', '')
+            # Use /root as working dir so relative paths (touch hash.txt) are writable
+            _cwd = '/root' if os.path.isdir('/root') else '/tmp'
             try:
                 result = subprocess.run(
                     ['bash', '-c', cmd_str],
-                    capture_output=True, text=True, timeout=30, env=_env
+                    capture_output=True, text=True, timeout=30, env=_env, cwd=_cwd
                 )
                 out = ((result.stdout or '') + (result.stderr or '')).strip()[:20000]
                 if not out:
-                    out = f"Command completed (exit code {result.returncode}) with no output."
+                    out = f"Command completed (exit code {result.returncode}) in {_cwd}"
                 return {
                     "success": True,
                     "response": f"```\n{out}\n```",
@@ -13253,9 +13255,19 @@ def generate_wordpress_security_report(site_url: str, scope: str, notes: str = "
             ["nikto", "-h", site_url, "-nointeractive", "-C", "all", "-maxtime", "60"],
             capture_output=True, text=True, timeout=90, env=nik_env
         )
+        _nikto_noise = (
+            'out of date', 'git pull', 'git pull to update',
+            'target ip:', 'target hostname:', 'target port:',
+            'start time:', 'end time:', '+ 0 error(s)',
+            'nikto v', '- nikto',
+        )
         for line in ((nik_result.stdout or '') + (nik_result.stderr or '')).splitlines():
-            if line.strip().startswith('+') and 'OSVDB' not in line and len(line) > 20:
-                nikto_findings.append(line.strip().lstrip('+ ').strip())
+            stripped = line.strip().lstrip('+ ').strip()
+            if (line.strip().startswith('+')
+                    and 'OSVDB' not in line
+                    and len(stripped) > 20
+                    and not any(n in stripped.lower() for n in _nikto_noise)):
+                nikto_findings.append(stripped)
     except Exception:
         pass
 
