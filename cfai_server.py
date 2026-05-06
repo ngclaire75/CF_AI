@@ -9284,7 +9284,7 @@ class CFAIChatEngine:
         'feroxbuster', 'dirsearch', 'enum4linux', 'volatility', 'binwalk',
         'exiftool', 'steghide', 'hashcat', 'john', 'dalfox', 'katana', 'httpx',
         'theharvester', 'recon-ng', 'aircrack-ng', 'medusa',
-        'msfconsole', 'msfvenom', 'searchsploit', 'trivy', 'prowler', 'checkov',
+        'msfvenom', 'searchsploit', 'trivy', 'prowler', 'checkov',
         'kube-hunter', 'kube-bench', 'docker', 'terraform', 'ansible',
         # Binary / exploitation tools
         'checksec', 'ROPgadget', 'ropper', 'objdump', 'strings', 'readelf',
@@ -9642,6 +9642,48 @@ class CFAIChatEngine:
                 return f"Permission error running '{cmd[0]}': {str(e2)}"
         except Exception as e:
             return f"Execution error: {str(e)}"
+
+    def _run_msf_rc(self, rc_path: str, timeout: int = 120) -> str:
+        """Run a Metasploit resource script non-interactively via msfconsole -q -r.
+        Suppresses banner, stty errors, and loading animation — only returns output."""
+        env = dict(os.environ)
+        full_path = self._TOOL_PATH + ':' + env.get('PATH', '')
+        env['PATH'] = full_path
+        msf_home = self._msf_home()
+        env['HOME'] = msf_home
+        env['MSF_CFGROOT_CONFIG'] = f'{msf_home}/.msf4'
+        env['BOOTSNAP_CACHE_DIR'] = '/tmp/bootsnap_cache'
+        # Prevent stty / ioctl errors — msfconsole probes the terminal
+        env['TERM'] = 'dumb'
+        env['COLUMNS'] = '220'
+        env['LINES'] = '50'
+        try:
+            result = subprocess.run(
+                ['msfconsole', '-q', '--no-readline', '-r', rc_path],
+                capture_output=True, text=True, timeout=timeout, env=env,
+            )
+            raw = (result.stdout or '') + (result.stderr or '')
+            # Strip stty noise and loading animation lines
+            lines = []
+            for line in raw.splitlines():
+                l = line.strip()
+                if not l:
+                    continue
+                if 'stty' in l and 'ioctl' in l.lower():
+                    continue
+                if re.match(r'^\[\*\]\s+S[tT]arting the Metasploit', l):
+                    continue
+                if l.startswith('msf') and l.endswith('>'):
+                    continue
+                lines.append(line)
+            out = '\n'.join(lines).strip()
+            return out[:20000] if out else f"msfconsole exited (code {result.returncode}) with no output."
+        except subprocess.TimeoutExpired:
+            return f"Metasploit timed out after {timeout}s."
+        except FileNotFoundError:
+            return "msfconsole not found. Install: apt-get install metasploit-framework"
+        except Exception as e:
+            return f"Metasploit error: {e}"
 
     def _tools_list(self, group: str) -> str:
         g = self.TOOL_GROUPS.get(group, {})
@@ -11457,15 +11499,26 @@ class CFAIChatEngine:
                         "response": f"```\n{output}\n```",
                         "suggested_tools": ["msfconsole"]}
 
-            # msfconsole: run via -q -x "commands; exit" resource script approach
-            # Build the -x command string from the user's natural language intent
+            # msfconsole: ALWAYS use -q -r resource script — never run interactively
             _msf_cmds = []
-            # Direct: user typed msfconsole -x "..." or msfconsole -r script
-            if first_word in ("msfconsole",) and len(words) > 1:
-                # Pass through as-is (user knows what they're doing)
-                raw_cmd = message.strip()
-                if "-x" in raw_cmd or "-r" in raw_cmd:
-                    output = self._run_tool(["bash", "-c", raw_cmd], timeout=120)
+            # Direct resource script: msfconsole -r /path/to/script
+            if first_word == "msfconsole" and "-r" in message:
+                rc_m = re.search(r'-r\s+(\S+)', message)
+                if rc_m and os.path.exists(rc_m.group(1)):
+                    output = self._run_msf_rc(rc_m.group(1), timeout=120)
+                    return {"success": True, "executed": True, "category": "exploitation",
+                            "response": f"```\n{output}\n```", "suggested_tools": ["searchsploit"]}
+            # Direct -x inline commands: msfconsole -x "cmd1; cmd2"
+            if first_word == "msfconsole" and "-x" in message:
+                x_m = re.search(r'-x\s+"([^"]+)"', message) or re.search(r"-x\s+'([^']+)'", message)
+                if x_m:
+                    cmds = [c.strip() for c in x_m.group(1).split(";") if c.strip()]
+                    if "exit" not in cmds:
+                        cmds.append("exit")
+                    rc_path = "/tmp/cfai_msf_inline.rc"
+                    with open(rc_path, "w") as _f:
+                        _f.write("\n".join(cmds))
+                    output = self._run_msf_rc(rc_path, timeout=120)
                     return {"success": True, "executed": True, "category": "exploitation",
                             "response": f"```\n{output}\n```", "suggested_tools": ["searchsploit"]}
 
@@ -11520,7 +11573,7 @@ class CFAIChatEngine:
                 rc_content = "\n".join(c for c in _msf_cmds if c)
                 with open(rc_path, "w") as _f:
                     _f.write(rc_content)
-                output = self._run_tool(["msfconsole", "-q", "-r", rc_path], timeout=120)
+                output = self._run_msf_rc(rc_path, timeout=120)
                 return {
                     "success": True, "executed": True, "category": "exploitation",
                     "response": f"**Metasploit** (`msfconsole -q -r {rc_path}`):\n\n```\n{output}\n```\n\n"
