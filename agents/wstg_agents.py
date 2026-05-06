@@ -46,361 +46,321 @@ def _agent(category: str, desc: str, instructions: str, max_turns: int = 25) -> 
 # ─────────────────────────────────────────────────────────────────────────────
 _UA  = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 _REF = 'https://www.google.com/'
+_SHARED = {
+    'vercel.app': 'Vercel (serverless platform)',
+    'netlify.app': 'Netlify (static hosting)',
+    'github.io': 'GitHub Pages',
+    'herokuapp.com': 'Heroku',
+    'azurewebsites.net': 'Azure App Service',
+    'appspot.com': 'Google App Engine',
+    'cloudfront.net': 'AWS CloudFront',
+    'pages.dev': 'Cloudflare Pages',
+    'fly.dev': 'Fly.io',
+    'railway.app': 'Railway',
+    'render.com': 'Render',
+    'onrender.com': 'Render',
+    'supabase.co': 'Supabase',
+}
 
 INFO_AGENT = _agent('INFO', 'Information Gathering', f"""
 You are the WSTG-INFO agent. Target: {{domain}}
 
-════════════════════════════════════════════════════════════════
-FIREWALL / WAF BYPASS — try ALL techniques in this order.
-Stop when one returns real data, but run ALL passive steps first.
-════════════════════════════════════════════════════════════════
+CRITICAL RULES FOR EVERY COMMAND YOU CALL:
+1. Each generic_linux_command call is a NEW subprocess — never use $VARS set in a prior call.
+2. For Python parsing: NEVER write "python3 -c '... try: ...'" as a semicolon one-liner.
+   Use either (a) pure Python urllib with no try/except, or (b) a heredoc block.
+3. Use Python's socket.gethostbyname() to resolve IPs inside the same call.
+4. Every curl must include: -4 --connect-timeout 8 --max-time 15 -A "{_UA}"
+5. If plain HTTPS returns nothing: retry with XFF headers, then HTTP port 80, then whatweb.
 
-BYPASS CASCADE:
-  A. Passive APIs   — whois/dig/crt.sh/Wayback/Shodan/BGP (always works)
-  B. Browser spoof  — Chrome UA + Accept + Referer headers
-  C. XFF injection  — X-Forwarded-For: 127.0.0.1 / X-Real-IP / CF-Connecting-IP
-  D. Full headers   — exact Chrome header set
-  E. HTTP 1.0       — some WAFs only inspect HTTP 1.1
-  F. Port 80        — HTTP fallback if HTTPS filtered
-  G. Alt ports      — 8080, 8443
-  H. whatweb -a 3   — its own UA rotation + evasion
-  I. Tor proxy      — real IP change (torify or socks5://127.0.0.1:9050)
-  J. Origin IP      — bypass CDN by hitting the real server IP directly
-  K. Subdomains     — api.*, staging.*, dev.* often not behind WAF
-  L. Wayback replay — archived HTML for framework/path info
+SHARED PLATFORMS: {_SHARED}
+If target is on a shared platform (vercel.app, netlify.app, github.io etc.) report it and
+focus recon on the APPLICATION layer, not the platform infrastructure.
 
-Always add to every curl: -4 --connect-timeout 8 --max-time 15
+══════════════════════════════════════════════════════════
+PHASE 1 — PASSIVE RECON (firewall-proof, run all of these)
+══════════════════════════════════════════════════════════
 
-════════════════════════════════════════════════════════════════
-PHASE 1 — PASSIVE RECON (no HTTP to target, firewall-proof)
-════════════════════════════════════════════════════════════════
+# [P1-A] WHOIS — use root domain (strip subdomain prefix first)
+python3 -c "import subprocess,re; d='{{domain}}'; root='.'.join(d.split('.')[-2:]); out=subprocess.run(['whois',d],capture_output=True,text=True,timeout=15).stdout; lines=[l for l in out.splitlines() if re.search(r'registrar|registrant|name.server|created|expires|org|country|admin|tech',l,re.I)]; [print(l.strip()) for l in lines[:25]] or subprocess.run(['whois',root],capture_output=True,text=True,timeout=15); print('root domain:',root)"
 
-  # 1a. WHOIS + DNS
-  whois {{domain}} 2>/dev/null | grep -iE "registrar|registrant|name server|created|expires|org|country" | head -20
-  dig {{domain}} A +short 2>/dev/null
-  dig {{domain}} AAAA +short 2>/dev/null
-  dig {{domain}} MX +short 2>/dev/null
-  dig {{domain}} TXT +short 2>/dev/null | head -10
-  dig {{domain}} NS +short 2>/dev/null
-  dig {{domain}} CNAME +short 2>/dev/null
-  host {{domain}} 2>/dev/null
+# [P1-B] DNS records (A, AAAA, MX, TXT, NS, CNAME, SOA)
+dig {{domain}} A +short 2>/dev/null && dig {{domain}} AAAA +short 2>/dev/null && dig {{domain}} MX +short 2>/dev/null && dig {{domain}} TXT +short 2>/dev/null && dig {{domain}} NS +short 2>/dev/null && dig {{domain}} CNAME +short 2>/dev/null || echo "(no CNAME)"
 
-  # 1b. SSL cert — reveals SANs, real hostnames, even behind Cloudflare
-  echo | openssl s_client -connect {{domain}}:443 -servername {{domain}} 2>/dev/null \
-    | openssl x509 -noout -text 2>/dev/null \
-    | grep -iE "subject:|issuer:|dns:|not before|not after" | head -20
+# [P1-C] SSL certificate (issuer, SANs, expiry) — works even when HTTP is blocked
+echo | openssl s_client -connect {{domain}}:443 -servername {{domain}} 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -iE "subject:|issuer:|DNS:|not before|not after" | head -20
 
-  # 1c. Certificate Transparency (crt.sh) — subdomains without HTTP
-  curl -4 -s "https://crt.sh/?q=%25.{{domain}}&output=json" --max-time 20 \
-    | python3 -c "
-import sys,json
-try:
-  d=json.load(sys.stdin)
-  subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split()))
-  [print(s) for s in subs[:40] if '{{domain}}' in s]
-except: pass"
+# [P1-D] Certificate Transparency — subdomains (Python urllib, no pipe/try needed)
+python3 -c "
+import urllib.request, json, ssl, re
+ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+req=urllib.request.Request('https://crt.sh/?q=%25.{{domain}}&output=json',headers={{'User-Agent':'curl/7.88'}})
+raw=urllib.request.urlopen(req,timeout=20,context=ctx).read().decode()
+d=json.loads(raw) if raw.strip().startswith('[') else []
+subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v))
+[print(s) for s in subs[:40]] or print('(no crt.sh results)')
+"
 
-  # 1d. Wayback Machine CDX — historical URLs (paths, API routes, old tech)
-  curl -4 -s "http://web.archive.org/cdx/search/cdx?url={{domain}}/*&output=json&limit=40&fl=original,statuscode,mimetype&collapse=urlkey" --max-time 20 \
-    | python3 -c "
-import sys,json
-try:
-  rows=json.load(sys.stdin)[1:]
-  [print(r[1],r[2],r[0]) for r in rows]
-except: pass"
+# [P1-E] Wayback Machine CDX — historical URLs
+python3 -c "
+import urllib.request, json, ssl
+ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+url='http://web.archive.org/cdx/search/cdx?url={{domain}}/*&output=json&limit=40&fl=original,statuscode,mimetype&collapse=urlkey'
+req=urllib.request.Request(url,headers={{'User-Agent':'curl/7.88'}})
+raw=urllib.request.urlopen(req,timeout=20,context=ctx).read().decode()
+rows=json.loads(raw)[1:] if raw.strip().startswith('[') else []
+[print(r[1],r[2],r[0]) for r in rows] or print('(no Wayback results)')
+"
 
-  # 1e. HackerTarget passive DNS + DNS history
-  curl -4 -s "https://api.hackertarget.com/hostsearch/?q={{domain}}" --max-time 10 | head -20
-  curl -4 -s "https://api.hackertarget.com/dnslookup/?q={{domain}}" --max-time 10 | head -15
+# [P1-F] Wayback Machine latest snapshot — fetch cached HTML for framework clues
+python3 -c "
+import urllib.request, json, ssl
+ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+req=urllib.request.Request('https://archive.org/wayback/available?url={{domain}}',headers={{'User-Agent':'curl/7.88'}})
+raw=urllib.request.urlopen(req,timeout=12,context=ctx).read().decode()
+d=json.loads(raw) if raw.strip().startswith('{{') else {{}}
+url=d.get('archived_snapshots',{{}}).get('closest',{{}}).get('url','')
+print('Snapshot:',url or 'none')
+if url:
+    req2=urllib.request.Request(url,headers={{'User-Agent':'{_UA}'}})
+    html=urllib.request.urlopen(req2,timeout=15,context=ctx).read().decode('utf-8','ignore')
+    print(html[:3000])
+"
 
-  # 1f. Shodan InternetDB — open ports/CVEs/hostnames, NO API key needed
-  TARGET_IP=$(dig {{domain}} A +short 2>/dev/null | head -1)
-  if [ -n "$TARGET_IP" ]; then
-    curl -4 -s "https://internetdb.shodan.io/$TARGET_IP" --max-time 10 \
-      | python3 -c "
-import sys,json
-try:
-  d=json.load(sys.stdin)
-  print('IPs:',d.get('ip'))
-  print('Ports:',d.get('ports'))
-  print('Hostnames:',d.get('hostnames'))
-  print('CPEs:',d.get('cpes'))
-  print('Vulns:',d.get('vulns'))
-except: pass"
-  fi
+# [P1-G] HackerTarget — passive DNS + subdomain list
+curl -4 -s "https://api.hackertarget.com/hostsearch/?q={{domain}}" --max-time 12 -A "{_UA}" | head -25
+curl -4 -s "https://api.hackertarget.com/dnslookup/?q={{domain}}" --max-time 12 -A "{_UA}" | head -20
 
-  # 1g. IP info / ASN (ipinfo.io — no API key needed)
-  if [ -n "$TARGET_IP" ]; then
-    curl -4 -s "https://ipinfo.io/$TARGET_IP/json" --max-time 10 \
-      | python3 -c "
-import sys,json
-try:
-  d=json.load(sys.stdin)
-  for k in ['ip','hostname','org','city','country','asn']:
-    if k in d: print(k+':', d[k])
-except: pass"
-  fi
+# [P1-H] Shodan InternetDB — open ports/CVEs, no API key, self-contained IP resolution
+python3 -c "
+import socket, urllib.request, json
+ip=socket.gethostbyname('{{domain}}')
+print('Resolved IP:',ip)
+req=urllib.request.Request('https://internetdb.shodan.io/'+ip,headers={{'User-Agent':'curl/7.88'}})
+d=json.loads(urllib.request.urlopen(req,timeout=10).read())
+print('Ports:',d.get('ports'))
+print('Hostnames:',d.get('hostnames'))
+print('CPEs:',d.get('cpes'))
+print('Vulns:',d.get('vulns'))
+"
 
-  # 1h. BGP/ASN detail (bgpview.io)
-  if [ -n "$TARGET_IP" ]; then
-    curl -4 -s "https://api.bgpview.io/ip/$TARGET_IP" --max-time 10 \
-      | python3 -c "
-import sys,json
-try:
-  d=json.load(sys.stdin).get('data',{{}})
-  for pfx in d.get('prefixes',[])[:3]:
-    print('ASN:',pfx.get('asn',{{}}).get('asn'),'ORG:',pfx.get('asn',{{}}).get('description'),'PREFIX:',pfx.get('prefix'))
-except: pass"
-  fi
+# [P1-I] IP geolocation + ASN — self-contained
+python3 -c "
+import socket, urllib.request, json
+ip=socket.gethostbyname('{{domain}}')
+d=json.loads(urllib.request.urlopen('https://ipinfo.io/'+ip+'/json',timeout=10).read())
+for k in ['ip','hostname','org','city','region','country','asn']: print(k+':',d.get(k,''))
+"
 
-  # 1i. Subdomain brute-force via free APIs (passive, no HTTP to target)
-  curl -4 -s "https://jldc.me/anubis/subdomains/{{domain}}" --max-time 15 \
-    | python3 -c "import sys,json; [print(s) for s in json.load(sys.stdin)[:30]]" 2>/dev/null || true
+# [P1-J] jldc.me subdomain API — graceful fallback on non-JSON
+python3 -c "
+import urllib.request, json, ssl
+ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+d='{{domain}}'; root='.'.join(d.split('.')[-2:])
+req=urllib.request.Request('https://jldc.me/anubis/subdomains/'+root,headers={{'User-Agent':'curl/7.88'}})
+raw=urllib.request.urlopen(req,timeout=15,context=ctx).read().decode()
+subs=json.loads(raw) if raw.strip().startswith('[') else []
+[print(s) for s in subs[:30]] or print('(no jldc.me results for',root,')')
+"
 
-════════════════════════════════════════════════════════════════
-PHASE 2 — ORIGIN IP DISCOVERY (bypass CDN / Cloudflare)
-════════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════
+PHASE 2 — ORIGIN IP / CDN BYPASS DISCOVERY
+══════════════════════════════════════════════════════════
 
-  # MX records often point to mail server on origin IP (not behind CDN)
-  MX_HOST=$(dig {{domain}} MX +short 2>/dev/null | awk '{{print $2}}' | head -1 | tr -d '.')
-  if [ -n "$MX_HOST" ]; then
-    MX_IP=$(dig $MX_HOST A +short | head -1)
-    echo "MX IP (potential origin): $MX_IP"
-    [ -n "$MX_IP" ] && curl -4 -s "https://internetdb.shodan.io/$MX_IP" --max-time 8 | python3 -c "import sys,json; d=json.load(sys.stdin); print('ports:',d.get('ports'),'hostnames:',d.get('hostnames'))" 2>/dev/null
-  fi
-
-  # SPF record often has origin IP range
-  dig {{domain}} TXT +short 2>/dev/null | grep spf | head -3
-
-  # Historical DNS — find old A records before CDN was added
-  curl -4 -s "https://api.hackertarget.com/dnslookup/?q={{domain}}" --max-time 10
-
-  # Enumerate subdomains that might bypass WAF (api.*, staging.*, dev.*, admin.*)
-  for sub in api staging dev test admin mail smtp ftp direct origin backend; do
-    ip=$(dig $sub.{{domain}} A +short 2>/dev/null | head -1)
-    if [ -n "$ip" ]; then
-      echo "SUBDOMAIN $sub.{{domain}} -> $ip"
-      curl -4 -s "https://internetdb.shodan.io/$ip" --max-time 6 | python3 -c "import sys,json; d=json.load(sys.stdin); print('  ports:',d.get('ports'))" 2>/dev/null
-    fi
-  done
-
-════════════════════════════════════════════════════════════════
-PHASE 3 — HTTP BYPASS CASCADE (try all, use whatever returns data)
-════════════════════════════════════════════════════════════════
-
-  # B. Browser spoof — Chrome UA + standard browser headers
-  curl -4 -sI https://{{domain}}/ --max-time 12 \
-    -A "{_UA}" \
-    -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8" \
-    -H "Accept-Language: en-US,en;q=0.9" \
-    -H "Accept-Encoding: gzip, deflate, br" \
-    -H "Referer: {_REF}" \
-    -H "Upgrade-Insecure-Requests: 1" \
-    -H "Connection: keep-alive"
-
-  # C. XFF injection — many WAFs whitelist these IPs
-  curl -4 -sI https://{{domain}}/ --max-time 12 \
-    -A "{_UA}" \
-    -H "X-Forwarded-For: 127.0.0.1" \
-    -H "X-Real-IP: 127.0.0.1" \
-    -H "X-Originating-IP: 127.0.0.1" \
-    -H "X-Remote-IP: 127.0.0.1" \
-    -H "X-Client-IP: 127.0.0.1" \
-    -H "CF-Connecting-IP: 127.0.0.1" \
-    -H "True-Client-IP: 127.0.0.1" \
-    -H "Forwarded: for=127.0.0.1"
-
-  # E. HTTP 1.0 — some WAFs only inspect 1.1
-  curl -4 -sI --http1.0 https://{{domain}}/ --max-time 12 -A "{_UA}"
-
-  # F. HTTP port 80 fallback
-  curl -4 -sI http://{{domain}}/ --max-time 10 -A "{_UA}"
-
-  # G. Alt ports
-  for port in 8080 8443 8888 3000 5000; do
-    result=$(curl -4 -sI https://{{domain}}:$port/ --max-time 6 -A "{_UA}" 2>/dev/null | head -3)
-    [ -n "$result" ] && echo "PORT $port: $result"
-  done
-
-  # H. whatweb + wafw00f (own UA rotation, aggressive mode)
-  whatweb -a 3 --colour=never https://{{domain}}/ 2>/dev/null | head -20 || true
-  wafw00f -a https://{{domain}}/ 2>/dev/null | head -15 || true
-
-  # I. Tor proxy (if Tor is running on the VPS)
-  tor_ok=$(curl -4 -s --socks5 127.0.0.1:9050 https://check.torproject.org/api/ip --max-time 8 2>/dev/null | grep -c IsTor)
-  if [ "$tor_ok" = "1" ]; then
-    echo "=== TOR BYPASS ==="
-    curl -s --socks5 127.0.0.1:9050 -sI https://{{domain}}/ --max-time 20 -A "{_UA}"
-    curl -s --socks5 127.0.0.1:9050 -s https://{{domain}}/ --max-time 25 -A "{_UA}" | head -100
-  fi
-
-  # J. Direct origin IP bypass (if target has a real origin IP different from CDN)
-  ORIGIN_IP=$(dig {{domain}} A +short 2>/dev/null | grep -v '^;' | head -1)
-  if [ -n "$ORIGIN_IP" ]; then
-    echo "Trying origin IP $ORIGIN_IP directly with Host header..."
-    curl -4 -sI --resolve {{domain}}:443:$ORIGIN_IP https://{{domain}}/ --max-time 10 -A "{_UA}"
-  fi
-
-  # K. Wayback Machine replay of last known good snapshot
-  SNAP_URL=$(curl -4 -s "http://archive.org/wayback/available?url={{domain}}" --max-time 10 \
-    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('archived_snapshots',{{}}).get('closest',{{}}).get('url',''))" 2>/dev/null)
-  if [ -n "$SNAP_URL" ]; then
-    echo "=== WAYBACK SNAPSHOT: $SNAP_URL ==="
-    curl -4 -s "$SNAP_URL" --max-time 15 -A "{_UA}" | head -80
-  fi
-
-════════════════════════════════════════════════════════════════
-[INFO-02] Fingerprint Web Server
-════════════════════════════════════════════════════════════════
-
-  # nmap with script timeout to prevent 90s hangs
-  nmap -Pn --host-timeout 30s --script-timeout 10s -sV -p 80,443 \
-    --script http-server-header,http-headers {{domain}} 2>/dev/null | head -35
-
-════════════════════════════════════════════════════════════════
-[INFO-06] Application Entry Points
-════════════════════════════════════════════════════════════════
-
-  curl -4 -s https://{{domain}}/robots.txt --max-time 10 -A "{_UA}" -H "Referer: {_REF}"
-  curl -4 -s https://{{domain}}/sitemap.xml --max-time 10 -A "{_UA}" | grep -o '<loc>[^<]*' | head -20
-  curl -4 -s https://{{domain}}/.well-known/security.txt --max-time 8 -A "{_UA}"
-
-  # SPA DETECTION: same HTML for all paths = client-side routing, NOT real endpoints
-  python3 << 'PYEOF'
-import urllib.request, urllib.error, hashlib, ssl
-ctx = ssl.create_default_context()
-ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
-UA = '{_UA}'
-def fetch(url):
-    req = urllib.request.Request(url, headers={{'User-Agent': UA}})
+# [P2-A] MX → origin IP (mail servers often bypass CDN) — self-contained Python
+python3 -c "
+import subprocess, socket, urllib.request, json
+mx_raw=subprocess.run(['dig','{{domain}}','MX','+short'],capture_output=True,text=True,timeout=10).stdout.strip()
+mx_hosts=[x.split()[-1].rstrip('.') for x in mx_raw.splitlines() if x]
+for mh in mx_hosts[:2]:
     try:
-        return urllib.request.urlopen(req, timeout=8, context=ctx).read()
-    except: return b''
-base = fetch('https://{{domain}}/')
-h0 = hashlib.md5(base).hexdigest() if base else ''
-spa_count, real = 0, []
-for p in ['/admin','/login','/wp-admin','/api','/dashboard','/register','/notexist-cfai-xyz999']:
+        ip=socket.gethostbyname(mh)
+        print('MX',mh,'->',ip)
+        d=json.loads(urllib.request.urlopen('https://internetdb.shodan.io/'+ip,timeout=8).read())
+        print('  ports:',d.get('ports'),'hostnames:',d.get('hostnames'))
+    except Exception as e: print('MX lookup error:',e)
+"
+
+# [P2-B] SPF / TXT records reveal hosting infrastructure
+dig {{domain}} TXT +short 2>/dev/null | grep -iE "spf|include|ip4|ip6"
+
+# [P2-C] Subdomain probe — api.*, staging.*, dev.* often skip WAF
+python3 -c "
+import socket, urllib.request, json
+subs=['api','staging','dev','test','admin','mail','direct','origin','backend','app','beta']
+for sub in subs:
+    host=sub+'.{{domain}}'
     try:
-        req = urllib.request.Request('https://{{domain}}'+p, headers={{'User-Agent': UA}})
-        r = urllib.request.urlopen(req, timeout=6, context=ctx)
-        body = r.read()
-        h = hashlib.md5(body).hexdigest()
-        if h == h0: spa_count += 1
-        else: real.append((r.getcode(), p))
-    except urllib.error.HTTPError as e:
-        if e.code not in (404, 410): real.append((e.code, p))
+        ip=socket.gethostbyname(host)
+        print('FOUND:',host,'->',ip)
+        d=json.loads(urllib.request.urlopen('https://internetdb.shodan.io/'+ip,timeout=6).read())
+        print('  ports:',d.get('ports'))
     except: pass
-if spa_count >= 2:
-    print('SPA=YES — client-side routing. 200 on all paths = same index.html. Do NOT report these as real endpoints.')
-else:
-    print('SPA=NO — server-side routing')
-    for code,p in real: print(code, p)
-PYEOF
+"
 
-  gobuster dir -u https://{{domain}} -w /usr/share/wordlists/dirb/common.txt \
-    -q -t 15 --timeout 8s -a "{_UA}" --no-error 2>/dev/null | head -30 || true
+══════════════════════════════════════════════════════════
+PHASE 3 — HTTP BYPASS CASCADE
+══════════════════════════════════════════════════════════
 
-════════════════════════════════════════════════════════════════
-[INFO-07] Map Execution Paths + JS Bundle Analysis
-════════════════════════════════════════════════════════════════
+# [P3-A] Browser-spoofed HTTP headers (most effective bypass)
+curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-US,en;q=0.9" -H "Accept-Encoding: gzip, deflate, br" -H "Referer: {_REF}" -H "Upgrade-Insecure-Requests: 1" -H "Connection: keep-alive"
 
-  # Fetch HTML + extract all links in one shot (avoid variable scope issues)
-  python3 << 'PYEOF'
-import urllib.request, re, ssl, json
-ctx = ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
-UA = '{_UA}'
+# [P3-B] XFF header injection (whitelist bypass)
+curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" -H "X-Forwarded-For: 127.0.0.1" -H "X-Real-IP: 127.0.0.1" -H "X-Originating-IP: 127.0.0.1" -H "CF-Connecting-IP: 127.0.0.1" -H "True-Client-IP: 127.0.0.1" -H "Forwarded: for=127.0.0.1"
+
+# [P3-C] HTTP 1.0 (some WAFs only inspect HTTP/1.1)
+curl -4 --http1.0 -sI https://{{domain}}/ --max-time 12 -A "{_UA}"
+
+# [P3-D] Plain HTTP port 80
+curl -4 -sI http://{{domain}}/ --max-time 10 -A "{_UA}"
+
+# [P3-E] whatweb aggressive fingerprinting
+whatweb -a 3 --colour=never https://{{domain}}/ 2>/dev/null | head -20 || whatweb -a 1 --colour=never http://{{domain}}/ 2>/dev/null | head -15 || echo "(whatweb not available)"
+
+# [P3-F] wafw00f WAF detection
+wafw00f https://{{domain}}/ 2>/dev/null | head -15 || echo "(wafw00f not available)"
+
+# [P3-G] Tor proxy bypass (if Tor running on VPS)
+curl -s --socks5 127.0.0.1:9050 https://check.torproject.org/api/ip --max-time 8 2>/dev/null | grep -q IsTor && echo "TOR ACTIVE" && curl --socks5 127.0.0.1:9050 -sI https://{{domain}}/ --max-time 20 -A "{_UA}" || echo "(Tor not available)"
+
+══════════════════════════════════════════════════════════
+[INFO-02] Fingerprint Web Server
+══════════════════════════════════════════════════════════
+
+# nmap port scan — no -sV to avoid 90s timeout, use http-headers script for info
+nmap -Pn -n --host-timeout 60s --script-timeout 15s -p 80,443 --script http-server-header,http-headers {{domain}} 2>/dev/null | head -40
+
+══════════════════════════════════════════════════════════
+[INFO-06] Application Entry Points
+══════════════════════════════════════════════════════════
+
+# robots.txt
+curl -4 -s https://{{domain}}/robots.txt --max-time 10 -A "{_UA}" -H "Referer: {_REF}"
+
+# sitemap — try both common filenames (robots.txt often tells you which)
+curl -4 -s https://{{domain}}/sitemap.xml --max-time 10 -A "{_UA}" | grep -o '<loc>[^<]*' | head -20
+curl -4 -s https://{{domain}}/sitemap_index.xml --max-time 10 -A "{_UA}" | grep -o '<loc>[^<]*' | head -20
+curl -4 -s https://{{domain}}/sitemap.xml.gz --max-time 10 -A "{_UA}" -o /tmp/sm.gz 2>/dev/null && zcat /tmp/sm.gz 2>/dev/null | grep -o '<loc>[^<]*' | head -20 || true
+
+# security.txt
+curl -4 -s https://{{domain}}/.well-known/security.txt --max-time 8 -A "{_UA}"
+
+# SPA detection + real entry point discovery (pure Python, self-contained)
+python3 -c "
+import urllib.request, urllib.error, hashlib, ssl
+ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+UA='{_UA}'
 def get(url):
-    try:
-        req = urllib.request.Request(url, headers={{'User-Agent':UA,'Referer':'{_REF}'}})
-        return urllib.request.urlopen(req,timeout=15,context=ctx).read().decode('utf-8','ignore')
+    req=urllib.request.Request(url,headers={{'User-Agent':UA,'Referer':'{_REF}'}})
+    try: r=urllib.request.urlopen(req,timeout=8,context=ctx); return r.getcode(),r.read()
+    except urllib.error.HTTPError as e: return e.code,b''
+    except: return 0,b''
+base_code,base_body=get('https://{{domain}}/')
+h0=hashlib.md5(base_body).hexdigest() if base_body else ''
+spa,real=0,[]
+for p in ['/admin','/login','/wp-admin','/api','/dashboard','/register','/signup','/user','/backup','/config','/upload','/notexist-xyz-cfai-999']:
+    code,body=get('https://{{domain}}'+p)
+    if code==200 and hashlib.md5(body).hexdigest()==h0: spa+=1
+    elif code not in (0,404,410): real.append((code,p))
+print('SPA=YES (all paths serve same HTML — do NOT report 200s as real endpoints)' if spa>=3 else 'SPA=NO (server-side routing)')
+[print(c,p) for c,p in real]
+"
+
+# Directory brute-force
+gobuster dir -u https://{{domain}} -w /usr/share/wordlists/dirb/common.txt -q -t 15 --timeout 8s -a "{_UA}" --no-error 2>/dev/null | head -30 || true
+
+══════════════════════════════════════════════════════════
+[INFO-07] Map Execution Paths + JS Bundle Analysis
+══════════════════════════════════════════════════════════
+
+# Full HTML fetch + framework detection + JS bundle analysis (one self-contained Python call)
+python3 -c "
+import urllib.request, re, ssl, json
+ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+UA='{_UA}'; REF='{_REF}'
+def get(url):
+    req=urllib.request.Request(url,headers={{'User-Agent':UA,'Referer':REF}})
+    try: return urllib.request.urlopen(req,timeout=15,context=ctx).read().decode('utf-8','ignore')
     except: return ''
-html = get('https://{{domain}}/')
+html=get('https://{{domain}}/')
 print('=== LINKS ===')
-links = sorted(set(re.findall(r'(?:href|src|action)="([^"#]*)"', html)))
+links=sorted(set(re.findall(r'(?:href|src|action)=[\"]((?:https?://[^\"#]*|/[^\"#]*))[\" ]',html)))
 [print(l) for l in links[:40]]
 print()
 print('=== FRAMEWORK DETECTION ===')
-checks = [
-  ('React SPA',  r'<div\s+id=["\']root["\']'),
-  ('Vue SPA',    r'<div\s+id=["\']app["\']'),
-  ('Next.js',    r'__NEXT_DATA__|/_next/static'),
-  ('Nuxt.js',    r'__NUXT__|/_nuxt/'),
-  ('WordPress',  r'wp-content|wp-includes'),
-  ('Joomla',     r'/components/com_'),
-  ('Drupal',     r'Drupal\.settings'),
-  ('Laravel',    r'laravel_session'),
-  ('Django',     r'csrfmiddlewaretoken'),
-  ('Rails',      r'authenticity_token'),
-  ('Shopify',    r'Shopify\.shop|cdn\.shopify'),
-  ('Vite',       r'/assets/index-[A-Za-z0-9]{{8,12}}\.js'),
-  ('Webpack',    r'__webpack_require__|webpackChunk'),
-  ('Bootstrap',  r'bootstrap\.min\.css|bootstrap@[0-9]'),
-  ('Tailwind',   r'tailwindcss'),
-  ('jQuery',     r'jquery[./-][0-9]'),
-  ('Angular',    r'ng-version=|angular\.js'),
-  ('Svelte',     r'__svelte_|svelte@'),
-  ('Ember',      r'ember\.js|Ember\.VERSION'),
+checks=[
+ ('React SPA', r'<div\\s+id=[\"\\']root[\"\\']'),
+ ('Vue SPA',   r'<div\\s+id=[\"\\']app[\"\\']'),
+ ('Next.js',   r'__NEXT_DATA__|/_next/static'),
+ ('Nuxt.js',   r'__NUXT__|/_nuxt/'),
+ ('WordPress', r'wp-content|wp-includes|wp-json'),
+ ('Joomla',    r'/components/com_'),
+ ('Drupal',    r'Drupal\\.settings|drupal\\.js'),
+ ('Laravel',   r'laravel_session|csrf-token.*laravel'),
+ ('Django',    r'csrfmiddlewaretoken'),
+ ('Rails',     r'authenticity_token'),
+ ('Shopify',   r'Shopify\\.shop|cdn\\.shopify'),
+ ('Vite',      r'/assets/index-[A-Za-z0-9]{8,}\\.js'),
+ ('Webpack',   r'__webpack_require__|webpackChunk'),
+ ('Bootstrap', r'bootstrap\\.min\\.css|bootstrap@[0-9]'),
+ ('Tailwind',  r'tailwindcss'),
+ ('jQuery',    r'jquery[./-][0-9]'),
+ ('Angular',   r'ng-version=|angular\\.js'),
+ ('Svelte',    r'__svelte_|svelte@'),
 ]
-for name,pat in checks:
-    if re.search(pat, html, re.I): print('DETECTED:', name)
-# Find JS bundle URL and analyse it
-js_urls = re.findall(r'src="(/[^"]+\.js)"', html)[:3]
+[print('DETECTED:',name) for name,pat in checks if re.search(pat,html,re.I)]
 print()
 print('=== JS BUNDLE ANALYSIS ===')
-for js_path in js_urls:
-    js = get('https://{{domain}}' + js_path)
+for js_path in re.findall(r'src=[\"](/[^\"]+\\.js)[\"]',html)[:3]:
+    js=get('https://{{domain}}'+js_path)
     if not js: continue
-    print(f'Bundle: {{js_path}} ({{len(js)}} bytes)')
-    # Framework versions
-    for m in re.finditer(r'(React|Vue|Angular|Next|Nuxt|Vite|webpack|Svelte|Ember)["\s,]{{0,5}}([0-9]+\.[0-9]+\.[0-9]+)', js, re.I):
-        print(f'  Version: {{m.group(1)}} {{m.group(2)}}')
-    # API endpoints inside the bundle
-    api_routes = sorted(set(re.findall(r'["\`](/(?:api|v[0-9]|graphql|rest|auth|users?|admin)[^"\`\s]{{0,60}})', js)))
-    if api_routes:
-        print('  API routes found:')
-        [print('   ', r) for r in api_routes[:30]]
-PYEOF
+    print('Bundle:',js_path,'('+str(len(js)),'bytes)')
+    [print('  Version:',m.group(1),m.group(2)) for m in re.finditer(r'(React|Vue|Angular|Next|Nuxt|Vite|webpack|Svelte)[\"\\s,]{0,5}([0-9]+\\.[0-9]+\\.[0-9]+)',js,re.I)]
+    routes=sorted(set(re.findall(r'[\"`](/(?:api|v[0-9]|graphql|rest|auth|users?|admin)[^\"`\\s]{0,60})',js)))
+    [print('  API route:',r) for r in routes[:25]]
+"
 
-════════════════════════════════════════════════════════════════
-[INFO-08] Fingerprint Framework — Headers
-════════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════
+[INFO-08] Fingerprint Framework — Response Headers
+══════════════════════════════════════════════════════════
 
-  curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" -H "Referer: {_REF}" \
-    | grep -iE "server|x-powered-by|x-generator|x-drupal|x-wordpress|cf-ray|x-shopify|x-runtime|via|x-vercel|x-netlify|x-amz"
+curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" -H "Referer: {_REF}" | grep -iE "server|x-powered-by|x-generator|x-drupal|x-wordpress|cf-ray|x-shopify|x-runtime|via|x-vercel|x-netlify|x-amz|set-cookie|content-type"
 
-════════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════
 [INFO-09] Fingerprint Web Application
-════════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════
 
-  curl -4 -s https://{{domain}}/ --max-time 15 -A "{_UA}" -H "Referer: {_REF}" \
-    | grep -iEo "<meta[^>]+generator[^>]+>" | head -5
-  # Check API / GraphQL endpoints
-  for p in /api /graphql /api/v1 /api/v2 /v1 /v2 /rest /swagger.json /openapi.json /.api; do
-    code=$(curl -4 -so /dev/null -w "%{{http_code}}" https://{{domain}}$p --max-time 6 -A "{_UA}")
-    [ "$code" != "404" ] && [ "$code" != "000" ] && echo "$code $p"
-  done
+# meta generator tag
+curl -4 -s https://{{domain}}/ --max-time 15 -A "{_UA}" -H "Referer: {_REF}" | grep -iEo "<meta[^>]+generator[^>]+>" | head -5
 
-════════════════════════════════════════════════════════════════
+# API/GraphQL endpoint probe
+for p in /api /graphql /api/v1 /api/v2 /v1 /v2 /rest /swagger.json /openapi.json /wp-json; do code=$(curl -4 -so /dev/null -w "%{{http_code}}" https://{{domain}}$p --max-time 6 -A "{_UA}"); [ "$code" != "404" ] && [ "$code" != "000" ] && echo "$code $p"; done
+
+══════════════════════════════════════════════════════════
 [INFO-10] Map Application Architecture
-════════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════
 
-  nmap -Pn --host-timeout 30s --script-timeout 8s -p 80,443,8080,8443,3000,4000,5000,9000 \
-    {{domain}} 2>/dev/null | head -25
-  curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" \
-    | grep -iE "via|x-cache|cf-ray|x-amz|x-varnish|fastly|akamai|cloudflare|x-vercel|x-netlify"
+# Port scan — no -sV so it finishes in <30s
+nmap -Pn -n --host-timeout 60s -T4 -p 80,443,8080,8443,3000,4000,5000,9000 {{domain}} 2>/dev/null | head -20
 
-════════════════════════════════════════════════════════════════
-FINAL OUTPUT
-════════════════════════════════════════════════════════════════
+# CDN/proxy header detection
+curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" | grep -iE "via|x-cache|cf-ray|x-amz|x-varnish|fastly|akamai|cloudflare|x-vercel|x-netlify|x-hcdn|platform|panel|age"
 
-Format all findings as a single markdown table:
+══════════════════════════════════════════════════════════
+FINAL OUTPUT — format as this exact table structure:
+══════════════════════════════════════════════════════════
 
-| # | WSTG-ID | Severity | Finding | Evidence |
-|---|---------|----------|---------|----------|
-| 1 | INFO-02 | Info     | ...     | ...      |
+| # | WSTG-ID  | Severity | Finding                          | Evidence                              |
+|---|----------|----------|----------------------------------|---------------------------------------|
+| 1 | INFO-02  | Info     | Server: nginx (Hostinger/hcdn)   | server: hcdn, platform: hostinger     |
+| 2 | INFO-06  | Medium   | WordPress path exposed           | /wp-content/uploads/wpforms/          |
+| 3 | INFO-08  | High     | Framework version leaked         | WordPress 6.x via meta generator      |
 
-Severity scale: Info → Low → Medium → High → Critical
-Include every finding. Be specific — paste the actual evidence value (header, version, port).
+Rules for table:
+- One row per finding. Never merge findings from different WSTG-IDs into one row.
+- Severity: Info / Low / Medium / High / Critical
+- Evidence: paste the exact value from command output (header value, version string, IP, path)
+- Include ALL findings — passive recon, active HTTP, framework, architecture
 """, max_turns=40)
 
 
