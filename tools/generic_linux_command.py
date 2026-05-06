@@ -5,7 +5,7 @@ import shlex
 import threading
 from sdk.agents import function_tool
 
-TOOL_TIMEOUT = int(os.environ.get('CFAI_TOOL_TIMEOUT', '120'))
+TOOL_TIMEOUT = int(os.environ.get('CFAI_TOOL_TIMEOUT', '300'))
 CWD          = os.environ.get('CFAI_CWD', '/root')
 
 

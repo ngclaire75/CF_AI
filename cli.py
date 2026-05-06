@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
-"""CF_AI CLI v2.0 — Autonomous Cybersecurity Agent REPL.
-
-Entry point for the command-line interface. Implements the CAI architecture:
-  - ReACT agent loop (Reasoning + Action)
-  - Human-In-The-Loop (HITL) via Ctrl+C
-  - Grey ANSI theme
-  - All commands execute real tools; results recorded to dashboard
+"""CF_AI CLI — Autonomous Cybersecurity Agent REPL.
 
 Usage:
-    python3 cli.py                   # Interactive REPL
-    python3 cli.py -m gpt-4o         # Start with a specific model
-    python3 cli.py -e "scan 192.0.2.1"  # Execute one command and exit
+    python3 cli.py                      # Interactive REPL
+    python3 cli.py -m gpt-4o            # Start with a specific model
+    python3 cli.py -e "agent pentest https://example.com"
 """
 from __future__ import annotations
 import os
@@ -18,36 +12,38 @@ import sys
 import readline
 import argparse
 import traceback
-import signal
 import textwrap
 
-# ── Bootstrap: load .env before anything else ────────────────────────────────
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from util import load_env, server_url
+    from util import load_env
     load_env()
 except Exception:
     pass
 
 from repl import aesthetics as A
 import repl.commands as C
-from internal.endpoints import get_client
-from internal.audit import get_audit
+
+# ── Phoenix / OTel tracing (opt-in via CFAI_TRACING=1) ───────────────────────
+try:
+    from sdk.tracing import setup as _tracing_setup, phoenix_url as _phoenix_url
+    _tracing_active = _tracing_setup()
+except Exception:
+    _tracing_active = False
+    _phoenix_url    = lambda: ''
 
 
-# ── REPL state ────────────────────────────────────────────────────────────────
+# ── REPL ──────────────────────────────────────────────────────────────────────
 
 class CFAI_REPL:
-    HISTORY_FILE = os.path.expanduser('~/.cfai_history')
-    MODEL_DEFAULT = os.environ.get('CAI_MODEL', 'claude-sonnet-4-6')
+    HISTORY_FILE  = os.path.expanduser('~/.cfai_history')
+    MODEL_DEFAULT = os.environ.get('CAI_MODEL', 'gpt-4o')
 
     def __init__(self, model: str = ''):
         self.model   = model or self.MODEL_DEFAULT
         self.running = True
         self._setup_readline()
-
-    # ── Readline ──────────────────────────────────────────────────────────────
 
     def _setup_readline(self):
         try:
@@ -66,40 +62,30 @@ class CFAI_REPL:
             pass
 
     _KEYWORDS = [
-        'run', 'scan', 'recon', 'agent', 'chat', 'sites', 'site add',
-        'site rm', 'findings', 'fix', 'stats', 'jobs', 'metrics',
-        'model', 'history', 'clear', 'help', 'exit', 'quit',
-        # roles
+        'agent', 'recon', 'chat', 'model', 'history', 'clear', 'help', 'exit', 'quit',
         'pentest', 'ctf', 'exploit', 'analyst',
-        # common tools
         'nmap', 'nikto', 'nuclei', 'gobuster', 'wpscan', 'sqlmap',
-        'subfinder', 'amass', 'wafw00f', 'whatweb', 'hydra', 'john',
-        'hashcat', 'ffuf', 'dirb', 'curl', 'wget', 'dig',
+        'subfinder', 'amass', 'wafw00f', 'whatweb', 'hydra', 'ffuf',
+        'curl', 'wget', 'dig', 'whois',
     ]
 
     def _completer(self, text: str, state: int) -> str | None:
         opts = [k for k in self._KEYWORDS if k.startswith(text)]
         return opts[state] if state < len(opts) else None
 
-    # ── Prompt ────────────────────────────────────────────────────────────────
-
     def _prompt(self) -> str:
         short = self.model.replace('claude-', '').replace('gpt-', '')
         return A.prompt(short)
-
-    # ── Dispatch ──────────────────────────────────────────────────────────────
 
     def dispatch(self, line: str):
         line = line.strip()
         if not line:
             return
 
-        # Tokenise
         parts = line.split(maxsplit=1)
         verb  = parts[0].lower()
         args  = parts[1] if len(parts) > 1 else ''
 
-        # ── Built-in commands ─────────────────────────────────────────────
         if verb in ('exit', 'quit', 'q'):
             self.running = False
             return
@@ -120,50 +106,6 @@ class CFAI_REPL:
             self.model = C.cmd_model(args, set_cb=lambda m: setattr(self, 'model', m)) or self.model
             return
 
-        if verb == 'stats':
-            C.cmd_stats(args)
-            return
-
-        if verb == 'jobs':
-            C.cmd_jobs(args)
-            return
-
-        if verb == 'metrics':
-            C.cmd_metrics(args)
-            return
-
-        # ── Sites ─────────────────────────────────────────────────────────
-        if verb == 'sites':
-            C.cmd_sites(args)
-            return
-
-        if verb == 'site':
-            sub_parts = args.split(maxsplit=1)
-            sub  = sub_parts[0].lower() if sub_parts else ''
-            rest = sub_parts[1] if len(sub_parts) > 1 else ''
-            if sub == 'add':
-                C.cmd_site_add(rest)
-            elif sub in ('rm', 'remove', 'del', 'delete'):
-                C.cmd_site_rm(rest)
-            else:
-                _print_usage('site add <url> | site rm <id>')
-            return
-
-        # ── Scan ──────────────────────────────────────────────────────────
-        if verb == 'scan':
-            C.cmd_scan(args)
-            return
-
-        # ── Findings ──────────────────────────────────────────────────────
-        if verb == 'findings':
-            C.cmd_findings(args)
-            return
-
-        if verb == 'fix':
-            C.cmd_fix(args)
-            return
-
-        # ── AI ────────────────────────────────────────────────────────────
         if verb == 'agent':
             C.cmd_agent(args, model=self.model)
             return
@@ -176,29 +118,13 @@ class CFAI_REPL:
             C.cmd_recon(args, model=self.model)
             return
 
-        # ── Shell shorthand ───────────────────────────────────────────────
-        if verb == 'run' or line.startswith('$ '):
-            cmd = args if verb == 'run' else line[2:]
-            C.cmd_run(cmd)
-            return
-
-        # ── Fallback: run as shell command ────────────────────────────────
+        # Anything else → run as local shell command
         C.cmd_shell(line)
-
-    # ── Main loop ─────────────────────────────────────────────────────────────
 
     def start(self):
         print(A.banner())
-
-        # Dashboard connectivity check
-        try:
-            if get_client().ping():
-                print(f'  {A.ok("●")}  Dashboard connected at {server_url()}\n')
-            else:
-                print(f'  {A.warn("●")}  Dashboard not reachable — start cfai_server.py first\n')
-        except Exception:
-            print(f'  {A.warn("●")}  Dashboard offline\n')
-
+        if _tracing_active:
+            print(f'  {A.ok("●")}  Phoenix tracing active → {_phoenix_url()}\n')
         print(f'  {A.dim("Model: " + self.model + "   Type help for commands.")}\n')
 
         while self.running:
@@ -226,10 +152,6 @@ class CFAI_REPL:
         print(f'\n  {A.dim("Goodbye.")}\n')
 
 
-def _print_usage(msg: str):
-    print(f'  {A.dim("Usage: " + msg)}')
-
-
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
@@ -241,16 +163,13 @@ def main():
             Examples:
               python3 cli.py
               python3 cli.py -m gpt-4o
-              python3 cli.py -e "scan https://example.com"
+              python3 cli.py -e "agent pentest https://example.com"
+              python3 cli.py -e "recon target.com"
         '''),
     )
-    parser.add_argument('-m', '--model',   default='', help='AI model to use')
-    parser.add_argument('-e', '--exec',    default='', help='Execute one command and exit')
-    parser.add_argument('-s', '--server',  default='', help='Dashboard server URL (default: localhost:8888)')
+    parser.add_argument('-m', '--model', default='', help='AI model (gpt-4o, claude-sonnet-4-6, llama3.2, …)')
+    parser.add_argument('-e', '--exec',  default='', help='Execute one command and exit')
     args = parser.parse_args()
-
-    if args.server:
-        os.environ['CFAI_SERVER'] = args.server
 
     repl = CFAI_REPL(model=args.model)
 

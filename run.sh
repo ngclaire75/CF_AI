@@ -1,40 +1,23 @@
 #!/bin/bash
+# CF_AI CLI launcher
+# Usage: bash run.sh [-m gpt-4o] [-e "agent pentest https://example.com"]
 
-VENV_DIR="$(dirname "$0")/venv"
-PYTHON="$VENV_DIR/bin/python3"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "Starting CF_AI Server..."
-echo "========================"
-
-if [ ! -f .env ]; then
-    echo "Warning: .env file not found. Using default settings."
-    echo "Copy .env.example to .env and configure as needed."
+# Load .env if present
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
 fi
 
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-fi
+# Prefer venv python, fall back to system python3
+PYTHON="$SCRIPT_DIR/venv/bin/python3"
+[ -f "$PYTHON" ] || PYTHON="$(command -v python3)"
 
-# Use venv if available, fall back to system python3
-if [ -f "$PYTHON" ]; then
-    PY="$PYTHON"
-else
-    if ! command -v python3 &>/dev/null; then
-        echo "Error: Python3 is not installed"
-        exit 1
-    fi
-    PY="python3"
-fi
-
-# Quick import check
-$PY -c "import flask" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "Error: Flask not installed. Run: sudo ./setup.sh"
+if [ -z "$PYTHON" ]; then
+    echo "Error: python3 not found"
     exit 1
 fi
 
-echo "Starting server on ${CFAI_HOST:-0.0.0.0}:${CFAI_PORT:-8888}"
-echo "Press Ctrl+C to stop"
-echo ""
-
-$PY cfai_server.py
+exec "$PYTHON" "$SCRIPT_DIR/cli.py" "$@"

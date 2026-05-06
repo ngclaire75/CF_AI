@@ -45,30 +45,25 @@ BANNER = f"""{GREY}
 """
 
 HELP_TEXT = f"""{GREY}
-  {WHITE}Commands:{R}
-  {LGREY}  run <cmd>               {DIM}Execute a shell command (alias: $ <cmd>){R}
-  {LGREY}  scan <site_id|url>      {DIM}Run security scan on a site{R}
-  {LGREY}  recon <target>          {DIM}Run recon agent on a target{R}
-  {LGREY}  agent [role] <message>  {DIM}Spawn AI agent (roles: pentest ctf recon exploit){R}
+  {WHITE}Agent commands:{R}
+  {LGREY}  agent [role] <target>   {DIM}Spawn AI pentest agent  (roles: pentest ctf recon exploit analyst){R}
+  {LGREY}  recon <target>          {DIM}Passive + active reconnaissance{R}
   {LGREY}  chat <message>          {DIM}Single AI message (no tools){R}
 
-  {WHITE}Dashboard:{R}
-  {LGREY}  sites                   {DIM}List connected sites{R}
-  {LGREY}  site add <url>          {DIM}Add a site to monitor{R}
-  {LGREY}  site rm <id>            {DIM}Remove a site{R}
-  {LGREY}  findings [site_id]      {DIM}Show security findings{R}
-  {LGREY}  fix <finding_id>        {DIM}Apply auto-fix for a finding{R}
-  {LGREY}  stats                   {DIM}Dashboard statistics{R}
-  {LGREY}  jobs                    {DIM}Show orchestrator job queue{R}
-  {LGREY}  metrics                 {DIM}Show telemetry counters{R}
+  {WHITE}Examples:{R}
+  {LGREY}  agent pentest https://example.com{R}
+  {LGREY}  agent ctf Find the flag in the web app at 10.0.0.1{R}
+  {LGREY}  recon example.com{R}
+  {LGREY}  nmap -sV 10.0.0.1          {DIM}(any shell command runs directly){R}
+  {LGREY}  curl -I https://example.com{R}
 
   {WHITE}REPL:{R}
-  {LGREY}  model [name]            {DIM}Show/set AI model (claude/gpt-4o/etc.){R}
+  {LGREY}  model [name]            {DIM}Show/set AI model (gpt-4o, claude-sonnet-4-6, llama3.2…){R}
   {LGREY}  history                 {DIM}Show command history{R}
   {LGREY}  clear                   {DIM}Clear screen{R}
   {LGREY}  exit                    {DIM}Quit{R}
 
-  {GREY}  Unrecognized input is executed as a shell command.{R}
+  {GREY}  Unrecognized input is executed as a local shell command.{R}
   {GREY}  During agent runs, press Ctrl+C for Human-In-The-Loop (HITL).{R}
 """
 

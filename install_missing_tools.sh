@@ -478,10 +478,19 @@ fi
 
 # ── Python AI packages (CF_AI core) ──────────────────────────────────────────
 echo "[*] Installing Python AI packages..."
-pip3 install --break-system-packages --upgrade anthropic openai 2>/dev/null \
-    || pip3 install anthropic openai 2>/dev/null \
-    || warn "Failed to install anthropic/openai — run: pip3 install --break-system-packages anthropic openai"
-ok "anthropic + openai Python packages installed"
+pip3 install --break-system-packages --upgrade openai 2>/dev/null \
+    || warn "Failed to install openai — run: pip3 install --break-system-packages openai"
+ok "openai Python package installed"
+
+# Phoenix AI observability (optional — enable with CFAI_TRACING=1 in .env)
+echo "[*] Installing Phoenix/OTel tracing packages..."
+pip3 install --break-system-packages \
+    arize-phoenix \
+    openinference-instrumentation-openai \
+    opentelemetry-sdk \
+    "opentelemetry-exporter-otlp-proto-http>=1.20.0" 2>/dev/null \
+    && ok "Phoenix + OTel tracing installed" \
+    || warn "Phoenix install failed — CFAI_TRACING=1 will not work until fixed"
 
 # ── Verify installs ───────────────────────────────────────────────────────────
 echo ""
@@ -509,5 +518,9 @@ done
 
 echo ""
 echo "[*] Results: $PASS installed, $FAIL missing"
-echo "[*] Done. Restart CF_AI:"
-echo "      pkill -f cfai_server.py; bash /opt/CF_AI/run.sh"
+echo "[*] Done. Start CF_AI:"
+echo "      bash /opt/CF_AI/run.sh"
+echo ""
+echo "[*] To enable Phoenix tracing:"
+echo "      echo 'CFAI_TRACING=1' >> /opt/CF_AI/.env"
+echo "      bash /opt/CF_AI/run.sh   # Phoenix opens at http://localhost:6006"

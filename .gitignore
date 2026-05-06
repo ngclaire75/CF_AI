@@ -64,9 +64,8 @@ screenshots/
 *.jpg
 *.jpeg
 
-# Sensitive files
+# Sensitive files — keep .env.example in repo (it's the template)
 .env
-.env.example
 secrets.json
 api_keys.json
 
