@@ -76,13 +76,23 @@ def cmd_agent(args: str, model: str = ''):
     roles  = ('pentest', 'ctf', 'recon', 'exploit', 'analyst')
     if tokens and tokens[0] in roles:
         role    = tokens[0]
-        message = tokens[1] if len(tokens) > 1 else 'Begin reconnaissance and report your findings.'
+        message = tokens[1] if len(tokens) > 1 else ''
     else:
         role    = 'pentest'
-        message = args.strip() or 'Begin reconnaissance and report your findings.'
+        message = args.strip()
+
+    # Extract target URL/domain from the message so the prompt can substitute it
+    target = ''
+    for word in message.split():
+        if '.' in word and not word.startswith('-'):
+            target = word.rstrip('/')
+            break
+
+    if not message:
+        message = f'Run all WSTG checks on {target}.' if target else 'Begin reconnaissance and report your findings.'
 
     eff_model = model or os.environ.get('CAI_MODEL', 'gpt-4o')
-    system    = get_prompt(role)
+    system    = get_prompt(role, target=target)
 
     print(f'\n  {A.dim(f"Agent: {role}  model: {eff_model}")}\n'
           f'  {A.dim("Press Ctrl+C at any time for Human-In-The-Loop (HITL)")}\n')
@@ -119,7 +129,7 @@ def cmd_recon(args: str, model: str = ''):
     if not target:
         _print_err('Usage: recon <target>')
         return
-    cmd_agent(f'recon Perform comprehensive reconnaissance on {target}', model=model)
+    cmd_agent(f'recon {target}', model=model)
 
 
 def cmd_chat(args: str, model: str = ''):
