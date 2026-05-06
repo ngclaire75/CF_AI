@@ -301,7 +301,8 @@ def cmd_agent(args: str, model: str = ''):
         print(f'\n  {A.warn("[HITL] Agent interrupted.")}')
 
     elapsed = time.time() - t0
-    print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
+    if elapsed > 0.5:
+        print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
 
 
 def cmd_chat(args: str, model: str = ''):

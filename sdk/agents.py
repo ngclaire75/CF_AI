@@ -165,14 +165,23 @@ class Runner:
     @classmethod
     def _run_anthropic(cls, agent: Agent, message: str,
                        on_text, on_tool, on_result, max_turns) -> str:
+
+        def _emit(msg: str):
+            if on_text:
+                on_text(msg)
+            else:
+                print(msg)
+
         try:
             import anthropic as _ant
         except ImportError:
-            return 'anthropic package not installed. Run: pip install anthropic'
+            _emit('anthropic package not installed. Run: pip3 install --break-system-packages anthropic')
+            return ''
 
         key = os.environ.get('ANTHROPIC_API_KEY', '')
         if not key:
-            return 'ANTHROPIC_API_KEY not set in .env'
+            _emit('ANTHROPIC_API_KEY not set — add it to /opt/CF_AI/.env and restart')
+            return ''
 
         client   = _ant.Anthropic(api_key=key)
         messages = [{'role': 'user', 'content': message}]
@@ -184,20 +193,23 @@ class Runner:
         while turns < max_turns:
             turns += 1
             try:
-                resp = client.messages.create(
+                create_kwargs = dict(
                     model=agent.model,
                     max_tokens=4096,
                     system=agent.instructions,
                     messages=messages,
-                    tools=tools or _ant.NOT_GIVEN,
                 )
+                if tools:
+                    create_kwargs['tools'] = tools
+                resp = client.messages.create(**create_kwargs)
             except KeyboardInterrupt:
                 final = _hitl_pause(messages)
                 if final is None:
                     return '[Agent aborted by operator]'
                 continue
             except Exception as exc:
-                return f'[API error: {exc}]'
+                _emit(f'[API error: {exc}]')
+                return ''
 
             # Extract and display text
             text_parts = [b.text for b in resp.content if b.type == 'text']
@@ -257,14 +269,23 @@ class Runner:
     @classmethod
     def _run_openai(cls, agent: Agent, message: str,
                     on_text, on_tool, on_result, max_turns) -> str:
+
+        def _emit(msg: str):
+            if on_text:
+                on_text(msg)
+            else:
+                print(msg)
+
         try:
             from openai import OpenAI
         except ImportError:
-            return 'openai package not installed. Run: pip install openai'
+            _emit('openai package not installed. Run: pip3 install --break-system-packages openai')
+            return ''
 
         key = os.environ.get('OPENAI_API_KEY', '')
         if not key:
-            return 'OPENAI_API_KEY not set in .env'
+            _emit('OPENAI_API_KEY not set — add it to /opt/CF_AI/.env and restart')
+            return ''
 
         client   = OpenAI(api_key=key)
         messages = [
@@ -291,7 +312,8 @@ class Runner:
                     return '[Agent aborted by operator]'
                 continue
             except Exception as exc:
-                return f'[API error: {exc}]'
+                _emit(f'[API error: {exc}]')
+                return ''
 
             choice = resp.choices[0]
             msg    = choice.message
