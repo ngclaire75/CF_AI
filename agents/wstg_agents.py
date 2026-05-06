@@ -16,7 +16,12 @@ RULES:
 - Execute every check with generic_linux_command using real commands.
 - Never fabricate findings — only report what actual command output shows.
 - If a tool is missing, substitute: curl / nmap / python3 one-liners.
+- Always add -4 --connect-timeout 8 to curl (forces IPv4, avoids 120s IPv6 hang).
 - Add -Pn to nmap if host appears down. Use --max-time on curl.
+- If curl returns no output or exit code 28, immediately retry with:
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    -H "Referer: https://www.google.com/"
+  Then try X-Forwarded-For: 127.0.0.1 bypass. Then fall back to passive recon.
 - After all checks output: FINDING | WSTG-ID | Severity | Evidence
 """
 
@@ -36,41 +41,117 @@ def _agent(category: str, desc: str, instructions: str) -> Agent:
 # WSTG-INFO  (INFO-02, 06, 07, 08, 09, 10)
 # ─────────────────────────────────────────────────────────────────────────────
 INFO_AGENT = _agent('INFO', 'Information Gathering', """
-You are the WSTG-INFO agent. Run these 6 checks on {domain}:
+You are the WSTG-INFO agent. Target: {domain}
+
+IMPORTANT — FIREWALL/WAF STRATEGY:
+If direct curl/HTTP returns no output or times out, the target is blocking the VPS IP.
+Switch immediately to:
+  1. Passive recon (whois, DNS, crt.sh, Wayback Machine — no HTTP needed)
+  2. Browser-spoofed curl (-A with real UA + Referer header)
+  3. X-Forwarded-For bypass headers
+  4. whatweb / wafw00f (use their own bypass modes)
+Never give up after one failure — try all fallbacks before reporting blocked.
+
+─── STEP 0 — PASSIVE RECON (always run first, works through any firewall) ───
+
+  whois {domain} 2>/dev/null | grep -iE "registrar|registrant|name server|created|expires|admin|tech|org" | head -20
+  dig {domain} ANY +short 2>/dev/null | head -20
+  dig {domain} MX +short 2>/dev/null
+  dig {domain} TXT +short 2>/dev/null | head -10
+  host {domain} 2>/dev/null
+
+  # Certificate transparency — reveals subdomains and server info without HTTP
+  curl -s "https://crt.sh/?q={domain}&output=json" --max-time 15 2>/dev/null \
+    | python3 -c "
+import sys,json
+try:
+  d=json.load(sys.stdin)
+  subs=sorted(set(e['name_value'].replace('*.','') for e in d if '{domain}' in e.get('name_value','')))
+  [print(s) for s in subs[:30]]
+except Exception as e: print(e)"
+
+  # Wayback Machine CDX — historical URLs cached without live connection
+  curl -s "http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&limit=25&fl=original,statuscode,mimetype&collapse=urlkey" --max-time 15 2>/dev/null \
+    | python3 -c "
+import sys,json
+try:
+  rows=json.load(sys.stdin)[1:]
+  [print(r[1],r[2],r[0]) for r in rows]
+except: pass"
+
+  # HackerTarget passive DNS
+  curl -s "https://api.hackertarget.com/hostsearch/?q={domain}" --max-time 10 2>/dev/null | head -20
+
+─── STEP 1 — DIRECT HTTP (try these in order, stop when one works) ───
+
+  # Attempt A: plain curl with -4 and short timeout
+  curl -4 -sI https://{domain}/ --max-time 10
+
+  # Attempt B: browser-spoofed (bypasses basic bot/IP blocking)
+  curl -4 -sI https://{domain}/ --max-time 10 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+    -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+    -H "Accept-Language: en-US,en;q=0.5" \
+    -H "Referer: https://www.google.com/"
+
+  # Attempt C: X-Forwarded-For bypass (some WAFs whitelist localhost/trusted IPs)
+  curl -4 -sI https://{domain}/ --max-time 10 \
+    -H "X-Forwarded-For: 127.0.0.1" \
+    -H "X-Real-IP: 127.0.0.1" \
+    -H "X-Originating-IP: 127.0.0.1" \
+    -H "X-Remote-IP: 127.0.0.1"
+
+  # Attempt D: try HTTP (port 80) if HTTPS is blocked
+  curl -4 -sI http://{domain}/ --max-time 10
+
+  # Attempt E: whatweb — has its own UA and fingerprinting bypass
+  whatweb -a 3 --colour=never https://{domain}/ 2>/dev/null | head -20 \
+    || whatweb -a 1 --colour=never http://{domain}/ 2>/dev/null | head -20
 
 [INFO-02] Fingerprint Web Server
-  curl -sI https://{domain}/ | head -30
-  nmap -Pn -sV -p 80,443 --script http-server-header {domain} 2>/dev/null | head -20
+  # Collect server header from whichever attempt above worked
+  # Also try nmap NSE script (works even when HTTP is firewalled)
+  nmap -Pn -sV -p 80,443 --script http-server-header,http-headers {domain} 2>/dev/null | head -30
+  wafw00f https://{domain}/ 2>/dev/null | head -15 || true
 
 [INFO-06] Application Entry Points
-  curl -s https://{domain}/robots.txt --max-time 10
-  curl -s https://{domain}/sitemap.xml --max-time 10 | grep -o '<loc>[^<]*' | head -20
-  gobuster dir -u https://{domain} -w /usr/share/wordlists/dirb/common.txt -q -t 20 --timeout 8s 2>/dev/null \
-    || python3 -c "
-import urllib.request,urllib.error
-for p in ['/admin','/login','/wp-admin','/api','/dashboard','/register','/signup','/user','/backup','/config','/upload']:
-    try:
-        r=urllib.request.urlopen('https://{domain}'+p,timeout=6)
-        print(r.status,p)
-    except urllib.error.HTTPError as e:
-        if e.code not in(404,410):print(e.code,p)
-    except:pass
-"
+  # robots.txt / sitemap — try browser UA if plain curl fails
+  curl -4 -s https://{domain}/robots.txt --max-time 10 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+  curl -4 -s https://{domain}/sitemap.xml --max-time 10 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+    | grep -o '<loc>[^<]*' | head -20
+  # Use Wayback Machine paths as fallback entry-point map (already fetched above)
+  gobuster dir -u https://{domain} -w /usr/share/wordlists/dirb/common.txt -q -t 10 --timeout 8s \
+    -a "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" 2>/dev/null | head -30 || true
 
 [INFO-07] Map Execution Paths
-  curl -s https://{domain}/ --max-time 15 | grep -Eo '(href|src|action)=\"[^\"#]*\"' | sort -u | head -40
+  curl -4 -s https://{domain}/ --max-time 15 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+    -H "Referer: https://www.google.com/" \
+    | grep -Eo '(href|src|action)="[^"#]*"' | sort -u | head -40
 
 [INFO-08] Fingerprint Framework
-  curl -sI https://{domain}/ --max-time 10 | grep -iE "x-powered-by|x-generator|x-drupal|x-wordpress|cf-ray|x-shopify"
-  curl -s https://{domain}/ --max-time 15 | grep -iEo "(wp-content|wp-includes|drupal|joomla|shopify|magento|laravel|django|next\\.js|gatsby)" | sort -u | head -10
+  curl -4 -sI https://{domain}/ --max-time 10 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+    | grep -iE "x-powered-by|x-generator|x-drupal|x-wordpress|cf-ray|x-shopify|server"
+  curl -4 -s https://{domain}/ --max-time 15 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+    | grep -iEo "(wp-content|wp-includes|drupal|joomla|shopify|magento|laravel|django|next\\.js|gatsby|wix|squarespace)" | sort -u | head -10
 
 [INFO-09] Fingerprint Web Application
-  curl -s https://{domain}/ --max-time 15 | grep -iEo "<meta[^>]+generator[^>]+>" | head -5
-  curl -s https://{domain}/ --max-time 15 | grep -iEo "(jquery|bootstrap|angular|react|vue|nuxt|next)[/-][0-9.]+" | sort -u | head -10
+  curl -4 -s https://{domain}/ --max-time 15 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+    | grep -iEo "<meta[^>]+generator[^>]+>" | head -5
+  curl -4 -s https://{domain}/ --max-time 15 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+    | grep -iEo "(jquery|bootstrap|angular|react|vue|nuxt|next)[/-][0-9.]+" | sort -u | head -10
 
 [INFO-10] Map Application Architecture
   nmap -Pn -sV -p 80,443,8080,8443,3000,4000,5000,9000 {domain} 2>/dev/null | head -30
-  curl -sI https://{domain}/ --max-time 10 | grep -iE "via|x-cache|cf-ray|x-amz|x-varnish|fastly|akamai"
+  curl -4 -sI https://{domain}/ --max-time 10 \
+    -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+    | grep -iE "via|x-cache|cf-ray|x-amz|x-varnish|fastly|akamai|cloudflare"
 
 After all checks, list:
 FINDING | WSTG-INFO-XX | Severity (Info/Low/Medium/High) | Evidence
