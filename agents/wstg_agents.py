@@ -90,24 +90,20 @@ dig {{domain}} A +short 2>/dev/null && dig {{domain}} AAAA +short 2>/dev/null &&
 # [P1-C] SSL certificate (issuer, SANs, expiry) — works even when HTTP is blocked
 echo | openssl s_client -connect {{domain}}:443 -servername {{domain}} 2>/dev/null | openssl x509 -noout -text 2>/dev/null | grep -iE "subject:|issuer:|DNS:|not before|not after" | head -20
 
-# [P1-D] Certificate Transparency — subdomains (Python urllib, no pipe/try needed)
+# [P1-D] Certificate Transparency — subdomains via curl (urllib read-timeout on some VPS)
 python3 -c "
-import urllib.request, json, ssl, re
-ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
-req=urllib.request.Request('https://crt.sh/?q=%25.{{domain}}&output=json',headers={{'User-Agent':'curl/7.88'}})
-raw=urllib.request.urlopen(req,timeout=20,context=ctx).read().decode()
+import subprocess, json
+raw=subprocess.run(['curl','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.{{domain}}&output=json'],capture_output=True,text=True,timeout=25).stdout
 d=json.loads(raw) if raw.strip().startswith('[') else []
 subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v))
 [print(s) for s in subs[:40]] or print('(no crt.sh results)')
 "
 
-# [P1-E] Wayback Machine CDX — historical URLs
+# [P1-E] Wayback Machine CDX — historical URLs via curl
 python3 -c "
-import urllib.request, json, ssl
-ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+import subprocess, json
 url='http://web.archive.org/cdx/search/cdx?url={{domain}}/*&output=json&limit=40&fl=original,statuscode,mimetype&collapse=urlkey'
-req=urllib.request.Request(url,headers={{'User-Agent':'curl/7.88'}})
-raw=urllib.request.urlopen(req,timeout=20,context=ctx).read().decode()
+raw=subprocess.run(['curl','-4','-s','--max-time','20','--connect-timeout','8','-A','curl/7.88',url],capture_output=True,text=True,timeout=25).stdout
 rows=json.loads(raw)[1:] if raw.strip().startswith('[') else []
 [print(r[1],r[2],r[0]) for r in rows] or print('(no Wayback results)')
 "
@@ -273,24 +269,24 @@ gobuster dir -u https://{{domain}} -w /usr/share/wordlists/dirb/common.txt -q -t
 [INFO-07] Map Execution Paths + JS Bundle Analysis
 ══════════════════════════════════════════════════════════
 
-# Full HTML fetch + framework detection + JS bundle analysis (one self-contained Python call)
-python3 -c "
-import urllib.request, re, ssl, json
-ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
-UA='{_UA}'; REF='{_REF}'
+# Full HTML fetch + framework detection + JS bundle analysis
+# heredoc avoids shell double-quote issues; subprocess curl avoids urllib read-timeout
+python3 - << 'PYEOF'
+import subprocess, re, json
+UA='{_UA}'
+REF='{_REF}'
 def get(url):
-    req=urllib.request.Request(url,headers={{'User-Agent':UA,'Referer':REF}})
-    try: return urllib.request.urlopen(req,timeout=15,context=ctx).read().decode('utf-8','ignore')
-    except: return ''
+    r=subprocess.run(['curl','-4','-sk','--max-time','15','--connect-timeout','8','-A',UA,'-H','Referer: '+REF,url],capture_output=True,text=True,timeout=20)
+    return r.stdout
 html=get('https://{{domain}}/')
 print('=== LINKS ===')
-links=sorted(set(re.findall(r'(?:href|src|action)=[\"]((?:https?://[^\"#]*|/[^\"#]*))[\" ]',html)))
+links=sorted(set(re.findall(r'(?:href|src|action)=\"([^\"#]+)\"',html)))
 [print(l) for l in links[:40]]
 print()
 print('=== FRAMEWORK DETECTION ===')
 checks=[
- ('React SPA', r'<div\\s+id=[\"\\']root[\"\\']'),
- ('Vue SPA',   r'<div\\s+id=[\"\\']app[\"\\']'),
+ ('React SPA', r'<div\\s+id=\"root\"'),
+ ('Vue SPA',   r'<div\\s+id=\"app\"'),
  ('Next.js',   r'__NEXT_DATA__|/_next/static'),
  ('Nuxt.js',   r'__NUXT__|/_nuxt/'),
  ('WordPress', r'wp-content|wp-includes|wp-json'),
@@ -300,7 +296,7 @@ checks=[
  ('Django',    r'csrfmiddlewaretoken'),
  ('Rails',     r'authenticity_token'),
  ('Shopify',   r'Shopify\\.shop|cdn\\.shopify'),
- ('Vite',      r'/assets/index-[A-Za-z0-9]{8,}\\.js'),
+ ('Vite',      r'/assets/index-[A-Za-z0-9]{{8,}}\\.js'),
  ('Webpack',   r'__webpack_require__|webpackChunk'),
  ('Bootstrap', r'bootstrap\\.min\\.css|bootstrap@[0-9]'),
  ('Tailwind',  r'tailwindcss'),
@@ -311,14 +307,14 @@ checks=[
 [print('DETECTED:',name) for name,pat in checks if re.search(pat,html,re.I)]
 print()
 print('=== JS BUNDLE ANALYSIS ===')
-for js_path in re.findall(r'src=[\"](/[^\"]+\\.js)[\"]',html)[:3]:
+for js_path in re.findall(r'src=\"(/[^\"]+\\.js)\"',html)[:3]:
     js=get('https://{{domain}}'+js_path)
     if not js: continue
     print('Bundle:',js_path,'('+str(len(js)),'bytes)')
-    [print('  Version:',m.group(1),m.group(2)) for m in re.finditer(r'(React|Vue|Angular|Next|Nuxt|Vite|webpack|Svelte)[\"\\s,]{0,5}([0-9]+\\.[0-9]+\\.[0-9]+)',js,re.I)]
-    routes=sorted(set(re.findall(r'[\"`](/(?:api|v[0-9]|graphql|rest|auth|users?|admin)[^\"`\\s]{0,60})',js)))
+    [print('  Version:',m.group(1),m.group(2)) for m in re.finditer(r'(React|Vue|Angular|Next|Nuxt|Vite|webpack|Svelte)[\"\\s,]{{0,5}}([0-9]+\\.[0-9]+\\.[0-9]+)',js,re.I)]
+    routes=sorted(set(re.findall(r'[\"`](/(?:api|v[0-9]|graphql|rest|auth|users?|admin)[^\"`\\s]{{0,60}})',js)))
     [print('  API route:',r) for r in routes[:25]]
-"
+PYEOF
 
 ══════════════════════════════════════════════════════════
 [INFO-08] Fingerprint Framework — Response Headers
