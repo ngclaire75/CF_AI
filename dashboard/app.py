@@ -22,8 +22,195 @@ app = Flask(__name__, template_folder='templates')
 _scan_jobs: dict = {}
 
 
+def _build_cred_block(site_type: str, creds: dict, domain: str) -> str:
+    """Return an agent instruction block for authenticated scanning."""
+    if not site_type or site_type == 'none':
+        return ''
+
+    wp_user  = creds.get('wp_user', '')
+    wp_pass  = creds.get('wp_pass', '')
+    wp_app   = creds.get('wp_app_pass', '')
+    cp_user  = creds.get('cpanel_user', '')
+    ssh_host = creds.get('ssh_host', '') or domain
+    ssh_user = creds.get('ssh_user', 'root')
+    ssh_pass = creds.get('ssh_pass', '')
+    ssh_port = creds.get('ssh_port', '22') or '22'
+    ftp_host = creds.get('ftp_host', '') or domain
+    ftp_user = creds.get('ftp_user', '')
+    ftp_port = creds.get('ftp_port', '') or ('22' if site_type == 'sftp' else '21')
+
+    hdr = (
+        '\n\n══════════════ AUTHENTICATED SCAN ══════════════\n'
+        'Credentials provided. You MUST use them for every check.\n'
+        'NEVER print passwords in output — write [REDACTED] instead.\n'
+        '════════════════════════════════════════════════\n\n'
+    )
+
+    if site_type == 'wordpress' and (wp_user or wp_pass):
+        # Pre-compute conditional strings — avoids nested f-strings inside f-string expressions
+        app_status  = '(provided — use for REST API)' if wp_app else '(not provided — cookie auth only)'
+        rest_users  = (f'curl -s -u "{wp_user}:{wp_app}" '
+                       f'"https://{domain}/wp-json/wp/v2/users?context=edit&per_page=100"'
+                       if wp_app else
+                       f'curl -s -b /tmp/wp_auth.txt "https://{domain}/wp-json/wp/v2/users?context=edit"')
+        rest_plugins = (f'curl -s -u "{wp_user}:{wp_app}" "https://{domain}/wp-json/wp/v2/plugins"'
+                        if wp_app else
+                        '# app password required for /wp-json/wp/v2/plugins — skipping')
+        return (hdr
+            + 'WORDPRESS ADMIN CREDENTIALS\n'
+            + f'  Username : {wp_user}\n'
+            + f'  App Pass : {app_status}\n\n'
+            + 'Run ALL of these checks in order:\n\n'
+            + '1. Login and capture session cookie (required for most checks below):\n'
+            + f'   curl -s -L -c /tmp/wp_auth.txt -b /tmp/wp_auth.txt \\\n'
+            + f'     -d "log={wp_user}&pwd=$WP_PASSWORD&wp-submit=Log+In&redirect_to=%2Fwp-admin%2F&testcookie=1" \\\n'
+            + '     -H "Cookie: wordpress_test_cookie=WP+Cookie+check" \\\n'
+            + f'     "https://{domain}/wp-login.php" -w "%{{http_code}}" -o /tmp/wp_login_resp.html\n'
+            + '   grep -iP "error|invalid|incorrect" /tmp/wp_login_resp.html | head -5\n\n'
+            + '2. Enumerate all WordPress users (admin view — reveals roles):\n'
+            + f'   curl -s -b /tmp/wp_auth.txt "https://{domain}/wp-admin/users.php" \\\n'
+            + "     | grep -oP '(?<=user-login\">)[^<]+'\n\n"
+            + '3. Installed plugins and versions (identify outdated/vulnerable):\n'
+            + f'   curl -s -b /tmp/wp_auth.txt "https://{domain}/wp-admin/plugins.php" \\\n'
+            + "     | grep -oP '(?<=<strong>)[^<]+|(?<=Version )[0-9.]+'\n\n"
+            + '4. WordPress core version and debug/security settings:\n'
+            + f'   curl -s -b /tmp/wp_auth.txt "https://{domain}/wp-admin/about.php" | grep -oP "(?<=Version )[\\d.]+"\n'
+            + f'   curl -s -b /tmp/wp_auth.txt "https://{domain}/wp-admin/options-general.php" \\\n'
+            + '     | grep -iP "debug|ssl_force|login_lockout|two.factor|recaptcha"\n\n'
+            + '5. REST API with real auth (lists all users including admin):\n'
+            + f'   {rest_users}\n'
+            + f'   {rest_plugins}\n\n'
+            + '6. Admin AJAX — test for unauthenticated fallback:\n'
+            + f'   curl -s -b /tmp/wp_auth.txt -d "action=heartbeat" "https://{domain}/wp-admin/admin-ajax.php"\n\n'
+            + '7. File editor check (should be disabled — enables RCE):\n'
+            + f'   curl -s -b /tmp/wp_auth.txt "https://{domain}/wp-admin/theme-editor.php" \\\n'
+            + '     | grep -iP "disabled|not allowed|higher level"\n\n'
+            + '8. XML-RPC authenticated call (test for DDoS amplification):\n'
+            + "   curl -s -d '<?xml version=\"1.0\"?><methodCall><methodName>system.listMethods"
+            + f'</methodName></methodCall>\' "https://{domain}/xmlrpc.php"'
+            + " | grep -oP '(?<=string>)[^<]+' | head -20\n\n"
+            + '9. WP_DEBUG log and error exposure:\n'
+            + f'   curl -s "https://{domain}/wp-content/debug.log" | head -30\n'
+            + f'   curl -s "https://{domain}/?debug=1" | grep -iP "fatal|error|warning|deprecated"\n'
+        )
+
+    if site_type == 'cpanel' and cp_user:
+        cp = f'curl -sk -u "{cp_user}:$CPANEL_PASSWORD"'
+        api = f'https://{domain}:2083/execute'
+        # python3 snippet using % to avoid brace conflicts with f-string
+        py_filter = (
+            "python3 -c \"import sys,json; d=json.load(sys.stdin); "
+            "[print(f['file']) for f in d.get('data',{}).get('files',[]) "
+            "if any(f['file'].endswith(e) for e in ['.env','.sql','.zip','.bak','.tar'])]\""
+        )
+        return (hdr
+            + 'CPANEL CREDENTIALS\n'
+            + f'  Username : {cp_user}\n'
+            + f'  API base : https://{domain}:2083  (try :2082 for HTTP)\n\n'
+            + 'Run ALL cPanel UAPI checks:\n\n'
+            + f'1. PHP versions:\n   {cp} "{api}/LangPHP/php_get_vhost_versions"\n'
+            + f'   {cp} "{api}/LangPHP/php_get_installed_versions"\n\n'
+            + f'2. SSL certificate:\n   {cp} "{api}/SSL/fetch_best_for_domain?domain={domain}"\n\n'
+            + f'3. All domains/subdomains:\n   {cp} "{api}/DomainInfo/domains_data?format=json"\n'
+            + f'   {cp} "{api}/SubDomain/listsubdomains"\n\n'
+            + f'4. Email accounts:\n   {cp} "{api}/Email/list_pops"\n\n'
+            + f'5. MySQL databases and users:\n   {cp} "{api}/Mysql/list_databases"\n'
+            + f'   {cp} "{api}/Mysql/list_users"\n\n'
+            + f'6. Cron jobs:\n   {cp} "{api}/Cron/list_cron"\n\n'
+            + f'7. Files in public_html (find sensitive files):\n'
+            + f'   {cp} "{api}/Fileman/list_files?path=/public_html&show_hidden=1" | {py_filter}\n\n'
+            + f'8. ModSecurity status:\n   {cp} "{api}/ModSecurity/has_modsec_installed"\n\n'
+            + f'9. Hotlink protection:\n   {cp} "{api}/Hotlink/get_status"\n\n'
+            + f'10. .htaccess security rules:\n    curl -s "https://{domain}/.htaccess" | head -50\n'
+        )
+
+    if site_type == 'ssh' and ssh_user and (ssh_pass or creds.get('ssh_key')):
+        if creds.get('ssh_key'):
+            key_setup = ('Setup SSH key first:\n'
+                         '  python3 -c "import os; open(\'/tmp/cf_id_rsa\',\'w\').write(os.environ[\'SSH_KEY\']); '
+                         'os.chmod(\'/tmp/cf_id_rsa\', 0o600)"\n')
+            sc = (f'ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 '
+                  f'-i /tmp/cf_id_rsa -p {ssh_port} {ssh_user}@{ssh_host}')
+        else:
+            key_setup = 'Install sshpass if missing: apt-get install -y sshpass 2>/dev/null\n'
+            sc = (f'sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 '
+                  f'-p {ssh_port} {ssh_user}@{ssh_host}')
+        # awk command — written as plain string, no f-string brace conflicts
+        awk_users  = "awk -F: '$7!~/nologin|false|sync/{print $1,$7}' /etc/passwd"
+        awk_bruteforce = "awk '{print $11}' | sort | uniq -c | sort -rn | head -10"
+        return (hdr
+            + 'SSH CREDENTIALS\n'
+            + f'  Host     : {ssh_host}:{ssh_port}\n'
+            + f'  Username : {ssh_user}\n'
+            + '  Password : $SSHPASS (in environment — do not print)\n\n'
+            + key_setup + '\n'
+            + f'SSH prefix: {sc} "<cmd>"\n\n'
+            + 'Run ALL server-side checks:\n\n'
+            + f'1. Web/PHP/OS versions:\n'
+            + f'   {sc} "php -v 2>&1|head -1; nginx -v 2>&1; apache2 -v 2>&1|head -1; lsb_release -d 2>/dev/null"\n\n'
+            + f'2. Sensitive config files (hardcoded credentials):\n'
+            + f'   {sc} "cat /var/www/html/.env 2>/dev/null|grep -vP \'^#|^$\'|head -30"\n'
+            + f'   {sc} "cat /var/www/html/wp-config.php 2>/dev/null|grep -P \'DB_|AUTH_KEY|SECRET\'|head -20"\n\n'
+            + f'3. World-writable PHP files (malware injection risk):\n'
+            + f'   {sc} "find /var/www/html -perm -0002 -name \'*.php\' 2>/dev/null|head -20"\n\n'
+            + f'4. Backup/dump files in webroot (data exposure):\n'
+            + f'   {sc} "find /var/www/html -name \'*.sql\' -o -name \'*.zip\' -o -name \'*.bak\' 2>/dev/null|head -20"\n\n'
+            + f'5. Open ports and services:\n'
+            + f'   {sc} "ss -tlnp 2>/dev/null|head -25"\n\n'
+            + f'6. Users with shell access:\n'
+            + f'   {sc} "{awk_users}"\n\n'
+            + f'7. Sudo rules (overly permissive = high risk):\n'
+            + f'   {sc} "sudo -l 2>/dev/null|head -20"\n\n'
+            + f'8. Brute force evidence (failed SSH logins):\n'
+            + f'   {sc} "grep \'Failed password\' /var/log/auth.log 2>/dev/null|tail -30|{awk_bruteforce}"\n\n'
+            + f'9. Crontabs (check for backdoors):\n'
+            + f'   {sc} "crontab -l 2>/dev/null; ls /etc/cron* 2>/dev/null"\n\n'
+            + f'10. SSL certificate expiry:\n'
+            + f'    {sc} "openssl s_client -connect {domain}:443 -servername {domain} </dev/null 2>/dev/null'
+            + '     | openssl x509 -noout -dates 2>/dev/null"\n\n'
+            + f'11. Firewall rules:\n'
+            + f'    {sc} "ufw status 2>/dev/null; iptables -L INPUT -n 2>/dev/null|head -20"\n'
+        )
+
+    if site_type == 'sftp' and ftp_user and ftp_host:
+        proto  = 'sftp' if site_type == 'sftp' else 'ftp'
+        cp_ftp = f'curl -sk --user "{ftp_user}:$FTP_PASSWORD"'
+        base   = f'{proto}://{ftp_host}:{ftp_port}/public_html'
+        sens_files = '.env wp-config.php config.php database.php settings.php .htpasswd'
+        bak_files  = 'backup.sql backup.zip site.sql dump.sql site-backup.tar.gz'
+        return (hdr
+            + 'SFTP/FTP CREDENTIALS\n'
+            + f'  Host     : {ftp_host}:{ftp_port}\n'
+            + f'  Username : {ftp_user}\n'
+            + '  Password : $FTP_PASSWORD (in environment)\n\n'
+            + 'Run ALL file system checks:\n\n'
+            + f'1. List webroot:\n   {cp_ftp} "{base}/" 2>&1|head -50\n\n'
+            + f'2. Sensitive files (check each for 200/non-000 response):\n'
+            + '   for f in ' + sens_files + '; do\n'
+            + f'     code=$({cp_ftp} "{base}/$f" -o /tmp/ftp_f -w "%{{http_code}}" 2>&1)\n'
+            + '     [ "$code" != "000" ] && echo "FOUND $f ($code)" && head -20 /tmp/ftp_f\n'
+            + '   done\n\n'
+            + f'3. Backup/dump files:\n'
+            + '   for b in ' + bak_files + '; do\n'
+            + f'     echo -n "$b: "; {cp_ftp} -o /dev/null -w "%{{http_code}}" "{base}/$b" 2>&1\n'
+            + '     echo\n'
+            + '   done\n\n'
+            + f'4. Exposed .git directory:\n'
+            + f'   curl -s "https://{domain}/.git/HEAD"|head -5\n'
+            + f'   curl -s "https://{domain}/.git/config"|head -20\n\n'
+            + f'5. PHP config:\n'
+            + f'   {cp_ftp} "{base}/php.ini" 2>&1|grep -iP "disable_functions|open_basedir|expose_php"\n\n'
+            + f'6. .htaccess security rules:\n'
+            + f'   {cp_ftp} "{base}/.htaccess" 2>&1|head -40\n\n'
+            + f'7. Uploads directory — check for PHP shells:\n'
+            + f'   {cp_ftp} "{base}/wp-content/uploads/" 2>&1|grep -iP "\\.php|\\.phtml|\\.php5"\n'
+        )
+
+    return ''
+
+
 def _run_background_scan(job_id: str, target: str, agent_type: str,
-                          model: str, wp_user: str, wp_app_pass: str, wp_pass: str):
+                          model: str, site_type: str, creds: dict):
     """Run a WSTG agent in a background thread and stream chunks to _scan_jobs."""
     job = _scan_jobs[job_id]
 
@@ -34,9 +221,18 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
     domain       = ''
     model_used   = model or ''
 
-    # Temporarily set WP credential env vars for this scan
+    # Set credential env vars so agents can reference $WP_PASSWORD, $SSHPASS, etc.
     env_restore: dict = {}
-    for k, v in [('WP_USER', wp_user), ('WP_APP_PASSWORD', wp_app_pass), ('WP_PASSWORD', wp_pass)]:
+    cred_env = {
+        'WP_USER':         creds.get('wp_user', ''),
+        'WP_APP_PASSWORD': creds.get('wp_app_pass', ''),
+        'WP_PASSWORD':     creds.get('wp_pass', ''),
+        'CPANEL_PASSWORD': creds.get('cpanel_pass', ''),
+        'SSHPASS':         creds.get('ssh_pass', ''),
+        'FTP_PASSWORD':    creds.get('ftp_pass', ''),
+        'SSH_KEY':         creds.get('ssh_key', ''),
+    }
+    for k, v in cred_env.items():
         if v:
             env_restore[k] = os.environ.get(k, '')
             os.environ[k] = v
@@ -54,6 +250,11 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         domain = (_p.netloc or _p.path.split('/')[0]).rstrip('/')
         job['domain'] = domain
 
+        # Build authenticated-scan instructions and announce cred type in terminal
+        cred_block = _build_cred_block(site_type, creds, domain)
+        if cred_block:
+            job['chunks'].append({'k': 'txt', 'd': f'[AUTH] {site_type.upper()} credentials loaded — authenticated scan enabled'})
+
         def _ot(t):     parts.append(t);   job['chunks'].append({'k': 'txt',  'd': t})
         def _oo(n, a):  tools[0] += 1;     job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
         def _or(n, r, e): job['chunks'].append({'k': 'res',  'n': n, 'r': str(r)[:300], 'e': bool(e)})
@@ -68,7 +269,9 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             if base is None:
                 job.update({'status': 'error', 'error': f'Unknown agent type: {agent_type}'}); return
 
-            agent = dc.replace(base, instructions=base.instructions.replace('{domain}', domain))
+            # Inject credential instructions after the base instructions
+            base_instructions = base.instructions.replace('{domain}', domain) + cred_block
+            agent = dc.replace(base, instructions=base_instructions)
             if model:
                 agent = dc.replace(agent, model=model)
             model_used = getattr(agent, 'model', model) or ''
@@ -555,36 +758,57 @@ def api_save_scan():
 def api_connect_scan():
     """Start a background scan for the Connect Your Website feature.
 
-    Request JSON: { "target": "example.com", "agent_type": "apit",
-                    "model": "", "wp_user": "", "wp_app_pass": "", "wp_pass": "" }
-    Response:     { "job_id": "<uuid>" }
+    Request JSON:
+      { "target": "example.com", "agent_type": "apit", "model": "",
+        "site_type": "wordpress|cpanel|ssh|sftp|none",
+        "wp_user": "", "wp_pass": "", "wp_app_pass": "",
+        "cpanel_user": "", "cpanel_pass": "",
+        "ssh_host": "", "ssh_user": "", "ssh_pass": "", "ssh_port": "", "ssh_key": "",
+        "ftp_host": "", "ftp_user": "", "ftp_pass": "", "ftp_port": "" }
+    Response: { "job_id": "<uuid>" }
     """
     data = request.get_json(force=True, silent=True) or {}
     target = (data.get('target') or '').strip()
     if not target:
         return jsonify({'error': 'target is required'}), 400
 
-    agent_type = (data.get('agent_type') or 'apit').strip().lower()
-    model      = (data.get('model') or '').strip()
-    wp_user    = (data.get('wp_user') or '').strip()
-    wp_app_pass = (data.get('wp_app_pass') or '').strip()
-    wp_pass    = (data.get('wp_pass') or '').strip()
+    def _s(k): return (data.get(k) or '').strip()
+
+    agent_type = _s('agent_type') or 'apit'
+    model      = _s('model')
+    site_type  = _s('site_type') or 'none'
+
+    creds = {
+        'wp_user':      _s('wp_user'),
+        'wp_pass':      _s('wp_pass'),
+        'wp_app_pass':  _s('wp_app_pass'),
+        'cpanel_user':  _s('cpanel_user'),
+        'cpanel_pass':  _s('cpanel_pass'),
+        'ssh_host':     _s('ssh_host'),
+        'ssh_user':     _s('ssh_user'),
+        'ssh_pass':     _s('ssh_pass'),
+        'ssh_port':     _s('ssh_port'),
+        'ssh_key':      _s('ssh_key'),
+        'ftp_host':     _s('ftp_host'),
+        'ftp_user':     _s('ftp_user'),
+        'ftp_pass':     _s('ftp_pass'),
+        'ftp_port':     _s('ftp_port'),
+    }
 
     job_id = str(_uuid.uuid4())
     _scan_jobs[job_id] = {
-        'status':   'running',
-        'target':   target,
-        'agent':    agent_type,
-        'chunks':   [],
-        'offset':   0,
-        'domain':   '',
-        'scan_id':  None,
-        'error':    None,
+        'status':  'running',
+        'target':  target,
+        'agent':   agent_type,
+        'chunks':  [],
+        'domain':  '',
+        'scan_id': None,
+        'error':   None,
     }
 
     t = _threading.Thread(
         target=_run_background_scan,
-        args=(job_id, target, agent_type, model, wp_user, wp_app_pass, wp_pass),
+        args=(job_id, target, agent_type, model, site_type, creds),
         daemon=True,
     )
     t.start()

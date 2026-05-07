@@ -563,6 +563,37 @@ tr.hidden-r { display: none; }
 .btn-logs { background: #7c3aed; border-color: #7c3aed; color: #fff; font-size: 11px; padding: 3px 9px; }
 .btn-logs:hover { background: #6d28d9; }
 
+/* ── Domain filter ── */
+.domain-filter-wrap { display:flex; align-items:center; gap:6px; }
+.domain-filter-wrap input {
+    background:#f9fafb; border:1px solid #e5e7eb; border-radius:4px;
+    padding:4px 9px; font-size:12px; color:#111827; outline:none;
+    transition:border-color .15s; width:180px;
+}
+.domain-filter-wrap input:focus { border-color:#6366f1; }
+.domain-filter-wrap button { background:none; border:none; color:#9ca3af; cursor:pointer; font-size:14px; line-height:1; padding:2px 4px; }
+.domain-filter-wrap button:hover { color:#374151; }
+
+/* ── Credential panel ── */
+.cred-toggle-btn {
+    background:none; border:1px solid #e5e7eb; border-radius:5px;
+    padding:5px 12px; font-size:12px; color:#6b7280; cursor:pointer;
+    transition:border-color .15s, color .15s;
+}
+.cred-toggle-btn:hover { border-color:#6366f1; color:#6366f1; }
+.cred-toggle-btn.active { border-color:#6366f1; color:#6366f1; background:#f5f3ff; }
+.cred-panel { border:1px solid #e5e7eb; border-radius:8px; margin-bottom:14px; overflow:hidden; }
+.cred-panel-inner { padding:16px 18px; background:#fafafa; }
+.cred-label { font-size:11px; color:#6b7280; display:block; margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+.cred-select { background:#fff; border:1px solid #e5e7eb; border-radius:5px; padding:7px 10px; font-size:13px; color:#111827; outline:none; }
+.cred-select:focus { border-color:#6366f1; }
+.cred-input { background:#fff; border:1px solid #e5e7eb; border-radius:5px; padding:7px 10px; font-size:13px; color:#111827; outline:none; min-width:160px; transition:border-color .15s; }
+.cred-input:focus { border-color:#6366f1; }
+.cred-group { margin-top:4px; }
+.cred-row { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:10px; }
+.cred-hint { font-size:11px; color:#6b7280; margin-top:4px; line-height:1.5; }
+.cred-notice { margin-top:12px; padding:8px 12px; background:#fffbeb; border:1px solid #fcd34d; border-radius:5px; font-size:11px; color:#92400e; }
+
 /* ── Connect Your Website ── */
 @keyframes cw-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
 @keyframes cw-spin  { to{transform:rotate(360deg)} }
@@ -770,10 +801,11 @@ tr.hidden-r { display: none; }
     <div class="sec-head">
       <div>
         <div class="sec-title">Connect Your Website</div>
-        <div class="sec-desc">Enter your website URL, choose an AI security agent, and get a live scan report — no CLI required.</div>
+        <div class="sec-desc">Enter your URL, optionally provide hosting credentials for a deeper authenticated scan, then pick an AI agent.</div>
       </div>
     </div>
     <div class="card" style="padding:20px 24px;">
+      <!-- Row 1: URL + Agent + Run -->
       <div class="connect-form" id="connectForm">
         <div style="flex:1 1 240px;">
           <label>Website URL</label>
@@ -799,6 +831,75 @@ tr.hidden-r { display: none; }
           <button class="btn-connect" id="cwStartBtn" onclick="startConnectScan()">Run Scan</button>
         </div>
       </div>
+
+      <!-- Credential toggle -->
+      <div style="margin-bottom:12px;">
+        <button class="cred-toggle-btn" id="cwCredToggle" onclick="cwToggleCreds()">
+          <span id="cwCredToggleIcon">&#43;</span> Add Credentials <span style="font-weight:400;color:#9ca3af;font-size:11px;">(optional — enables authenticated scanning)</span>
+        </button>
+      </div>
+
+      <!-- Credential panel -->
+      <div id="cwCredPanel" class="cred-panel" style="display:none;">
+        <div class="cred-panel-inner">
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+            <div>
+              <label class="cred-label">Connection Type</label>
+              <select id="cwCredType" class="cred-select" onchange="cwUpdateCredFields()">
+                <option value="none">No credentials (public scan)</option>
+                <option value="wordpress">WordPress Admin</option>
+                <option value="cpanel">cPanel Hosting</option>
+                <option value="ssh">SSH / Root Access</option>
+                <option value="sftp">SFTP / FTP</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- WordPress fields -->
+          <div id="cred-wp" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">WP Username</label><input type="text" id="cwWpUser" class="cred-input" placeholder="admin" autocomplete="off"/></div>
+              <div><label class="cred-label">WP Password</label><input type="password" id="cwWpPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">App Password <span style="font-weight:400;color:#9ca3af;">(optional)</span></label><input type="password" id="cwWpApp" class="cred-input" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password"/></div>
+            </div>
+            <div class="cred-hint">App Password enables full REST API auth. Generate in WP Admin → Users → Profile → Application Passwords.</div>
+          </div>
+
+          <!-- cPanel fields -->
+          <div id="cred-cpanel" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">cPanel Username</label><input type="text" id="cwCpUser" class="cred-input" placeholder="cpanelusername" autocomplete="off"/></div>
+              <div><label class="cred-label">cPanel Password</label><input type="password" id="cwCpPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+            </div>
+            <div class="cred-hint">Connects via cPanel UAPI (port 2083) to audit PHP version, SSL, email accounts, MySQL users, cron jobs, and file permissions.</div>
+          </div>
+
+          <!-- SSH fields -->
+          <div id="cred-ssh" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">SSH Host</label><input type="text" id="cwSshHost" class="cred-input" placeholder="server.yourdomain.com" autocomplete="off"/></div>
+              <div><label class="cred-label">Username</label><input type="text" id="cwSshUser" class="cred-input" placeholder="root" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwSshPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">Port</label><input type="text" id="cwSshPort" class="cred-input" placeholder="22" style="width:64px;" autocomplete="off"/></div>
+            </div>
+            <div class="cred-hint">Enables full server-side audit: config files, world-writable PHP, backup files, running services, firewall rules, brute-force evidence.</div>
+          </div>
+
+          <!-- SFTP/FTP fields -->
+          <div id="cred-sftp" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">Host</label><input type="text" id="cwFtpHost" class="cred-input" placeholder="ftp.yourdomain.com" autocomplete="off"/></div>
+              <div><label class="cred-label">Username</label><input type="text" id="cwFtpUser" class="cred-input" placeholder="ftpuser" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwFtpPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">Port</label><input type="text" id="cwFtpPort" class="cred-input" placeholder="22" style="width:64px;" autocomplete="off"/></div>
+            </div>
+            <div class="cred-hint">Scans the webroot for exposed .env files, wp-config.php, backup/SQL dumps, and PHP shells in the uploads directory.</div>
+          </div>
+
+          <div class="cred-notice">&#9888; Credentials are used only for this scan session and are never stored in the database or transmitted externally.</div>
+        </div>
+      </div>
+
       <div class="connect-status" id="cwStatus"></div>
       <div class="live-output" id="cwOutput"></div>
       <div class="connect-done-bar" id="cwDoneBar">
@@ -820,12 +921,18 @@ tr.hidden-r { display: none; }
         <div class="sec-title">Security Assessment by Target</div>
         <div class="sec-desc">Most recent scan result per target. Click Report to view the full findings with graphs.</div>
       </div>
-      <span class="sec-count">{{ targets|length }} target(s)</span>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="domain-filter-wrap">
+          <input type="text" id="targetDomainFilter" placeholder="Filter by domain..." oninput="filterTargets(this.value)">
+          <button onclick="clearTargetFilter()" id="targetFilterClear" style="display:none;" title="Clear filter">&#215;</button>
+        </div>
+        <span class="sec-count">{{ targets|length }} target(s)</span>
+      </div>
     </div>
     <div class="card">
       {% if targets %}
       <div class="scroll-panel">
-        <table>
+        <table id="targets-table">
           <thead>
             <tr>
               <th>Target</th>
@@ -841,7 +948,7 @@ tr.hidden-r { display: none; }
           </thead>
           <tbody>
           {% for t in targets %}
-            <tr>
+            <tr data-target="{{ t.target|lower }}">
               <td class="td-target" title="{{ t.target }}">{{ t.target }}</td>
               <td><span class="badge badge-{{ t.risk }}">{{ t.risk }}</span></td>
               <td>{{ t.agent_label }}</td>
@@ -879,12 +986,18 @@ tr.hidden-r { display: none; }
         <div class="sec-title">Complete Scan History</div>
         <div class="sec-desc">All security scans, most recent first. Use the filters to narrow results.</div>
       </div>
-      <div class="filter-bar">
-        <button class="filt active" onclick="doFilter(this,'all')">All</button>
-        <button class="filt" onclick="doFilter(this,'HIGH')">High</button>
-        <button class="filt" onclick="doFilter(this,'MEDIUM')">Medium</button>
-        <button class="filt" onclick="doFilter(this,'LOW')">Low</button>
-        <button class="filt" onclick="doFilter(this,'INFO')">Info</button>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="filter-bar">
+          <button class="filt active" onclick="doFilter(this,'all')">All</button>
+          <button class="filt" onclick="doFilter(this,'HIGH')">High</button>
+          <button class="filt" onclick="doFilter(this,'MEDIUM')">Medium</button>
+          <button class="filt" onclick="doFilter(this,'LOW')">Low</button>
+          <button class="filt" onclick="doFilter(this,'INFO')">Info</button>
+        </div>
+        <div class="domain-filter-wrap" style="margin-left:4px;">
+          <input type="text" id="histDomainFilter" placeholder="Filter by domain..." oninput="filterHistDomain(this.value)">
+          <button onclick="clearHistFilter()" id="histFilterClear" style="display:none;" title="Clear filter">&#215;</button>
+        </div>
       </div>
     </div>
     <div class="card">
@@ -907,7 +1020,7 @@ tr.hidden-r { display: none; }
           </thead>
           <tbody>
           {% for s in scans %}
-            <tr data-risk="{{ s.risk }}">
+            <tr data-risk="{{ s.risk }}" data-target="{{ s.target|lower }}">
               <td class="td-mono">{{ s.id }}</td>
               <td class="td-target" title="{{ s.target }}">{{ s.target }}</td>
               <td>{{ s.agent_label }}</td>
@@ -972,16 +1085,51 @@ tr.hidden-r { display: none; }
     ' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+' UTC';
 })();
 
-/* ── Auto-refresh 60s ── */
-setTimeout(function(){ location.reload(); }, 60000);
+/* ── Auto-refresh 60s — skip when modal open or scan running ── */
+setTimeout(function(){
+  var modalOpen  = document.getElementById('mbg').classList.contains('open');
+  var scanActive = _cwJobId && !_cwScanId;
+  if (!modalOpen && !scanActive) location.reload();
+}, 60000);
 
-/* ── Risk filter ── */
+/* ── Risk + domain filter (scan history) ── */
+var _histRisk   = 'all';
+var _histDomain = '';
+
 function doFilter(btn, level) {
   document.querySelectorAll('.filt').forEach(function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
+  _histRisk = level;
+  _applyHistFilters();
+}
+function filterHistDomain(val) {
+  _histDomain = (val || '').trim().toLowerCase();
+  document.getElementById('histFilterClear').style.display = _histDomain ? 'inline' : 'none';
+  _applyHistFilters();
+}
+function clearHistFilter() {
+  document.getElementById('histDomainFilter').value = '';
+  filterHistDomain('');
+}
+function _applyHistFilters() {
   document.querySelectorAll('#hist tbody tr').forEach(function(r){
-    r.classList.toggle('hidden-r', level !== 'all' && r.dataset.risk !== level);
+    var rOk = _histRisk === 'all' || r.dataset.risk === _histRisk;
+    var dOk = !_histDomain || (r.dataset.target || '').indexOf(_histDomain) !== -1;
+    r.classList.toggle('hidden-r', !rOk || !dOk);
   });
+}
+
+/* ── Target overview domain filter ── */
+function filterTargets(val) {
+  var q = (val || '').trim().toLowerCase();
+  document.getElementById('targetFilterClear').style.display = q ? 'inline' : 'none';
+  document.querySelectorAll('#targets-table tbody tr').forEach(function(r){
+    r.classList.toggle('hidden-r', q && (r.dataset.target || '').indexOf(q) === -1);
+  });
+}
+function clearTargetFilter() {
+  document.getElementById('targetDomainFilter').value = '';
+  filterTargets('');
 }
 
 /* ── HTML escape ── */
@@ -1807,6 +1955,35 @@ function closeModal(){ document.getElementById('mbg').classList.remove('open'); 
 function bgClose(e){ if(e.target===document.getElementById('mbg')) closeModal(); }
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
 
+/* ── Credential panel ── */
+function cwToggleCreds() {
+  var panel = document.getElementById('cwCredPanel');
+  var btn   = document.getElementById('cwCredToggle');
+  var icon  = document.getElementById('cwCredToggleIcon');
+  var open  = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  btn.classList.toggle('active', !open);
+  icon.textContent = open ? '+' : '−';
+}
+function cwUpdateCredFields() {
+  var t = document.getElementById('cwCredType').value;
+  ['wp','cpanel','ssh','sftp'].forEach(function(k){
+    var el = document.getElementById('cred-' + k);
+    if (el) el.style.display = (k === t || (k === 'sftp' && t === 'sftp')) ? 'block' : 'none';
+  });
+}
+function cwGetCreds() {
+  var t = document.getElementById('cwCredType').value;
+  var g = function(id){ var el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+  return {
+    site_type:   t,
+    wp_user:     g('cwWpUser'),   wp_pass:    g('cwWpPass'),   wp_app_pass: g('cwWpApp'),
+    cpanel_user: g('cwCpUser'),   cpanel_pass: g('cwCpPass'),
+    ssh_host:    g('cwSshHost'),  ssh_user:   g('cwSshUser'),  ssh_pass:    g('cwSshPass'), ssh_port: g('cwSshPort'),
+    ftp_host:    g('cwFtpHost'),  ftp_user:   g('cwFtpUser'),  ftp_pass:    g('cwFtpPass'), ftp_port: g('cwFtpPort'),
+  };
+}
+
 /* ── Connect Your Website ── */
 var _cwJobId     = null;
 var _cwOffset    = 0;
@@ -1881,10 +2058,11 @@ function startConnectScan() {
   document.getElementById('cwDoneBar').className = 'connect-done-bar';
   cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Scanning ' + domain + ' ...</span>');
 
+  var creds = cwGetCreds();
   fetch('/api/connect/scan', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ target: url, agent_type: agent }),
+    body: JSON.stringify(Object.assign({ target: url, agent_type: agent }, creds)),
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
