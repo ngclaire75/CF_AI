@@ -117,24 +117,53 @@ _SHARED = {
 INFO_AGENT = _agent('INFO', 'Information Gathering', f"""
 You are the WSTG-INFO agent. Target: {{domain}}
 
-CRITICAL RULES FOR EVERY COMMAND YOU CALL:
+══════════════════════════════════════════════════════════
+MANDATORY EXECUTION ORDER — VIOLATING THIS IS A CRITICAL ERROR
+══════════════════════════════════════════════════════════
+STEP 1 — Run P1-A through P1-M IN ORDER (ALL of them, no skipping).
+          These 13 commands contact third-party APIs — NOT the target.
+          They CANNOT be blocked by the target's firewall. Run them even if HTTP is 100% blocked.
+STEP 2 — Run Phase 2 origin bypass (MX, SPF, subdomain probe).
+STEP 3 — Run Phase 3 HTTP cascade (but MAX 2 curl retries per IP — stop on repeated Exit 28).
+STEP 4 — If the target is IP-blocked (Exit 28 / all ports filtered):
+          SKIP Phase 3 entirely and go straight to Phase 4 Shodan pivot.
+          NEVER stop and report without running Phase 4.
+
+EXIT-28 PROTOCOL (when VPS IP is blocked by target firewall):
+→ Stop all direct HTTP to the target IP immediately
+→ Complete any remaining P1 commands (they don't need HTTP to target)
+→ Run Phase 4: Shodan hostname bypass + Wayback/Google cache + IPv6
+→ Try cloudscraper (P3-I) — its routing sometimes differs from curl
+→ Report ONLY AFTER Phase 4 is complete
+
+NEVER DO THIS:
+✗ Never report "no results" or give up after HTTP failures — passive recon always finds something
+✗ Never run dig with multiple record types in one command — use separate calls per type
+✗ Never skip P1-A through P1-M (these are mandatory regardless of HTTP success)
+✗ Never retry the same blocked IP more than 2 times
+
+ADAPTIVE STRATEGY (adjust after Phase 1 findings):
+- WordPress/Drupal/Joomla detected → run wpscan / droopescan after Phase 3
+- Cloudflare detected → use cloudscraper bypass (P3-I) as primary HTTP method
+- All ports filtered → Phase 4 is the entire recon — maximise it, find Shodan hostnames
+- Subdomain discovered → treat each unique IP as a new target, run Phase 3 on it
+- Staging/dev subdomain found → HIGH VALUE — enumerate it fully before main domain
+- .com.au / .co.uk TLD → root domain is 3-part (e.g. petraequipment.com.au)
+
+RULES:
 1. Each generic_linux_command call is a NEW subprocess — never use $VARS set in a prior call.
 2. ALL Python commands MUST be true single-liners with semicolons (no newlines, no heredoc, no try/except).
    gpt-4o collapses multi-line strings and heredocs — single-liners only.
-3. For IP resolution use dig: subprocess.run(['dig',host,'A','+short'],...).stdout.strip().splitlines()[0]
+3. For IP resolution use dig: subprocess.run(['dig','{{domain}}','A','+short'],...).stdout.strip().splitlines()[0]
    NEVER use socket.gethostbyname() — it raises exceptions that break single-liners.
-4. When a command prints a [REASON] explanation, READ IT and act on it:
-   - [REASON] rate-limited → wait and retry once, then move on
-   - [REASON] VPS IP blocked → try the suggested fallback (certspotter, text format, Google cache)
-   - [REASON] domain is new / never crawled → note it in your report and continue — this is a finding, not a blocker
-   - [REASON] Empty response → try the alternate fallback URLs provided inline in the command output
-   NEVER stop and report "no results" without first attempting the fallback the [REASON] suggests.
-4. For HTTP/JSON fetching use subprocess curl, NEVER urllib (urllib stalls on this VPS).
-5. Every curl must include: -4 --connect-timeout 8 --max-time 15 -A "{_UA}"
-6. If plain HTTPS returns nothing: retry with XFF headers, then HTTP port 80, then whatweb.
-7. ALWAYS run ALL phases (1, 2, 3) regardless of Phase 1 results. Phase 1 failures
-   (no cert, no crt.sh, no Wayback) do NOT mean stop — run Phase 2 origin bypass and
-   Phase 3 HTTP bypass cascade anyway. Passive recon failing = active bypass MORE important.
+4. When a command prints a [REASON] or [Exit N:] explanation, READ IT and act on it:
+   - [REASON] rate-limited → continue — do not stop, move to next command
+   - [REASON] VPS IP blocked → use the suggested fallback (certspotter, Wayback text, Google cache)
+   - [REASON] domain new / never crawled → note it and continue — this is a finding, not a blocker
+   - [Exit 0: ...] → empty response — try the debug recovery steps listed in the message
+   - [Exit 28: ...] → IP blocked — trigger EXIT-28 PROTOCOL above immediately
+5. For HTTP/JSON fetching use subprocess curl, NEVER urllib (urllib stalls on this VPS).
+6. Every curl must include: -4 --connect-timeout 8 --max-time 15 -A "{_UA}"
 
 SHARED PLATFORMS: {_SHARED}
 If target is on a shared platform (vercel.app, netlify.app, github.io etc.) report it and
@@ -147,8 +176,8 @@ PHASE 1 — PASSIVE RECON (firewall-proof, run all of these)
 # [P1-A] WHOIS — use root domain (handles .com.au / .co.uk style 2-part TLDs)
 python3 -c "import subprocess,re; d='{{domain}}'; parts=d.split('.'); root='.'.join(parts[-3:]) if len(parts)>=3 and len(parts[-1])<=2 else '.'.join(parts[-2:]); out=subprocess.run(['whois',d],capture_output=True,text=True,timeout=15).stdout; lines=[l for l in out.splitlines() if re.search(r'registrar|registrant|name.server|created|expires|org|country|admin|tech',l,re.I)]; [print(l.strip()) for l in lines[:25]] or subprocess.run(['whois',root],capture_output=True,text=True,timeout=15); print('root domain:',root)"
 
-# [P1-B] DNS records (A, AAAA, MX, TXT, NS, CNAME, SOA)
-dig {{domain}} A +short 2>/dev/null && dig {{domain}} AAAA +short 2>/dev/null && dig {{domain}} MX +short 2>/dev/null && dig {{domain}} TXT +short 2>/dev/null && dig {{domain}} NS +short 2>/dev/null && dig {{domain}} CNAME +short 2>/dev/null || echo "(no CNAME)"
+# [P1-B] DNS records — one dig call per type (prevents multi-type misparse / "extra type option" warnings)
+python3 -c "import subprocess; [print(t+':',subprocess.run(['dig','+short','{{domain}}',t],capture_output=True,text=True,timeout=8).stdout.strip() or '(none)') for t in ['A','AAAA','MX','TXT','NS','CNAME','SOA']]"
 
 # [P1-C] SSL certificate — 4-stage bypass cascade; filters curl noise lines
 # NOTE: 'SSL certificate verification failed, continuing anyway!' is EXPECTED with -k (insecure flag) — it is NOT an error.
@@ -176,6 +205,15 @@ python3 -c "import subprocess,json; ip_r=subprocess.run(['dig','+short','{{domai
 
 # [P1-J] jldc.me subdomain API (handles .com.au / .co.uk style 2-part TLDs)
 python3 -c "import subprocess,json; dom='{{domain}}'; parts=dom.split('.'); root='.'.join(parts[-3:]) if len(parts)>=3 and len(parts[-1])<=2 else '.'.join(parts[-2:]); raw=subprocess.run(['curl','-4','-sk','--max-time','15','--connect-timeout','8','-A','curl/7.88','https://jldc.me/anubis/subdomains/'+root],capture_output=True,text=True,timeout=20).stdout; subs=json.loads(raw) if raw.strip().startswith('[') else []; [print(s) for s in subs[:30]] or print('(no jldc.me results for',root,')')"
+
+# [P1-K] URLScan.io — screenshots, server headers, cookies, tech stack (no API key needed)
+python3 -c "import subprocess,json; domain='{{domain}}'; r=subprocess.run(['curl','-4','-sk','--max-time','15','-A','curl/7.88','https://urlscan.io/api/v1/search/?q=domain:'+domain+'&size=5'],capture_output=True,text=True,timeout=20).stdout.strip(); d=json.loads(r) if r.strip().startswith('{{') else {{}}; results=d.get('results',[]); [print('[urlscan] url:',x.get('page',{{}}).get('url',''),'server:',x.get('page',{{}}).get('server',''),'ip:',x.get('page',{{}}).get('ip',''),'screenshot:',x.get('screenshot','')) for x in results[:5]] or print('[urlscan] no results for',domain)"
+
+# [P1-L] AlienVault OTX — passive DNS, subdomains, threat intel
+python3 -c "import subprocess,json; domain='{{domain}}'; r=subprocess.run(['curl','-4','-sk','--max-time','15','-A','curl/7.88','https://otx.alienvault.com/api/v1/indicators/domain/'+domain+'/passive_dns'],capture_output=True,text=True,timeout=20).stdout.strip(); d=json.loads(r) if r.strip().startswith('{{') else {{}}; records=d.get('passive_dns',[]); [print('[OTX passive_dns] hostname:',p.get('hostname',''),'addr:',p.get('address','')) for p in records[:15]] or print('[OTX] 0 passive DNS records for',domain); r2=subprocess.run(['curl','-4','-sk','--max-time','15','-A','curl/7.88','https://otx.alienvault.com/api/v1/indicators/domain/'+domain+'/url_list?limit=20'],capture_output=True,text=True,timeout=20).stdout.strip(); d2=json.loads(r2) if r2.strip().startswith('{{') else {{}}; [print('[OTX url]',u.get('url','')) for u in d2.get('url_list',[])[:10]]"
+
+# [P1-M] BufferOver + RapidDNS — additional subdomain discovery
+python3 -c "import subprocess,json; dom='{{domain}}'; parts=dom.split('.'); root='.'.join(parts[-3:]) if len(parts)>=3 and len(parts[-1])<=2 else '.'.join(parts[-2:]); r=subprocess.run(['curl','-4','-sk','--max-time','12','-A','curl/7.88','https://dns.bufferover.run/dns?q=.'+root],capture_output=True,text=True,timeout=15).stdout.strip(); d=json.loads(r) if r.strip().startswith('{{') else {{}}; entries=d.get('FDNS_A',[])+d.get('RDNS',[]); [print('[BufferOver]',e) for e in entries[:20]] or print('[BufferOver] no results for',root); r2=subprocess.run(['curl','-4','-sk','--max-time','15','-A','curl/7.88','https://rapiddns.io/subdomain/'+root+'?full=1'],capture_output=True,text=True,timeout=20).stdout; import re; subs=re.findall(r'<td>([a-z0-9\\-\\.]+\\.'+re.escape(root)+')</td>',r2,re.I); [print('[RapidDNS]',s) for s in sorted(set(subs))[:20]] or print('[RapidDNS] no results for',root)"
 
 ══════════════════════════════════════════════════════════
 PHASE 2 — ORIGIN IP / CDN BYPASS DISCOVERY
@@ -226,18 +264,22 @@ curl -s --socks5 127.0.0.1:9050 https://check.torproject.org/api/ip --max-time 6
 curl -4 -sI https://{{domain}}/ --max-time 8 -A "Googlebot/2.1 (+http://www.google.com/bot.html)" -H "From: googlebot(at)googlebot.com" 2>/dev/null
 curl -4 -sI https://{{domain}}/ --max-time 8 -A "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)" 2>/dev/null
 
+# [P3-I] Cloudscraper — Python CF bypass + UA rotation (works when curl is blocked by JS challenge or IP filter)
+python3 -c "import cloudscraper,sys; s=cloudscraper.create_scraper(browser={{'browser':'chrome','platform':'windows','desktop':True}}); r=s.get('https://{{domain}}/',timeout=20,verify=False); print('Status:',r.status_code); print('Headers:',dict(r.headers)); print(r.text[:2000])" 2>&1 || echo "[cloudscraper] not installed — run: pip3 install cloudscraper"
+python3 -c "import cloudscraper; s=cloudscraper.create_scraper(browser={{'browser':'firefox','platform':'windows'}}); r=s.get('https://{{domain}}/',timeout=20,verify=False); [print(l) for l in r.text.splitlines()[:60] if l.strip()]" 2>&1 | head -40
+
+# [P3-J] Tech fingerprint from HTML (when site is partially reachable)
+curl -L -4 -sk --max-time 15 -A "{_UA}" -H "Referer: {_REF}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt https://{{domain}}/ 2>/dev/null | grep -iEo "(wordpress|drupal|joomla|magento|shopify|woocommerce|laravel|django|rails|react|angular|vue\\.?js|next\\.?js|nuxt|gatsby|symfony|codeigniter|yii|zend|asp\\.net|java|python|ruby|php|nginx|apache|iis|node)" | sort -u | head -20 || echo "[P3-J] No tech fingerprint from live page — site blocked"
+
 ══════════════════════════════════════════════════════════
 PHASE 4 — PIVOT (run when exit code 28 / IP filtered)
 If the target server drops all packets from this VPS, pivot to alternate assets.
 The biggest finding is often the alternate asset — not the blocked main domain.
 ══════════════════════════════════════════════════════════
 
-# [P4-A] Platform hostname bypass — use Shodan hostname with Host header injection
-# (From P1-H output — hostnames field, e.g. 1195745.cloudwaysapps.com)
-# The platform vhost has no IP filtering. Replace PLATFORM_HOST with actual hostname:
-python3 -c "import subprocess,json; ip=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=8).stdout.strip().split('\n')[0] if subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=8).stdout.strip() else ''; raw=subprocess.run(['curl','-4','-sk','--max-time','8','https://internetdb.shodan.io/'+ip],capture_output=True,text=True,timeout=12).stdout if ip else ''; d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; hosts=d.get('hostnames',[]); [print('BYPASS TARGET:',h) for h in hosts if '.' in h and h!=ip]"
-curl -L -4 -sk --max-time 10 -A "{_UA}" -H "Host: {{domain}}" -H "Referer: {_REF}" https://PASTE_PLATFORM_HOSTNAME_HERE/ | head -40
-curl -L -4 -sI --max-time 10 -A "{_UA}" -H "Host: {{domain}}" https://PASTE_PLATFORM_HOSTNAME_HERE/
+# [P4-A] Shodan — find platform hostnames for Host-header bypass (e.g. 1195745.cloudwaysapps.com)
+# Platform vhosts have no IP filtering. Automatically tries each discovered hostname:
+python3 -c "import subprocess,json; ip=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=8).stdout.strip().splitlines(); ip=ip[0] if ip else ''; key='{_SHODAN_KEY}'; raw=subprocess.run(['curl','-4','-sk','--max-time','15','https://api.shodan.io/shodan/host/'+ip+'?key='+key],capture_output=True,text=True,timeout=20).stdout if (key and ip) else subprocess.run(['curl','-4','-sk','--max-time','10','https://internetdb.shodan.io/'+ip],capture_output=True,text=True,timeout=15).stdout if ip else ''; d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; hosts=d.get('hostnames',[]); ports=d.get('ports',[]); print('Shodan hostnames:',hosts); print('Shodan open ports:',ports); [print('BYPASS TARGET:',h) for h in hosts if '.' in h and h!=ip]; bypass=next((h for h in hosts if '.' in h and h!=ip and not h.startswith(ip)),None); bypass and print(subprocess.run(['curl','-L','-4','-sk','--max-time','15','-A','{_UA}','-H','Host: {{domain}}','-H','Referer: {_REF}','https://'+bypass+'/'],capture_output=True,text=True,timeout=20).stdout[:2000]) or print('[P4-A] No platform hostname found in Shodan — try manual check at shodan.io')"
 
 # [P4-B] Staging/dev subdomains — often skip WAF/IP filtering (different server)
 python3 -c "import subprocess; subs=['staging','dev','test','beta','direct','origin']; results=[(s,subprocess.run(['dig',s+'.{{domain}}','A','+short'],capture_output=True,text=True,timeout=5).stdout.strip().split('\n')[0]) for s in subs]; [print('ALT TARGET: https://'+s+'.{{domain}}','->',ip) for s,ip in results if ip]"
