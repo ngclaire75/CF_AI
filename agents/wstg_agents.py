@@ -763,7 +763,7 @@ python3 << 'PYEOF'
 import subprocess, json, re, os, base64, urllib.parse
 
 UA  = '{_BUA}'
-HOST = '{domain}'.split('/')[0]   # strip any path the caller included
+HOST = '{{domain}}'   # filled in by _run_wstg before the agent starts
 BASE = f'https://{{HOST}}'
 
 def run(cmd, timeout=12):
@@ -792,14 +792,14 @@ for p in cred_paths:
             print(f'EXPOSED_FILE | {{code}} | {{p}}')
             # Parse wp-config.php for DB_USER / DB_PASSWORD
             for line in content.splitlines():
-                mu = re.search(r"define\s*\(\s*['\"]DB_USER['\"]\s*,\s*['\"]([^'\"]+)['\"]", line)
-                mp = re.search(r"define\s*\(\s*['\"]DB_PASSWORD['\"]\s*,\s*['\"]([^'\"]+)['\"]", line)
+                mu = re.search(r"define\\s*\\(\\s*['\"]DB_USER['\"]\s*,\\s*['\"]([^'\"]+)['\"]", line)
+                mp = re.search(r"define\\s*\\(\\s*['\"]DB_PASSWORD['\"]\s*,\\s*['\"]([^'\"]+)['\"]", line)
                 if mu: exposed_user = mu.group(1); print(f'FOUND_DB_USER: {{exposed_user}}')
                 if mp: exposed_pass = mp.group(1); print(f'FOUND_DB_PASS: (redacted len={{len(mp.group(1))}})')
             # Parse .env for WP credentials
             for line in content.splitlines():
-                me = re.search(r'(?:WP_USER|WORDPRESS_USER|ADMIN_USER)\s*=\s*(\S+)', line, re.I)
-                mp2 = re.search(r'(?:WP_PASS|WORDPRESS_PASSWORD|ADMIN_PASS|WP_PASSWORD)\s*=\s*(\S+)', line, re.I)
+                me = re.search(r'(?:WP_USER|WORDPRESS_USER|ADMIN_USER)\\s*=\\s*(\\S+)', line, re.I)
+                mp2 = re.search(r'(?:WP_PASS|WORDPRESS_PASSWORD|ADMIN_PASS|WP_PASSWORD)\\s*=\\s*(\\S+)', line, re.I)
                 if me: exposed_user = me.group(1); print(f'FOUND_ENV_USER: {{exposed_user}}')
                 if mp2: exposed_pass = mp2.group(1); print(f'FOUND_ENV_PASS: (redacted)')
 
@@ -824,7 +824,7 @@ except: pass
 # Author archive redirect (/?author=N → /author/USERNAME/)
 for i in range(1, 6):
     out = run(f'curl -L -4 -sk -o /dev/null -w "%{{{{url_effective}}}}" --max-time 8 -A "{{UA}}" "{{BASE}}/?author={{i}}"')
-    m = re.search(r'/author/([a-z0-9_\-]+)/?', out)
+    m = re.search(r'/author/([a-z0-9_\\-]+)/?', out)
     if m:
         slug = m.group(1)
         if slug not in usernames:

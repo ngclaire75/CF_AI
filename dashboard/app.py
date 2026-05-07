@@ -401,16 +401,20 @@ def index():
 
     _prio = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2, 'INFO': 3}
     all_recs = []
-    seen_text: set[str] = set()
+    # Deduplicate per-target so that each website shows its own unique findings,
+    # but the same finding can appear for multiple different websites.
+    seen_per_target: dict[str, set] = {}
 
     for s in scans:
+        tgt = s['target']
+        seen = seen_per_target.setdefault(tgt, set())
         # Primary: structured remediation templates (have exact fix code)
         for rem in s['remediations']:
-            k = rem['title'][:50].lower()
-            if k not in seen_text:
-                seen_text.add(k)
+            k = rem['id']  # stable id like 'missing-x-frame-options'
+            if k not in seen:
+                seen.add(k)
                 all_recs.append({
-                    'target':    s['target'],
+                    'target':    tgt,
                     'risk':      rem['severity'],
                     'text':      rem['title'],
                     'agent':     s['agent_label'],
@@ -420,11 +424,11 @@ def index():
                 })
         # Secondary: free-text extracted recommendations
         for r in s['recs']:
-            k = r[:50].lower()
-            if k not in seen_text:
-                seen_text.add(k)
+            k = r[:60].lower()
+            if k not in seen:
+                seen.add(k)
                 all_recs.append({
-                    'target':    s['target'],
+                    'target':    tgt,
                     'risk':      s['risk'],
                     'text':      r,
                     'agent':     s['agent_label'],
@@ -433,7 +437,7 @@ def index():
                     'has_fixes': False,
                 })
 
-    all_recs.sort(key=lambda x: _prio.get(x['risk'], 3))
+    all_recs.sort(key=lambda x: (_prio.get(x['risk'], 3), x['target']))
 
     return render_template('index.html',
                            scans=scans,
