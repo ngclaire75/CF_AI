@@ -1,8 +1,11 @@
 """CF_AI REPL command handlers — standalone CLI, no dashboard required."""
 from __future__ import annotations
 import dataclasses
+import json
 import os
 import time
+import urllib.request
+import urllib.error
 import subprocess
 from collections import deque
 from datetime import datetime
@@ -16,6 +19,52 @@ WSTG_CATEGORIES = {
     'sess', 'inpv', 'cryp', 'clnt', 'apit',
 }
 SPECIAL_CATEGORIES = {'ctf', 'ot', 'enum'}
+
+
+# ── Scan saver: local DB or remote VPS dashboard ─────────────────────────────
+
+def _save_scan(*, target, agent_type, model='', status='ok',
+               latency_s=0.0, tool_count=0, output=''):
+    """Save scan result locally or POST to remote VPS dashboard.
+
+    If CFAI_DASHBOARD_URL is set in .env (e.g. http://YOUR_VPS_IP:8889),
+    the result is POSTed to the VPS over HTTP.  Otherwise it writes to the
+    local SQLite database (same machine as the dashboard).
+    """
+    dashboard_url = os.environ.get('CFAI_DASHBOARD_URL', '').rstrip('/')
+    if dashboard_url:
+        payload = json.dumps({
+            'target':     target,
+            'agent_type': agent_type,
+            'model':      model,
+            'status':     status,
+            'latency_s':  round(float(latency_s), 2),
+            'tool_count': int(tool_count),
+            'output':     str(output)[:60000],
+        }).encode('utf-8')
+        headers = {'Content-Type': 'application/json'}
+        api_key = os.environ.get('CFAI_API_KEY', '')
+        if api_key:
+            headers['X-CFAI-Key'] = api_key
+        req = urllib.request.Request(
+            f'{dashboard_url}/api/scan',
+            data=payload,
+            headers=headers,
+            method='POST',
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                resp.read()
+        except Exception as e:
+            print(f'  [dashboard] Remote save failed: {e}')
+    else:
+        try:
+            from dashboard.db import save_scan
+            save_scan(target=target, agent_type=agent_type, model=model,
+                      status=status, latency_s=latency_s,
+                      tool_count=tool_count, output=output)
+        except Exception:
+            pass
 
 
 # ── Local history (in-memory ring buffer) ────────────────────────────────────
@@ -123,13 +172,9 @@ def _run_wstg(category: str, target: str, model: str = ''):
     if elapsed > 0.5:
         print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
 
-    try:
-        from dashboard.db import save_scan
-        save_scan(target=domain, agent_type=category, model=agent.model,
-                  status=_status[0], latency_s=elapsed,
-                  tool_count=_tools[0], output='\n\n'.join(_parts))
-    except Exception:
-        pass
+    _save_scan(target=domain, agent_type=category, model=agent.model,
+               status=_status[0], latency_s=elapsed,
+               tool_count=_tools[0], output='\n\n'.join(_parts))
 
 
 # ── Special agent runner (ctf / ot) ──────────────────────────────────────────
@@ -190,13 +235,9 @@ def _run_special(category: str, target: str, model: str = ''):
     if elapsed > 0.5:
         print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
 
-    try:
-        from dashboard.db import save_scan
-        save_scan(target=target, agent_type=category, model=agent.model,
-                  status=_status[0], latency_s=elapsed,
-                  tool_count=_tools[0], output='\n\n'.join(_parts))
-    except Exception:
-        pass
+    _save_scan(target=target, agent_type=category, model=agent.model,
+               status=_status[0], latency_s=elapsed,
+               tool_count=_tools[0], output='\n\n'.join(_parts))
 
 
 # ── Agent / Chat ──────────────────────────────────────────────────────────────
@@ -302,13 +343,9 @@ def cmd_agent(args: str, model: str = ''):
     if elapsed > 0.5:
         print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
 
-    try:
-        from dashboard.db import save_scan
-        save_scan(target=target or message[:80], agent_type=role, model=eff_model,
-                  status=_status[0], latency_s=elapsed,
-                  tool_count=_tools[0], output='\n\n'.join(_parts))
-    except Exception:
-        pass
+    _save_scan(target=target or message[:80], agent_type=role, model=eff_model,
+               status=_status[0], latency_s=elapsed,
+               tool_count=_tools[0], output='\n\n'.join(_parts))
 
 
 def cmd_recon(args: str, model: str = ''):
