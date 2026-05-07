@@ -829,6 +829,17 @@ def api_stats():
     return jsonify(db.get_stats())
 
 
+@app.route('/api/scans/recent')
+def api_scans_recent():
+    """Return the latest scans as JSON for live dashboard refresh."""
+    limit  = min(int(request.args.get('limit', 50)), 200)
+    target = request.args.get('target', '')
+    rows   = db.get_scans()[:limit]
+    if target:
+        rows = [r for r in rows if r.get('target', '').lower() == target.lower()]
+    return jsonify([enrich(r) for r in rows])
+
+
 @app.route('/api/scan/<int:scan_id>/cve')
 def api_scan_cve(scan_id):
     """Query NVD for real CVEs matching the technologies found in this scan."""

@@ -2154,6 +2154,8 @@ function _cwShowDone(status, domain, errMsg) {
   }
   document.getElementById('cwPluginLogsBtn').style.display = '';
   if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
+  // Refresh the scan history table immediately — no page reload needed
+  setTimeout(refreshScanHistory, 800);
 }
 
 // ── Poll for new chunks ───────────────────────────────────────────────────
@@ -2182,6 +2184,52 @@ function cwPoll() {
 }
 
 function cwOpenReport() { if (_cwScanId) openModal(_cwScanId); return false; }
+
+/* ── Live scan-history refresh (no page reload needed) ── */
+function refreshScanHistory() {
+  fetch('/api/scans/recent?limit=50')
+    .then(function(r){ return r.json(); })
+    .then(function(scans) {
+      if (!scans || !scans.length) return;
+      var tbody = document.querySelector('#hist tbody');
+      if (!tbody) return;
+
+      var rows = scans.map(function(s) {
+        var statusHtml = s.status === 'ok'
+          ? '<span class="st-ok">OK</span>'
+          : s.status === 'interrupted'
+          ? '<span class="st-int">Stopped</span>'
+          : '<span class="st-err">Error</span>';
+        return '<tr data-risk="'+esc(s.risk||'')+'" data-target="'+esc((s.target||'').toLowerCase())+'">'+
+          '<td class="td-mono">'+esc(String(s.id||''))+'</td>'+
+          '<td class="td-target" title="'+esc(s.target||'')+'">'+esc(s.target||'')+'</td>'+
+          '<td>'+esc(s.agent_label||'')+'</td>'+
+          '<td class="td-light">'+esc(s.model||'')+'</td>'+
+          '<td class="td-dim">'+esc(String(s.latency_s||''))+'s</td>'+
+          '<td class="td-light">'+esc(String(s.tool_count||''))+'</td>'+
+          '<td><span class="badge badge-'+esc(s.risk||'INFO')+'">'+esc(s.risk||'INFO')+'</span></td>'+
+          '<td>'+statusHtml+'</td>'+
+          '<td class="td-dim">'+esc(s.display_date||'')+'</td>'+
+          '<td><button class="btn btn-sm" onclick="openDetailsModal('+s.id+')">Details</button></td>'+
+        '</tr>';
+      });
+      tbody.innerHTML = rows.join('');
+
+      // Re-apply active filter
+      var activeRisk = (_histRisk && _histRisk !== 'all') ? _histRisk : null;
+      tbody.querySelectorAll('tr').forEach(function(row) {
+        var show = !activeRisk || (row.dataset.risk || '') === activeRisk;
+        if (_histDomain) show = show && (row.dataset.target||'').includes(_histDomain.toLowerCase());
+        row.style.display = show ? '' : 'none';
+      });
+
+      // Make the empty-state div disappear if we now have rows
+      var empty = document.querySelector('#hist').closest('.card').querySelector('.empty');
+      if (empty) empty.style.display = 'none';
+      document.querySelector('#hist').style.display = '';
+    })
+    .catch(function(){});
+}
 
 function cwRefreshDashboard() {
   if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));

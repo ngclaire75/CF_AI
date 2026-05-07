@@ -102,6 +102,59 @@ class Agent:
         return [t._ant_tool_spec for t in self.all_tools() if hasattr(t, '_ant_tool_spec')]
 
 
+# ── MCP local client (Python → localhost MCP server via MCP protocol) ────────
+
+def _call_mcp_tool_sync(server_url: str, tool_name: str, args: dict) -> str:
+    """Call a tool on the local MCP server using the MCP protocol.
+
+    Runs the async MCP client in a dedicated thread+event loop so it works
+    from any synchronous call site without conflicting with existing loops.
+    """
+    import asyncio
+    import threading
+
+    result_box: list = [None]
+    error_box:  list = [None]
+
+    async def _async_call():
+        try:
+            from mcp.client.streamable_http import streamablehttp_client  # mcp >= 1.0
+            from mcp import ClientSession
+
+            async with streamablehttp_client(server_url) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(tool_name, args)
+                    texts = [
+                        c.text for c in (result.content or [])
+                        if hasattr(c, 'text') and c.text
+                    ]
+                    return '\n'.join(texts) if texts else str(result)
+        except Exception as exc:
+            return f'[MCP client error: {exc}]'
+
+    def _thread_target():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result_box[0] = loop.run_until_complete(_async_call())
+        except Exception as exc:
+            error_box[0] = exc
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+    t = threading.Thread(target=_thread_target, daemon=True)
+    t.start()
+    t.join(timeout=130)  # slightly above wp tool timeout
+
+    if error_box[0]:
+        return f'[MCP thread error: {error_box[0]}]'
+    if result_box[0] is None:
+        return f'[MCP call timed out for {tool_name}]'
+    return result_box[0]
+
+
 # ── Runner ────────────────────────────────────────────────────────────────────
 
 class Runner:
@@ -159,36 +212,37 @@ class Runner:
             _emit('ANTHROPIC_API_KEY not set — add it to .env and restart')
             return ''
 
-        client    = _ant.Anthropic(api_key=key)
-        messages  = [{'role': 'user', 'content': message}]
+        client   = _ant.Anthropic(api_key=key)
+        messages = [{'role': 'user', 'content': message}]
+
         # Deduplicate tools by name — prevents 'Tool names must be unique' API error
         _seen_tool_names: set = set()
-        all_fns = []
+        all_fns: list = []
         for _t in agent.all_tools():
             _n = getattr(_t, '__name__', id(_t))
             if _n not in _seen_tool_names:
                 _seen_tool_names.add(_n)
                 all_fns.append(_t)
-        _mcp_fns  = [t for t in all_fns if getattr(t, '_is_mcp_tool', False)]
-        _reg_fns  = [t for t in all_fns if not getattr(t, '_is_mcp_tool', False)]
 
-        # Try to start the MCP server for real MCP protocol connections
+        _mcp_fns = [t for t in all_fns if getattr(t, '_is_mcp_tool', False)]
+
+        # Start local MCP server so Python can call MCP tools via MCP protocol.
+        # The Anthropic API only sees regular tool specs — no beta required.
+        # Python acts as the MCP client: Anthropic → Python → MCP server (localhost).
         _mcp_url = ''
         if _mcp_fns:
             try:
                 from sdk import mcp_launcher
                 _mcp_url = mcp_launcher.get_server_url()
+                if _mcp_url:
+                    _emit(f'[MCP] Server ready at {_mcp_url} — MCP protocol active')
             except Exception:
                 pass
 
-        # When MCP server running: regular tools go to API, MCP tools go to server
-        # When no MCP server: all tools (including MCP functions) as regular Anthropic tools
-        if _mcp_url:
-            tools    = [t._ant_tool_spec for t in _reg_fns if hasattr(t, '_ant_tool_spec')]
-            tool_map = {t.__name__: t for t in _reg_fns if callable(t)}
-        else:
-            tools    = agent._anthropic_specs()
-            tool_map = {t.__name__: t for t in all_fns if callable(t)}
+        # All tools (including MCP tools) are passed to Anthropic as regular specs.
+        # No beta API needed — MCP calls are made locally by Python.
+        tools    = [t._ant_tool_spec for t in all_fns if hasattr(t, '_ant_tool_spec')]
+        tool_map = {t.__name__: t for t in all_fns if callable(t)}
 
         turns = 0
         final = ''
@@ -202,41 +256,13 @@ class Runner:
                     ts.set_attribute('cfai.turn', turns)
                     ts.set_attribute('openinference.span.kind', 'LLM')
                     ts.set_attribute('llm.model_name', agent.model)
-                    if _mcp_url:
-                        try:
-                            resp = client.beta.messages.create(
-                                model=agent.model,
-                                max_tokens=8096,
-                                system=agent.instructions,
-                                messages=messages,
-                                tools=tools or _ant.NOT_GIVEN,
-                                betas=['mcp-client-2025-04-04'],
-                                mcp_servers=[{
-                                    'type': 'url',
-                                    'url':  _mcp_url,
-                                    'name': 'cf-ai-wordpress',
-                                }],
-                            )
-                        except Exception as mcp_exc:
-                            _emit(f'[MCP] Server unavailable, using direct tool calls: {mcp_exc}')
-                            _mcp_url = ''
-                            tools    = agent._anthropic_specs()
-                            tool_map = {t.__name__: t for t in all_fns if callable(t)}
-                            resp = client.messages.create(
-                                model=agent.model,
-                                max_tokens=8096,
-                                system=agent.instructions,
-                                messages=messages,
-                                tools=tools or _ant.NOT_GIVEN,
-                            )
-                    else:
-                        resp = client.messages.create(
-                            model=agent.model,
-                            max_tokens=8096,
-                            system=agent.instructions,
-                            messages=messages,
-                            tools=tools or _ant.NOT_GIVEN,
-                        )
+                    resp = client.messages.create(
+                        model=agent.model,
+                        max_tokens=8096,
+                        system=agent.instructions,
+                        messages=messages,
+                        tools=tools or _ant.NOT_GIVEN,
+                    )
                     _ok(ts)
             except KeyboardInterrupt:
                 instr = _hitl_pause(messages)
@@ -283,7 +309,12 @@ class Runner:
                     tool_s.set_attribute('cfai.tool', block.name)
                     tool_s.set_attribute('cfai.tool.args', str(args)[:300])
                     try:
-                        result = fn(**args) if fn else f'[unknown tool: {block.name}]'
+                        # MCP tools: call via MCP protocol (Python → local MCP server)
+                        # when the server is running; fall back to direct Python call.
+                        if _mcp_url and getattr(fn, '_is_mcp_tool', False):
+                            result = _call_mcp_tool_sync(_mcp_url, block.name, args)
+                        else:
+                            result = fn(**args) if fn else f'[unknown tool: {block.name}]'
                     except HandoffRequest as hoff:
                         return cls.run(hoff.target_agent, hoff.message,
                                        on_text, on_tool, on_result, max_turns - turns)
