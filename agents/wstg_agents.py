@@ -7,9 +7,12 @@ from __future__ import annotations
 import os
 from sdk.agents import Agent
 from tools.generic_linux_command import generic_linux_command, read_file, write_file
+from tools.js_secret_hunter import hunt_js_secrets
 
-_TOOLS = [generic_linux_command, read_file, write_file]
-_MODEL = os.environ.get('CAI_MODEL', 'gpt-4o')
+_TOOLS    = [generic_linux_command, read_file, write_file]
+_JS_TOOLS = [hunt_js_secrets, generic_linux_command, read_file, write_file]
+_MODEL    = os.environ.get('CAI_MODEL', 'gpt-4o')
+_VT_KEY   = os.environ.get('VIRUSTOTAL_API_KEY', '')
 
 _BUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
@@ -33,9 +36,20 @@ RULES:
   3. HTTP/1.0 downgrade: --http1.0
   4. Plain HTTP port 80 instead of HTTPS
   5. Fall back to passive recon (whois/dig/Wayback/crt.sh)
-- Format the final findings as a markdown table:
-  | # | WSTG-ID | Severity | Finding | Evidence |
-  |---|---------|----------|---------|----------|
+- OUTPUT FORMAT — use the format that matches severity:
+
+  For CONFIRMED vulnerabilities (Medium / High / Critical):
+    ### [WSTG-ID] — Vulnerability Name
+    **Severity**: Critical / High / Medium
+    **Summary**: One sentence — what was found and why it matters.
+    **Exploitation Steps**:
+    1. Exact reproduction step (URL, payload, tool command)
+    2. Additional steps as needed
+    **Proof of Impact**: Paste the EXACT server response / secret value / command output proving the finding.
+    **Notes**: Affected parameter, WAF bypass used, recommended fix.
+
+  For informational findings (Info / Low), a table row is sufficient:
+    | WSTG-ID | Info/Low | Finding | Evidence |
 """
 
 
@@ -276,17 +290,18 @@ FINAL OUTPUT — format as this exact table structure:
 | 2 | INFO-06  | Medium   | WordPress path exposed           | /wp-content/uploads/wpforms/          |
 | 3 | INFO-08  | High     | Framework version leaked         | WordPress 6.x via meta generator      |
 
-Rules for table:
-- One row per finding. Never merge findings from different WSTG-IDs into one row.
-- Severity: Info / Low / Medium / High / Critical
-- Evidence: paste the exact value from command output (header value, version string, IP, path)
-- Include ALL findings — passive recon, active HTTP, framework, architecture
 Severity guide (do NOT over-score):
-- Info:   hosting provider, ASN/org, IP geolocation, registrar, SPF/MX records, DNS records, CDN detected
-- Low:    open non-essential port, missing security header, banner disclosure without version
-- Medium: exposed framework/CMS name, version string in header, directory listing, sensitive path accessible
-- High:   specific exploitable version with known CVE, admin panel exposed, credentials/keys disclosed
+- Info:     hosting provider, ASN/org, IP geolocation, registrar, SPF/MX, DNS, CDN detected
+- Low:      open non-essential port, missing security header, banner without version
+- Medium:   exposed CMS name, version string in header, directory listing, sensitive path accessible
+- High:     specific exploitable version with known CVE, admin panel exposed, credentials leaked
 - Critical: active RCE/SQLi/auth bypass confirmed
+
+After completing all checks, produce the final report:
+- **EXECUTIVE SUMMARY**: total findings count, highest severity, most critical issue in one sentence
+- Detailed report blocks (per RULES) for each confirmed Medium/High/Critical finding
+- Table rows for Info/Low informational findings
+- **REMEDIATION PRIORITY**: top 3 fixes ordered by risk
 """, max_turns=40)
 
 
@@ -308,8 +323,10 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   python3 -c "import subprocess,json; raw=subprocess.run(['curl','-L','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.{{domain}}&output=json'],capture_output=True,text=True,timeout=25).stdout; d=json.loads(raw) if raw.strip().startswith('[') else []; subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v)); [print(s) for s in subs[:30]] or print('(no crt.sh results)')"
   amass enum -passive -d {{domain}} 2>/dev/null | head -20 || true
 
-After all checks, list:
-FINDING | WSTG-CONF-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
 
 
@@ -339,8 +356,10 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
 [IDNT-05] Weak or Unenforced Username Policy
   python3 -c "import subprocess; ua='{_BUA}'; base=['curl','-L','-4','-si','-X','POST','https://{{domain}}/register','-H','Content-Type: application/x-www-form-urlencoded','-A',ua,'--max-time','10','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt']; users=['a','','user name','a@b','x'*300]; [print(subprocess.run(base+['-d',f'username={{u}}&email=t@t.com&password=Test1234!'],capture_output=True,text=True,timeout=15).stdout[:300]) for u in users]"
 
-After all checks, list:
-FINDING | WSTG-IDNT-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
 
 
@@ -413,8 +432,10 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   curl -L -4 -s https://{{domain}}/login -A "{_BUA}" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-US,en;q=0.9" -H "Referer: https://www.google.com/" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 18 2>/dev/null \
     | grep -iE "(2fa|mfa|otp|totp|authenticator|two.factor|verification.code|sms.code)" | head -5
 
-After all checks, list:
-FINDING | WSTG-ATHN-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
 
 
@@ -444,8 +465,10 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   curl -L -4 -s https://{{domain}}/ -A "{_BUA}" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Referer: https://www.google.com/" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 15 2>/dev/null | grep -iEo "(oauth|openid|auth0|okta|google.*login|facebook.*login|/.well-known/openid-configuration)" | sort -u
   for p in /.well-known/openid-configuration /oauth/authorize /oauth/token /auth/google /auth/facebook /auth/github; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" https://{{domain}}$p -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null); [ "$code" != "404" ] && [ "$code" != "000" ] && echo "$code $p"; done
 
-After all checks, list:
-FINDING | WSTG-ATHZ-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
 
 
@@ -486,8 +509,10 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   curl -L -4 -s https://{{domain}}/ -A "{_BUA}" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 15 2>/dev/null | grep -Eo "eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+" | head -3
   for ep in /api /api/v1 /api/auth /api/token; do curl -L -4 -sI https://{{domain}}$ep -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null | grep -iE "authorization|bearer|jwt" | head -2; done
 
-After all checks, list:
-FINDING | WSTG-SESS-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
 
 
@@ -535,8 +560,10 @@ WAF BYPASS: If you get 403/429 responses, the target has a WAF. Before retrying:
 [INPV-19] Server-Side Request Forgery (SSRF)
   python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; params=['url','path','redirect','uri','dest','target','src','callback','webhook','fetch','proxy']; dsts=['http://169.254.169.254/latest/meta-data/','http://127.0.0.1/','http://localhost/']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout; [print('SSRF HIT:',u) for pr in params for dst in dsts for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(dst)] if any(x in run(u) for x in ['ami-id','instance-id','local-ipv4','root:x:0'])]"
 
-After all checks, list:
-FINDING | WSTG-INPV-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
 
 
@@ -561,8 +588,10 @@ Every curl MUST have -L -4 -A "{_BUA}".
   curl -L -4 -sI https://{{domain}}/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | grep -iE "strict-transport-security|hsts|includeSubDomains|preload"
   curl -L -4 -s http://{{domain}}/login -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | grep -iE "(action=.http:|method=.post)" | head -3
 
-After all checks, list:
-FINDING | WSTG-CRYP-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
 
 
@@ -594,8 +623,10 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   curl -L -4 -s https://{{domain}}/ -A "{_BUA}" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 15 2>/dev/null | grep -Eo 'src="https?://[^"]*[.]js[^"]*"' | head -15
   for ep in /api/jsonp /callback /json /data; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" "https://{{domain}}$ep?callback=test" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null); [ "$code" != "404" ] && echo "$code JSONP? $ep?callback=test"; done
 
-After all checks, list:
-FINDING | WSTG-CLNT-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
 
 
@@ -618,15 +649,99 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   for ep in /graphql /api/graphql /gql /graph /graphql/v1; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__typename}}"}}' --max-time 8 2>/dev/null); if [ "$code" != "404" ] && [ "$code" != "000" ]; then echo "GraphQL: $code https://{{domain}}$ep"; curl -L -4 -s -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__schema{{types{{name}}}}}}"}}' --max-time 10 2>/dev/null | python3 -m json.tool 2>/dev/null | head -20; fi; done
   command -v graphql-cop &>/dev/null && graphql-cop -t https://{{domain}}/graphql 2>/dev/null | head -30 || true
 
-After all checks, list:
-FINDING | WSTG-APIT-XX | Severity | Evidence
+After all checks, produce the final report using the OUTPUT FORMAT from RULES:
+- Detailed report blocks for confirmed Medium/High/Critical findings
+- Table rows for Info/Low findings
+- EXECUTIVE SUMMARY line at the top
 """)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JS / SECRET HUNTER  (3-phase: Discovery → Secret Hunting → Evasion)
+# ─────────────────────────────────────────────────────────────────────────────
+JS_AGENT = Agent(
+    name='WSTG-JS',
+    description='JavaScript Intelligence: Intelligent Discovery → Advanced Secret Hunting → Evasion & Bypass',
+    instructions=RULES + f"""
+You are the CF_AI JavaScript Intelligence Agent. Target: {{domain}}
+
+Run all 3 phases fully and autonomously before producing the final report.
+
+══════════════════════════════════════════════════════════
+PHASE 1 — INTELLIGENT DISCOVERY ENGINE
+Discover JS files, endpoints, frameworks, and sensitive exposed paths
+══════════════════════════════════════════════════════════
+
+# [D-01] Full HTML fetch — extract all JS URLs + API routes
+python3 -c "import subprocess,re; ua='{_BUA}'; get=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','15','--connect-timeout','8','-A',ua,'-H','Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8','-H','Referer: https://www.google.com/','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=20).stdout; html=get('https://{{domain}}/'); js_urls=re.findall(r'src=[\\x22\\x27]([^\\x22\\x27]+\\.js(?:\\?[^\\x22\\x27]*)?)[\\x22\\x27]',html); [print('JS:',u) for u in js_urls[:30]]; routes=re.findall(r'(?:path|route|endpoint)\\s*[:=]\\s*[\\x22\\x27](/[a-zA-Z0-9/_\\-]{{3,}})[\\x22\\x27]',html); [print('ROUTE:',r) for r in sorted(set(routes))[:20]] or print('(no routes found in HTML)')"
+
+# [D-02] Technology fingerprint
+python3 -c "import subprocess,re; ua='{_BUA}'; html=subprocess.run(['curl','-L','-4','-sk','--max-time','15','-A',ua,'-H','Referer: https://www.google.com/','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}/'],capture_output=True,text=True,timeout=20).stdout; checks=[('React','id=[\\x22\\x27]root[\\x22\\x27]|_reactFiber|__REACT_DEVTOOLS'),('Vue','id=[\\x22\\x27]app[\\x22\\x27]|Vue\\\\.version|__vue_'),('Next.js','__NEXT_DATA__|/_next/static'),('Nuxt','__NUXT__|/_nuxt/'),('Angular','ng-version=|ng-app'),('Svelte','__svelte_'),('Webpack','webpackChunk|__webpack_require__'),('WordPress','wp-content/|wp-includes/'),('Laravel','laravel_session|X-XSRF-TOKEN'),('Django','csrfmiddlewaretoken'),('Rails','authenticity_token'),('Shopify','Shopify\\\\.shop|cdn\\\\.shopify'),('Stripe','js\\\\.stripe\\\\.com'),('Firebase','firebaseapp\\\\.com'),('AWS S3','s3\\\\.amazonaws\\\\.com|s3-website'),('Google Analytics','google-analytics\\\\.com|gtag\\\\(')]; [print('TECH:',n) for n,p in checks if re.search(p,html,re.I)]"
+
+# [D-03] Sensitive file exposure (status code probe)
+python3 -c "import subprocess; ua='{_BUA}'; paths=['/.env','/.git/HEAD','/.git/config','/config.json','/wp-config.php','/backup.sql','/database.sql','/admin/config.php','/.htaccess','/web.config','/config/database.yml','/storage/logs/laravel.log','/phpinfo.php','/info.php','/server-status','/server-info','/.DS_Store','/composer.json','/package.json','/yarn.lock','/.well-known/security.txt','/crossdomain.xml','/.travis.yml','/Dockerfile','/.dockerenv','/debug','/api/debug','/actuator/env','/actuator/health']; run=lambda p: subprocess.run(['curl','-L','-4','-sk','-o','/dev/null','-w','%{{http_code}}','--max-time','6','--connect-timeout','4','-A',ua,'https://{{domain}}'+p],capture_output=True,text=True,timeout=10).stdout.strip(); [print('EXPOSED:',p,'->',c) for p in paths for c in [run(p)] if c and c not in ('404','403','410','000','')]"
+
+══════════════════════════════════════════════════════════
+PHASE 2 — ADVANCED SECRET HUNTING
+Scan all JS files for leaked credentials, API keys, tokens, DB strings
+══════════════════════════════════════════════════════════
+
+# [S-01] JS secret hunter — discovers and scans ALL JS files on the domain
+# IMPORTANT: Use the hunt_js_secrets TOOL (not generic_linux_command) with:
+#   domain="{{domain}}", virustotal_api_key="{_VT_KEY}", use_wayback=False
+# If the live site returns no JS files, call again with use_wayback=True
+
+# [S-02] Read contents of any sensitive files found in D-03
+python3 -c "import subprocess; ua='{_BUA}'; paths=['/.env','/.git/config','/config.json','/composer.json','/package.json','/config/database.yml','/storage/logs/laravel.log']; run=lambda p: subprocess.run(['curl','-L','-4','-sk','--max-time','8','--connect-timeout','5','-A',ua,'https://{{domain}}'+p],capture_output=True,text=True,timeout=12).stdout[:1500]; [print('--- CONTENT:',p,'---'); print(c) for p in paths for c in [run(p)] if len(c) > 30 and any(x in c.lower() for x in ['password','secret','key','token','api','db_','database','auth','url','host','user'])]"
+
+# [S-03] Git repo exposure
+python3 -c "import subprocess; ua='{_BUA}'; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,u],capture_output=True,text=True,timeout=12).stdout; head=run('https://{{domain}}/.git/HEAD'); config=run('https://{{domain}}/.git/config'); log=run('https://{{domain}}/.git/logs/HEAD'); print('HEAD:',head[:100] if head and 'ref:' in head else 'not exposed'); print('config:',config[:300] if config and 'repositoryformatversion' in config else 'not exposed'); print('log:',log[:300] if log and 'commit' in log.lower() else 'not exposed')"
+
+# [S-04] Check for S3 bucket / Firebase / cloud storage exposure
+python3 -c "import subprocess,re; ua='{_BUA}'; html=subprocess.run(['curl','-L','-4','-sk','--max-time','15','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}/'],capture_output=True,text=True,timeout=20).stdout; buckets=re.findall(r'([a-zA-Z0-9\\-]+\\.s3(?:\\.[a-zA-Z0-9\\-]+)?\\.amazonaws\\.com)',html); firebase=re.findall(r'https://[a-zA-Z0-9\\-]+\\.firebaseio\\.com',html); [print('S3 BUCKET:',b) for b in set(buckets)]; [print('FIREBASE:',f) for f in set(firebase)]; [print('STORAGE CHECK:', subprocess.run(['curl','-4','-sk','-o','/dev/null','-w','%{{http_code}}','--max-time','6',b.rstrip('/')+'/'],capture_output=True,text=True,timeout=10).stdout.strip(), b) for b in set(buckets)]"
+
+══════════════════════════════════════════════════════════
+PHASE 3 — EVASION & BYPASS TECHNIQUES
+Test WAF detection, Cloudflare bypass effectiveness, anti-bot controls
+══════════════════════════════════════════════════════════
+
+# [E-01] WAF / CDN identification
+wafw00f https://{{domain}}/ 2>/dev/null | head -15 || curl -L -4 -sI https://{{domain}}/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | grep -iE "cf-ray|server|x-sucuri|x-iinfo|x-waf|x-defended|via|x-cache" | head -10
+
+# [E-02] Cloudflare / WAF bypass effectiveness matrix
+python3 -c "import subprocess; ua='{_BUA}'; base=['curl','-L','-4','-sk','-o','/dev/null','-w','%{{http_code}} %{{time_total}}s','--max-time','10','--connect-timeout','6']; tests=[('1.Direct',base+['-A',ua,'https://{{domain}}/']),('2.XFF_spoof',base+['-A',ua,'-H','X-Forwarded-For: 66.249.66.1','-H','CF-Connecting-IP: 66.249.66.1','https://{{domain}}/']),('3.Googlebot',base+['-A','Googlebot/2.1 (+http://www.google.com/bot.html)','-H','From: googlebot(at)googlebot.com','https://{{domain}}/']),('4.HTTP_1.0',base+['--http1.0','-A',ua,'https://{{domain}}/']),('5.Port_80',base+['-A',ua,'http://{{domain}}/']),('6.Cookie_jar',base+['-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}/'])]; [print(label+':',subprocess.run(cmd,capture_output=True,text=True,timeout=15).stdout.strip()) for label,cmd in tests]"
+
+# [E-03] Anti-bot UA fingerprinting (does the server block non-browser UAs?)
+python3 -c "import subprocess; tests=[('Chrome_UA','{_BUA}'),('curl_UA','curl/7.88.1'),('Googlebot','Googlebot/2.1 (+http://www.google.com/bot.html)'),('Python_UA','python-requests/2.31.0'),('Empty_UA','')]; run=lambda ua: subprocess.run(['curl','-L','-4','-sk','-o','/dev/null','-w','%{{http_code}}','--max-time','8','-A',ua,'https://{{domain}}/'],capture_output=True,text=True,timeout=12).stdout.strip(); [print(label+':',run(ua)) for label,ua in tests]"
+
+# [E-04] Rate limit probe
+python3 -c "import subprocess,time; ua='{_BUA}'; results=[]; [results.append(subprocess.run(['curl','-L','-4','-sk','-o','/dev/null','-w','%{{http_code}}','--max-time','8','-A',ua,'https://{{domain}}/'],capture_output=True,text=True,timeout=12).stdout.strip()) or time.sleep(0.1) for _ in range(10)]; codes=set(results); print('10 rapid requests — response codes:',sorted(codes)); print('Rate limited:','YES (429 seen)' if '429' in codes else 'NO')"
+
+# [E-05] TLS / SSL version and cipher probe
+nmap -Pn --script ssl-enum-ciphers --script-timeout 15s -p 443 {{domain}} 2>/dev/null | grep -E "TLS|SSL|WEAK|WARN|NULL|EXPORT|RC4|DES|strength" | head -20
+
+══════════════════════════════════════════════════════════
+FINAL REPORT
+══════════════════════════════════════════════════════════
+
+After all 3 phases, produce the final report using the OUTPUT FORMAT from RULES:
+- **EXECUTIVE SUMMARY**: number of findings, highest severity, most critical issue
+- Phase 1 (Discovery): tech stack, exposed paths, routes — use table rows for Info/Low
+- Phase 2 (Secrets): detailed report blocks for ANY exposed secret, key, or credential
+- Phase 3 (Evasion): which bypass techniques worked, WAF type, rate limiting status
+- **TOP REMEDIATION PRIORITIES**: ranked list of fixes
+""",
+    tools=_JS_TOOLS,
+    model=_MODEL,
+    max_turns=40,
+)
 
 
 # ── Registry ──────────────────────────────────────────────────────────────────
 
 WSTG_REGISTRY: dict[str, Agent] = {
     'info': INFO_AGENT,
+    'js':   JS_AGENT,
     'conf': CONF_AGENT,
     'idnt': IDNT_AGENT,
     'athn': ATHN_AGENT,
@@ -638,5 +753,5 @@ WSTG_REGISTRY: dict[str, Agent] = {
     'apit': APIT_AGENT,
 }
 
-WSTG_ORDER = ['info', 'conf', 'idnt', 'athn', 'athz',
+WSTG_ORDER = ['info', 'js', 'conf', 'idnt', 'athn', 'athz',
                'sess', 'inpv', 'cryp', 'clnt', 'apit']

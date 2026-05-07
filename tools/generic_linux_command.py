@@ -7,6 +7,17 @@ from sdk.agents import function_tool
 TOOL_TIMEOUT = int(os.environ.get('CFAI_TOOL_TIMEOUT', '300'))
 CWD          = os.environ.get('CFAI_CWD', '/root')
 
+_EXIT_EXPLAIN = {
+    6:  'DNS lookup failed — domain does not resolve (NXDOMAIN or no internet)',
+    7:  'TCP connection refused — port is closed or no service listening on that port',
+    28: 'Timed out — server is likely DROPPING PACKETS from this VPS IP (IP allowlist / geo-block / cloud-provider filtering). Skip retrying the same IP; pivot to Phase 4 (Shodan hostname, staging subdomain, Wayback cache)',
+    35: 'SSL/TLS handshake failed — expired cert, SNI mismatch, or connection reset by WAF',
+    51: 'SSL peer certificate verification failed (self-signed or mismatched CN)',
+    52: 'No response received after connect — server accepted TCP but sent nothing',
+    56: 'Network data receive failure — connection dropped mid-transfer',
+    60: 'SSL certificate not trusted — add -k to skip cert verification',
+}
+
 # Inject speed flags into every curl call:
 #   -4                   force IPv4 (avoids ~120s IPv6 fallback on most VPS)
 #   --connect-timeout 8  give up on TCP connect after 8s
@@ -56,11 +67,17 @@ def generic_linux_command(command: str) -> str:
             env={**os.environ, 'TERM': 'dumb', 'COLUMNS': '120'},
         )
         output = (result.stdout + result.stderr).strip()
+        if not output and result.returncode in _EXIT_EXPLAIN:
+            return f'[Exit {result.returncode}: {_EXIT_EXPLAIN[result.returncode]}]'
         if len(output) > 8000:
             lines = output.splitlines()
             kept  = '\n'.join(lines[:80]) + f'\n… [{len(lines)-80} more lines truncated]'
             return kept
-        return output or f'[exit code {result.returncode}, no output]'
+        if not output:
+            return f'[exit code {result.returncode}, no output]'
+        if result.returncode in _EXIT_EXPLAIN and len(output) < 120:
+            return output + f'\n[Exit {result.returncode}: {_EXIT_EXPLAIN[result.returncode]}]'
+        return output
     except subprocess.TimeoutExpired:
         return f'[timeout after {TOOL_TIMEOUT}s — try a shorter scan or add --timeout]'
     except Exception as exc:

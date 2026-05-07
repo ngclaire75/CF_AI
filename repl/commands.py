@@ -12,7 +12,7 @@ from util import truncate, format_duration
 
 # WSTG categories that can be passed directly to `agent`
 WSTG_CATEGORIES = {
-    'info', 'conf', 'idnt', 'athn', 'athz',
+    'info', 'js', 'conf', 'idnt', 'athn', 'athz',
     'sess', 'inpv', 'cryp', 'clnt', 'apit',
 }
 SPECIAL_CATEGORIES = {'ctf', 'ot', 'enum'}

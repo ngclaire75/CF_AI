@@ -81,7 +81,7 @@ class CFAI_REPL:
         # REPL commands
         'agent', 'recon', 'chat', 'model', 'history', 'clear', 'help', 'exit', 'quit',
         # WSTG categories (used as: agent <category> <target>)
-        'info', 'conf', 'idnt', 'athn', 'athz', 'sess', 'inpv', 'cryp', 'clnt', 'apit',
+        'info', 'js', 'conf', 'idnt', 'athn', 'athz', 'sess', 'inpv', 'cryp', 'clnt', 'apit',
         # Special agents
         'ctf', 'ot', 'enum',
         # Agent roles
