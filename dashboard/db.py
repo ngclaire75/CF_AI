@@ -86,3 +86,12 @@ def get_targets():
             ORDER BY s.created_at DESC
         ''').fetchall()
     return [dict(r) for r in rows]
+
+
+def get_scans_for_target(target: str) -> list:
+    with _connect() as con:
+        rows = con.execute(
+            'SELECT * FROM scans WHERE target = ? ORDER BY created_at DESC LIMIT 50',
+            (target,)
+        ).fetchall()
+    return [dict(r) for r in rows]

@@ -750,6 +750,72 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   for ep in /graphql /api/graphql /gql /graph /graphql/v1; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__typename}}"}}' --max-time 8 2>/dev/null); if [ "$code" != "404" ] && [ "$code" != "000" ]; then echo "GraphQL: $code https://{{domain}}$ep"; curl -L -4 -s -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__schema{{types{{name}}}}}}"}}' --max-time 10 2>/dev/null | python3 -m json.tool 2>/dev/null | head -20; fi; done
   command -v graphql-cop &>/dev/null && graphql-cop -t https://{{domain}}/graphql 2>/dev/null | head -30 || true
 
+[APIT-WP] WordPress Activity Log — fetch real admin event logs
+This section runs automatically for any site. If WordPress REST API endpoints are
+reachable it fetches actual plugin log data. For non-WordPress sites it probes
+generic audit/log endpoints and reports whatever is found.
+
+STEP 1 — Detect if WordPress is present
+  wp_check=$(curl -L -4 -so /dev/null -w "%{{http_code}}" https://{{domain}}/wp-json/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null)
+  echo "WP REST API probe: $wp_check https://{{domain}}/wp-json/"
+  curl -L -4 -sk https://{{domain}}/wp-json/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print('WP Version:', d.get('generator','?')); print('Site:', d.get('name','?'))" 2>/dev/null || true
+
+STEP 2 — Try WP Activity Log plugin REST API (wp-security-audit-log 200k+ installs)
+  curl -L -4 -sk "https://{{domain}}/wp-json/wp-security-audit-log/v1/activity-log" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    entries = d if isinstance(d,list) else d.get('data',d.get('logs',d.get('events',[])))
+    if not entries: print('WP_ACTIVITY_LOG_EMPTY'); sys.exit()
+    for e in entries[:50]:
+        ts   = e.get('Timestamp') or e.get('timestamp') or e.get('created_on','')
+        user = e.get('UserLogin') or e.get('user') or e.get('username','unknown')
+        evt  = e.get('EventType') or e.get('event') or e.get('message','')
+        ip   = e.get('ClientIP') or e.get('ip') or e.get('IP','')
+        sev  = str(e.get('Severity') or e.get('severity') or e.get('type','')).upper()
+        risk = 'HIGH' if any(x in evt.lower() for x in ['login','password','admin','delete','install','update','brute']) else 'MEDIUM' if any(x in evt.lower() for x in ['change','edit','upload','create','export']) else 'LOW'
+        print(f'WP-LOG | {{ts}} | {{user}} | {{evt}} | {{ip}} | {{risk}}')
+except Exception as ex:
+    print('WP_ACTIVITY_LOG_ERROR:', ex)
+" 2>/dev/null
+
+STEP 3 — Enumerate WordPress users via REST API (baseline for log cross-reference)
+  curl -L -4 -sk "https://{{domain}}/wp-json/wp/v2/users?per_page=20" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | python3 -c "
+import sys,json
+try:
+    users=json.load(sys.stdin)
+    if not isinstance(users,list): sys.exit()
+    for u in users:
+        name=u.get('name','?'); slug=u.get('slug','?'); uid=u.get('id','?')
+        print(f'WP-USER | {{uid}} | {{slug}} | {{name}}')
+except: pass
+" 2>/dev/null
+
+STEP 4 — For non-WordPress sites, probe common audit/activity log endpoints
+  for ep in /api/audit-log /api/logs /api/events /api/activity /api/admin/logs /api/v1/audit /api/v1/logs /logs /audit /activity-log; do
+    code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" "https://{{domain}}$ep" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null)
+    [ "$code" != "404" ] && [ "$code" != "000" ] && echo "AUDIT_ENDPOINT | $code | https://{{domain}}$ep"
+  done
+
+IMPORTANT — OUTPUT FORMAT FOR WP ACTIVITY LOG SECTION:
+After steps above, if you found log entries, output them in this EXACT format
+(one line per event — the dashboard parses this machine-readable format):
+
+## WP ACTIVITY LOG
+WP-LOG | <ISO-timestamp> | <username> | <event description> | <IP address> | <HIGH|MEDIUM|LOW>
+
+Example:
+WP-LOG | 2024-06-01 09:14:22 | admin | Successful login | 203.0.113.42 | HIGH
+WP-LOG | 2024-06-01 09:10:05 | editor1 | Post modified (ID 47) | 198.51.100.7 | MEDIUM
+
+If NO log entries were found (plugin not installed or endpoint blocked), output:
+## WP ACTIVITY LOG
+WP-LOG-STATUS | not_available | WP Activity Log plugin not installed or endpoint not accessible | - | INFO
+
+If the site is not WordPress, output:
+## WP ACTIVITY LOG
+WP-LOG-STATUS | not_wordpress | Site does not appear to be WordPress | - | INFO
+
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
 - Table rows for Info/Low findings

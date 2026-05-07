@@ -549,6 +549,20 @@ tr.hidden-r { display: none; }
     word-break: break-word; max-height: 500px; overflow-y: auto;
 }
 
+/* ── Plugin Logs modal table ── */
+.wplogs-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wplogs-table th { background: #f3f4f6; color: #6b7280; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.4px; font-size: 10px; padding: 7px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+.wplogs-table td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; color: #374151; }
+.wplogs-table tr:last-child td { border-bottom: none; }
+.wplogs-table tr:hover td { background: #f9fafb; }
+.wplogs-risk-HIGH    { background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; border-radius:3px; padding:1px 6px; font-size:10px; font-weight:bold; white-space:nowrap; }
+.wplogs-risk-MEDIUM  { background:#fffbeb; color:#b45309; border:1px solid #fcd34d; border-radius:3px; padding:1px 6px; font-size:10px; font-weight:bold; white-space:nowrap; }
+.wplogs-risk-LOW     { background:#f0fdf4; color:#166534; border:1px solid #86efac; border-radius:3px; padding:1px 6px; font-size:10px; font-weight:bold; white-space:nowrap; }
+.wplogs-risk-INFO    { background:#f9fafb; color:#6b7280; border:1px solid #e5e7eb; border-radius:3px; padding:1px 6px; font-size:10px; font-weight:bold; white-space:nowrap; }
+.btn-logs { background: #7c3aed; border-color: #7c3aed; color: #fff; font-size: 11px; padding: 3px 9px; }
+.btn-logs:hover { background: #6d28d9; }
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
     .header-inner { grid-template-columns: 240px 1fr auto; }
@@ -726,7 +740,7 @@ tr.hidden-r { display: none; }
               <th style="width:76px;">Tools Run</th>
               <th>Last Scanned (UTC)</th>
               <th>Status</th>
-              <th style="width:72px;"></th>
+              <th style="width:100px;"></th>
             </tr>
           </thead>
           <tbody>
@@ -744,7 +758,10 @@ tr.hidden-r { display: none; }
                 {% elif t.status == 'interrupted' %}<span class="st-int">Stopped</span>
                 {% else %}<span class="st-err">Error</span>{% endif %}
               </td>
-              <td><button class="btn btn-sm" onclick="openModal({{ t.id }})">Report</button></td>
+              <td style="white-space:nowrap;">
+                <button class="btn btn-sm" onclick="openModal({{ t.id }})" style="margin-right:4px;">Report</button>
+                <button class="btn btn-logs btn-sm" onclick="openWpLogsModal('{{ t.target|e }}')">Plugin Logs</button>
+              </td>
             </tr>
           {% endfor %}
           </tbody>
@@ -1464,13 +1481,9 @@ function openDetailsModal(id) {
         '</div>';
       }
 
-      /* ── Fallback: clean output if no structured findings ── */
+      /* ── Fallback when no structured findings and no output ── */
       if (!findings.length && !output.trim()) {
         html += '<div class="detail-no-findings"><strong>No output recorded for this scan.</strong></div>';
-      } else if (!findings.length) {
-        html += '<div class="rpt-sec"><h3>Full Scan Output</h3>'+
-          '<pre class="detail-clean-output">'+esc(stripMd(output))+'</pre>'+
-        '</div>';
       }
 
       document.getElementById('mbody').innerHTML = html;
@@ -1478,6 +1491,110 @@ function openDetailsModal(id) {
     .catch(function(e){
       document.getElementById('mbody').innerHTML =
         '<p style="color:#dc2626;padding:20px;">Failed to load: '+esc(String(e))+'</p>';
+    });
+}
+
+/* ── Plugin Logs modal ── */
+function openWpLogsModal(target) {
+  document.getElementById('mbg').classList.add('open');
+  document.getElementById('mtitle').textContent = 'Plugin Activity Logs: ' + target;
+  document.getElementById('msub').textContent   = 'Real admin event logs collected by the AI agent via WordPress REST API or site audit endpoints';
+  document.getElementById('mbody').innerHTML    =
+    '<p style="color:#9ca3af;text-align:center;padding:40px;">Loading plugin logs...</p>';
+
+  fetch('/api/target/' + encodeURIComponent(target) + '/wp-logs')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var logs  = d.logs || [];
+      var html  = '';
+
+      /* Status banner when plugin is not installed / not WordPress */
+      if (!logs.length) {
+        var msg = d.status === 'not_available'
+          ? 'The WP Activity Log plugin is not installed or its REST API endpoint is not publicly accessible on this site.'
+          : d.status === 'not_wordpress'
+          ? 'This site does not appear to be WordPress. No activity log endpoints were found.'
+          : d.scan_count
+          ? 'No WP-LOG entries were found in the ' + d.scan_count + ' scan(s) recorded for this target. Run <code>agent apit ' + esc(target) + '</code> to fetch fresh plugin log data.'
+          : 'No scans recorded for this target yet. Run <code>agent apit ' + esc(target) + '</code> to begin.';
+
+        html = '<div class="rpt-sec" style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:7px;padding:16px;">'+
+          '<h3 style="color:#7c3aed;border-color:#e9d5ff;">Plugin Activity Logs</h3>'+
+          '<p style="color:#374151;font-size:13px;line-height:1.6;margin-bottom:12px;">'+msg+'</p>'+
+          '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:5px;padding:12px 14px;">'+
+            '<div style="font-size:12px;font-weight:bold;color:#7c3aed;margin-bottom:6px;">How to get real log data:</div>'+
+            '<ol style="font-size:13px;color:#374151;line-height:1.8;padding-left:18px;margin:0;">'+
+              '<li>Install the free <strong>WP Activity Log</strong> plugin on your WordPress site<br>'+
+                '<span style="font-size:11px;color:#9ca3af;">Search "WP Activity Log" in WordPress plugins or find at wordpress.org/plugins/wp-security-audit-log</span></li>'+
+              '<li>Run the API agent against this target:<br>'+
+                '<code style="background:#f3f4f6;padding:2px 8px;border-radius:3px;font-size:12px;">agent apit '+esc(target)+'</code></li>'+
+              '<li>The agent will read the plugin logs via REST API and push structured results to this dashboard automatically.</li>'+
+            '</ol>'+
+          '</div>'+
+        '</div>';
+        document.getElementById('mbody').innerHTML = html;
+        return;
+      }
+
+      /* Summary counts */
+      var high   = logs.filter(function(l){ return l.risk==='HIGH'; }).length;
+      var medium = logs.filter(function(l){ return l.risk==='MEDIUM'; }).length;
+      var low    = logs.filter(function(l){ return l.risk==='LOW'; }).length;
+
+      html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">'+
+        '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:8px 16px;text-align:center;min-width:80px;">'+
+          '<div style="font-size:22px;font-weight:bold;color:#b91c1c;">'+high+'</div>'+
+          '<div style="font-size:10px;color:#b91c1c;font-weight:600;text-transform:uppercase;">High Risk</div>'+
+        '</div>'+
+        '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:8px 16px;text-align:center;min-width:80px;">'+
+          '<div style="font-size:22px;font-weight:bold;color:#b45309;">'+medium+'</div>'+
+          '<div style="font-size:10px;color:#b45309;font-weight:600;text-transform:uppercase;">Medium</div>'+
+        '</div>'+
+        '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px 16px;text-align:center;min-width:80px;">'+
+          '<div style="font-size:22px;font-weight:bold;color:#166534;">'+low+'</div>'+
+          '<div style="font-size:10px;color:#166534;font-weight:600;text-transform:uppercase;">Low</div>'+
+        '</div>'+
+        '<div style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:8px 16px;text-align:center;min-width:80px;">'+
+          '<div style="font-size:22px;font-weight:bold;color:#374151;">'+logs.length+'</div>'+
+          '<div style="font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;">Total Events</div>'+
+        '</div>'+
+      '</div>';
+
+      html += '<div class="rpt-sec"><h3>Activity Log Events ('+logs.length+')</h3>'+
+        '<div class="scroll-panel">'+
+        '<table class="wplogs-table">'+
+          '<thead><tr>'+
+            '<th>Timestamp</th>'+
+            '<th>User</th>'+
+            '<th>Event</th>'+
+            '<th>IP Address</th>'+
+            '<th>Risk</th>'+
+            '<th>Scan</th>'+
+          '</tr></thead><tbody>';
+
+      logs.forEach(function(l) {
+        var riskClass = 'wplogs-risk-'+(l.risk||'INFO');
+        html += '<tr>'+
+          '<td style="white-space:nowrap;font-size:11px;color:#6b7280;">'+esc(l.timestamp||'--')+'</td>'+
+          '<td style="font-weight:500;">'+esc(l.user||'--')+'</td>'+
+          '<td>'+esc(l.event||'--')+'</td>'+
+          '<td style="font-family:monospace;font-size:11px;">'+esc(l.ip||'--')+'</td>'+
+          '<td><span class="'+riskClass+'">'+esc(l.risk||'INFO')+'</span></td>'+
+          '<td style="font-size:11px;color:#9ca3af;">#'+esc(String(l.scan_id||''))+'</td>'+
+        '</tr>';
+      });
+
+      html += '</tbody></table></div></div>'+
+        '<p style="font-size:11px;color:#9ca3af;margin-top:4px;">'+
+          'Source: real data collected by AI agent from '+esc(target)+' via WordPress REST API. '+
+          d.scan_count+' scan(s) analysed. Re-run <code>agent apit '+esc(target)+'</code> to refresh.'+
+        '</p>';
+
+      document.getElementById('mbody').innerHTML = html;
+    })
+    .catch(function(e){
+      document.getElementById('mbody').innerHTML =
+        '<p style="color:#dc2626;padding:20px;">Failed to load plugin logs: '+esc(String(e))+'</p>';
     });
 }
 

@@ -119,6 +119,33 @@ def extract_recs(text: str) -> list[str]:
     return out[:12]
 
 
+_WP_LOG_RE = re.compile(
+    r'^WP-LOG\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*(HIGH|MEDIUM|LOW|INFO)\s*$',
+    re.I | re.MULTILINE,
+)
+_WP_LOG_STATUS_RE = re.compile(
+    r'^WP-LOG-STATUS\s*\|\s*(\w+)\s*\|\s*([^|\n]+?)\s*\|',
+    re.I | re.MULTILINE,
+)
+
+
+def extract_wp_logs(output: str) -> dict:
+    """Parse WP-LOG lines from agent output. Returns {entries, status}."""
+    entries = []
+    for m in _WP_LOG_RE.finditer(output):
+        entries.append({
+            'timestamp': m.group(1).strip(),
+            'user':      m.group(2).strip(),
+            'event':     m.group(3).strip(),
+            'ip':        m.group(4).strip(),
+            'risk':      m.group(5).strip().upper(),
+        })
+    status_match = _WP_LOG_STATUS_RE.search(output)
+    status_code = status_match.group(1) if status_match else ('found' if entries else 'none')
+    status_msg  = status_match.group(2).strip() if status_match else ''
+    return {'entries': entries, 'status': status_code, 'status_msg': status_msg}
+
+
 def match_remediations(text: str) -> list[dict]:
     """Return remediation templates whose patterns appear in confirmed (non-negated) lines."""
     pos_lines = [l.lower() for l in text.splitlines() if not _NEGATION.search(l)]
@@ -242,6 +269,35 @@ def api_scan_cve(scan_id):
     from dashboard.cve import cve_lookup_for_scan
     result = cve_lookup_for_scan(row.get('output', '') or '', row.get('target', ''))
     return jsonify(result)
+
+
+@app.route('/api/target/<path:target>/wp-logs')
+def api_wp_logs(target):
+    """Return all WP Activity Log entries parsed from scans for a given target."""
+    scans = db.get_scans_for_target(target)
+    all_entries = []
+    overall_status = 'none'
+    overall_msg = ''
+    for s in scans:
+        result = extract_wp_logs(s.get('output', '') or '')
+        if result['entries']:
+            overall_status = 'found'
+            for e in result['entries']:
+                e['scan_id']   = s['id']
+                e['scan_date'] = (s.get('created_at') or '')[:16]
+                e['agent']     = s.get('agent_type', '')
+            all_entries.extend(result['entries'])
+        elif result['status'] not in ('none',) and overall_status == 'none':
+            overall_status = result['status']
+            overall_msg    = result['status_msg']
+    all_entries.sort(key=lambda e: e.get('timestamp', ''), reverse=True)
+    return jsonify({
+        'target':      target,
+        'logs':        all_entries,
+        'scan_count':  len(scans),
+        'status':      overall_status,
+        'status_msg':  overall_msg,
+    })
 
 
 @app.route('/api/scan', methods=['POST'])
