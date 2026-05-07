@@ -547,19 +547,130 @@ def wp_security_scan(site_url: str) -> str:
     out.append('')
     out.append('=== Scan complete ===')
 
-    # ── Emit WP-LOG lines for every FINDING so extract_wp_logs() picks them up ──
-    # These lines are parsed by the dashboard Plugin Logs modal after the scan is saved.
+    # ── Real admin user activity — fetched directly from WordPress ──────────────
+    # Tries multiple sources in order; emits WP-LOG only from real site data.
     import datetime as _dt
-    _now = _dt.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-    _risk_map = {'CRITICAL': 'HIGH', 'HIGH': 'HIGH', 'MEDIUM': 'MEDIUM', 'LOW': 'LOW', 'INFO': 'INFO'}
+    _scan_ts = _dt.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+
+    section('Admin User Activity Log')
+    _log_entries: list[tuple[str, str, str, str]] = []  # (timestamp, username, event, ip)
+
+    # Source 1: WP Security Audit Log / WP Activity Log plugin (wsal namespace)
+    _wsal_endpoints = [
+        '/wp-json/wsal/v1/reports/login-audit',
+        '/wp-json/wsal/v1/query?per_page=50&order_by=created_on&order=DESC',
+        '/wp-json/wp-security-audit-log/v1.1/activity-log?per_page=50',
+        '/wp-json/wp-security-audit-log/v1/activity-log?per_page=50',
+    ]
+    for _ep in _wsal_endpoints:
+        _c, _b = _wp_rest(base, _ep)
+        if _c == 200:
+            try:
+                _data = json.loads(_b)
+                _items = _data if isinstance(_data, list) else _data.get('items', _data.get('data', []))
+                if isinstance(_items, list) and _items:
+                    out.append(f'[INFO] WP Activity Log plugin active — {len(_items)} event(s) retrieved')
+                    for _ev in _items[:50]:
+                        _u  = (_ev.get('user_login') or _ev.get('username')
+                               or (_ev.get('user') or {}).get('user_login', '')
+                               or _ev.get('actor', '') or 'unknown')
+                        _ts = (_ev.get('created_on') or _ev.get('timestamp')
+                               or _ev.get('date', _scan_ts))
+                        _ip = (_ev.get('ip') or _ev.get('client_ip')
+                               or _ev.get('ip_address', '-'))
+                        _msg = (_ev.get('message') or _ev.get('event_type')
+                                or _ev.get('type', 'WordPress event'))
+                        _log_entries.append((_ts, str(_u), str(_msg)[:160], str(_ip)))
+                    break
+            except Exception:
+                pass
+
+    # Source 2: Wordfence Login Security REST API
+    if not _log_entries:
+        for _ep in ['/wp-json/wfls/v1/summary', '/wp-json/wordfence/v1/scan/summary']:
+            _c, _b = _wp_rest(base, _ep)
+            if _c == 200:
+                try:
+                    _d = json.loads(_b)
+                    if isinstance(_d, dict) and _d:
+                        out.append('[INFO] Wordfence data available')
+                except Exception:
+                    pass
+
+    # Source 3: iThemes / Solid Security audit log
+    if not _log_entries:
+        for _ep in [
+            '/wp-json/ithemes-security/v1/log?per_page=50',
+            '/wp-json/ithemes-security/v1/users?per_page=100',
+        ]:
+            _c, _b = _wp_rest(base, _ep)
+            if _c == 200:
+                try:
+                    _data = json.loads(_b)
+                    _items = _data if isinstance(_data, list) else _data.get('items', [])
+                    if _items:
+                        out.append(f'[INFO] iThemes Security log — {len(_items)} event(s)')
+                        for _ev in _items[:50]:
+                            _u   = _ev.get('user_login') or _ev.get('username', 'unknown')
+                            _ts  = _ev.get('timestamp') or _ev.get('created', _scan_ts)
+                            _ip  = _ev.get('ip') or '-'
+                            _msg = _ev.get('message') or _ev.get('type', 'Security event')
+                            _log_entries.append((_ts, str(_u), str(_msg)[:160], str(_ip)))
+                        break
+                except Exception:
+                    pass
+
+    # Source 4: Sucuri Security REST API
+    if not _log_entries:
+        _c, _b = _wp_rest(base, '/wp-json/sucuri/v1/auditlogs')
+        if _c == 200:
+            try:
+                _data = json.loads(_b)
+                _items = _data.get('output', {}).get('events', []) if isinstance(_data, dict) else []
+                for _ev in _items[:50]:
+                    _u   = _ev.get('user_login') or 'unknown'
+                    _ts  = _ev.get('event_date') or _scan_ts
+                    _ip  = _ev.get('remote_addr') or '-'
+                    _msg = _ev.get('message') or 'Sucuri security event'
+                    _log_entries.append((_ts, str(_u), str(_msg)[:160], str(_ip)))
+            except Exception:
+                pass
+
+    # Source 5: WordPress user sessions (admin REST API)
+    # Returns real admin usernames; login timestamps not available natively in WP.
+    if not _log_entries and user:
+        _c_u, _b_u = _wp_rest(base, '/wp-json/wp/v2/users?context=edit&per_page=100')
+        try:
+            _users = json.loads(_b_u)
+            if isinstance(_users, list) and _users:
+                out.append(f'[INFO] {len(_users)} WordPress user(s) found via REST API (no activity log plugin detected)')
+                for _u in _users:
+                    _roles   = _u.get('roles', [])
+                    _uname   = _u.get('slug') or _u.get('name', 'unknown')
+                    _email   = _u.get('email', '')
+                    _role_s  = ', '.join(_roles) or 'subscriber'
+                    _risk_r  = 'HIGH' if 'administrator' in _roles else 'MEDIUM'
+                    _msg     = f'WordPress user account (roles: {_role_s})'
+                    if _email:
+                        _msg += f' — {_email}'
+                    out.append(f'  {_uname}: {_msg}')
+                    _log_entries.append((_scan_ts, _uname, _msg, '-'))
+        except Exception:
+            pass
+
+    if not _log_entries:
+        out.append('[INFO] No activity log plugin detected and no authenticated user list available.')
+        out.append('  To enable real admin login tracking: install the free WP Activity Log plugin,')
+        out.append('  then re-run with WordPress admin credentials (WP Username + App Password).')
+
+    # Emit WP-LOG lines from real source data only
     out.append('')
-    out.append('# WP-LOG entries (parsed by dashboard Plugin Logs):')
-    for _line in list(out):
-        _m = re.match(r'\[FINDING\s+(\w+)\]\s+\w+:\s+(.*)', _line)
-        if _m:
-            _risk = _risk_map.get(_m.group(1).upper(), 'MEDIUM')
-            _desc = _m.group(2).strip()[:150]
-            out.append(f'WP-LOG | {_now} | CF_AI-MCP | {_desc} | {base} | {_risk}')
+    out.append('# Admin activity log (real WordPress data):')
+    for _ts, _uname, _event, _ip in _log_entries:
+        _risk = ('HIGH' if any(k in _event.lower() for k in
+                               ('admin', 'administrator', 'login', 'password', 'install', 'delete', 'activate'))
+                 else 'MEDIUM')
+        out.append(f'WP-LOG | {_ts} | {_uname} | {_event} | {_ip} | {_risk}')
 
     return '\n'.join(out)
 
