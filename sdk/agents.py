@@ -161,7 +161,14 @@ class Runner:
 
         client    = _ant.Anthropic(api_key=key)
         messages  = [{'role': 'user', 'content': message}]
-        all_fns   = agent.all_tools()
+        # Deduplicate tools by name — prevents 'Tool names must be unique' API error
+        _seen_tool_names: set = set()
+        all_fns = []
+        for _t in agent.all_tools():
+            _n = getattr(_t, '__name__', id(_t))
+            if _n not in _seen_tool_names:
+                _seen_tool_names.add(_n)
+                all_fns.append(_t)
         _mcp_fns  = [t for t in all_fns if getattr(t, '_is_mcp_tool', False)]
         _reg_fns  = [t for t in all_fns if not getattr(t, '_is_mcp_tool', False)]
 

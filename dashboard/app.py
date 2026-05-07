@@ -361,7 +361,9 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                     'Auth is handled automatically: Basic Auth → Cookie+Nonce → public.\n'
                     '═══════════════════════════════════════════════════\n\n'
                 )
-                new_tools = [wp_api_call, wp_security_scan] + list(agent.tools)
+                _existing = {getattr(t, '__name__', '') for t in agent.tools}
+                new_tools = [t for t in [wp_api_call, wp_security_scan]
+                             if getattr(t, '__name__', '') not in _existing] + list(agent.tools)
                 if site_type == 'wordpress' and _wp_creds:
                     # Authenticated WordPress scan → use Claude model
                     _claude_model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
