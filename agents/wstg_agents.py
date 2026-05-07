@@ -50,6 +50,15 @@ RULES:
 
   For informational findings (Info / Low), a table row is sufficient:
     | WSTG-ID | Info/Low | Finding | Evidence |
+
+- DIAGNOSTIC MESSAGES — when a tool returns any of the following, READ the explanation and act on it. Do NOT retry the same command. Choose a different approach based on the diagnosis:
+  - `[Exit 0: ...]`  → empty response: try adding -L, auth headers, or a different endpoint
+  - `[Exit 1: ...]`  → command failed: check syntax, install missing tool, or use a Python alternative
+  - `[Exit 6: ...]`  → DNS failure: domain may not exist or VPS has no internet
+  - `[Exit 7: ...]`  → connection refused: try a different port or protocol
+  - `[Exit 28: ...]` → timeout/IP-blocked: pivot to Shodan, Wayback, or other passive sources
+  - `[Exit 35: ...]` → SSL failure: add -k flag or try HTTP instead
+  - `[REASON] ...`   → follow the suggested next steps in the message exactly
 """
 
 

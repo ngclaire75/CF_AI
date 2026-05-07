@@ -8,6 +8,8 @@ TOOL_TIMEOUT = int(os.environ.get('CFAI_TOOL_TIMEOUT', '300'))
 CWD          = os.environ.get('CFAI_CWD', '/root')
 
 _EXIT_EXPLAIN = {
+    0:  'Empty response — the server accepted the request and returned exit 0 but sent no data. Likely causes: (1) API quota exceeded or rate-limited, (2) endpoint requires authentication/cookie, (3) empty dataset for this query, (4) redirect not followed. Try: add -L to follow redirects, add auth headers, use a different API endpoint, or try an alternate tool',
+    1:  'Command failed (exit 1) with no output — likely causes: (1) invalid flags or arguments, (2) tool not installed on this VPS, (3) permission denied, (4) no matches found. Check command syntax; if the tool is missing try: apt-get install <tool> or use a Python one-liner alternative',
     6:  'DNS lookup failed — domain does not resolve (NXDOMAIN or no internet)',
     7:  'TCP connection refused — port is closed or no service listening on that port',
     28: 'Timed out — server is likely DROPPING PACKETS from this VPS IP (IP allowlist / geo-block / cloud-provider filtering). Skip retrying the same IP; pivot to Phase 4 (Shodan hostname, staging subdomain, Wayback cache)',
@@ -75,7 +77,7 @@ def generic_linux_command(command: str) -> str:
             return kept
         if not output:
             return f'[exit code {result.returncode}, no output]'
-        if result.returncode in _EXIT_EXPLAIN and len(output) < 120:
+        if result.returncode in _EXIT_EXPLAIN and result.returncode not in (0, 1) and len(output) < 120:
             return output + f'\n[Exit {result.returncode}: {_EXIT_EXPLAIN[result.returncode]}]'
         return output
     except subprocess.TimeoutExpired:
