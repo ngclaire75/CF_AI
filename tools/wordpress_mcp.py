@@ -491,4 +491,19 @@ def wp_security_scan(site_url: str) -> str:
 
     out.append('')
     out.append('=== Scan complete ===')
+
+    # ── Emit WP-LOG lines for every FINDING so extract_wp_logs() picks them up ──
+    # These lines are parsed by the dashboard Plugin Logs modal after the scan is saved.
+    import datetime as _dt
+    _now = _dt.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    _risk_map = {'CRITICAL': 'HIGH', 'HIGH': 'HIGH', 'MEDIUM': 'MEDIUM', 'LOW': 'LOW', 'INFO': 'INFO'}
+    out.append('')
+    out.append('# WP-LOG entries (parsed by dashboard Plugin Logs):')
+    for _line in list(out):
+        _m = re.match(r'\[FINDING\s+(\w+)\]\s+\w+:\s+(.*)', _line)
+        if _m:
+            _risk = _risk_map.get(_m.group(1).upper(), 'MEDIUM')
+            _desc = _m.group(2).strip()[:150]
+            out.append(f'WP-LOG | {_now} | CF_AI-MCP | {_desc} | {base} | {_risk}')
+
     return '\n'.join(out)

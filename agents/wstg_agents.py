@@ -838,11 +838,21 @@ for p in cred_paths:
             print(f'EXPOSED_FILE | {{code}} | {{p}}')
             print(f'WP-LOG | {{datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}} | CF_AI | Exposed sensitive file: {{p}} (HTTP {{code}}) | - | HIGH')
             # Parse wp-config.php for DB_USER / DB_PASSWORD
+            # Use chr() for quote chars — avoids quote-inside-f-string escaping issues
+            _Q = chr(39) + chr(34)  # single + double quote chars for stripping
             for line in content.splitlines():
-                mu = re.search(r"define\\s*\\(\\s*['\"]DB_USER['\"]\\s*,\\s*['\"]([^'\"]+)['\"]", line)
-                mp = re.search(r"define\\s*\\(\\s*['\"]DB_PASSWORD['\"]\\s*,\\s*['\"]([^'\"]+)['\"]", line)
-                if mu: exposed_user = mu.group(1); print(f'FOUND_DB_USER: {{exposed_user}}')
-                if mp: exposed_pass = mp.group(1); print(f'FOUND_DB_PASS: (redacted len={{len(mp.group(1))}})')
+                if 'DB_USER' in line and 'define' in line:
+                    _ps = line.split(',', 1)
+                    if len(_ps) >= 2:
+                        _v = _ps[1].strip().rstrip(');').strip().strip(_Q)
+                        if _v and len(_v) < 80 and _v != 'database_username':
+                            exposed_user = _v; print(f'FOUND_DB_USER: {{exposed_user}}')
+                if 'DB_PASSWORD' in line and 'define' in line:
+                    _ps = line.split(',', 1)
+                    if len(_ps) >= 2:
+                        _v = _ps[1].strip().rstrip(');').strip().strip(_Q)
+                        if _v and len(_v) < 80 and _v != 'database_password':
+                            exposed_pass = _v; print(f'FOUND_DB_PASS: (redacted len={{len(_v)}})')
             # Parse .env for WP credentials
             for line in content.splitlines():
                 me = re.search(r'(?:WP_USER|WORDPRESS_USER|ADMIN_USER)\\s*=\\s*(\\S+)', line, re.I)

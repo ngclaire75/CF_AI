@@ -257,7 +257,12 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
 
         def _ot(t):     parts.append(t);   job['chunks'].append({'k': 'txt',  'd': t})
         def _oo(n, a):  tools[0] += 1;     job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
-        def _or(n, r, e): job['chunks'].append({'k': 'res',  'n': n, 'r': str(r)[:300], 'e': bool(e)})
+        def _or(n, r, e):
+            r_full = str(r)
+            # Include full MCP tool output in saved output so WP-LOG lines reach extract_wp_logs()
+            if n in ('wp_security_scan', 'wp_api_call') and r_full.strip():
+                parts.append(f'[MCP:{n}]\n{r_full}')
+            job['chunks'].append({'k': 'res', 'n': n, 'r': r_full[:300], 'e': bool(e)})
 
         if agent_type == 'pentest':
             from agents.pentest import run_full_pentest
