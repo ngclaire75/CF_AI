@@ -563,6 +563,42 @@ tr.hidden-r { display: none; }
 .btn-logs { background: #7c3aed; border-color: #7c3aed; color: #fff; font-size: 11px; padding: 3px 9px; }
 .btn-logs:hover { background: #6d28d9; }
 
+/* ── Connect Your Website ── */
+.connect-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
+.connect-form label { font-size: 11px; color: #6b7280; display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+.connect-form input, .connect-form select {
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;
+    padding: 7px 11px; font-size: 13px; color: #111827; font-family: inherit;
+    outline: none; transition: border-color 0.15s;
+}
+.connect-form input:focus, .connect-form select:focus { border-color: #6366f1; }
+.connect-form input.url-input { min-width: 240px; flex: 1 1 240px; }
+.connect-form select.agent-select { min-width: 180px; }
+.btn-connect { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+.btn-connect:hover { background: #4f46e5; }
+.btn-connect:disabled { background: #a5b4fc; cursor: not-allowed; }
+.connect-status { font-size: 12px; color: #6b7280; margin-bottom: 10px; min-height: 18px; }
+.connect-status .cs-running { color: #f59e0b; font-weight: 600; }
+.connect-status .cs-done    { color: #16a34a; font-weight: 600; }
+.connect-status .cs-error   { color: #dc2626; font-weight: 600; }
+.live-output {
+    background: #0f172a; border-radius: 8px; padding: 14px 16px;
+    font-family: 'Courier New', monospace; font-size: 12px;
+    color: #94a3b8; max-height: 400px; overflow-y: auto;
+    display: none; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+}
+.live-output.active { display: block; }
+.live-line-txt  { color: #e2e8f0; }
+.live-line-tool { color: #818cf8; }
+.live-line-res  { color: #6b7280; font-size: 11px; }
+.connect-done-bar {
+    display: none; background: #ecfdf5; border: 1px solid #86efac; border-radius: 6px;
+    padding: 10px 14px; margin-top: 12px; font-size: 13px; color: #166534;
+    align-items: center; gap: 12px;
+}
+.connect-done-bar.active { display: flex; }
+.connect-done-bar a { color: #166534; font-weight: 600; }
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
     .header-inner { grid-template-columns: 240px 1fr auto; }
@@ -714,6 +750,51 @@ tr.hidden-r { display: none; }
         Run a scan to populate this section. Example: <code>agent info target.com</code>
       </div>
       {% endif %}
+    </div>
+  </section>
+
+  <!-- Connect Your Website -->
+  <section class="section" id="connect-section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Connect Your Website</div>
+        <div class="sec-desc">Enter your website URL, choose an AI security agent, and get a live scan report — no CLI required.</div>
+      </div>
+    </div>
+    <div class="card" style="padding:20px 24px;">
+      <div class="connect-form" id="connectForm">
+        <div style="flex:1 1 240px;">
+          <label>Website URL</label>
+          <input type="text" id="cwUrl" class="url-input" placeholder="https://yourdomain.com" autocomplete="off" />
+        </div>
+        <div>
+          <label>AI Agent</label>
+          <select id="cwAgent" class="agent-select">
+            <option value="apit">API Security (APIT)</option>
+            <option value="info">Information Gathering</option>
+            <option value="conf">Configuration Review</option>
+            <option value="athn">Authentication Testing</option>
+            <option value="athz">Authorization Testing</option>
+            <option value="sess">Session Management</option>
+            <option value="inpv">Input Validation</option>
+            <option value="cryp">Cryptography Review</option>
+            <option value="clnt">Client-Side Testing</option>
+            <option value="pentest">Full Pentest (all agents)</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="btn-connect" id="cwStartBtn" onclick="startConnectScan()">Run Scan</button>
+        </div>
+      </div>
+      <div class="connect-status" id="cwStatus"></div>
+      <div class="live-output" id="cwOutput"></div>
+      <div class="connect-done-bar" id="cwDoneBar">
+        <span>&#10003; Scan complete.</span>
+        <span id="cwDomainSpan"></span>
+        <a id="cwReportLink" href="#" onclick="return cwOpenReport()">View Full Report</a>
+        <button class="btn btn-sm" onclick="cwReset()" style="margin-left:auto;">New Scan</button>
+      </div>
     </div>
   </section>
 
@@ -1710,6 +1791,106 @@ function togFull(){
 function closeModal(){ document.getElementById('mbg').classList.remove('open'); }
 function bgClose(e){ if(e.target===document.getElementById('mbg')) closeModal(); }
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
+
+/* ── Connect Your Website ── */
+var _cwJobId      = null;
+var _cwOffset     = 0;
+var _cwScanId     = null;
+var _cwPollTimer  = null;
+
+function startConnectScan() {
+  var url   = (document.getElementById('cwUrl').value || '').trim();
+  var agent = document.getElementById('cwAgent').value;
+  if (!url) { cwSetStatus('<span class="cs-error">Please enter a URL.</span>'); return; }
+
+  // Normalize — strip path, just keep protocol+host for display
+  var domain = url.replace(/^https?:\/\//i, '').split('/')[0].split('?')[0];
+  if (!domain) { cwSetStatus('<span class="cs-error">Invalid URL.</span>'); return; }
+
+  document.getElementById('cwStartBtn').disabled = true;
+  document.getElementById('cwOutput').innerHTML  = '';
+  document.getElementById('cwOutput').classList.add('active');
+  document.getElementById('cwDoneBar').classList.remove('active');
+  cwSetStatus('<span class="cs-running">&#9679; Scanning ' + domain + ' ...</span>');
+
+  fetch('/api/connect/scan', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ target: url, agent_type: agent }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error) { cwSetStatus('<span class="cs-error">Error: ' + d.error + '</span>'); cwUnlock(); return; }
+    _cwJobId   = d.job_id;
+    _cwOffset  = 0;
+    _cwScanId  = null;
+    cwPoll();
+  })
+  .catch(function(e){ cwSetStatus('<span class="cs-error">Request failed: ' + e + '</span>'); cwUnlock(); });
+}
+
+function cwPoll() {
+  if (!_cwJobId) return;
+  fetch('/api/connect/scan/' + _cwJobId + '?offset=' + _cwOffset)
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error) { cwSetStatus('<span class="cs-error">' + d.error + '</span>'); cwUnlock(); return; }
+
+    _cwOffset = d.next_offset || _cwOffset;
+    var out = document.getElementById('cwOutput');
+    (d.chunks || []).forEach(function(c){
+      var line = document.createElement('div');
+      if (c.k === 'txt') {
+        line.className = 'live-line-txt';
+        line.textContent = c.d;
+      } else if (c.k === 'tool') {
+        line.className = 'live-line-tool';
+        line.textContent = '▶ ' + c.n + '(' + (c.a || '') + ')';
+      } else {
+        line.className = 'live-line-res';
+        line.textContent = '  └ ' + (c.r || '');
+      }
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    });
+
+    if (d.status === 'running') {
+      _cwPollTimer = setTimeout(cwPoll, 1500);
+    } else if (d.status === 'done') {
+      _cwScanId = d.scan_id;
+      var domain = d.domain || '';
+      cwSetStatus('<span class="cs-done">&#10003; Scan complete — ' + domain + '</span>');
+      document.getElementById('cwDomainSpan').textContent = domain ? 'Domain: ' + domain : '';
+      document.getElementById('cwDoneBar').classList.add('active');
+      cwUnlock();
+    } else {
+      cwSetStatus('<span class="cs-error">Error: ' + (d.error || 'unknown') + '</span>');
+      cwUnlock();
+    }
+  })
+  .catch(function(e){
+    // retry on transient network error
+    _cwPollTimer = setTimeout(cwPoll, 3000);
+  });
+}
+
+function cwOpenReport() {
+  if (_cwScanId) openModal(_cwScanId);
+  return false;
+}
+
+function cwReset() {
+  if (_cwPollTimer) { clearTimeout(_cwPollTimer); _cwPollTimer = null; }
+  _cwJobId = _cwOffset = _cwScanId = null;
+  document.getElementById('cwOutput').innerHTML = '';
+  document.getElementById('cwOutput').classList.remove('active');
+  document.getElementById('cwDoneBar').classList.remove('active');
+  cwSetStatus('');
+  cwUnlock();
+}
+
+function cwSetStatus(html) { document.getElementById('cwStatus').innerHTML = html; }
+function cwUnlock() { document.getElementById('cwStartBtn').disabled = false; }
 </script>
 </body>
 </html>

@@ -529,7 +529,72 @@ def api_save_scan():
     return jsonify({'saved': True}), 201
 
 
+@app.route('/api/connect/scan', methods=['POST'])
+def api_connect_scan():
+    """Start a background scan for the Connect Your Website feature.
+
+    Request JSON: { "target": "example.com", "agent_type": "apit",
+                    "model": "", "wp_user": "", "wp_app_pass": "", "wp_pass": "" }
+    Response:     { "job_id": "<uuid>" }
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    target = (data.get('target') or '').strip()
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+
+    agent_type = (data.get('agent_type') or 'apit').strip().lower()
+    model      = (data.get('model') or '').strip()
+    wp_user    = (data.get('wp_user') or '').strip()
+    wp_app_pass = (data.get('wp_app_pass') or '').strip()
+    wp_pass    = (data.get('wp_pass') or '').strip()
+
+    job_id = str(_uuid.uuid4())
+    _scan_jobs[job_id] = {
+        'status':   'running',
+        'target':   target,
+        'agent':    agent_type,
+        'chunks':   [],
+        'offset':   0,
+        'domain':   '',
+        'scan_id':  None,
+        'error':    None,
+    }
+
+    t = _threading.Thread(
+        target=_run_background_scan,
+        args=(job_id, target, agent_type, model, wp_user, wp_app_pass, wp_pass),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({'job_id': job_id}), 202
+
+
+@app.route('/api/connect/scan/<job_id>', methods=['GET'])
+def api_connect_scan_poll(job_id):
+    """Poll for new chunks from a running background scan.
+
+    Query param `offset` (int, default 0) — index of first unseen chunk.
+    Response: { "status": "running"|"done"|"error", "chunks": [...],
+                "next_offset": N, "domain": "...", "scan_id": null|int,
+                "error": null|"..." }
+    """
+    job = _scan_jobs.get(job_id)
+    if not job:
+        return jsonify({'error': 'job not found'}), 404
+
+    offset = int(request.args.get('offset', 0))
+    new_chunks = job['chunks'][offset:]
+    return jsonify({
+        'status':      job['status'],
+        'domain':      job.get('domain', ''),
+        'scan_id':     job.get('scan_id'),
+        'error':       job.get('error'),
+        'chunks':      new_chunks,
+        'next_offset': offset + len(new_chunks),
+    })
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('CFAI_DASHBOARD_PORT', 8889))
     print(f'CF_AI Dashboard running on http://0.0.0.0:{port}')
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
