@@ -564,6 +564,8 @@ tr.hidden-r { display: none; }
 .btn-logs:hover { background: #6d28d9; }
 
 /* ── Connect Your Website ── */
+@keyframes cw-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+@keyframes cw-spin  { to{transform:rotate(360deg)} }
 .connect-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
 .connect-form label { font-size: 11px; color: #6b7280; display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
 .connect-form input, .connect-form select {
@@ -581,6 +583,8 @@ tr.hidden-r { display: none; }
 .connect-status .cs-running { color: #f59e0b; font-weight: 600; }
 .connect-status .cs-done    { color: #16a34a; font-weight: 600; }
 .connect-status .cs-error   { color: #dc2626; font-weight: 600; }
+.cs-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b; margin-right:5px; vertical-align:middle; animation:cw-pulse 1.1s ease-in-out infinite; }
+.cs-spin { display:inline-block; width:11px; height:11px; border:2px solid #d1fae5; border-top-color:#16a34a; border-radius:50%; margin-right:5px; vertical-align:middle; animation:cw-spin .7s linear infinite; }
 .live-output {
     background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px;
     font-family: 'Courier New', monospace; font-size: 12px;
@@ -591,13 +595,21 @@ tr.hidden-r { display: none; }
 .live-line-txt  { color: #111827; }
 .live-line-tool { color: #4f46e5; font-weight: 600; }
 .live-line-res  { color: #6b7280; font-size: 11px; padding-left: 12px; }
+.live-line-saved{ color: #16a34a; font-weight: 700; padding: 6px 0 2px; border-top: 1px solid #d1fae5; margin-top:6px; }
 .connect-done-bar {
-    display: none; background: #ecfdf5; border: 1px solid #86efac; border-radius: 6px;
-    padding: 10px 14px; margin-top: 12px; font-size: 13px; color: #166534;
-    align-items: center; gap: 12px;
+    display: none; border-radius: 8px; padding: 14px 18px; margin-top: 14px;
+    align-items: center; gap: 14px; flex-wrap: wrap;
 }
-.connect-done-bar.active { display: flex; }
-.connect-done-bar a { color: #166534; font-weight: 600; }
+.connect-done-bar.active  { display: flex; }
+.cdb-success { background: #f0fdf4; border: 1px solid #86efac; }
+.cdb-error   { background: #fef2f2; border: 1px solid #fca5a5; }
+.cdb-title   { font-size: 15px; font-weight: 700; }
+.cdb-success .cdb-title { color: #166534; }
+.cdb-error   .cdb-title { color: #991b1b; }
+.cdb-meta    { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.connect-done-bar a { font-weight: 600; font-size: 13px; }
+.cdb-success a { color: #166534; }
+.cdb-error   a { color: #991b1b; }
 
 /* ── Responsive ── */
 @media (max-width: 1100px) {
@@ -790,8 +802,10 @@ tr.hidden-r { display: none; }
       <div class="connect-status" id="cwStatus"></div>
       <div class="live-output" id="cwOutput"></div>
       <div class="connect-done-bar" id="cwDoneBar">
-        <span>&#10003; Scan complete.</span>
-        <span id="cwDomainSpan"></span>
+        <div style="flex:1 1 auto;">
+          <div class="cdb-title" id="cwDoneTitle">&#10003; Scan Results Have Been Logged</div>
+          <div class="cdb-meta" id="cwDoneMeta"></div>
+        </div>
         <a id="cwReportLink" href="#" onclick="return cwOpenReport()">View Full Report</a>
         <button class="btn btn-sm" onclick="cwRefreshDashboard()" style="background:#16a34a;color:#fff;border-color:#16a34a;">Refresh Dashboard</button>
         <button class="btn btn-sm" onclick="cwReset()" style="margin-left:4px;">New Scan</button>
@@ -1794,17 +1808,69 @@ function bgClose(e){ if(e.target===document.getElementById('mbg')) closeModal();
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
 
 /* ── Connect Your Website ── */
-var _cwJobId      = null;
-var _cwOffset     = 0;
-var _cwScanId     = null;
-var _cwPollTimer  = null;
+var _cwJobId     = null;
+var _cwOffset    = 0;
+var _cwScanId    = null;
+var _cwPollTimer = null;
+var _CW_LS_KEY   = 'cfai_cw_job';   // localStorage key for resuming after page reload
 
+// ── Persist / restore active scan across page reloads ──────────────────────
+function _cwSaveLS() {
+  if (!_cwJobId) return;
+  try {
+    localStorage.setItem(_CW_LS_KEY, JSON.stringify({
+      jobId: _cwJobId, offset: _cwOffset, scanId: _cwScanId, ts: Date.now()
+    }));
+  } catch(e) {}
+}
+function _cwClearLS() { try { localStorage.removeItem(_CW_LS_KEY); } catch(e) {} }
+
+function _cwResumeFromLS() {
+  var raw;
+  try { raw = localStorage.getItem(_CW_LS_KEY); } catch(e) { return; }
+  if (!raw) return;
+  var st;
+  try { st = JSON.parse(raw); } catch(e) { _cwClearLS(); return; }
+  // Ignore stale state older than 60 minutes
+  if (!st.jobId || (Date.now() - (st.ts || 0)) > 60 * 60 * 1000) { _cwClearLS(); return; }
+  // If scan already completed (scanId known), skip auto-resume but keep sessionStorage open-modal
+  if (st.scanId) { _cwClearLS(); return; }
+
+  // Ask server if the job is still alive
+  fetch('/api/connect/scan/' + st.jobId + '?offset=0')
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { _cwClearLS(); return; }         // server restarted — job gone
+    if (d.status === 'done' || d.status === 'error') {
+      // Scan finished while page was gone — just show the "Logged" bar
+      _cwJobId  = st.jobId;
+      _cwOffset = 0;
+      _cwScanId = d.scan_id || st.scanId || null;
+      _cwClearLS();
+      _cwRenderChunks(d.chunks || [], document.getElementById('cwOutput'));
+      document.getElementById('cwOutput').classList.add('active');
+      _cwShowDone(d.status, d.domain || '', d.error || '');
+      if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
+      return;
+    }
+    // Still running — resume polling from where we left off
+    _cwJobId  = st.jobId;
+    _cwOffset = 0;   // replay from start so the terminal fills in
+    _cwScanId = null;
+    document.getElementById('cwStartBtn').disabled = true;
+    document.getElementById('cwOutput').classList.add('active');
+    cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Scan in progress (reconnected)...</span>');
+    cwPoll();
+  })
+  .catch(function() { _cwClearLS(); });
+}
+
+// ── Start a new scan ───────────────────────────────────────────────────────
 function startConnectScan() {
   var url   = (document.getElementById('cwUrl').value || '').trim();
   var agent = document.getElementById('cwAgent').value;
   if (!url) { cwSetStatus('<span class="cs-error">Please enter a URL.</span>'); return; }
 
-  // Normalize — strip path, just keep protocol+host for display
   var domain = url.replace(/^https?:\/\//i, '').split('/')[0].split('?')[0];
   if (!domain) { cwSetStatus('<span class="cs-error">Invalid URL.</span>'); return; }
 
@@ -1812,80 +1878,91 @@ function startConnectScan() {
   document.getElementById('cwOutput').innerHTML  = '';
   document.getElementById('cwOutput').classList.add('active');
   document.getElementById('cwDoneBar').classList.remove('active');
-  cwSetStatus('<span class="cs-running">&#9679; Scanning ' + domain + ' ...</span>');
+  document.getElementById('cwDoneBar').className = 'connect-done-bar';
+  cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Scanning ' + domain + ' ...</span>');
 
   fetch('/api/connect/scan', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ target: url, agent_type: agent }),
   })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
     if (d.error) { cwSetStatus('<span class="cs-error">Error: ' + d.error + '</span>'); cwUnlock(); return; }
-    _cwJobId   = d.job_id;
-    _cwOffset  = 0;
-    _cwScanId  = null;
+    _cwJobId  = d.job_id;
+    _cwOffset = 0;
+    _cwScanId = null;
+    _cwSaveLS();
     cwPoll();
   })
-  .catch(function(e){ cwSetStatus('<span class="cs-error">Request failed: ' + e + '</span>'); cwUnlock(); });
+  .catch(function(e) { cwSetStatus('<span class="cs-error">Request failed: ' + e + '</span>'); cwUnlock(); });
 }
 
-function cwPoll() {
-  if (!_cwJobId) return;
-  fetch('/api/connect/scan/' + _cwJobId + '?offset=' + _cwOffset)
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (d.error) { cwSetStatus('<span class="cs-error">' + d.error + '</span>'); cwUnlock(); return; }
-
-    _cwOffset = d.next_offset || _cwOffset;
-    var out = document.getElementById('cwOutput');
-    (d.chunks || []).forEach(function(c){
+// ── Render an array of chunks into the output div ─────────────────────────
+function _cwRenderChunks(chunks, out) {
+  (chunks || []).forEach(function(c) {
+    if (c.k === 'saved') {
+      _cwScanId = c.id;
       var line = document.createElement('div');
-      if (c.k === 'txt') {
-        line.className = 'live-line-txt';
-        line.textContent = c.d;
-      } else if (c.k === 'tool') {
-        line.className = 'live-line-tool';
-        line.textContent = '▶ ' + c.n + '(' + (c.a || '') + ')';
-      } else {
-        line.className = 'live-line-res';
-        line.textContent = '  └ ' + (c.r || '');
-      }
+      line.className = 'live-line-saved';
+      line.textContent = '✓ Scan results saved to dashboard (ID #' + c.id + ')';
       out.appendChild(line);
-      out.scrollTop = out.scrollHeight;
-    });
-
-    if (d.status === 'running') {
-      _cwPollTimer = setTimeout(cwPoll, 1500);
-    } else if (d.status === 'done') {
-      _cwScanId = d.scan_id;
-      var domain = d.domain || '';
-      cwSetStatus('<span class="cs-done">&#10003; Scan complete — ' + domain + '</span>');
-      document.getElementById('cwDomainSpan').textContent = domain ? 'Domain: ' + domain : '';
-      document.getElementById('cwDoneBar').classList.add('active');
-      cwUnlock();
-      // Store scan_id so that after the manual refresh the report modal auto-opens
-      if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
     } else {
-      // Keep the output visible so the user can see what went wrong
-      _cwScanId = d.scan_id || null;
-      cwSetStatus('<span class="cs-error">&#9888; Scan error — see output above. '
-        + (d.error ? d.error.substring(0,120) : '') + '</span>');
-      document.getElementById('cwDoneBar').classList.add('active');
-      if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
-      cwUnlock();
+      var line = document.createElement('div');
+      if (c.k === 'txt')       { line.className = 'live-line-txt';  line.textContent = c.d; }
+      else if (c.k === 'tool') { line.className = 'live-line-tool'; line.textContent = '▶ ' + c.n + '(' + (c.a || '') + ')'; }
+      else                     { line.className = 'live-line-res';  line.textContent = '  └ ' + (c.r || ''); }
+      out.appendChild(line);
     }
-  })
-  .catch(function(e){
-    // retry on transient network error
-    _cwPollTimer = setTimeout(cwPoll, 3000);
+    out.scrollTop = out.scrollHeight;
   });
 }
 
-function cwOpenReport() {
-  if (_cwScanId) openModal(_cwScanId);
-  return false;
+// ── Show the done/error bar ───────────────────────────────────────────────
+function _cwShowDone(status, domain, errMsg) {
+  var bar    = document.getElementById('cwDoneBar');
+  var title  = document.getElementById('cwDoneTitle');
+  var meta   = document.getElementById('cwDoneMeta');
+  if (status === 'done') {
+    bar.className  = 'connect-done-bar cdb-success active';
+    title.textContent = '✓ Scan Results Have Been Logged to Dashboard';
+    meta.textContent  = domain ? 'Target: ' + domain + (_cwScanId ? '  ·  ID #' + _cwScanId : '') : '';
+    cwSetStatus('<span class="cs-done"><span class="cs-spin"></span>Logged to dashboard' + (domain ? ' — ' + domain : '') + '</span>');
+  } else {
+    bar.className  = 'connect-done-bar cdb-error active';
+    title.textContent = '⚠ Scan ended with errors — partial results may be logged';
+    meta.textContent  = errMsg ? errMsg.substring(0, 160) : '';
+    cwSetStatus('<span class="cs-error">⚠ Scan error — partial output logged. ' + (errMsg ? errMsg.substring(0,80) : '') + '</span>');
+  }
+  if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
 }
+
+// ── Poll for new chunks ───────────────────────────────────────────────────
+function cwPoll() {
+  if (!_cwJobId) return;
+  fetch('/api/connect/scan/' + _cwJobId + '?offset=' + _cwOffset)
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { cwSetStatus('<span class="cs-error">' + d.error + '</span>'); _cwClearLS(); cwUnlock(); return; }
+
+    _cwOffset = (d.next_offset != null) ? d.next_offset : _cwOffset;
+    _cwRenderChunks(d.chunks || [], document.getElementById('cwOutput'));
+
+    if (d.status === 'running') {
+      _cwSaveLS();
+      _cwPollTimer = setTimeout(cwPoll, 1500);
+    } else {
+      _cwClearLS();
+      _cwShowDone(d.status, d.domain || '', d.error || '');
+      cwUnlock();
+    }
+  })
+  .catch(function(e) {
+    _cwPollTimer = setTimeout(cwPoll, 3000);  // retry on transient network error
+  });
+}
+
+function cwOpenReport() { if (_cwScanId) openModal(_cwScanId); return false; }
 
 function cwRefreshDashboard() {
   if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
@@ -1894,10 +1971,11 @@ function cwRefreshDashboard() {
 
 function cwReset() {
   if (_cwPollTimer) { clearTimeout(_cwPollTimer); _cwPollTimer = null; }
+  _cwClearLS();
   _cwJobId = _cwOffset = _cwScanId = null;
   document.getElementById('cwOutput').innerHTML = '';
   document.getElementById('cwOutput').classList.remove('active');
-  document.getElementById('cwDoneBar').classList.remove('active');
+  document.getElementById('cwDoneBar').className = 'connect-done-bar';
   cwSetStatus('');
   cwUnlock();
 }
@@ -1905,19 +1983,20 @@ function cwReset() {
 function cwSetStatus(html) { document.getElementById('cwStatus').innerHTML = html; }
 function cwUnlock() { document.getElementById('cwStartBtn').disabled = false; }
 
-// On page load: if a scan just completed via Connect Your Website, auto-open its report
+// On page load: resume any in-progress scan, or open report modal if scan just completed
 (function() {
+  // Auto-open modal for a just-completed scan
   var sid = sessionStorage.getItem('cfai_open_scan');
   if (sid) {
     sessionStorage.removeItem('cfai_open_scan');
-    // Small delay to ensure the page is fully rendered
     setTimeout(function() {
       openModal(parseInt(sid, 10));
-      // Scroll to Target Overview so the user sees their result is now logged
       var sec = document.getElementById('connect-section');
       if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 400);
   }
+  // Resume polling if a scan was interrupted by a page reload
+  _cwResumeFromLS();
 })();
 </script>
 </body>

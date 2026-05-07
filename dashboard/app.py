@@ -27,6 +27,13 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
     """Run a WSTG agent in a background thread and stream chunks to _scan_jobs."""
     job = _scan_jobs[job_id]
 
+    # Pre-initialise so the except handler can always reference these safely
+    parts:  list = []
+    tools:  list = [0]
+    t0           = _time.time()
+    domain       = ''
+    model_used   = model or ''
+
     # Temporarily set WP credential env vars for this scan
     env_restore: dict = {}
     for k, v in [('WP_USER', wp_user), ('WP_APP_PASSWORD', wp_app_pass), ('WP_PASSWORD', wp_pass)]:
@@ -47,17 +54,15 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         domain = (_p.netloc or _p.path.split('/')[0]).rstrip('/')
         job['domain'] = domain
 
+        def _ot(t):     parts.append(t);   job['chunks'].append({'k': 'txt',  'd': t})
+        def _oo(n, a):  tools[0] += 1;     job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
+        def _or(n, r, e): job['chunks'].append({'k': 'res',  'n': n, 'r': str(r)[:300], 'e': bool(e)})
+
         if agent_type == 'pentest':
             from agents.pentest import run_full_pentest
             t0 = _time.time()
-            parts: list = []
-            tools: list = [0]
-            def _ot(t):  parts.append(t);  job['chunks'].append({'k': 'txt', 'd': t})
-            def _oo(n,a): tools[0]+=1;      job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
-            def _or(n,r,e): job['chunks'].append({'k': 'res', 'n': n, 'r': str(r)[:300], 'e': bool(e)})
             run_full_pentest(domain, model=model or None, on_text=_ot, on_tool=_oo, on_result=_or)
-            elapsed = _time.time() - t0
-            output  = '\n\n'.join(parts)
+            model_used = model or ''
         else:
             base = WSTG_REGISTRY.get(agent_type)
             if base is None:
@@ -66,27 +71,25 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             agent = dc.replace(base, instructions=base.instructions.replace('{domain}', domain))
             if model:
                 agent = dc.replace(agent, model=model)
+            model_used = getattr(agent, 'model', model) or ''
 
             t0 = _time.time()
-            parts, tools = [], [0]
-            def _ot(t):   parts.append(t);  job['chunks'].append({'k': 'txt', 'd': t})
-            def _oo(n, a): tools[0] += 1;    job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
-            def _or(n,r,e): job['chunks'].append({'k': 'res', 'n': n, 'r': str(r)[:300], 'e': bool(e)})
-
             with tracing.span(f'dashboard:{agent_type}') as span:
                 span.set_attribute('cfai.target', domain)
                 Runner.run(agent, f'Run all WSTG-{agent_type.upper()} checks on {domain}.',
                            on_text=_ot, on_tool=_oo, on_result=_or)
 
-            elapsed = _time.time() - t0
-            output  = '\n\n'.join(parts)
+        elapsed = _time.time() - t0
+        output  = '\n\n'.join(parts)
 
         scan_id = db.save_scan(
             target=domain, agent_type=agent_type,
-            model=getattr(agent, 'model', model) if agent_type != 'pentest' else model,
-            status='ok', latency_s=round(elapsed, 2),
+            model=model_used, status='ok',
+            latency_s=round(elapsed, 2),
             tool_count=tools[0], output=output,
         )
+        # Tell the browser the save succeeded so it can show the "Logged" confirmation
+        job['chunks'].append({'k': 'saved', 'id': scan_id})
         job.update({'status': 'done', 'elapsed': round(elapsed, 2),
                     'tool_count': tools[0], 'scan_id': scan_id})
 
@@ -94,20 +97,18 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         import traceback as _tb
         tb = _tb.format_exc()[-1200:]
         job['chunks'].append({'k': 'txt', 'd': f'\n[ERROR] {exc}\n{tb}'})
-        # Save whatever partial output was collected so it appears in the dashboard
+        # Save partial output — variables are always defined because they were pre-initialised
         try:
-            partial_output = '\n\n'.join(parts) if 'parts' in dir() and parts else ''
-            partial_elapsed = (_time.time() - t0) if 't0' in dir() else 0.0
-            partial_tools   = tools[0] if 'tools' in dir() else 0
             scan_id = db.save_scan(
-                target=domain if 'domain' in dir() else (target or ''),
+                target=domain or target or '',
                 agent_type=agent_type,
-                model=model or '',
+                model=model_used,
                 status='error',
-                latency_s=round(partial_elapsed, 2),
-                tool_count=partial_tools,
-                output=partial_output or f'[ERROR] {exc}',
+                latency_s=round(_time.time() - t0, 2),
+                tool_count=tools[0],
+                output='\n\n'.join(parts) or f'[ERROR] {exc}',
             )
+            job['chunks'].append({'k': 'saved', 'id': scan_id})
             job.update({'status': 'error', 'error': str(exc), 'trace': tb, 'scan_id': scan_id})
         except Exception:
             job.update({'status': 'error', 'error': str(exc), 'trace': tb})
