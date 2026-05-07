@@ -20,10 +20,12 @@ import subprocess
 import urllib.parse
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from sdk.agents import function_tool
 
 _UA = 'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0'
-_TIMEOUT = 20
+_TIMEOUT  = 10   # default per-request timeout (was 20)
+_FAST     = 6    # quick-check timeout (probe-only requests)
 
 
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -64,31 +66,25 @@ def _curl_fetch(url: str, method: str = 'GET', headers: dict | None = None,
         for k, v in headers.items():
             base_cmd += ['-H', f'{k}: {v}']
 
+    # Two fast bypass variants only — keeps total curl time under 2× timeout
     variants: list[list[str]] = [
         [],  # standard curl
-        ['-H', 'X-Forwarded-For: 66.249.66.1', '-H', 'X-Real-IP: 66.249.66.1'],
-        ['-A', 'Googlebot/2.1 (+http://www.google.com/bot.html)'],
-        ['--http1.0'],
+        ['-H', 'X-Forwarded-For: 66.249.66.1', '-A', 'Googlebot/2.1 (+http://www.google.com/bot.html)'],
     ]
-    urls_to_try = [url]
-    if url.startswith('https://'):
-        urls_to_try.append(url.replace('https://', 'http://', 1))
+    for extra in variants:
+        args = base_cmd + extra + [url]
+        try:
+            res = subprocess.run(args, input=body, capture_output=True, timeout=timeout + 5)
+            text = res.stdout.decode('utf-8', errors='replace')
+            if '__CF_STATUS__:' in text:
+                body_part, stat_part = text.rsplit('\n__CF_STATUS__:', 1)
+                code = int(stat_part.strip() or '0')
+                if code > 0:
+                    return code, body_part, {}
+        except Exception:
+            continue
 
-    for target in urls_to_try:
-        for extra in variants:
-            args = base_cmd + extra + [target]
-            try:
-                res = subprocess.run(args, input=body, capture_output=True, timeout=timeout + 10)
-                text = res.stdout.decode('utf-8', errors='replace')
-                if '__CF_STATUS__:' in text:
-                    body_part, stat_part = text.rsplit('\n__CF_STATUS__:', 1)
-                    code = int(stat_part.strip() or '0')
-                    if code > 0:
-                        return code, body_part, {}
-            except Exception:
-                continue
-
-    return 0, '[all curl bypass attempts failed]', {}
+    return 0, '[curl bypass failed]', {}
 
 
 def _do(url: str, method: str = 'GET', headers: dict | None = None,
@@ -266,412 +262,394 @@ def wp_api_call(site_url: str, endpoint: str) -> str:
 def wp_security_scan(site_url: str) -> str:
     """Run a full WordPress security audit via direct HTTP calls.
 
-    Checks performed (no shell, no mock data — all real HTTP responses):
-    - WP version exposure (readme.html, generator meta tag)
-    - User enumeration (REST API + author redirect)
-    - Installed plugins and versions (admin REST API)
-    - Active theme and version
-    - XML-RPC availability (brute-force amplification vector)
-    - Debug log exposure (wp-content/debug.log)
-    - Security headers (CSP, HSTS, X-Frame-Options, X-Content-Type)
-    - REST API authentication enforcement
-    - Default user role (admin registration risk)
-    - File editor status via settings
-    - Exposed sensitive files (.env, wp-config.php backup, backup.sql)
-    - SSL certificate basic check
+    All independent checks run in parallel (ThreadPoolExecutor) so the total
+    time is bounded by the slowest single check, not the sum of all checks.
+
+    Checks: WP version, user enumeration, plugins, themes, settings, XML-RPC,
+    debug log, sensitive files, security headers, admin access, login page,
+    REST API auth, admin user activity log.
 
     Credentials read from env: WP_USER + WP_APP_PASSWORD / WP_PASSWORD.
     """
-    base   = _norm(site_url)
+    import datetime as _dt
+
+    base     = _norm(site_url)
     user, pw = _creds()
-    out    = [f'=== WordPress Security Scan: {base} ===', f'Auth: {"credentials loaded" if user else "unauthenticated"}', '']
+    scan_ts  = _dt.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
 
-    def section(title: str):
-        out.append(f'--- {title} ---')
-
-    def req(endpoint: str, auth: bool = True) -> tuple[int, str]:
+    def _req(endpoint: str, auth: bool = True) -> tuple[int, str]:
         if auth:
             return _wp_rest(base, endpoint)
-        code, body, _ = _do(base + '/' + endpoint.lstrip('/'))
+        code, body, _ = _do(base + '/' + endpoint.lstrip('/'), timeout=_TIMEOUT)
         return code, body
 
-    def hreq(path: str) -> tuple[int, str, dict]:
-        return _do(base + path)
+    def _hreq(path: str, timeout: int = _FAST) -> tuple[int, str, dict]:
+        return _do(base + path, timeout=timeout)
 
-    # 1. REST API root — site info + WP version
-    section('Site Info')
-    code, body = req('/wp-json/', auth=False)
-    if code == 200:
-        try:
-            info = json.loads(body)
-            out.append(f'Site name   : {info.get("name", "?")}')
-            out.append(f'Description : {info.get("description", "")}')
-            gen = info.get('generator', '')
-            if gen:
-                out.append(f'Generator   : {gen}')
-                m = re.search(r'(\d+\.\d+[\.\d]*)', gen)
-                if m:
-                    out.append(f'[FINDING] WP_VERSION_IN_GENERATOR: {m.group(1)} — consider removing via SEO plugin')
-            ns = info.get('namespaces', [])
-            out.append(f'REST namespaces: {", ".join(ns) or "(none)"}')
-            if 'wp-security-audit-log/v1' in ns:
-                out.append('[INFO] WP Security Audit Log plugin detected (activity log available)')
-        except Exception:
-            out.append(f'REST root response (HTTP {code}): {body[:300]}')
-    elif code == 404:
-        out.append('[FINDING] REST_API_DISABLED: /wp-json/ returns 404 — REST API may be disabled')
-    else:
-        out.append(f'REST root: HTTP {code}')
+    # ── Each check returns a list[str] of output lines ────────────────────────
 
-    # 2. WP version from readme.html
-    section('Version Exposure')
-    code_r, body_r, _ = hreq('/readme.html')
-    if code_r == 200 and 'WordPress' in body_r:
-        m = re.search(r'Version\s+(\d+\.\d+[\.\d]*)', body_r)
-        ver = m.group(1) if m else 'unknown'
-        out.append(f'[FINDING HIGH] README_HTML_EXPOSED: readme.html is public — reveals WP version {ver}')
-        out.append('  Fix: delete /readme.html or deny access in .htaccess/Nginx config')
-    else:
-        out.append(f'readme.html: HTTP {code_r} (not publicly accessible ✓)')
-
-    # Check wp-login.php for version in headers/body
-    code_l, body_l, hdrs_l = hreq('/wp-login.php')
-    gen_hdr = hdrs_l.get('X-Powered-By', '') or hdrs_l.get('Server', '')
-    if gen_hdr:
-        out.append(f'[INFO] Server header: {gen_hdr}')
-
-    # 3. User enumeration
-    section('User Enumeration')
-    # Public users endpoint
-    code_u, body_u = req('/wp-json/wp/v2/users?per_page=100', auth=False)
-    public_users = []
-    if code_u == 200:
-        try:
-            public_users = json.loads(body_u)
-            if isinstance(public_users, list) and public_users:
-                out.append(f'[FINDING HIGH] USERS_PUBLIC: {len(public_users)} user(s) enumerable without auth:')
-                for u in public_users[:15]:
-                    out.append(f'  id={u.get("id")} slug={u.get("slug")} name={u.get("name")}')
-                out.append('  Fix: add `add_filter("rest_endpoints", ...)` to block /wp/v2/users for non-admins')
-        except Exception:
-            pass
-    if not public_users:
-        out.append('Users REST endpoint: protected from unauthenticated access ✓')
-
-    # Author redirect enumeration
-    found_authors = []
-    for i in range(1, 6):
-        c_a, b_a, h_a = _do(f'{base}/?author={i}', timeout=8)
-        loc = h_a.get('Location', '') or h_a.get('location', '')
-        m_a = re.search(r'/author/([a-z0-9_\-]+)/?', loc or b_a, re.I)
-        if m_a:
-            found_authors.append(m_a.group(1))
-    if found_authors:
-        out.append(f'[FINDING MEDIUM] AUTHOR_ENUM: Users via author redirect: {", ".join(found_authors)}')
-    else:
-        out.append('Author redirect enumeration: no usernames exposed ✓')
-
-    # Authenticated users (if creds available)
-    if user and pw:
-        code_au, body_au = req('/wp-json/wp/v2/users?context=edit&per_page=100')
-        try:
-            auth_users = json.loads(body_au)
-            if isinstance(auth_users, list):
-                out.append(f'Authenticated users ({len(auth_users)} total):')
-                for u in auth_users[:20]:
-                    roles = ', '.join(u.get('roles', []))
-                    out.append(f'  id={u.get("id")} login={u.get("slug")} email={u.get("email","")} roles=[{roles}]')
-                    if 'administrator' in u.get('roles', []):
-                        out.append(f'  [INFO] Admin account: {u.get("slug")}')
-        except Exception:
-            out.append(f'Auth user list: HTTP {code_au}')
-
-    # 4. Plugins
-    section('Plugins')
-    code_p, body_p = req('/wp-json/wp/v2/plugins')
-    try:
-        plugins = json.loads(body_p)
-        if isinstance(plugins, list):
-            active   = [p for p in plugins if p.get('status') == 'active']
-            inactive = [p for p in plugins if p.get('status') != 'active']
-            out.append(f'Total: {len(active)} active, {len(inactive)} inactive')
-            for p in active:
-                out.append(f'  [ACTIVE]   {p.get("name","?")} v{p.get("version","?")} — {p.get("plugin","")}')
-            for p in inactive:
-                out.append(f'  [INACTIVE] {p.get("name","?")} v{p.get("version","?")} — consider deleting inactive plugins')
-        elif isinstance(plugins, dict) and plugins.get('code'):
-            out.append(f'Plugin list: {plugins.get("code")} ({plugins.get("message","")[:100]})')
-            out.append('  Note: admin credentials required to list plugins via REST API')
-    except Exception:
-        out.append(f'Plugins: HTTP {code_p} — {body_p[:200]}')
-
-    # 5. Themes
-    section('Active Theme')
-    code_t, body_t = req('/wp-json/wp/v2/themes?status=active')
-    try:
-        themes = json.loads(body_t)
-        if isinstance(themes, list) and themes:
-            t = themes[0]
-            name = t.get('name', {})
-            name = name.get('rendered', name) if isinstance(name, dict) else str(name)
-            author = t.get('author', {})
-            author = author.get('rendered', author) if isinstance(author, dict) else str(author)
-            out.append(f'Active theme: {name} v{t.get("version","?")} by {author}')
-        else:
-            out.append(f'Themes: HTTP {code_t}')
-    except Exception:
-        out.append(f'Themes: HTTP {code_t}')
-
-    # 6. Settings (admin only)
-    section('Site Settings')
-    code_s, body_s = req('/wp-json/wp/v2/settings')
-    try:
-        settings = json.loads(body_s)
-        if isinstance(settings, dict) and 'title' in settings:
-            dr = settings.get('default_role', 'subscriber')
-            if dr == 'administrator':
-                out.append(f'[FINDING CRITICAL] DEFAULT_ROLE_ADMIN: New registrations get administrator role!')
-            else:
-                out.append(f'Default registration role: {dr} ✓')
-            if settings.get('users_can_register'):
-                out.append('[FINDING MEDIUM] USER_REGISTRATION_OPEN: User registration is enabled — verify if intentional')
-            else:
-                out.append('User registration: disabled ✓')
-        else:
-            out.append(f'Settings: HTTP {code_s} (requires admin credentials)')
-    except Exception:
-        out.append(f'Settings: HTTP {code_s}')
-
-    # 7. XML-RPC
-    section('XML-RPC')
-    xml_payload = b'<?xml version="1.0"?><methodCall><methodName>system.listMethods</methodName><params/></methodCall>'
-    code_x, body_x, _ = _do(f'{base}/xmlrpc.php', method='POST',
-                              headers={'Content-Type': 'text/xml'}, body=xml_payload)
-    if code_x == 200 and 'methodResponse' in body_x:
-        methods = re.findall(r'<string>([^<]+)</string>', body_x)
-        out.append(f'[FINDING HIGH] XMLRPC_ENABLED: xmlrpc.php is accessible')
-        out.append(f'  {len(methods)} methods exposed (wp.getUsersBlogs, wp.newPost, etc.)')
-        out.append('  Risk: credential brute-force via system.multicall, DDoS amplification')
-        out.append('  Fix: add `add_filter("xmlrpc_enabled", "__return_false")` or block /xmlrpc.php')
-    elif code_x == 405:
-        out.append('[FINDING LOW] XMLRPC_HTTP405: xmlrpc.php exists but rejected POST (may still be reachable)')
-    elif code_x in (403, 404):
-        out.append(f'XML-RPC: HTTP {code_x} — disabled or blocked ✓')
-    else:
-        out.append(f'XML-RPC: HTTP {code_x}')
-
-    # 8. Debug log
-    section('Debug Log Exposure')
-    for dpath in ['/wp-content/debug.log', '/wp-content/uploads/debug.log',
-                  '/wp-content/logs/debug.log']:
-        code_d, body_d, _ = hreq(dpath)
-        if code_d == 200 and len(body_d) > 10:
-            out.append(f'[FINDING HIGH] DEBUG_LOG_EXPOSED: {dpath} is publicly accessible ({len(body_d)} bytes)')
-            # Show first few meaningful lines
-            for ln in body_d.splitlines()[:5]:
-                if ln.strip():
-                    out.append(f'  {ln.strip()[:120]}')
-            out.append('  Fix: add `deny from all` in .htaccess for wp-content/debug.log')
-        else:
-            out.append(f'{dpath}: HTTP {code_d} ✓')
-
-    # 9. Sensitive file exposure
-    section('Sensitive File Exposure')
-    sensitive = [
-        '/wp-config.php.bak', '/wp-config.php~', '/wp-config.txt',
-        '/.env', '/env.txt', '/.env.local', '/.env.backup',
-        '/backup.sql', '/database.sql', '/db_backup.sql',
-        '/.git/HEAD', '/.git/config',
-    ]
-    for f in sensitive:
-        code_f, body_f, _ = hreq(f)
-        if code_f in (200, 206) and len(body_f) > 5:
-            severity = 'CRITICAL' if any(x in f for x in ('config', '.env', '.sql', '.git')) else 'HIGH'
-            out.append(f'[FINDING {severity}] EXPOSED_FILE: {f} (HTTP {code_f}, {len(body_f)} bytes)')
-            if 'DB_PASSWORD' in body_f or 'password' in body_f.lower()[:500]:
-                out.append('  Contains credentials/passwords!')
-
-    # 10. Security headers
-    section('Security Headers')
-    code_h, body_h, hdrs_h = hreq('/')
-    security_headers = {
-        'Strict-Transport-Security': ('HSTS missing — MITM risk', 'MEDIUM'),
-        'X-Frame-Options':           ('Clickjacking protection missing', 'MEDIUM'),
-        'X-Content-Type-Options':    ('MIME-type sniffing protection missing', 'LOW'),
-        'Content-Security-Policy':   ('CSP header missing — XSS risk', 'MEDIUM'),
-        'Referrer-Policy':           ('Referrer-Policy missing', 'INFO'),
-        'Permissions-Policy':        ('Permissions-Policy missing', 'INFO'),
-    }
-    # Normalise headers to lowercase keys
-    hdrs_lower = {k.lower(): v for k, v in hdrs_h.items()}
-    for hdr, (msg, sev) in security_headers.items():
-        if hdr.lower() not in hdrs_lower:
-            out.append(f'[FINDING {sev}] MISSING_HEADER: {hdr} — {msg}')
-        else:
-            out.append(f'{hdr}: {hdrs_lower[hdr.lower()][:80]} ✓')
-
-    # 11. wp-admin direct access
-    section('Admin Access Control')
-    code_wa, body_wa, hdrs_wa = hreq('/wp-admin/')
-    if code_wa == 200 and 'login' not in body_wa.lower() and 'wp-login' not in str(hdrs_wa.get('Location', '')):
-        out.append('[FINDING HIGH] WP_ADMIN_OPEN: /wp-admin/ accessible without redirect to login!')
-    elif code_wa in (301, 302):
-        loc = hdrs_wa.get('Location', hdrs_wa.get('location', ''))
-        out.append(f'wp-admin/ redirects to: {loc} ✓')
-    else:
-        out.append(f'wp-admin/: HTTP {code_wa}')
-
-    # 12. Login page security
-    section('Login Page')
-    code_lp, body_lp, _ = hreq('/wp-login.php')
-    if code_lp == 200:
-        out.append('[INFO] wp-login.php: accessible (consider login protection plugins)')
-        if 'recaptcha' in body_lp.lower() or 'limit login' in body_lp.lower():
-            out.append('  Brute-force protection plugin detected ✓')
-    else:
-        out.append(f'wp-login.php: HTTP {code_lp}')
-
-    # 13. REST API auth enforcement
-    section('REST API Auth')
-    code_ra, body_ra = req('/wp-json/wp/v2/users', auth=False)
-    if code_ra == 200:
-        try:
-            ulist = json.loads(body_ra)
-            if isinstance(ulist, list) and ulist:
-                out.append(f'[FINDING HIGH] REST_USERS_PUBLIC: /wp/v2/users returns {len(ulist)} user(s) without auth')
-        except Exception:
-            pass
-    else:
-        out.append(f'REST /wp/v2/users without auth: HTTP {code_ra} ✓')
-
-    out.append('')
-    out.append('=== Scan complete ===')
-
-    # ── Real admin user activity — fetched directly from WordPress ──────────────
-    # Tries multiple sources in order; emits WP-LOG only from real site data.
-    import datetime as _dt
-    _scan_ts = _dt.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-
-    section('Admin User Activity Log')
-    _log_entries: list[tuple[str, str, str, str]] = []  # (timestamp, username, event, ip)
-
-    # Source 1: WP Security Audit Log / WP Activity Log plugin (wsal namespace)
-    _wsal_endpoints = [
-        '/wp-json/wsal/v1/reports/login-audit',
-        '/wp-json/wsal/v1/query?per_page=50&order_by=created_on&order=DESC',
-        '/wp-json/wp-security-audit-log/v1.1/activity-log?per_page=50',
-        '/wp-json/wp-security-audit-log/v1/activity-log?per_page=50',
-    ]
-    for _ep in _wsal_endpoints:
-        _c, _b = _wp_rest(base, _ep)
-        if _c == 200:
+    def chk_site_info():
+        lines = ['--- Site Info ---']
+        code, body = _req('/wp-json/', auth=False)
+        if code == 200:
             try:
-                _data = json.loads(_b)
-                _items = _data if isinstance(_data, list) else _data.get('items', _data.get('data', []))
-                if isinstance(_items, list) and _items:
-                    out.append(f'[INFO] WP Activity Log plugin active — {len(_items)} event(s) retrieved')
-                    for _ev in _items[:50]:
-                        _u  = (_ev.get('user_login') or _ev.get('username')
-                               or (_ev.get('user') or {}).get('user_login', '')
-                               or _ev.get('actor', '') or 'unknown')
-                        _ts = (_ev.get('created_on') or _ev.get('timestamp')
-                               or _ev.get('date', _scan_ts))
-                        _ip = (_ev.get('ip') or _ev.get('client_ip')
-                               or _ev.get('ip_address', '-'))
-                        _msg = (_ev.get('message') or _ev.get('event_type')
-                                or _ev.get('type', 'WordPress event'))
-                        _log_entries.append((_ts, str(_u), str(_msg)[:160], str(_ip)))
-                    break
+                info = json.loads(body)
+                lines.append(f'Site name   : {info.get("name","?")}')
+                lines.append(f'Description : {info.get("description","")}')
+                gen = info.get('generator', '')
+                if gen:
+                    lines.append(f'Generator   : {gen}')
+                    m = re.search(r'(\d+\.\d+[\.\d]*)', gen)
+                    if m:
+                        lines.append(f'[FINDING] WP_VERSION_IN_GENERATOR: {m.group(1)} — consider removing via SEO plugin')
+                ns = info.get('namespaces', [])
+                lines.append(f'REST namespaces: {", ".join(ns) or "(none)"}')
+                if 'wp-security-audit-log/v1' in ns:
+                    lines.append('[INFO] WP Security Audit Log plugin detected')
+            except Exception:
+                lines.append(f'REST root (HTTP {code}): {body[:200]}')
+        elif code == 404:
+            lines.append('[FINDING] REST_API_DISABLED: /wp-json/ returns 404')
+        else:
+            lines.append(f'REST root: HTTP {code}')
+        return lines
+
+    def chk_version():
+        lines = ['--- Version Exposure ---']
+        code_r, body_r, _ = _hreq('/readme.html')
+        if code_r == 200 and 'WordPress' in body_r:
+            m = re.search(r'Version\s+(\d+\.\d+[\.\d]*)', body_r)
+            ver = m.group(1) if m else 'unknown'
+            lines.append(f'[FINDING HIGH] README_HTML_EXPOSED: readme.html public — WP version {ver}')
+            lines.append('  Fix: delete /readme.html or deny in .htaccess/Nginx')
+        else:
+            lines.append(f'readme.html: HTTP {code_r} ✓')
+        code_l, _, hdrs_l = _hreq('/wp-login.php')
+        svr = hdrs_l.get('X-Powered-By', '') or hdrs_l.get('Server', '')
+        if svr:
+            lines.append(f'[INFO] Server header: {svr}')
+        return lines
+
+    def chk_users():
+        lines = ['--- User Enumeration ---']
+        # Public REST
+        code_u, body_u = _req('/wp-json/wp/v2/users?per_page=100', auth=False)
+        public_users = []
+        if code_u == 200:
+            try:
+                public_users = json.loads(body_u)
+                if isinstance(public_users, list) and public_users:
+                    lines.append(f'[FINDING HIGH] USERS_PUBLIC: {len(public_users)} user(s) enumerable without auth:')
+                    for u in public_users[:15]:
+                        lines.append(f'  id={u.get("id")} slug={u.get("slug")} name={u.get("name")}')
+                    lines.append('  Fix: block /wp/v2/users for non-admins via add_filter("rest_endpoints",...)')
             except Exception:
                 pass
-
-    # Source 2: Wordfence Login Security REST API
-    if not _log_entries:
-        for _ep in ['/wp-json/wfls/v1/summary', '/wp-json/wordfence/v1/scan/summary']:
-            _c, _b = _wp_rest(base, _ep)
-            if _c == 200:
+        if not public_users:
+            lines.append('Users REST endpoint: protected ✓')
+        # Author redirect — 3 parallel probes
+        with ThreadPoolExecutor(max_workers=3) as ex:
+            futs = {ex.submit(_do, f'{base}/?author={i}', timeout=_FAST): i for i in range(1, 4)}
+            found = []
+            for ft in as_completed(futs):
                 try:
-                    _d = json.loads(_b)
-                    if isinstance(_d, dict) and _d:
-                        out.append('[INFO] Wordfence data available')
+                    _, b_a, h_a = ft.result()
+                    loc = h_a.get('Location', '') or h_a.get('location', '')
+                    m_a = re.search(r'/author/([a-z0-9_\-]+)/?', loc or b_a, re.I)
+                    if m_a:
+                        found.append(m_a.group(1))
                 except Exception:
                     pass
+        if found:
+            lines.append(f'[FINDING MEDIUM] AUTHOR_ENUM: {", ".join(sorted(set(found)))}')
+        else:
+            lines.append('Author redirect enumeration: no usernames exposed ✓')
+        # Authenticated users
+        if user and pw:
+            code_au, body_au = _req('/wp-json/wp/v2/users?context=edit&per_page=100')
+            try:
+                auth_users = json.loads(body_au)
+                if isinstance(auth_users, list):
+                    lines.append(f'Authenticated users ({len(auth_users)} total):')
+                    for u in auth_users[:20]:
+                        roles = ', '.join(u.get('roles', []))
+                        lines.append(f'  id={u.get("id")} login={u.get("slug")} email={u.get("email","")} roles=[{roles}]')
+            except Exception:
+                lines.append(f'Auth user list: HTTP {code_au}')
+        return lines
 
-    # Source 3: iThemes / Solid Security audit log
-    if not _log_entries:
-        for _ep in [
+    def chk_plugins():
+        lines = ['--- Plugins ---']
+        code_p, body_p = _req('/wp-json/wp/v2/plugins')
+        try:
+            plugins = json.loads(body_p)
+            if isinstance(plugins, list):
+                active   = [p for p in plugins if p.get('status') == 'active']
+                inactive = [p for p in plugins if p.get('status') != 'active']
+                lines.append(f'Total: {len(active)} active, {len(inactive)} inactive')
+                for p in active:
+                    lines.append(f'  [ACTIVE]   {p.get("name","?")} v{p.get("version","?")} — {p.get("plugin","")}')
+                for p in inactive:
+                    lines.append(f'  [INACTIVE] {p.get("name","?")} v{p.get("version","?")} — consider deleting')
+            elif isinstance(plugins, dict) and plugins.get('code'):
+                lines.append(f'Plugin list: {plugins.get("code")} — admin credentials required')
+        except Exception:
+            lines.append(f'Plugins: HTTP {code_p}')
+        return lines
+
+    def chk_themes():
+        lines = ['--- Active Theme ---']
+        code_t, body_t = _req('/wp-json/wp/v2/themes?status=active')
+        try:
+            themes = json.loads(body_t)
+            if isinstance(themes, list) and themes:
+                t = themes[0]
+                name   = t.get('name', {}); name   = name.get('rendered', name) if isinstance(name, dict) else str(name)
+                author = t.get('author', {}); author = author.get('rendered', author) if isinstance(author, dict) else str(author)
+                lines.append(f'Active theme: {name} v{t.get("version","?")} by {author}')
+            else:
+                lines.append(f'Themes: HTTP {code_t}')
+        except Exception:
+            lines.append(f'Themes: HTTP {code_t}')
+        return lines
+
+    def chk_settings():
+        lines = ['--- Site Settings ---']
+        code_s, body_s = _req('/wp-json/wp/v2/settings')
+        try:
+            settings = json.loads(body_s)
+            if isinstance(settings, dict) and 'title' in settings:
+                dr = settings.get('default_role', 'subscriber')
+                if dr == 'administrator':
+                    lines.append('[FINDING CRITICAL] DEFAULT_ROLE_ADMIN: New registrations get administrator role!')
+                else:
+                    lines.append(f'Default registration role: {dr} ✓')
+                if settings.get('users_can_register'):
+                    lines.append('[FINDING MEDIUM] USER_REGISTRATION_OPEN: Registration enabled — verify if intentional')
+                else:
+                    lines.append('User registration: disabled ✓')
+            else:
+                lines.append(f'Settings: HTTP {code_s} (admin credentials required)')
+        except Exception:
+            lines.append(f'Settings: HTTP {code_s}')
+        return lines
+
+    def chk_xmlrpc():
+        lines = ['--- XML-RPC ---']
+        xml_pl = b'<?xml version="1.0"?><methodCall><methodName>system.listMethods</methodName><params/></methodCall>'
+        code_x, body_x, _ = _do(f'{base}/xmlrpc.php', method='POST',
+                                  headers={'Content-Type': 'text/xml'}, body=xml_pl, timeout=_TIMEOUT)
+        if code_x == 200 and 'methodResponse' in body_x:
+            methods = re.findall(r'<string>([^<]+)</string>', body_x)
+            lines.append(f'[FINDING HIGH] XMLRPC_ENABLED: xmlrpc.php accessible — {len(methods)} methods')
+            lines.append('  Risk: credential brute-force, DDoS amplification')
+            lines.append('  Fix: add_filter("xmlrpc_enabled","__return_false") or block /xmlrpc.php')
+        elif code_x == 405:
+            lines.append('[FINDING LOW] XMLRPC_HTTP405: xmlrpc.php exists but rejected POST')
+        elif code_x in (403, 404):
+            lines.append(f'XML-RPC: HTTP {code_x} — blocked ✓')
+        else:
+            lines.append(f'XML-RPC: HTTP {code_x}')
+        return lines
+
+    def chk_debug_log():
+        lines = ['--- Debug Log Exposure ---']
+        paths = ['/wp-content/debug.log', '/wp-content/uploads/debug.log', '/wp-content/logs/debug.log']
+        with ThreadPoolExecutor(max_workers=3) as ex:
+            futs = {ex.submit(_hreq, p): p for p in paths}
+            for ft in as_completed(futs):
+                p = futs[ft]
+                try:
+                    code_d, body_d, _ = ft.result()
+                    if code_d == 200 and len(body_d) > 10:
+                        lines.append(f'[FINDING HIGH] DEBUG_LOG_EXPOSED: {p} ({len(body_d)} bytes)')
+                        for ln in body_d.splitlines()[:5]:
+                            if ln.strip():
+                                lines.append(f'  {ln.strip()[:120]}')
+                        lines.append('  Fix: deny from all in .htaccess for debug.log')
+                    else:
+                        lines.append(f'{p}: HTTP {code_d} ✓')
+                except Exception:
+                    lines.append(f'{p}: error')
+        return lines
+
+    def chk_sensitive_files():
+        lines = ['--- Sensitive File Exposure ---']
+        sensitive = [
+            '/wp-config.php.bak', '/wp-config.php~', '/wp-config.txt',
+            '/.env', '/env.txt', '/.env.local', '/.env.backup',
+            '/backup.sql', '/database.sql', '/db_backup.sql',
+            '/.git/HEAD', '/.git/config',
+        ]
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            futs = {ex.submit(_hreq, f): f for f in sensitive}
+            for ft in as_completed(futs):
+                f = futs[ft]
+                try:
+                    code_f, body_f, _ = ft.result()
+                    if code_f in (200, 206) and len(body_f) > 5:
+                        sev = 'CRITICAL' if any(x in f for x in ('config', '.env', '.sql', '.git')) else 'HIGH'
+                        lines.append(f'[FINDING {sev}] EXPOSED_FILE: {f} (HTTP {code_f}, {len(body_f)} bytes)')
+                        if 'DB_PASSWORD' in body_f or 'password' in body_f.lower()[:500]:
+                            lines.append('  Contains credentials/passwords!')
+                except Exception:
+                    pass
+        return lines
+
+    def chk_headers():
+        lines = ['--- Security Headers ---']
+        code_h, _, hdrs_h = _hreq('/', timeout=_FAST)
+        hdrs_lower = {k.lower(): v for k, v in hdrs_h.items()}
+        checks = {
+            'Strict-Transport-Security': ('HSTS missing — MITM risk',              'MEDIUM'),
+            'X-Frame-Options':           ('Clickjacking protection missing',        'MEDIUM'),
+            'X-Content-Type-Options':    ('MIME-type sniffing protection missing',  'LOW'),
+            'Content-Security-Policy':   ('CSP header missing — XSS risk',          'MEDIUM'),
+            'Referrer-Policy':           ('Referrer-Policy missing',                'INFO'),
+            'Permissions-Policy':        ('Permissions-Policy missing',             'INFO'),
+        }
+        for hdr, (msg, sev) in checks.items():
+            if hdr.lower() not in hdrs_lower:
+                lines.append(f'[FINDING {sev}] MISSING_HEADER: {hdr} — {msg}')
+            else:
+                lines.append(f'{hdr}: {hdrs_lower[hdr.lower()][:80]} ✓')
+        return lines
+
+    def chk_admin_access():
+        lines = ['--- Admin Access Control ---']
+        code_wa, body_wa, hdrs_wa = _hreq('/wp-admin/', timeout=_FAST)
+        if code_wa == 200 and 'login' not in body_wa.lower():
+            lines.append('[FINDING HIGH] WP_ADMIN_OPEN: /wp-admin/ accessible without login redirect!')
+        elif code_wa in (301, 302):
+            loc = hdrs_wa.get('Location', hdrs_wa.get('location', ''))
+            lines.append(f'wp-admin/ redirects to: {loc} ✓')
+        else:
+            lines.append(f'wp-admin/: HTTP {code_wa}')
+        return lines
+
+    def chk_login_page():
+        lines = ['--- Login Page ---']
+        code_lp, body_lp, _ = _hreq('/wp-login.php', timeout=_FAST)
+        if code_lp == 200:
+            lines.append('[INFO] wp-login.php: accessible (consider login protection plugin)')
+            if 'recaptcha' in body_lp.lower() or 'limit login' in body_lp.lower():
+                lines.append('  Brute-force protection plugin detected ✓')
+        else:
+            lines.append(f'wp-login.php: HTTP {code_lp}')
+        return lines
+
+    def chk_rest_auth():
+        lines = ['--- REST API Auth ---']
+        code_ra, body_ra = _req('/wp-json/wp/v2/users', auth=False)
+        if code_ra == 200:
+            try:
+                ulist = json.loads(body_ra)
+                if isinstance(ulist, list) and ulist:
+                    lines.append(f'[FINDING HIGH] REST_USERS_PUBLIC: /wp/v2/users returns {len(ulist)} user(s) without auth')
+                    return lines
+            except Exception:
+                pass
+        lines.append(f'REST /wp/v2/users without auth: HTTP {code_ra} ✓')
+        return lines
+
+    def chk_activity_log():
+        lines = ['--- Admin User Activity Log ---']
+        log_entries: list[tuple[str, str, str, str]] = []
+
+        # Try all plugin API endpoints simultaneously
+        all_eps = [
+            '/wp-json/wsal/v1/reports/login-audit',
+            '/wp-json/wsal/v1/query?per_page=50&order_by=created_on&order=DESC',
+            '/wp-json/wp-security-audit-log/v1.1/activity-log?per_page=50',
+            '/wp-json/wp-security-audit-log/v1/activity-log?per_page=50',
             '/wp-json/ithemes-security/v1/log?per_page=50',
-            '/wp-json/ithemes-security/v1/users?per_page=100',
-        ]:
-            _c, _b = _wp_rest(base, _ep)
-            if _c == 200:
+            '/wp-json/sucuri/v1/auditlogs',
+            '/wp-json/wfls/v1/summary',
+        ]
+        with ThreadPoolExecutor(max_workers=len(all_eps)) as ex:
+            futs = {ex.submit(_wp_rest, base, ep): ep for ep in all_eps}
+            plugin_data: dict[str, tuple] = {}
+            for ft in as_completed(futs):
+                ep = futs[ft]
                 try:
-                    _data = json.loads(_b)
-                    _items = _data if isinstance(_data, list) else _data.get('items', [])
-                    if _items:
-                        out.append(f'[INFO] iThemes Security log — {len(_items)} event(s)')
-                        for _ev in _items[:50]:
-                            _u   = _ev.get('user_login') or _ev.get('username', 'unknown')
-                            _ts  = _ev.get('timestamp') or _ev.get('created', _scan_ts)
-                            _ip  = _ev.get('ip') or '-'
-                            _msg = _ev.get('message') or _ev.get('type', 'Security event')
-                            _log_entries.append((_ts, str(_u), str(_msg)[:160], str(_ip)))
-                        break
+                    plugin_data[ep] = ft.result()
                 except Exception:
-                    pass
+                    plugin_data[ep] = (0, '')
 
-    # Source 4: Sucuri Security REST API
-    if not _log_entries:
-        _c, _b = _wp_rest(base, '/wp-json/sucuri/v1/auditlogs')
-        if _c == 200:
+        # Process results in priority order
+        for ep in all_eps:
+            if log_entries:
+                break
+            _c, _b = plugin_data.get(ep, (0, ''))
+            if _c != 200:
+                continue
             try:
-                _data = json.loads(_b)
-                _items = _data.get('output', {}).get('events', []) if isinstance(_data, dict) else []
+                _data  = json.loads(_b)
+                _items = _data if isinstance(_data, list) else _data.get('items', _data.get('data', _data.get('output', {}).get('events', [])))
+                if not isinstance(_items, list) or not _items:
+                    continue
+                lines.append(f'[INFO] Activity plugin data via {ep.split("/")[3]} — {len(_items)} event(s)')
                 for _ev in _items[:50]:
-                    _u   = _ev.get('user_login') or 'unknown'
-                    _ts  = _ev.get('event_date') or _scan_ts
-                    _ip  = _ev.get('remote_addr') or '-'
-                    _msg = _ev.get('message') or 'Sucuri security event'
-                    _log_entries.append((_ts, str(_u), str(_msg)[:160], str(_ip)))
+                    _u   = (_ev.get('user_login') or _ev.get('username') or
+                            (_ev.get('user') or {}).get('user_login', '') or _ev.get('actor', '') or 'unknown')
+                    _ts  = _ev.get('created_on') or _ev.get('timestamp') or _ev.get('date') or _ev.get('event_date') or scan_ts
+                    _ip  = _ev.get('ip') or _ev.get('client_ip') or _ev.get('ip_address') or _ev.get('remote_addr') or '-'
+                    _msg = _ev.get('message') or _ev.get('event_type') or _ev.get('type', 'WordPress event')
+                    log_entries.append((_ts, str(_u), str(_msg)[:160], str(_ip)))
             except Exception:
                 pass
 
-    # Source 5: WordPress user sessions (admin REST API)
-    # Returns real admin usernames; login timestamps not available natively in WP.
-    if not _log_entries and user:
-        _c_u, _b_u = _wp_rest(base, '/wp-json/wp/v2/users?context=edit&per_page=100')
-        try:
-            _users = json.loads(_b_u)
-            if isinstance(_users, list) and _users:
-                out.append(f'[INFO] {len(_users)} WordPress user(s) found via REST API (no activity log plugin detected)')
-                for _u in _users:
-                    _roles   = _u.get('roles', [])
-                    _uname   = _u.get('slug') or _u.get('name', 'unknown')
-                    _email   = _u.get('email', '')
-                    _role_s  = ', '.join(_roles) or 'subscriber'
-                    _risk_r  = 'HIGH' if 'administrator' in _roles else 'MEDIUM'
-                    _msg     = f'WordPress user account (roles: {_role_s})'
-                    if _email:
-                        _msg += f' — {_email}'
-                    out.append(f'  {_uname}: {_msg}')
-                    _log_entries.append((_scan_ts, _uname, _msg, '-'))
-        except Exception:
-            pass
+        # Fallback: authenticated user list
+        if not log_entries and user:
+            _c_u, _b_u = _req('/wp-json/wp/v2/users?context=edit&per_page=100')
+            try:
+                _users = json.loads(_b_u)
+                if isinstance(_users, list) and _users:
+                    lines.append(f'[INFO] {len(_users)} WordPress user(s) via REST API (no activity log plugin found)')
+                    for _u in _users:
+                        _roles  = _u.get('roles', [])
+                        _uname  = _u.get('slug') or _u.get('name', 'unknown')
+                        _email  = _u.get('email', '')
+                        _role_s = ', '.join(_roles) or 'subscriber'
+                        _msg    = f'WordPress user account (roles: {_role_s})'
+                        if _email:
+                            _msg += f' — {_email}'
+                        lines.append(f'  {_uname}: {_msg}')
+                        log_entries.append((scan_ts, _uname, _msg, '-'))
+            except Exception:
+                pass
 
-    if not _log_entries:
-        out.append('[INFO] No activity log plugin detected and no authenticated user list available.')
-        out.append('  To enable real admin login tracking: install the free WP Activity Log plugin,')
-        out.append('  then re-run with WordPress admin credentials (WP Username + App Password).')
+        if not log_entries:
+            lines.append('[INFO] No activity log plugin detected. Install WP Activity Log plugin')
+            lines.append('  and re-run with admin credentials to see real login history.')
 
-    # Emit WP-LOG lines from real source data only
-    out.append('')
-    out.append('# Admin activity log (real WordPress data):')
-    for _ts, _uname, _event, _ip in _log_entries:
-        _risk = ('HIGH' if any(k in _event.lower() for k in
-                               ('admin', 'administrator', 'login', 'password', 'install', 'delete', 'activate'))
-                 else 'MEDIUM')
-        out.append(f'WP-LOG | {_ts} | {_uname} | {_event} | {_ip} | {_risk}')
+        lines.append('')
+        lines.append('# Admin activity log (real WordPress data):')
+        for _ts, _uname, _event, _ip in log_entries:
+            _risk = ('HIGH' if any(k in _event.lower() for k in
+                                   ('admin', 'administrator', 'login', 'password', 'install', 'delete', 'activate'))
+                     else 'MEDIUM')
+            lines.append(f'WP-LOG | {_ts} | {_uname} | {_event} | {_ip} | {_risk}')
+        return lines
 
+    # ── Run all checks in parallel ────────────────────────────────────────────
+    checks = [
+        chk_site_info, chk_version, chk_users, chk_plugins, chk_themes,
+        chk_settings, chk_xmlrpc, chk_debug_log, chk_sensitive_files,
+        chk_headers, chk_admin_access, chk_login_page, chk_rest_auth,
+        chk_activity_log,
+    ]
+
+    with ThreadPoolExecutor(max_workers=len(checks)) as pool:
+        futures = [pool.submit(fn) for fn in checks]
+        results = [f.result() for f in futures]   # preserves submission order
+
+    out = [f'=== WordPress Security Scan: {base} ===',
+           f'Auth: {"credentials loaded" if user else "unauthenticated"}', '']
+    for section_lines in results:
+        out.extend(section_lines)
+        out.append('')
+    out.append('=== Scan complete ===')
     return '\n'.join(out)
 
 
