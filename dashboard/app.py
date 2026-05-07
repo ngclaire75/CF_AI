@@ -299,7 +299,11 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         if cred_block:
             job['chunks'].append({'k': 'txt', 'd': f'[AUTH] {site_type.upper()} credentials loaded — authenticated scan enabled'})
 
-        def _ot(t):     parts.append(t);   job['chunks'].append({'k': 'txt',  'd': t})
+        def _ot(t):
+            if job.get('aborted'):
+                raise RuntimeError('Scan aborted by user')
+            parts.append(t)
+            job['chunks'].append({'k': 'txt', 'd': t})
         def _oo(n, a):  tools[0] += 1;     job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
         def _or(n, r, e):
             r_full = str(r)
@@ -967,6 +971,7 @@ def api_connect_scan():
         'domain':  '',
         'scan_id': None,
         'error':   None,
+        'aborted': False,
     }
 
     t = _threading.Thread(
@@ -1001,6 +1006,18 @@ def api_connect_scan_poll(job_id):
         'chunks':      new_chunks,
         'next_offset': offset + len(new_chunks),
     })
+
+
+@app.route('/api/connect/scan/<job_id>/abort', methods=['POST'])
+def api_connect_scan_abort(job_id):
+    """Signal a running background scan to stop after its current tool call."""
+    job = _scan_jobs.get(job_id)
+    if not job:
+        return jsonify({'error': 'job not found'}), 404
+    job['aborted'] = True
+    job['status']  = 'aborted'
+    job['chunks'].append({'k': 'txt', 'd': '\n[SCAN ABORTED by user]'})
+    return jsonify({'ok': True})
 
 
 if __name__ == '__main__':

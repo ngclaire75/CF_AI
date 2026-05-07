@@ -847,6 +847,7 @@ tr.hidden-r { display: none; }
         <div>
           <label>&nbsp;</label>
           <button class="btn-connect" id="cwStartBtn" onclick="startConnectScan()">Run Scan</button>
+          <button class="btn-connect" id="cwStopBtn" onclick="cwAbortScan()" style="display:none;background:#ef4444;margin-left:6px;">&#9632; Stop Scan</button>
         </div>
       </div>
 
@@ -2069,7 +2070,7 @@ function _cwResumeFromLS() {
     _cwJobId  = st.jobId;
     _cwOffset = 0;   // replay from start so the terminal fills in
     _cwScanId = null;
-    document.getElementById('cwStartBtn').disabled = true;
+    cwLock();
     document.getElementById('cwOutput').classList.add('active');
     cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Scan in progress (reconnected)...</span>');
     cwPoll();
@@ -2087,7 +2088,7 @@ function startConnectScan() {
   if (!domain) { cwSetStatus('<span class="cs-error">Invalid URL.</span>'); return; }
   _cwCurrentTarget = url.replace(/\/$/, '');
 
-  document.getElementById('cwStartBtn').disabled = true;
+  cwLock();
   document.getElementById('cwOutput').innerHTML  = '';
   document.getElementById('cwOutput').classList.add('active');
   document.getElementById('cwDoneBar').classList.remove('active');
@@ -2172,6 +2173,10 @@ function cwPoll() {
     if (d.status === 'running') {
       _cwSaveLS();
       _cwPollTimer = setTimeout(cwPoll, 1500);
+    } else if (d.status === 'aborted') {
+      _cwClearLS();
+      cwSetStatus('<span class="cs-error">&#9632; Scan stopped by user.</span>');
+      cwUnlock();
     } else {
       _cwClearLS();
       _cwShowDone(d.status, d.domain || '', d.error || '');
@@ -2247,8 +2252,25 @@ function cwReset() {
   cwUnlock();
 }
 
+function cwAbortScan() {
+  if (!_cwJobId) return;
+  if (_cwPollTimer) { clearTimeout(_cwPollTimer); _cwPollTimer = null; }
+  var jid = _cwJobId;
+  fetch('/api/connect/scan/' + jid + '/abort', {method: 'POST'}).catch(function(){});
+  _cwClearLS();
+  cwSetStatus('<span class="cs-error">&#9632; Scan stopped by user.</span>');
+  cwUnlock();
+}
+
 function cwSetStatus(html) { document.getElementById('cwStatus').innerHTML = html; }
-function cwUnlock() { document.getElementById('cwStartBtn').disabled = false; }
+function cwUnlock() {
+  document.getElementById('cwStartBtn').disabled = false;
+  document.getElementById('cwStopBtn').style.display = 'none';
+}
+function cwLock() {
+  document.getElementById('cwStartBtn').disabled = true;
+  document.getElementById('cwStopBtn').style.display = '';
+}
 
 // On page load: resume any in-progress scan, or open report modal if scan just completed
 (function() {
