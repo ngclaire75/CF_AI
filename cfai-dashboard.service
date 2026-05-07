@@ -1,0 +1,17 @@
+[Unit]
+Description=CF_AI Security Intelligence Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/CF_AI
+EnvironmentFile=/opt/CF_AI/.env
+ExecStart=/usr/bin/python3 -m dashboard.app
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -100,6 +100,10 @@ def _run_wstg(category: str, target: str, model: str = ''):
     _record('agent', f'agent {category} {domain}')
     t0 = time.time()
 
+    _parts, _tools, _status = [], [0], ['ok']
+    def _on_text(t):    _parts.append(t); A.print_agent_text(t)
+    def _on_tool(n, a): _tools[0] += 1;  A.print_tool_call(n, a)
+
     with tracing.span(f'agent:WSTG-{cat}') as span:
         span.set_attribute('cfai.category', category)
         span.set_attribute('cfai.target', domain)
@@ -107,16 +111,25 @@ def _run_wstg(category: str, target: str, model: str = ''):
             Runner.run(
                 agent,
                 f'Run all WSTG-{cat} checks on {domain}.',
-                on_text=lambda t: A.print_agent_text(t),
-                on_tool=lambda n, a: A.print_tool_call(n, a),
+                on_text=_on_text,
+                on_tool=_on_tool,
                 on_result=lambda n, r, e: A.print_tool_result(n, r, e),
             )
         except KeyboardInterrupt:
+            _status[0] = 'interrupted'
             print(f'\n  {A.warn("[HITL] Agent interrupted.")}')
 
     elapsed = time.time() - t0
     if elapsed > 0.5:
         print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
+
+    try:
+        from dashboard.db import save_scan
+        save_scan(target=domain, agent_type=category, model=agent.model,
+                  status=_status[0], latency_s=elapsed,
+                  tool_count=_tools[0], output='\n\n'.join(_parts))
+    except Exception:
+        pass
 
 
 # ── Special agent runner (ctf / ot) ──────────────────────────────────────────
@@ -154,6 +167,10 @@ def _run_special(category: str, target: str, model: str = ''):
     _record('agent', f'agent {category} {target}')
     t0 = time.time()
 
+    _parts, _tools, _status = [], [0], ['ok']
+    def _on_text(t):    _parts.append(t); A.print_agent_text(t)
+    def _on_tool(n, a): _tools[0] += 1;  A.print_tool_call(n, a)
+
     with tracing.span(f'agent:{category}') as span:
         span.set_attribute('cfai.category', category)
         span.set_attribute('cfai.target', target)
@@ -161,16 +178,25 @@ def _run_special(category: str, target: str, model: str = ''):
             Runner.run(
                 agent,
                 f'Begin {label} on {target}.',
-                on_text=lambda t: A.print_agent_text(t),
-                on_tool=lambda n, a: A.print_tool_call(n, a),
+                on_text=_on_text,
+                on_tool=_on_tool,
                 on_result=lambda n, r, e: A.print_tool_result(n, r, e),
             )
         except KeyboardInterrupt:
+            _status[0] = 'interrupted'
             print(f'\n  {A.warn("[HITL] Agent interrupted.")}')
 
     elapsed = time.time() - t0
     if elapsed > 0.5:
         print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
+
+    try:
+        from dashboard.db import save_scan
+        save_scan(target=target, agent_type=category, model=agent.model,
+                  status=_status[0], latency_s=elapsed,
+                  tool_count=_tools[0], output='\n\n'.join(_parts))
+    except Exception:
+        pass
 
 
 # ── Agent / Chat ──────────────────────────────────────────────────────────────
@@ -257,19 +283,32 @@ def cmd_agent(args: str, model: str = ''):
     _record('agent', f'agent {role} {message[:100]}')
     t0 = time.time()
 
+    _parts, _tools, _status = [], [0], ['ok']
+    def _on_text(t):    _parts.append(t); A.print_agent_text(t)
+    def _on_tool(n, a): _tools[0] += 1;  A.print_tool_call(n, a)
+
     try:
         Runner.run(
             agent, message,
-            on_text=lambda t: A.print_agent_text(t),
-            on_tool=lambda n, a: A.print_tool_call(n, a),
+            on_text=_on_text,
+            on_tool=_on_tool,
             on_result=lambda n, r, e: A.print_tool_result(n, r, e),
         )
     except KeyboardInterrupt:
+        _status[0] = 'interrupted'
         print(f'\n  {A.warn("[HITL] Agent interrupted.")}')
 
     elapsed = time.time() - t0
     if elapsed > 0.5:
         print(f'\n  {A.dim(f"Session finished in {format_duration(elapsed)}")}')
+
+    try:
+        from dashboard.db import save_scan
+        save_scan(target=target or message[:80], agent_type=role, model=eff_model,
+                  status=_status[0], latency_s=elapsed,
+                  tool_count=_tools[0], output='\n\n'.join(_parts))
+    except Exception:
+        pass
 
 
 def cmd_recon(args: str, model: str = ''):

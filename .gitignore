@@ -73,6 +73,7 @@ api_keys.json
 *.db
 *.sqlite
 *.sqlite3
+data/
 
 # Node modules (if any)
 node_modules/

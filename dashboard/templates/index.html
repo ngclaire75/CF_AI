@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CF_AI Security Intelligence Dashboard</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    background: #f0f2f5;
+    color: #1f2937;
+    line-height: 1.55;
+    min-height: 100vh;
+}
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f3f4f6;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+/* ── Layout ── */
+.wrap { max-width: 1320px; margin: 0 auto; padding: 0 24px; }
+
+/* ── Header ── */
+.site-header {
+    background: #ffffff;
+    border-bottom: 2px solid #e5e7eb;
+    padding: 14px 0;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+.header-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand-title { font-size: 19px; font-weight: bold; color: #111827; letter-spacing: -0.2px; }
+.brand-sub   { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.header-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.meta-label  { font-size: 12px; color: #9ca3af; white-space: nowrap; }
+.btn {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    padding: 6px 14px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.btn:hover { background: #e5e7eb; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* ── Main ── */
+.main { padding: 28px 0 64px; }
+
+/* ── Section ── */
+.section { margin-bottom: 30px; }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
+.sec-title { font-size: 15px; font-weight: bold; color: #111827; }
+.sec-desc  { font-size: 12px; color: #6b7280; margin-top: 3px; }
+.sec-count { font-size: 12px; color: #9ca3af; white-space: nowrap; }
+
+/* ── Stat cards ── */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 30px;
+}
+.stat-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.stat-lbl {
+    font-size: 11px;
+    font-weight: bold;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.stat-val {
+    font-size: 34px;
+    font-weight: bold;
+    color: #111827;
+    margin-top: 5px;
+    line-height: 1.1;
+}
+.stat-val small { font-size: 15px; color: #9ca3af; font-weight: normal; }
+.stat-hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+/* ── Card shell ── */
+.card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+/* ── Scrollable panel ── */
+.scroll-panel {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 420px;
+}
+.scroll-panel-lg {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 540px;
+}
+
+/* ── Tables ── */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: bold;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f9fafb; }
+td { padding: 11px 14px; color: #374151; vertical-align: middle; }
+.td-target {
+    font-weight: bold;
+    color: #111827;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.td-dim   { color: #6b7280; font-size: 12px; white-space: nowrap; }
+.td-light { color: #9ca3af; font-size: 12px; }
+.td-mono  { font-size: 11px; color: #9ca3af; }
+.no-data td { text-align: center; color: #9ca3af; padding: 40px; font-size: 13px; }
+
+/* ── Risk / status badges ── */
+.badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.badge-HIGH   { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+.badge-MEDIUM { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+.badge-LOW    { background: #f0fdf4; color: #166534; border-color: #86efac; }
+.badge-INFO   { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
+.st-ok    { color: #16a34a; font-weight: bold; font-size: 12px; }
+.st-err   { color: #dc2626; font-weight: bold; font-size: 12px; }
+.st-int   { color: #d97706; font-weight: bold; font-size: 12px; }
+
+/* ── Recommendations section ── */
+.rec-text  { color: #1f2937; line-height: 1.5; }
+.rec-agent { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+/* ── Filter bar ── */
+.filter-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.filt {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 4px 11px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+}
+.filt:hover:not(.active) { background: #f3f4f6; }
+.filt.active { background: #1f2937; border-color: #1f2937; color: #fff; }
+
+/* ── Empty state ── */
+.empty {
+    text-align: center;
+    padding: 52px 24px;
+    color: #9ca3af;
+}
+.empty strong { display: block; margin-bottom: 6px; font-size: 14px; color: #6b7280; }
+
+/* ── Modal ── */
+.modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.42);
+    z-index: 500;
+    overflow-y: auto;
+    padding: 48px 20px;
+}
+.modal-bg.open { display: block; }
+.modal-box {
+    background: #fff;
+    border-radius: 10px;
+    max-width: 860px;
+    margin: 0 auto;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.14);
+    overflow: hidden;
+}
+.modal-hd {
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+.modal-title { font-size: 15px; font-weight: bold; color: #111827; }
+.modal-sub   { font-size: 12px; color: #6b7280; margin-top: 3px; }
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    line-height: 1;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0 2px;
+    flex-shrink: 0;
+}
+.modal-close:hover { color: #111827; }
+.modal-body {
+    padding: 24px;
+    max-height: 76vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 22px;
+}
+.meta-item label { font-size: 10px; font-weight: bold; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px; }
+.meta-item span  { font-size: 13px; color: #1f2937; font-weight: bold; }
+.rpt-sec { margin-bottom: 22px; }
+.rpt-sec h3 {
+    font-size: 11px;
+    font-weight: bold;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.rec-list { list-style: none; }
+.rec-list li {
+    padding: 9px 14px;
+    margin-bottom: 6px;
+    border-left: 3px solid #d1d5db;
+    background: #f9fafb;
+    border-radius: 0 5px 5px 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #1f2937;
+}
+.rec-list li.r-HIGH   { border-left-color: #ef4444; background: #fef2f2; }
+.rec-list li.r-MEDIUM { border-left-color: #f59e0b; background: #fffbeb; }
+.rec-list li.r-LOW    { border-left-color: #22c55e; background: #f0fdf4; }
+.rec-list li.r-INFO   { border-left-color: #60a5fa; background: #eff6ff; }
+.full-output {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #374151;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 480px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+.toggle-link {
+    background: none;
+    border: none;
+    color: #2563eb;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 8px;
+    display: block;
+}
+.toggle-link:hover { text-decoration: underline; }
+
+/* ── Footer ── */
+.site-footer {
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+    padding: 14px 0;
+    text-align: center;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* ── Hidden rows ── */
+tr.hidden-r { display: none; }
+
+/* ── Responsive ── */
+@media (max-width: 960px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .meta-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .stats-row { grid-template-columns: 1fr; }
+    .header-inner { flex-direction: column; align-items: flex-start; }
+    .meta-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Print ── */
+@media print {
+    .site-header { position: static; box-shadow: none; }
+    .btn, .filter-bar, .modal-bg { display: none !important; }
+    .card { box-shadow: none; }
+    .scroll-panel, .scroll-panel-lg { max-height: none; overflow: visible; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ────────────────────────────────────────────────────────────────── -->
+<header class="site-header">
+  <div class="wrap">
+    <div class="header-inner">
+      <div>
+        <div class="brand-title">CF_AI Security Intelligence Dashboard</div>
+        <div class="brand-sub">Automated security analysis and vulnerability reporting</div>
+      </div>
+      <div class="header-right">
+        <span class="meta-label">Updated: <strong id="ts">--</strong></span>
+        <button class="btn" onclick="location.reload()">Refresh</button>
+        <button class="btn" onclick="window.print()">Print</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ──────────────────────────────────────────────────────────────────── -->
+<main class="main">
+<div class="wrap">
+
+  <!-- Stats row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-lbl">Total Scans Conducted</div>
+      <div class="stat-val">{{ stats.total_scans }}</div>
+      <div class="stat-hint">All time</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">Unique Targets Analyzed</div>
+      <div class="stat-val">{{ stats.unique_targets }}</div>
+      <div class="stat-hint">Distinct domains or IPs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">Average Scan Duration</div>
+      <div class="stat-val">{{ stats.avg_latency }}<small>s</small></div>
+      <div class="stat-hint">Seconds per scan</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">Scan Success Rate</div>
+      <div class="stat-val">{{ stats.success_rate }}<small>%</small></div>
+      <div class="stat-hint">Completed without errors</div>
+    </div>
+  </div>
+
+  <!-- Priority Actions -->
+  <section class="section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Priority Actions Required</div>
+        <div class="sec-desc">These items were identified during security assessments. Address HIGH priority issues first.</div>
+      </div>
+      <span class="sec-count">{{ all_recs|length }} item(s)</span>
+    </div>
+    <div class="card">
+      {% if all_recs %}
+      <div class="scroll-panel">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:78px;">Priority</th>
+              <th style="width:190px;">Target</th>
+              <th>Recommended Action</th>
+              <th style="width:170px;">Identified By</th>
+              <th style="width:88px;">Date</th>
+              <th style="width:64px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for rec in all_recs %}
+            <tr>
+              <td><span class="badge badge-{{ rec.risk }}">{{ rec.risk }}</span></td>
+              <td class="td-target" title="{{ rec.target }}">{{ rec.target }}</td>
+              <td><div class="rec-text">{{ rec.text }}</div></td>
+              <td><div class="rec-agent">{{ rec.agent }}</div></td>
+              <td class="td-dim">{{ rec.date }}</td>
+              <td><button class="btn btn-sm" onclick="openModal({{ rec.scan_id }})">View</button></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty">
+        <strong>No action items identified yet.</strong>
+        Run a scan to populate this section. Example: <code>agent info target.com</code>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Target Overview -->
+  <section class="section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Security Assessment by Target</div>
+        <div class="sec-desc">Most recent scan result per unique target. Click Report to view the full findings.</div>
+      </div>
+      <span class="sec-count">{{ targets|length }} target(s)</span>
+    </div>
+    <div class="card">
+      {% if targets %}
+      <div class="scroll-panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Target</th>
+              <th>Risk Level</th>
+              <th>Scan Type</th>
+              <th style="width:110px;">Action Items</th>
+              <th style="width:90px;">Duration</th>
+              <th style="width:80px;">Tools Run</th>
+              <th>Last Scanned (UTC)</th>
+              <th>Status</th>
+              <th style="width:72px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for t in targets %}
+            <tr>
+              <td class="td-target" title="{{ t.target }}">{{ t.target }}</td>
+              <td><span class="badge badge-{{ t.risk }}">{{ t.risk }}</span></td>
+              <td>{{ t.agent_label }}</td>
+              <td class="td-light">{{ t.recs|length }} item(s)</td>
+              <td class="td-dim">{{ t.latency_s }}s</td>
+              <td class="td-light">{{ t.tool_count }}</td>
+              <td class="td-dim">{{ t.display_date }}</td>
+              <td>
+                {% if t.status == 'ok' %}<span class="st-ok">OK</span>
+                {% elif t.status == 'interrupted' %}<span class="st-int">Stopped</span>
+                {% else %}<span class="st-err">Error</span>{% endif %}
+              </td>
+              <td><button class="btn btn-sm" onclick="openModal({{ t.id }})">Report</button></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty">
+        <strong>No targets scanned yet.</strong>
+        Run: <code>agent info https://target.com</code> to begin.
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Scan History -->
+  <section class="section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Complete Scan History</div>
+        <div class="sec-desc">All security scans run, most recent first. Use the filters to narrow results.</div>
+      </div>
+      <div class="filter-bar">
+        <button class="filt active" onclick="doFilter(this,'all')">All</button>
+        <button class="filt" onclick="doFilter(this,'HIGH')">High</button>
+        <button class="filt" onclick="doFilter(this,'MEDIUM')">Medium</button>
+        <button class="filt" onclick="doFilter(this,'LOW')">Low</button>
+        <button class="filt" onclick="doFilter(this,'INFO')">Info</button>
+      </div>
+    </div>
+    <div class="card">
+      {% if scans %}
+      <div class="scroll-panel-lg">
+        <table id="hist">
+          <thead>
+            <tr>
+              <th style="width:38px;">#</th>
+              <th>Target</th>
+              <th>Scan Type</th>
+              <th style="width:140px;">Model</th>
+              <th style="width:80px;">Duration</th>
+              <th style="width:72px;">Tools</th>
+              <th style="width:80px;">Risk</th>
+              <th style="width:72px;">Status</th>
+              <th style="width:148px;">Date (UTC)</th>
+              <th style="width:70px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for s in scans %}
+            <tr data-risk="{{ s.risk }}">
+              <td class="td-mono">{{ s.id }}</td>
+              <td class="td-target" title="{{ s.target }}">{{ s.target }}</td>
+              <td>{{ s.agent_label }}</td>
+              <td class="td-light">{{ s.model }}</td>
+              <td class="td-dim">{{ s.latency_s }}s</td>
+              <td class="td-light">{{ s.tool_count }}</td>
+              <td><span class="badge badge-{{ s.risk }}">{{ s.risk }}</span></td>
+              <td>
+                {% if s.status == 'ok' %}<span class="st-ok">OK</span>
+                {% elif s.status == 'interrupted' %}<span class="st-int">Stopped</span>
+                {% else %}<span class="st-err">Error</span>{% endif %}
+              </td>
+              <td class="td-dim">{{ s.display_date }}</td>
+              <td><button class="btn btn-sm" onclick="openModal({{ s.id }})">Details</button></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty">
+        <strong>No scans recorded yet.</strong>
+        Scans will appear here automatically after running the agent.
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div><!-- /wrap -->
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────────── -->
+<footer class="site-footer">
+  <div class="wrap">
+    CF_AI Security Intelligence Dashboard &mdash; Auto-refreshes every 60 seconds &mdash;
+    Data is retained locally on the server
+  </div>
+</footer>
+
+<!-- ── Report Modal ───────────────────────────────────────────────────────────── -->
+<div class="modal-bg" id="mbg" onclick="bgClose(event)">
+  <div class="modal-box" id="mbox">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title" id="mtitle">Security Report</div>
+        <div class="modal-sub"   id="msub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
+    </div>
+    <div class="modal-body" id="mbody">
+      <p style="color:#9ca3af;text-align:center;padding:40px;">Loading report...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Timestamp ── */
+(function(){
+  var d = new Date();
+  var pad = n => String(n).padStart(2,'0');
+  document.getElementById('ts').textContent =
+    d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+
+    ' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+' UTC';
+})();
+
+/* ── Auto-refresh ── */
+setTimeout(function(){ location.reload(); }, 60000);
+
+/* ── Risk filter ── */
+function doFilter(btn, level) {
+  document.querySelectorAll('.filt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#hist tbody tr').forEach(function(r) {
+    r.classList.toggle('hidden-r', level !== 'all' && r.dataset.risk !== level);
+  });
+}
+
+/* ── HTML escape ── */
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Modal ── */
+function openModal(id) {
+  document.getElementById('mbg').classList.add('open');
+  document.getElementById('mbody').innerHTML =
+    '<p style="color:#9ca3af;text-align:center;padding:40px;">Loading...</p>';
+
+  fetch('/api/scan/' + id)
+    .then(r => r.json())
+    .then(function(s) {
+      document.getElementById('mtitle').textContent = 'Security Report: ' + s.target;
+      document.getElementById('msub').textContent   = s.agent_label + '  |  Scan #' + s.id;
+
+      var recs = s.recs || [];
+      var recHtml;
+      if (recs.length) {
+        recHtml = '<ul class="rec-list">';
+        recs.forEach(function(r) { recHtml += '<li class="r-'+s.risk+'">'+esc(r)+'</li>'; });
+        recHtml += '</ul>';
+      } else {
+        recHtml = '<p style="color:#9ca3af;font-size:13px;">No specific action items were extracted from this scan.</p>';
+      }
+
+      var st = s.status === 'ok' ? '<span class="st-ok">OK</span>'
+             : s.status === 'interrupted' ? '<span class="st-int">Stopped</span>'
+             : '<span class="st-err">Error</span>';
+
+      document.getElementById('mbody').innerHTML =
+        '<div class="meta-grid">' +
+          '<div class="meta-item"><label>Target</label><span>'+esc(s.target)+'</span></div>' +
+          '<div class="meta-item"><label>Risk Level</label><span class="badge badge-'+s.risk+'">'+s.risk+'</span></div>' +
+          '<div class="meta-item"><label>Status</label><span>'+st+'</span></div>' +
+          '<div class="meta-item"><label>Scan Type</label><span>'+esc(s.agent_label)+'</span></div>' +
+          '<div class="meta-item"><label>Model</label><span>'+esc(s.model||'--')+'</span></div>' +
+          '<div class="meta-item"><label>Duration</label><span>'+s.latency_s+'s</span></div>' +
+          '<div class="meta-item"><label>Tools Used</label><span>'+(s.tool_count||0)+'</span></div>' +
+          '<div class="meta-item"><label>Date (UTC)</label><span>'+(s.display_date||'--')+'</span></div>' +
+          '<div class="meta-item"><label>Action Items</label><span>'+(s.recs||[]).length+'</span></div>' +
+        '</div>' +
+        '<div class="rpt-sec"><h3>Recommended Actions</h3>'+recHtml+'</div>' +
+        '<div class="rpt-sec"><h3>Full Findings Report</h3>' +
+          '<button class="toggle-link" id="tog" onclick="togFull()">Show full report</button>' +
+          '<div id="fout" style="display:none;">' +
+            '<div class="full-output">'+esc(s.output||'No output recorded.')+'</div>' +
+          '</div>' +
+        '</div>';
+    })
+    .catch(function(e) {
+      document.getElementById('mbody').innerHTML =
+        '<p style="color:#dc2626;padding:20px;">Failed to load report: '+esc(String(e))+'</p>';
+    });
+}
+
+function togFull() {
+  var d = document.getElementById('fout');
+  var b = document.getElementById('tog');
+  if (d.style.display === 'none') { d.style.display = 'block'; b.textContent = 'Hide full report'; }
+  else { d.style.display = 'none'; b.textContent = 'Show full report'; }
+}
+
+function closeModal() { document.getElementById('mbg').classList.remove('open'); }
+function bgClose(e)   { if (e.target === document.getElementById('mbg')) closeModal(); }
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>
