@@ -1,7 +1,8 @@
 # CF_AI — Core dependencies (required)
 
-# AI provider
+# AI providers
 openai>=1.30.0
+anthropic>=0.40.0
 
 # Dashboard web server
 flask>=3.0.0

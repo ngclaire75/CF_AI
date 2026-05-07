@@ -276,21 +276,26 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 agent = dc.replace(agent, model=model)
             model_used = getattr(agent, 'model', model) or ''
 
-            # For WordPress authenticated scans, inject MCP tools for direct REST API access.
-            # These tools read WP_USER + WP_APP_PASSWORD/WP_PASSWORD from env (already set above).
-            extra_tools = list(agent.tools)
-            if site_type == 'wordpress' and (creds.get('wp_user') or creds.get('wp_pass') or creds.get('wp_app_pass')):
+            # WordPress + Connect Your Website: use Claude (MCP) exclusively.
+            # All other agents keep GPT-4o.
+            _wp_creds = (creds.get('wp_user') or creds.get('wp_pass') or creds.get('wp_app_pass'))
+            if site_type == 'wordpress' and _wp_creds:
                 from tools.wordpress_mcp import wp_api_call, wp_security_scan
-                extra_tools = [wp_api_call, wp_security_scan] + extra_tools
+                _claude_model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
                 mcp_block = (
                     '\n\nMCP TOOLS AVAILABLE — use these for direct WordPress REST API access:\n'
                     f'1. wp_security_scan(site_url="https://{domain}") — comprehensive security audit\n'
                     f'2. wp_api_call(site_url="https://{domain}", endpoint="...") — any REST endpoint\n'
                     'Call wp_security_scan FIRST, then use wp_api_call for deeper investigation.\n'
-                    'These tools handle auth automatically (Basic Auth → Cookie → public).\n'
+                    'These tools handle all auth automatically (Basic Auth → Cookie+Nonce → public).\n'
                 )
-                base_instructions = base_instructions + mcp_block
-                agent = dc.replace(agent, instructions=base_instructions, tools=extra_tools)
+                agent = dc.replace(
+                    agent,
+                    model=_claude_model,
+                    instructions=base_instructions + mcp_block,
+                    tools=[wp_api_call, wp_security_scan] + list(agent.tools),
+                )
+                model_used = _claude_model
 
             t0 = _time.time()
             with tracing.span(f'dashboard:{agent_type}') as span:

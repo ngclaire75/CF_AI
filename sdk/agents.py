@@ -1,6 +1,8 @@
 """CF_AI Agent SDK — Agent, Runner, function_tool, handoff.
 
-Implements the ReACT (Reasoning + Action) agent model using OpenAI (GPT-4o, o1, etc.).
+Routing:
+  model starts with "claude-"  →  Anthropic API  (real MCP tool calling)
+  all other models             →  OpenAI API     (GPT-4o, o1, etc.)
 """
 from __future__ import annotations
 import os
@@ -19,7 +21,7 @@ DEFAULT_MODEL = os.environ.get('CAI_MODEL', 'gpt-4o')
 # ── function_tool decorator ───────────────────────────────────────────────────
 
 def function_tool(fn: Callable = None, *, description: str = None):
-    """Decorate a function to expose it as an OpenAI tool."""
+    """Decorate a function to expose it as a tool for both OpenAI and Anthropic."""
     def _wrap(f: Callable) -> Callable:
         doc   = (description or inspect.getdoc(f) or f.__name__).strip()
         sig   = inspect.signature(f)
@@ -35,6 +37,7 @@ def function_tool(fn: Callable = None, *, description: str = None):
             if param.default is inspect.Parameter.empty:
                 req.append(name)
 
+        # OpenAI tool spec
         f._oai_tool_spec = {
             'type': 'function',
             'function': {
@@ -42,6 +45,12 @@ def function_tool(fn: Callable = None, *, description: str = None):
                 'description': doc,
                 'parameters':  {'type': 'object', 'properties': props, 'required': req},
             },
+        }
+        # Anthropic tool spec
+        f._ant_tool_spec = {
+            'name':         f.__name__,
+            'description':  doc,
+            'input_schema': {'type': 'object', 'properties': props, 'required': req},
         }
         f._is_tool = True
         return f
@@ -64,6 +73,7 @@ def handoff(target: 'Agent') -> Callable:
         raise HandoffRequest(target, message)
     _handoff.__name__ = f'transfer_to_{target.name.lower().replace(" ", "_")}'
     _handoff._oai_tool_spec['function']['name'] = _handoff.__name__
+    _handoff._ant_tool_spec['name']             = _handoff.__name__
     return _handoff
 
 
@@ -88,11 +98,14 @@ class Agent:
     def _openai_specs(self) -> list:
         return [t._oai_tool_spec for t in self.all_tools() if hasattr(t, '_oai_tool_spec')]
 
+    def _anthropic_specs(self) -> list:
+        return [t._ant_tool_spec for t in self.all_tools() if hasattr(t, '_ant_tool_spec')]
+
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
 class Runner:
-    """Executes an Agent with the ReACT loop until done, error, or HITL abort."""
+    """Executes an Agent. Routes to Anthropic (Claude) or OpenAI based on model name."""
 
     @classmethod
     def run(cls, agent: Agent, message: str,
@@ -100,17 +113,10 @@ class Runner:
             on_tool:   Callable[[str, dict], None]       = None,
             on_result: Callable[[str, str, float], None] = None,
             max_turns: int = None) -> str:
-        """Run the agent. Returns final text output.
 
-        Phoenix/OTel auto-instrumentation captures every ChatCompletion call
-        when CFAI_TRACING=1 — no extra code needed here.
-        Ctrl+C triggers Human-In-The-Loop pause.
-        """
-        from sdk.tracing import span as _span
-
+        from sdk.tracing import span as _span, set_ok as _ok, set_error as _err
         turns = max_turns or agent.max_turns
 
-        from sdk.tracing import set_ok as _ok, set_error as _err
         with _span(f'agent:{agent.name}') as s:
             s.set_attribute('cfai.agent', agent.name)
             s.set_attribute('cfai.model', agent.model)
@@ -118,13 +124,132 @@ class Runner:
             s.set_attribute('openinference.span.kind', 'CHAIN')
             s.set_attribute('input.value', message[:2000])
             try:
-                result = cls._run_openai(agent, message, on_text, on_tool, on_result, turns)
+                if agent.model.startswith('claude-'):
+                    result = cls._run_anthropic(agent, message, on_text, on_tool, on_result, turns)
+                else:
+                    result = cls._run_openai(agent, message, on_text, on_tool, on_result, turns)
                 s.set_attribute('output.value', str(result)[:2000])
                 _ok(s)
                 return result
             except Exception as exc:
                 _err(s, exc)
                 raise
+
+
+    # ── Anthropic (Claude) backend ────────────────────────────────────────────
+
+    @classmethod
+    def _run_anthropic(cls, agent: Agent, message: str,
+                       on_text, on_tool, on_result, max_turns) -> str:
+
+        def _emit(msg: str):
+            if on_text:
+                on_text(msg)
+            else:
+                print(msg)
+
+        try:
+            import anthropic as _ant
+        except ImportError:
+            _emit('anthropic package not installed — run: pip3 install anthropic')
+            return ''
+
+        key = os.environ.get('ANTHROPIC_API_KEY', '')
+        if not key:
+            _emit('ANTHROPIC_API_KEY not set — add it to .env and restart')
+            return ''
+
+        client   = _ant.Anthropic(api_key=key)
+        messages = [{'role': 'user', 'content': message}]
+        tools    = agent._anthropic_specs()
+        tool_map = {t.__name__: t for t in agent.all_tools() if callable(t)}
+        turns    = 0
+        final    = ''
+
+        from sdk.tracing import span as _span, set_ok as _ok
+
+        while turns < max_turns:
+            turns += 1
+            try:
+                with _span(f'turn:{turns}') as ts:
+                    ts.set_attribute('cfai.turn', turns)
+                    ts.set_attribute('openinference.span.kind', 'LLM')
+                    ts.set_attribute('llm.model_name', agent.model)
+                    resp = client.messages.create(
+                        model=agent.model,
+                        max_tokens=8096,
+                        system=agent.instructions,
+                        messages=messages,
+                        tools=tools or _ant.NOT_GIVEN,
+                    )
+                    _ok(ts)
+            except KeyboardInterrupt:
+                instr = _hitl_pause(messages)
+                if instr is None:
+                    return '[Agent aborted by operator]'
+                continue
+            except Exception as exc:
+                _emit(f'[API error: {exc}]')
+                return ''
+
+            # Collect text and tool-use blocks from response
+            text_parts  = []
+            tool_blocks = []
+            for block in resp.content:
+                if block.type == 'text' and block.text:
+                    text_parts.append(block.text)
+                elif block.type == 'tool_use':
+                    tool_blocks.append(block)
+
+            text = ''.join(text_parts)
+            if text:
+                if on_text:
+                    on_text(text)
+                final = text
+
+            if resp.stop_reason == 'end_turn' or not tool_blocks:
+                break
+
+            # Append assistant turn (must include full content list)
+            messages.append({
+                'role':    'assistant',
+                'content': [_block_to_dict(b) for b in resp.content],
+            })
+
+            # Execute tools and collect results
+            tool_results = []
+            for block in tool_blocks:
+                fn   = tool_map.get(block.name)
+                args = block.input or {}
+                if on_tool:
+                    on_tool(block.name, args)
+                t0 = time.time()
+                with _span(f'tool:{block.name}') as tool_s:
+                    tool_s.set_attribute('cfai.tool', block.name)
+                    tool_s.set_attribute('cfai.tool.args', str(args)[:300])
+                    try:
+                        result = fn(**args) if fn else f'[unknown tool: {block.name}]'
+                    except HandoffRequest as hoff:
+                        return cls.run(hoff.target_agent, hoff.message,
+                                       on_text, on_tool, on_result, max_turns - turns)
+                    except Exception as exc:
+                        result = f'[tool error: {exc}]'
+                    tool_s.set_attribute('cfai.tool.output_len', len(str(result)))
+                elapsed = time.time() - t0
+                if on_result:
+                    on_result(block.name, str(result), elapsed)
+                tool_results.append({
+                    'type':        'tool_result',
+                    'tool_use_id': block.id,
+                    'content':     str(result)[:8000],
+                })
+
+            messages.append({'role': 'user', 'content': tool_results})
+
+        return final
+
+
+    # ── OpenAI (GPT-4o / o1) backend ─────────────────────────────────────────
 
     @classmethod
     def _run_openai(cls, agent: Agent, message: str,
@@ -139,12 +264,12 @@ class Runner:
         try:
             from openai import OpenAI
         except ImportError:
-            _emit('openai package not installed — run: pip3 install --break-system-packages openai')
+            _emit('openai package not installed — run: pip3 install openai')
             return ''
 
         key = os.environ.get('OPENAI_API_KEY', '')
         if not key:
-            _emit('OPENAI_API_KEY not set — add it to /opt/CF_AI/.env and restart')
+            _emit('OPENAI_API_KEY not set — add it to .env and restart')
             return ''
 
         client   = OpenAI(api_key=key)
@@ -168,8 +293,6 @@ class Runner:
                     ts.set_attribute('llm.model_name', agent.model)
                     ts.set_attribute('llm.invocation_parameters',
                                      _json.dumps({'model': agent.model, 'tool_choice': 'auto' if tools else None}))
-                    # Log input messages for Phoenix ChatCompletion view
-                    # messages can be dicts OR ChatCompletionMessage objects
                     for i, m in enumerate(messages[-10:]):
                         role    = m.get('role', '')    if isinstance(m, dict) else (m.role or '')
                         content = m.get('content', '') if isinstance(m, dict) else (m.content or '')
@@ -181,7 +304,6 @@ class Runner:
                         tools=tools or None,
                         tool_choice='auto' if tools else None,
                     )
-                    # Log output
                     out_msg = resp.choices[0].message
                     ts.set_attribute('llm.output_messages.0.message.role', 'assistant')
                     ts.set_attribute('llm.output_messages.0.message.content',
@@ -246,7 +368,16 @@ class Runner:
         return final
 
 
-# ── HITL ─────────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _block_to_dict(block) -> dict:
+    """Convert an Anthropic content block object to a plain dict."""
+    if block.type == 'text':
+        return {'type': 'text', 'text': block.text}
+    if block.type == 'tool_use':
+        return {'type': 'tool_use', 'id': block.id, 'name': block.name, 'input': block.input}
+    return {'type': block.type}
+
 
 def _hitl_pause(messages: list) -> Optional[str]:
     from repl.aesthetics import WARN, DIM, R, GREY
