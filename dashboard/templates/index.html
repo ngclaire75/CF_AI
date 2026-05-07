@@ -1859,12 +1859,16 @@ function cwPoll() {
     } else if (d.status === 'done') {
       _cwScanId = d.scan_id;
       var domain = d.domain || '';
-      cwSetStatus('<span class="cs-done">&#10003; Scan complete — ' + domain + '</span>');
+      cwSetStatus('<span class="cs-done">&#10003; Scan complete — ' + domain + ' &nbsp;·&nbsp; Saving to dashboard…</span>');
       document.getElementById('cwDomainSpan').textContent = domain ? 'Domain: ' + domain : '';
       document.getElementById('cwDoneBar').classList.add('active');
       cwUnlock();
+      // Store the scan_id so the page reload can auto-open the report modal
+      if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
+      // Reload the page after 2 s so the new scan appears in Target Overview / Scan History
+      setTimeout(function() { window.location.reload(); }, 2000);
     } else {
-      cwSetStatus('<span class="cs-error">Error: ' + (d.error || 'unknown') + '</span>');
+      cwSetStatus('<span class="cs-error">Scan error — see output above for details.</span>');
       cwUnlock();
     }
   })
@@ -1891,6 +1895,21 @@ function cwReset() {
 
 function cwSetStatus(html) { document.getElementById('cwStatus').innerHTML = html; }
 function cwUnlock() { document.getElementById('cwStartBtn').disabled = false; }
+
+// On page load: if a scan just completed via Connect Your Website, auto-open its report
+(function() {
+  var sid = sessionStorage.getItem('cfai_open_scan');
+  if (sid) {
+    sessionStorage.removeItem('cfai_open_scan');
+    // Small delay to ensure the page is fully rendered
+    setTimeout(function() {
+      openModal(parseInt(sid, 10));
+      // Scroll to Target Overview so the user sees their result is now logged
+      var sec = document.getElementById('connect-section');
+      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 400);
+  }
+})();
 </script>
 </body>
 </html>

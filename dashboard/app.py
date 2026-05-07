@@ -92,8 +92,9 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
 
     except Exception as exc:
         import traceback as _tb
-        job.update({'status': 'error', 'error': str(exc),
-                    'trace': _tb.format_exc()[-800:]})
+        tb = _tb.format_exc()[-1200:]
+        job['chunks'].append({'k': 'txt', 'd': f'\n[ERROR] {exc}\n{tb}'})
+        job.update({'status': 'error', 'error': str(exc), 'trace': tb})
     finally:
         for k, orig in env_restore.items():
             if orig: os.environ[k] = orig
