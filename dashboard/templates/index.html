@@ -1098,12 +1098,7 @@ tr.hidden-r { display: none; }
     ' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+' UTC';
 })();
 
-/* ── Auto-refresh 60s — skip when modal open or scan running ── */
-setTimeout(function(){
-  var modalOpen  = document.getElementById('mbg').classList.contains('open');
-  var scanActive = _cwJobId && !_cwScanId;
-  if (!modalOpen && !scanActive) location.reload();
-}, 60000);
+
 
 /* ── Risk + domain filter (scan history) ── */
 var _histRisk   = 'all';
