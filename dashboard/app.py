@@ -52,14 +52,26 @@ _REC_HEADERS = (
 )
 
 
+# Lines containing these phrases describe attempts or failed checks — skip them
+_NEGATION = re.compile(
+    r'\b(no\b|not\b|failed|unsuccessful|did not|does not|returned no|'
+    r'found no|no evidence|could not|unable to|attempting|will attempt|'
+    r'will try|will now|testing for|checking for|i will|let me|'
+    r'next i |next,|explore potential|no result|no data|no output|'
+    r'empty response|no vuln|not vuln|not found|not detect|not appear)\b',
+    re.I,
+)
+
+
 def risk_level(text: str) -> str:
-    t = text.lower()
-    if any(k in t for k in _HIGH_KW):
-        return 'HIGH'
-    if any(k in t for k in _MED_KW):
-        return 'MEDIUM'
-    if any(k in t for k in _LOW_KW):
-        return 'LOW'
+    """Derive risk only from lines that confirm a finding, skipping attempt/failure lines."""
+    lines = text.splitlines()
+    for kw_list, label in ((_HIGH_KW, 'HIGH'), (_MED_KW, 'MEDIUM'), (_LOW_KW, 'LOW')):
+        for line in lines:
+            if _NEGATION.search(line):
+                continue
+            if any(k in line.lower() for k in kw_list):
+                return label
     return 'INFO'
 
 
