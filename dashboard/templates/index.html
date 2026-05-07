@@ -1179,7 +1179,42 @@ function buildCveHtml(data) {
     cveCards;
 }
 
-/* ── Detailed findings parser (for Details button) ── */
+/* ── 30 Most Common Threat Catalog ── */
+var THREAT_CATALOG = [
+  {id:'sqli',       name:'SQL Injection',                    cat:'Injection',       sev:'HIGH',    patterns:['sql injection','sqli','sql syntax','mysql error','ora-','database error']},
+  {id:'xss',        name:'Cross-Site Scripting (XSS)',       cat:'Injection',       sev:'HIGH',    patterns:['xss','cross-site scripting','script injection','reflected xss','stored xss','dom xss']},
+  {id:'cmd-inj',    name:'Command Injection / RCE',          cat:'Injection',       sev:'CRITICAL',patterns:['command injection','cmd injection','remote code execution','rce','shell injection','os command']},
+  {id:'xxe',        name:'XML External Entity (XXE)',        cat:'Injection',       sev:'HIGH',    patterns:['xxe','xml external entity','xml injection']},
+  {id:'ssti',       name:'Server-Side Template Injection',   cat:'Injection',       sev:'HIGH',    patterns:['ssti','template injection','server-side template']},
+  {id:'sqli-blind', name:'Blind SQL Injection',              cat:'Injection',       sev:'HIGH',    patterns:['blind sql','time-based sql','boolean-based sql','blind injection']},
+  {id:'auth-bypass',name:'Authentication Bypass',            cat:'Authentication',  sev:'CRITICAL',patterns:['authentication bypass','auth bypass','login bypass','bypass authentication']},
+  {id:'brute',      name:'Brute Force / No Rate Limiting',   cat:'Authentication',  sev:'HIGH',    patterns:['brute force','no rate limit','account lockout','unlimited login','no lockout']},
+  {id:'weak-pass',  name:'Weak / Default Credentials',       cat:'Authentication',  sev:'MEDIUM',  patterns:['weak password','default credential','default password','admin:admin','common password']},
+  {id:'jwt-vuln',   name:'JWT Vulnerabilities',              cat:'Authentication',  sev:'HIGH',    patterns:['jwt','json web token','alg:none','algorithm confusion','jwt bypass','jwt token']},
+  {id:'mfa-bypass', name:'MFA / 2FA Bypass',                 cat:'Authentication',  sev:'HIGH',    patterns:['mfa bypass','2fa bypass','otp bypass','two-factor bypass']},
+  {id:'idor',       name:'IDOR / Broken Object Level Auth',  cat:'Authorization',   sev:'HIGH',    patterns:['idor','insecure direct object','broken object level','horizontal privilege']},
+  {id:'priv-esc',   name:'Privilege Escalation',             cat:'Authorization',   sev:'CRITICAL',patterns:['privilege escalation','vertical privilege','admin escalation','mass assignment']},
+  {id:'bfla',       name:'Broken Function Level Auth',       cat:'Authorization',   sev:'HIGH',    patterns:['broken function level','bfla','unauthorized admin','admin endpoint exposed']},
+  {id:'ssrf',       name:'Server-Side Request Forgery',      cat:'Injection',       sev:'HIGH',    patterns:['ssrf','server-side request forgery','internal network access','internal service request']},
+  {id:'path-trav',  name:'Path Traversal / LFI',             cat:'Data Exposure',   sev:'HIGH',    patterns:['path traversal','directory traversal','lfi','local file inclusion','../etc/passwd']},
+  {id:'info-disc',  name:'Sensitive Data Exposure',          cat:'Data Exposure',   sev:'HIGH',    patterns:['sensitive data','exposed credential','leaked secret','api key exposed','password exposed']},
+  {id:'env-exp',    name:'.env / Config File Exposure',      cat:'Data Exposure',   sev:'HIGH',    patterns:['.env exposed','.env accessible','config exposed','.git exposed','.git/head']},
+  {id:'headers',    name:'Missing Security Headers',         cat:'Misconfiguration',sev:'MEDIUM',  patterns:['missing security header','x-frame-options','content-security-policy','hsts missing','nosniff']},
+  {id:'cors',       name:'CORS Misconfiguration',            cat:'Misconfiguration',sev:'MEDIUM',  patterns:['cors misconfiguration','cors wildcard','access-control-allow-origin: *','cors *']},
+  {id:'dir-list',   name:'Directory Listing Enabled',        cat:'Misconfiguration',sev:'MEDIUM',  patterns:['directory listing','autoindex on','index of /']},
+  {id:'server-ver', name:'Server Version Disclosure',        cat:'Misconfiguration',sev:'LOW',     patterns:['server version','x-powered-by','server banner','version disclosure','php version']},
+  {id:'ssl-weak',   name:'Weak TLS / SSL Configuration',     cat:'Cryptography',    sev:'HIGH',    patterns:['weak cipher','tlsv1.0','tlsv1.1','sslv3','outdated tls','ssl weak']},
+  {id:'cert-issue', name:'SSL Certificate Issue',            cat:'Cryptography',    sev:'HIGH',    patterns:['expired certificate','self-signed','certificate expired','untrusted certificate']},
+  {id:'csrf',       name:'CSRF (Cross-Site Request Forgery)',cat:'Session',         sev:'MEDIUM',  patterns:['csrf','cross-site request forgery','missing csrf token']},
+  {id:'session',    name:'Insecure Session / Cookies',       cat:'Session',         sev:'MEDIUM',  patterns:['insecure cookie','session fixation','missing httponly','missing secure flag','cookie not secure']},
+  {id:'wp-xmlrpc',  name:'WordPress XML-RPC Exposed',        cat:'CMS / WordPress', sev:'MEDIUM',  patterns:['xmlrpc.php','xml-rpc enabled','xmlrpc exposed','xmlrpc accessible']},
+  {id:'wp-enum',    name:'User / Admin Enumeration',         cat:'CMS / WordPress', sev:'MEDIUM',  patterns:['user enumeration','username enumeration','author enumeration','wp-json/wp/v2/users']},
+  {id:'file-upload',name:'Unrestricted File Upload',         cat:'Data Exposure',   sev:'HIGH',    patterns:['unrestricted file upload','malicious upload','shell upload','file upload vulnerability']},
+  {id:'open-redir', name:'Open Redirect',                    cat:'Client-Side',     sev:'MEDIUM',  patterns:['open redirect','unvalidated redirect','redirect to external','url redirect']},
+];
+
+var _NEG_RE = /\b(no\b|not\b|failed|unsuccessful|did not|does not|returned no|found no|no evidence|could not|unable to|attempting|will attempt|testing for|checking for|i will|let me|no result|not found|not detect|not appear|no vuln|not vuln)\b/i;
+
 function normSev(s) {
   if (!s) return 'INFO';
   var u = s.toUpperCase();
@@ -1191,11 +1226,10 @@ function normSev(s) {
 }
 
 function inferSev(block) {
-  var negRe = /\b(no\b|not\b|failed|unsuccessful|did not|does not|found no|no evidence|could not|attempting|will attempt|testing for|checking for|i will|let me)\b/i;
   var lines = block.split('\n');
   for (var i = 0; i < lines.length; i++) {
     var l = lines[i].toLowerCase();
-    if (negRe.test(l)) continue;
+    if (_NEG_RE.test(l)) continue;
     if (l.includes('critical')) return 'CRITICAL';
     if (l.includes('high'))     return 'HIGH';
     if (l.includes('medium'))   return 'MEDIUM';
@@ -1211,36 +1245,62 @@ function getField(block, name) {
 }
 
 function getSection(block, name) {
-  var re = new RegExp(name + '\\s*:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z][\\w /-]+:|$)', 'i');
+  var re = new RegExp(name + '\\s*:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z][\\w /:-]+:|$)', 'i');
   var m = block.match(re);
   return m ? m[1].trim() : '';
 }
 
+/* Analyse which of the 30 threats appear in the scan output */
+function analyzeThreatCoverage(output) {
+  var lines  = output.toLowerCase().split('\n');
+  var posText = lines.filter(function(l){ return !_NEG_RE.test(l); }).join(' ');
+  var negText = lines.filter(function(l){ return  _NEG_RE.test(l); }).join(' ');
+  var allText = output.toLowerCase();
+
+  return THREAT_CATALOG.map(function(t) {
+    var found   = t.patterns.some(function(p){ return posText.includes(p); });
+    var checked = !found && t.patterns.some(function(p){ return negText.includes(p) || allText.includes(p); });
+    return Object.assign({}, t, { status: found ? 'FOUND' : checked ? 'CHECKED' : 'NOT_TESTED' });
+  });
+}
+
+/* Detect technology stack from scan output */
+function detectTechnology(output) {
+  var checks = [
+    [/wordpress[\s\/]?([\d.]+)?/i,'WordPress'],[/woocommerce/i,'WooCommerce'],
+    [/apache[\s\/]([\d.]+)/i,'Apache'],[/nginx[\s\/]([\d.]+)/i,'Nginx'],
+    [/php[\s\/]([\d.]+)/i,'PHP'],[/mysql[\s\/]?([\d.]+)/i,'MySQL'],
+    [/drupal[\s\/]?([\d.]+)?/i,'Drupal'],[/joomla[! ]?([\d.]+)?/i,'Joomla'],
+    [/django[\s\/]?([\d.]+)?/i,'Django'],[/laravel[\s\/]?([\d.]+)?/i,'Laravel'],
+    [/node\.?js[\s\/]?([\d.]+)?/i,'Node.js'],[/express[\s\/]?([\d.]+)?/i,'Express.js'],
+    [/shopify/i,'Shopify'],[/iis[\s\/]([\d.]+)/i,'Microsoft IIS'],
+    [/jquery[\s\/]?([\d.]+)/i,'jQuery'],[/openssl[\s\/]?([\d.]+)/i,'OpenSSL'],
+    [/postgresql[\s\/]?([\d.]+)?/i,'PostgreSQL'],[/mongodb[\s\/]?([\d.]+)?/i,'MongoDB'],
+    [/react[\s\/]?([\d.]+)?/i,'React'],[/vue\.?js[\s\/]?([\d.]+)?/i,'Vue.js'],
+  ];
+  var out = [], seen = {};
+  checks.forEach(function(c) {
+    var m = output.match(c[0]);
+    if (m && !seen[c[1]]) { seen[c[1]] = 1; out.push({name: c[1], version: (m[1]||'').trim()}); }
+  });
+  return out;
+}
+
+/* Parse structured VULN-ID findings for expandable detail cards */
 function parseDetailedFindings(rawText) {
   var text = stripMd(rawText);
-  var findings = [];
-  var seen = {};
-
-  // Match lines like "AUTH-VULN-06: Title" or "SSRF-VULN-01: Title"
+  var findings = [], seen = {}, m;
   var hdrRe = /^([A-Z][\w]*-(?:VULN|BUG|AUTH|AUTHZ|SSRF|IDOR|INJ|CMD|XSS|CRYP|SESS|CLNT|APIT)-\d+):\s*(.+)/gm;
-  var matches = [], m;
-  while ((m = hdrRe.exec(text)) !== null) {
-    matches.push({ id: m[1], title: m[2].trim(), pos: m.index });
-  }
-
+  var matches = [];
+  while ((m = hdrRe.exec(text)) !== null) matches.push({id:m[1], title:m[2].trim(), pos:m.index});
   matches.forEach(function(match, i) {
-    if (seen[match.id]) return;
-    seen[match.id] = 1;
-    var block = text.substring(match.pos, i + 1 < matches.length ? matches[i+1].pos : text.length);
-
+    if (seen[match.id]) return; seen[match.id] = 1;
+    var block = text.substring(match.pos, i+1 < matches.length ? matches[i+1].pos : text.length);
     var sevRaw = getField(block, 'Severity');
-    var sev    = normSev(sevRaw) !== 'INFO' ? normSev(sevRaw) : inferSev(block);
-
     findings.push({
-      id:       match.id,
-      title:    match.title,
-      sev:      sev,
-      location: getField(block, 'Vulnerable[\\s\\w]*location') || getField(block, 'Location'),
+      id: match.id, title: match.title,
+      sev:      normSev(sevRaw) !== 'INFO' ? normSev(sevRaw) : inferSev(block),
+      location: getField(block, 'Vulnerable\\s*[Ll]ocation') || getField(block, 'Location'),
       overview: getField(block, 'Overview'),
       impact:   getField(block, 'Impact'),
       prereqs:  getSection(block, 'Prerequisites'),
@@ -1249,106 +1309,175 @@ function parseDetailedFindings(rawText) {
       notes:    getSection(block, 'Notes') || getSection(block, 'Technical Details'),
     });
   });
-
   return findings;
 }
 
 function buildDetailCard(f) {
-  var sev   = f.sev || 'INFO';
-  var hdCls = 'dfhd-' + sev;
-
+  var sev = f.sev || 'INFO';
   var fields = '';
   if (f.location) fields += '<div class="detail-field"><strong>Vulnerable Location:</strong> ' + esc(f.location) + '</div>';
   if (f.overview) fields += '<div class="detail-field"><strong>Overview:</strong> ' + esc(f.overview) + '</div>';
   if (f.impact)   fields += '<div class="detail-field"><strong>Impact:</strong> ' + esc(f.impact) + '</div>';
-
   var sections = '';
-  if (f.prereqs) sections += '<div class="detail-section"><h4>Prerequisites</h4><pre class="detail-text">' + esc(f.prereqs) + '</pre></div>';
-  if (f.steps)   sections += '<div class="detail-section"><h4>Exploitation Steps</h4><pre class="detail-text">' + esc(f.steps) + '</pre></div>';
-  if (f.proof)   sections += '<div class="detail-section"><h4>Proof of Impact</h4><pre class="detail-text">' + esc(f.proof) + '</pre></div>';
-  if (f.notes)   sections += '<div class="detail-section"><h4>Technical Notes</h4><pre class="detail-text">' + esc(f.notes) + '</pre></div>';
-
-  return '<div class="detail-finding">' +
-    '<div class="detail-finding-hd ' + hdCls + '" onclick="togFinding(this)">' +
-      '<span class="badge badge-' + sev + '">' + sev + '</span>' +
-      '<span class="finding-id">' + esc(f.id) + '</span>' +
-      '<span class="finding-title">' + esc(f.title) + '</span>' +
-      '<span class="finding-toggle">+</span>' +
-    '</div>' +
-    '<div class="finding-body">' +
-      (fields   ? '<div class="detail-fields">' + fields + '</div>' : '') +
-      (sections ? sections : '<p style="color:#9ca3af;font-size:13px;">No additional detail extracted for this finding.</p>') +
-    '</div>' +
+  if (f.prereqs) sections += '<div class="detail-section"><h4>Prerequisites</h4><pre class="detail-text">'+esc(f.prereqs)+'</pre></div>';
+  if (f.steps)   sections += '<div class="detail-section"><h4>Exploitation Steps</h4><pre class="detail-text">'+esc(f.steps)+'</pre></div>';
+  if (f.proof)   sections += '<div class="detail-section"><h4>Proof of Impact</h4><pre class="detail-text">'+esc(f.proof)+'</pre></div>';
+  if (f.notes)   sections += '<div class="detail-section"><h4>Technical Notes</h4><pre class="detail-text">'+esc(f.notes)+'</pre></div>';
+  return '<div class="detail-finding">'+
+    '<div class="detail-finding-hd dfhd-'+sev+'" onclick="togFinding(this)">'+
+      '<span class="badge badge-'+sev+'">'+sev+'</span>'+
+      '<span class="finding-id">'+esc(f.id)+'</span>'+
+      '<span class="finding-title">'+esc(f.title)+'</span>'+
+      '<span class="finding-toggle">+</span>'+
+    '</div>'+
+    '<div class="finding-body">'+
+      (fields   ? '<div class="detail-fields">'+fields+'</div>' : '')+
+      (sections || '<p style="color:#9ca3af;font-size:13px;">No additional detail extracted.</p>')+
+    '</div>'+
   '</div>';
 }
 
-/* ── Details modal (Scan History — more informative view) ── */
+/* ── Details modal (Scan History) ── */
 function openDetailsModal(id) {
   document.getElementById('mbg').classList.add('open');
   document.getElementById('mbody').innerHTML =
     '<p style="color:#9ca3af;text-align:center;padding:40px;">Loading scan details...</p>';
 
   fetch('/api/scan/' + id)
-    .then(function(r) { return r.json(); })
+    .then(function(r){ return r.json(); })
     .then(function(s) {
       document.getElementById('mtitle').textContent = 'Scan Details: ' + s.target;
       document.getElementById('msub').textContent   = s.agent_label + '  |  Scan #' + s.id + '  |  ' + (s.display_date || '');
 
       var output   = s.output || '';
+      var threats  = analyzeThreatCoverage(output);
+      var tech     = detectTechnology(output);
       var findings = parseDetailedFindings(output);
-      var st = s.status === 'ok'          ? '<span class="st-ok">OK</span>'
-             : s.status === 'interrupted' ? '<span class="st-int">Stopped</span>'
-                                          : '<span class="st-err">Error</span>';
+      var isWP     = tech.some(function(t){ return t.name==='WordPress'||t.name==='WooCommerce'; }) ||
+                     output.toLowerCase().includes('wordpress') || output.toLowerCase().includes('/wp-');
 
-      /* Agent activity description */
-      var agentType = (s.agent_type || '').toLowerCase();
-      var actDesc   = _agentDesc[agentType] || 'The agent performed an automated security assessment of the target.';
+      var st = s.status==='ok' ? '<span class="st-ok">OK</span>'
+             : s.status==='interrupted' ? '<span class="st-int">Stopped</span>'
+             : '<span class="st-err">Error</span>';
 
-      /* Build findings section */
-      var findingsHtml;
-      if (findings.length > 0) {
-        findingsHtml = findings.map(buildDetailCard).join('');
-      } else {
-        /* No structured VULN IDs found — show clean plain-text output */
-        var cleanOut = stripMd(output);
-        findingsHtml = cleanOut
-          ? '<div class="detail-no-findings">' +
-              '<strong>No structured vulnerability IDs detected in this scan.</strong>' +
-              'The full agent output is shown below.' +
-            '</div>' +
-            '<pre class="detail-clean-output">' + esc(cleanOut) + '</pre>'
-          : '<div class="detail-no-findings"><strong>No output recorded for this scan.</strong></div>';
+      var found    = threats.filter(function(t){ return t.status==='FOUND'; });
+      var checked  = threats.filter(function(t){ return t.status==='CHECKED'; });
+      var agentDesc = _agentDesc[(s.agent_type||'').toLowerCase()] || 'The agent performed an automated security assessment of the target.';
+
+      /* ── Meta ── */
+      var html = '<div class="meta-grid">'+
+        '<div class="meta-item"><label>Target</label><span>'+esc(s.target)+'</span></div>'+
+        '<div class="meta-item"><label>Risk Level</label><span class="badge badge-'+s.risk+'">'+s.risk+'</span></div>'+
+        '<div class="meta-item"><label>Status</label><span>'+st+'</span></div>'+
+        '<div class="meta-item"><label>Scan Type</label><span>'+esc(s.agent_label)+'</span></div>'+
+        '<div class="meta-item"><label>Model</label><span>'+esc(s.model||'--')+'</span></div>'+
+        '<div class="meta-item"><label>Duration</label><span>'+s.latency_s+'s</span></div>'+
+        '<div class="meta-item"><label>Tools Used</label><span>'+(s.tool_count||0)+'</span></div>'+
+        '<div class="meta-item"><label>Date (UTC)</label><span>'+(s.display_date||'--')+'</span></div>'+
+      '</div>';
+
+      /* ── What the agent did ── */
+      html += '<div class="rpt-sec" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:14px 16px;">'+
+        '<h3 style="color:#0369a1;border-color:#bae6fd;">What the Agent Did</h3>'+
+        '<p style="font-size:13px;color:#374151;line-height:1.6;">'+esc(agentDesc)+'</p>'+
+        '<p style="font-size:13px;color:#6b7280;line-height:1.6;margin-top:6px;">'+
+          (found.length
+            ? found.length+' confirmed threat'+(found.length===1?'':'s')+' detected. '+checked.length+' checked and not found. '+(30-found.length-checked.length)+' not tested by this scan type.'
+            : checked.length+' threat categories were checked and no issues were found. '+(30-checked.length)+' were not tested by this scan type.')+
+        '</p>'+
+      '</div>';
+
+      /* ── Technology stack ── */
+      if (tech.length) {
+        html += '<div class="rpt-sec"><h3>Technology Stack Detected</h3><div style="display:flex;flex-wrap:wrap;gap:6px;">';
+        tech.forEach(function(t){
+          html += '<span style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;padding:4px 11px;font-size:12px;color:#374151;">'+esc(t.name+(t.version?' '+t.version:''))+'</span>';
+        });
+        html += '</div></div>';
       }
 
-      document.getElementById('mbody').innerHTML =
-        /* Meta */ '<div class="meta-grid">' +
-          '<div class="meta-item"><label>Target</label><span>' + esc(s.target) + '</span></div>' +
-          '<div class="meta-item"><label>Risk Level</label><span class="badge badge-' + s.risk + '">' + s.risk + '</span></div>' +
-          '<div class="meta-item"><label>Status</label><span>' + st + '</span></div>' +
-          '<div class="meta-item"><label>Scan Type</label><span>' + esc(s.agent_label) + '</span></div>' +
-          '<div class="meta-item"><label>Model</label><span>' + esc(s.model || '--') + '</span></div>' +
-          '<div class="meta-item"><label>Duration</label><span>' + s.latency_s + 's</span></div>' +
-          '<div class="meta-item"><label>Tools Used</label><span>' + (s.tool_count || 0) + '</span></div>' +
-          '<div class="meta-item"><label>Date (UTC)</label><span>' + (s.display_date || '--') + '</span></div>' +
-        '</div>' +
+      /* ── 30 Most Common Threats Coverage Grid ── */
+      var cats = {};
+      threats.forEach(function(t){ (cats[t.cat]=cats[t.cat]||[]).push(t); });
 
-        /* What the agent did */ '<div class="rpt-sec" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:14px 16px;">' +
-          '<h3 style="color:#0369a1;border-color:#bae6fd;">What the Agent Did</h3>' +
-          '<p style="font-size:13px;color:#374151;line-height:1.6;">' + esc(actDesc) + '</p>' +
-          '<p style="font-size:13px;color:#6b7280;line-height:1.6;margin-top:6px;">' +
-            (findings.length > 0
-              ? findings.length + ' security finding' + (findings.length === 1 ? '' : 's') + ' were extracted from the scan output. Expand each one below to see exploitation steps, impact, and proof of compromise.'
-              : 'No structured vulnerability entries were detected. The full output is shown below.') +
-          '</p>' +
-        '</div>' +
+      html += '<div class="rpt-sec"><h3>30 Most Common Threats — Scan Coverage</h3>';
+      Object.keys(cats).forEach(function(cat) {
+        html += '<div style="margin-bottom:10px;">'+
+          '<div style="font-size:10px;font-weight:bold;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">'+esc(cat)+'</div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:5px;">';
+        cats[cat].forEach(function(t) {
+          var bg, labelColor, labelText, dot;
+          if (t.status==='FOUND') {
+            dot = {CRITICAL:'#b91c1c',HIGH:'#dc2626',MEDIUM:'#d97706',LOW:'#16a34a'}[t.sev]||'#6b7280';
+            bg = {CRITICAL:'#fef2f2',HIGH:'#fff1f1',MEDIUM:'#fffbeb',LOW:'#f0fdf4'}[t.sev]||'#f9fafb';
+            labelText = t.sev; labelColor = dot;
+          } else if (t.status==='CHECKED') {
+            dot='#6b7280'; bg='#f9fafb'; labelText='CLEAR'; labelColor='#6b7280';
+          } else {
+            dot='#d1d5db'; bg='#fafafa'; labelText='NOT TESTED'; labelColor='#d1d5db';
+          }
+          html += '<div style="background:'+bg+';border:1px solid #e5e7eb;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:8px;">'+
+            '<div style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex-shrink:0;"></div>'+
+            '<span style="font-size:12px;color:#374151;flex:1;">'+esc(t.name)+'</span>'+
+            '<span style="font-size:10px;font-weight:bold;color:'+labelColor+';white-space:nowrap;">'+labelText+'</span>'+
+          '</div>';
+        });
+        html += '</div></div>';
+      });
+      html += '<p style="font-size:11px;color:#9ca3af;margin-top:4px;">Based on actual scan output only. CLEAR = agent tested this and found no issue. NOT TESTED = not covered by this scan type.</p>';
+      html += '</div>';
 
-        /* Findings */ '<div class="rpt-sec"><h3>Security Findings (' + findings.length + ')</h3>' +
-          findingsHtml +
+      /* ── WordPress / CMS Integration section ── */
+      if (isWP) {
+        html += '<div class="rpt-sec" style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:7px;padding:14px 16px;">'+
+          '<h3 style="color:#7c3aed;border-color:#e9d5ff;">WordPress Site — Deeper Integration Available</h3>'+
+          '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">'+
+            '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:5px;padding:10px 12px;">'+
+              '<div style="font-size:12px;font-weight:bold;color:#7c3aed;margin-bottom:4px;">Install WP Activity Log Plugin</div>'+
+              '<div style="font-size:13px;color:#374151;line-height:1.55;">Install the free "WP Activity Log" plugin (200,000+ active installs). It logs every admin action, user login, file change, plugin install, and settings update with the user\'s IP address and timestamp. Once installed, the AI agent can read these logs via the WordPress REST API and report suspicious activity with risk levels directly on this dashboard.</div>'+
+              '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">Find it at: wordpress.org/plugins/wp-security-audit-log</div>'+
+            '</div>'+
+            '<div style="background:#fff;border:1px solid #e9d5ff;border-radius:5px;padding:10px 12px;">'+
+              '<div style="font-size:12px;font-weight:bold;color:#7c3aed;margin-bottom:4px;">Connect Agent via WordPress REST API</div>'+
+              '<div style="font-size:13px;color:#374151;line-height:1.55;">The AI agent connects to WordPress via its built-in REST API at yoursite.com/wp-json/wp/v2/ to scan users, posts, plugins, and configuration — no SSH or database credentials required. Run: agent apit '+esc(s.target)+' to begin API-level testing.</div>'+
+            '</div>'+
+          '</div>'+
         '</div>';
+      } else {
+        /* Non-WordPress CMS / any site */
+        html += '<div class="rpt-sec" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:14px 16px;">'+
+          '<h3 style="color:#166534;border-color:#86efac;">Deeper Scanning Available for This Site</h3>'+
+          '<div style="font-size:13px;color:#374151;line-height:1.6;">'+
+            'To get more in-depth results for this target, run a targeted scan using one of these agent types:<br><br>'+
+            '<code style="background:#f3f4f6;padding:2px 6px;border-radius:3px;">agent apit '+esc(s.target)+'</code> — API security and JWT/OAuth testing<br>'+
+            '<code style="background:#f3f4f6;padding:2px 6px;border-radius:3px;">agent athn '+esc(s.target)+'</code> — Authentication and login security<br>'+
+            '<code style="background:#f3f4f6;padding:2px 6px;border-radius:3px;">agent inpv '+esc(s.target)+'</code> — SQL injection, XSS, and input attacks<br>'+
+            '<code style="background:#f3f4f6;padding:2px 6px;border-radius:3px;">agent pentest '+esc(s.target)+'</code> — Full 10-category penetration test'+
+          '</div>'+
+        '</div>';
+      }
+
+      /* ── Confirmed Findings Detail Cards ── */
+      if (findings.length) {
+        html += '<div class="rpt-sec"><h3>Confirmed Findings — Exploitation Detail ('+findings.length+')</h3>'+
+          findings.map(buildDetailCard).join('')+
+        '</div>';
+      }
+
+      /* ── Fallback: clean output if no structured findings ── */
+      if (!findings.length && !output.trim()) {
+        html += '<div class="detail-no-findings"><strong>No output recorded for this scan.</strong></div>';
+      } else if (!findings.length) {
+        html += '<div class="rpt-sec"><h3>Full Scan Output</h3>'+
+          '<pre class="detail-clean-output">'+esc(stripMd(output))+'</pre>'+
+        '</div>';
+      }
+
+      document.getElementById('mbody').innerHTML = html;
     })
-    .catch(function(e) {
+    .catch(function(e){
       document.getElementById('mbody').innerHTML =
-        '<p style="color:#dc2626;padding:20px;">Failed to load: ' + esc(String(e)) + '</p>';
+        '<p style="color:#dc2626;padding:20px;">Failed to load: '+esc(String(e))+'</p>';
     });
 }
 
