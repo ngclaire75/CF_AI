@@ -155,6 +155,13 @@ def _run_wstg(category: str, target: str, model: str = ''):
     _parts, _tools, _status = [], [0], ['ok']
     def _on_text(t):    _parts.append(t); A.print_agent_text(t)
     def _on_tool(n, a): _tools[0] += 1;  A.print_tool_call(n, a)
+    def _on_result(n, r, e):
+        r_str = str(r)
+        A.print_tool_result(n, r_str, e)
+        # Capture tool results containing WP-LOG lines or from MCP tools so
+        # extract_wp_logs() and the dashboard Plugin Logs modal can parse them.
+        if ('WP-LOG' in r_str or n in ('wp_security_scan', 'wp_api_call')) and r_str.strip():
+            _parts.append(f'[TOOL:{n}]\n{r_str}')
 
     with tracing.span(f'agent:WSTG-{cat}') as span:
         span.set_attribute('cfai.category', category)
@@ -165,7 +172,7 @@ def _run_wstg(category: str, target: str, model: str = ''):
                 f'Run all WSTG-{cat} checks on {domain}.',
                 on_text=_on_text,
                 on_tool=_on_tool,
-                on_result=lambda n, r, e: A.print_tool_result(n, r, e),
+                on_result=_on_result,
             )
         except KeyboardInterrupt:
             _status[0] = 'interrupted'
@@ -218,6 +225,11 @@ def _run_special(category: str, target: str, model: str = ''):
     _parts, _tools, _status = [], [0], ['ok']
     def _on_text(t):    _parts.append(t); A.print_agent_text(t)
     def _on_tool(n, a): _tools[0] += 1;  A.print_tool_call(n, a)
+    def _on_result(n, r, e):
+        r_str = str(r)
+        A.print_tool_result(n, r_str, e)
+        if ('WP-LOG' in r_str or n in ('wp_security_scan', 'wp_api_call')) and r_str.strip():
+            _parts.append(f'[TOOL:{n}]\n{r_str}')
 
     with tracing.span(f'agent:{category}') as span:
         span.set_attribute('cfai.category', category)
@@ -228,7 +240,7 @@ def _run_special(category: str, target: str, model: str = ''):
                 f'Begin {label} on {target}.',
                 on_text=_on_text,
                 on_tool=_on_tool,
-                on_result=lambda n, r, e: A.print_tool_result(n, r, e),
+                on_result=_on_result,
             )
         except KeyboardInterrupt:
             _status[0] = 'interrupted'
@@ -330,13 +342,18 @@ def cmd_agent(args: str, model: str = ''):
     _parts, _tools, _status = [], [0], ['ok']
     def _on_text(t):    _parts.append(t); A.print_agent_text(t)
     def _on_tool(n, a): _tools[0] += 1;  A.print_tool_call(n, a)
+    def _on_result(n, r, e):
+        r_str = str(r)
+        A.print_tool_result(n, r_str, e)
+        if ('WP-LOG' in r_str or n in ('wp_security_scan', 'wp_api_call')) and r_str.strip():
+            _parts.append(f'[TOOL:{n}]\n{r_str}')
 
     try:
         Runner.run(
             agent, message,
             on_text=_on_text,
             on_tool=_on_tool,
-            on_result=lambda n, r, e: A.print_tool_result(n, r, e),
+            on_result=_on_result,
         )
     except KeyboardInterrupt:
         _status[0] = 'interrupted'

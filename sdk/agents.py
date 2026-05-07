@@ -159,12 +159,32 @@ class Runner:
             _emit('ANTHROPIC_API_KEY not set — add it to .env and restart')
             return ''
 
-        client   = _ant.Anthropic(api_key=key)
-        messages = [{'role': 'user', 'content': message}]
-        tools    = agent._anthropic_specs()
-        tool_map = {t.__name__: t for t in agent.all_tools() if callable(t)}
-        turns    = 0
-        final    = ''
+        client    = _ant.Anthropic(api_key=key)
+        messages  = [{'role': 'user', 'content': message}]
+        all_fns   = agent.all_tools()
+        _mcp_fns  = [t for t in all_fns if getattr(t, '_is_mcp_tool', False)]
+        _reg_fns  = [t for t in all_fns if not getattr(t, '_is_mcp_tool', False)]
+
+        # Try to start the MCP server for real MCP protocol connections
+        _mcp_url = ''
+        if _mcp_fns:
+            try:
+                from sdk import mcp_launcher
+                _mcp_url = mcp_launcher.get_server_url()
+            except Exception:
+                pass
+
+        # When MCP server running: regular tools go to API, MCP tools go to server
+        # When no MCP server: all tools (including MCP functions) as regular Anthropic tools
+        if _mcp_url:
+            tools    = [t._ant_tool_spec for t in _reg_fns if hasattr(t, '_ant_tool_spec')]
+            tool_map = {t.__name__: t for t in _reg_fns if callable(t)}
+        else:
+            tools    = agent._anthropic_specs()
+            tool_map = {t.__name__: t for t in all_fns if callable(t)}
+
+        turns = 0
+        final = ''
 
         from sdk.tracing import span as _span, set_ok as _ok
 
@@ -175,13 +195,41 @@ class Runner:
                     ts.set_attribute('cfai.turn', turns)
                     ts.set_attribute('openinference.span.kind', 'LLM')
                     ts.set_attribute('llm.model_name', agent.model)
-                    resp = client.messages.create(
-                        model=agent.model,
-                        max_tokens=8096,
-                        system=agent.instructions,
-                        messages=messages,
-                        tools=tools or _ant.NOT_GIVEN,
-                    )
+                    if _mcp_url:
+                        try:
+                            resp = client.beta.messages.create(
+                                model=agent.model,
+                                max_tokens=8096,
+                                system=agent.instructions,
+                                messages=messages,
+                                tools=tools or _ant.NOT_GIVEN,
+                                betas=['mcp-client-2025-04-04'],
+                                mcp_servers=[{
+                                    'type': 'url',
+                                    'url':  _mcp_url,
+                                    'name': 'cf-ai-wordpress',
+                                }],
+                            )
+                        except Exception as mcp_exc:
+                            _emit(f'[MCP] Server unavailable, using direct tool calls: {mcp_exc}')
+                            _mcp_url = ''
+                            tools    = agent._anthropic_specs()
+                            tool_map = {t.__name__: t for t in all_fns if callable(t)}
+                            resp = client.messages.create(
+                                model=agent.model,
+                                max_tokens=8096,
+                                system=agent.instructions,
+                                messages=messages,
+                                tools=tools or _ant.NOT_GIVEN,
+                            )
+                    else:
+                        resp = client.messages.create(
+                            model=agent.model,
+                            max_tokens=8096,
+                            system=agent.instructions,
+                            messages=messages,
+                            tools=tools or _ant.NOT_GIVEN,
+                        )
                     _ok(ts)
             except KeyboardInterrupt:
                 instr = _hitl_pause(messages)

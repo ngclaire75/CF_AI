@@ -507,3 +507,8 @@ def wp_security_scan(site_url: str) -> str:
             out.append(f'WP-LOG | {_now} | CF_AI-MCP | {_desc} | {base} | {_risk}')
 
     return '\n'.join(out)
+
+
+# Mark these as MCP tools so sdk/agents.py can route them through the MCP server
+wp_api_call._is_mcp_tool      = True
+wp_security_scan._is_mcp_tool = True

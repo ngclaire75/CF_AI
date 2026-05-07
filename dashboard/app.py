@@ -259,9 +259,10 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         def _oo(n, a):  tools[0] += 1;     job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
         def _or(n, r, e):
             r_full = str(r)
-            # Include full MCP tool output in saved output so WP-LOG lines reach extract_wp_logs()
-            if n in ('wp_security_scan', 'wp_api_call') and r_full.strip():
-                parts.append(f'[MCP:{n}]\n{r_full}')
+            # Capture tool results containing WP-LOG lines or from MCP tools so
+            # extract_wp_logs() and the Plugin Logs modal can parse them after save.
+            if ('WP-LOG' in r_full or n in ('wp_security_scan', 'wp_api_call')) and r_full.strip():
+                parts.append(f'[TOOL:{n}]\n{r_full}')
             job['chunks'].append({'k': 'res', 'n': n, 'r': r_full[:300], 'e': bool(e)})
 
         if agent_type == 'pentest':
@@ -269,6 +270,22 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             t0 = _time.time()
             run_full_pentest(domain, model=model or None, on_text=_ot, on_tool=_oo, on_result=_or)
             model_used = model or ''
+        elif agent_type in ('ctf', 'ot', 'enum'):
+            from agents.special_agents import SPECIAL_REGISTRY as _SREG
+            base = _SREG.get(agent_type)
+            if base is None:
+                job.update({'status': 'error', 'error': f'Unknown special agent: {agent_type}'}); return
+            _s_instr = base.instructions.replace('{target}', domain)
+            agent    = dc.replace(base, instructions=_s_instr)
+            if model:
+                agent = dc.replace(agent, model=model)
+            model_used = getattr(agent, 'model', model) or ''
+            _label = {'ctf': 'CTF Solver', 'ot': 'OT/ICS Security', 'enum': 'API Enumeration'}.get(agent_type, agent_type.upper())
+            t0 = _time.time()
+            with tracing.span(f'dashboard:{agent_type}') as span:
+                span.set_attribute('cfai.target', domain)
+                Runner.run(agent, f'Begin {_label} on {domain}.',
+                           on_text=_ot, on_tool=_oo, on_result=_or)
         else:
             base = WSTG_REGISTRY.get(agent_type)
             if base is None:
@@ -281,26 +298,43 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 agent = dc.replace(agent, model=model)
             model_used = getattr(agent, 'model', model) or ''
 
-            # WordPress + Connect Your Website: use Claude (MCP) exclusively.
-            # All other agents keep GPT-4o.
-            _wp_creds = (creds.get('wp_user') or creds.get('wp_pass') or creds.get('wp_app_pass'))
-            if site_type == 'wordpress' and _wp_creds:
+            # WordPress (Connect Your Website) → Claude + MCP tools
+            # APIT agent (any site type) → always gets MCP tools, model unchanged
+            _wp_creds   = (creds.get('wp_user') or creds.get('wp_pass') or creds.get('wp_app_pass'))
+            _needs_mcp  = (site_type == 'wordpress' and _wp_creds) or (agent_type == 'apit')
+            if _needs_mcp:
                 from tools.wordpress_mcp import wp_api_call, wp_security_scan
-                _claude_model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
                 mcp_block = (
-                    '\n\nMCP TOOLS AVAILABLE — use these for direct WordPress REST API access:\n'
-                    f'1. wp_security_scan(site_url="https://{domain}") — comprehensive security audit\n'
-                    f'2. wp_api_call(site_url="https://{domain}", endpoint="...") — any REST endpoint\n'
-                    'Call wp_security_scan FIRST, then use wp_api_call for deeper investigation.\n'
-                    'These tools handle all auth automatically (Basic Auth → Cookie+Nonce → public).\n'
+                    '\n\n══════════════ MCP DIRECT CONNECTION ══════════════\n'
+                    'You have wp_security_scan and wp_api_call tools connected via MCP.\n\n'
+                    'STEP 0 — ALWAYS DO THIS FIRST:\n'
+                    f'  1. Call wp_security_scan(site_url="https://{domain}")\n'
+                    '     Runs a full WordPress security audit and emits WP-LOG entries.\n'
+                    '  2. CRITICAL: Include ALL lines starting with "WP-LOG |" from the\n'
+                    '     tool result VERBATIM in your output — needed for plugin logs.\n'
+                    f'  3. Call wp_api_call(site_url="https://{domain}", endpoint="/wp-json/wp/v2/users")\n'
+                    '     and other REST endpoints for deeper investigation.\n'
+                    'Auth is handled automatically: Basic Auth → Cookie+Nonce → public.\n'
+                    '═══════════════════════════════════════════════════\n\n'
                 )
-                agent = dc.replace(
-                    agent,
-                    model=_claude_model,
-                    instructions=base_instructions + mcp_block,
-                    tools=[wp_api_call, wp_security_scan] + list(agent.tools),
-                )
-                model_used = _claude_model
+                new_tools = [wp_api_call, wp_security_scan] + list(agent.tools)
+                if site_type == 'wordpress' and _wp_creds:
+                    # Authenticated WordPress scan → use Claude model
+                    _claude_model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
+                    agent = dc.replace(
+                        agent,
+                        model=_claude_model,
+                        instructions=base_instructions + mcp_block,
+                        tools=new_tools,
+                    )
+                    model_used = _claude_model
+                else:
+                    # APIT scan without WP credentials → keep current model, add MCP tools
+                    agent = dc.replace(
+                        agent,
+                        instructions=base_instructions + mcp_block,
+                        tools=new_tools,
+                    )
 
             t0 = _time.time()
             with tracing.span(f'dashboard:{agent_type}') as span:
@@ -427,7 +461,13 @@ _SCANNER_NOISE = re.compile(
     r'scan.*block|blocked.*scan|increase.*timeout|reduce.*thread|'
     r'try.*different.*approach|diagnostic|next step.*scan|'
     r'consider passive|proper internet|platform.*connect|'
-    r'connectivity.*assess|assess.*connect)\b',
+    r'connectivity.*assess|assess.*connect|'
+    # Agent execution errors — not real security findings
+    r'syntax error.*execution|preventing complete execution|'
+    r'reliability.*assessment.*syntax|syntax review.*re-execution|re-execution|'
+    r'review.*correct.*python|correct.*script syntax|script syntax|'
+    r'alternative reconnaissance method|correct.*operational endpoint.*alternative|'
+    r'confirm correct url.*alternative)\b',
     re.I,
 )
 

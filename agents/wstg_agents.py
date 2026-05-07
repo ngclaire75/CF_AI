@@ -12,6 +12,16 @@ from tools.js_secret_hunter import hunt_js_secrets
 _TOOLS       = [generic_linux_command, read_file, write_file]
 _JS_TOOLS    = [hunt_js_secrets, generic_linux_command, read_file, write_file]
 _MODEL       = os.environ.get('CAI_MODEL', 'gpt-4o')
+
+# MCP tools for WordPress/API scanning — loaded lazily so missing package doesn't break other agents
+try:
+    from tools.wordpress_mcp import wp_api_call, wp_security_scan
+    _MCP_TOOLS = [wp_api_call, wp_security_scan]
+except Exception:
+    _MCP_TOOLS = []
+
+# APIT gets MCP tools first (prioritised over shell tools)
+_APIT_TOOLS  = _MCP_TOOLS + _TOOLS
 _VT_KEY      = os.environ.get('VIRUSTOTAL_API_KEY', '')
 _SHODAN_KEY  = os.environ.get('SHODAN_API_KEY', '')
 
@@ -128,12 +138,13 @@ RULES:
 """
 
 
-def _agent(category: str, desc: str, instructions: str, max_turns: int = 25) -> Agent:
+def _agent(category: str, desc: str, instructions: str, max_turns: int = 25,
+           extra_tools: list = None) -> Agent:
     return Agent(
         name=f'WSTG-{category}',
         description=desc,
         instructions=RULES + instructions,
-        tools=_TOOLS,
+        tools=(extra_tools or []) + _TOOLS,
         model=_MODEL,
         max_turns=max_turns,
     )
@@ -780,9 +791,26 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-APIT  (APIT-01, 02, 99)
 # ─────────────────────────────────────────────────────────────────────────────
+_MCP_INSTR = (
+    '\n\n══════════════ MCP DIRECT CONNECTION ══════════════\n'
+    'You have wp_security_scan and wp_api_call tools that connect DIRECTLY to\n'
+    'the WordPress REST API via the Model Context Protocol.\n\n'
+    'STEP 0 — ALWAYS DO THIS FIRST:\n'
+    '  1. Call wp_security_scan(site_url="https://{domain}")\n'
+    '     This performs a comprehensive WordPress security audit and emits\n'
+    '     WP-LOG entries for the plugin log system.\n'
+    '  2. CRITICAL: Include ALL lines starting with "WP-LOG |" from the\n'
+    '     tool result VERBATIM in your output — they are required for the\n'
+    '     plugin log dashboard.\n'
+    '  3. Then call wp_api_call for deeper REST API investigation:\n'
+    '     wp_api_call(site_url="https://{domain}", endpoint="/wp-json/wp/v2/users")\n'
+    '     wp_api_call(site_url="https://{domain}", endpoint="/wp-json/wp/v2/plugins")\n'
+    '═══════════════════════════════════════════════════\n\n'
+) if _MCP_TOOLS else ''
+
 APIT_AGENT = _agent('APIT', 'API Security Testing', f"""
 You are the WSTG-APIT agent. Target: {{domain}}
-
+{_MCP_INSTR}
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
 
 [APIT-01] API Reconnaissance
@@ -1088,7 +1116,8 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
 - Table rows for Info/Low findings
 - EXECUTIVE SUMMARY line at the top
-""")
+""",
+    extra_tools=_MCP_TOOLS)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

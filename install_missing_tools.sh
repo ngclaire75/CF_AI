@@ -486,6 +486,10 @@ pip3 install --break-system-packages "anthropic>=0.40.0" 2>/dev/null \
     || warn "Failed to install anthropic — run: pip3 install --break-system-packages anthropic"
 ok "anthropic Python package installed"
 
+pip3 install --break-system-packages "mcp>=1.0.0" 2>/dev/null \
+    || warn "Failed to install mcp — WordPress MCP server won't start (optional)"
+ok "mcp Python package installed (Model Context Protocol server)"
+
 # Phoenix AI observability (optional — enable with CFAI_TRACING=1 in .env)
 echo "[*] Installing Phoenix/OTel tracing packages..."
 pip3 install --break-system-packages \
