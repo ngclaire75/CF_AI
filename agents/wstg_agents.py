@@ -9,10 +9,11 @@ from sdk.agents import Agent
 from tools.generic_linux_command import generic_linux_command, read_file, write_file
 from tools.js_secret_hunter import hunt_js_secrets
 
-_TOOLS    = [generic_linux_command, read_file, write_file]
-_JS_TOOLS = [hunt_js_secrets, generic_linux_command, read_file, write_file]
-_MODEL    = os.environ.get('CAI_MODEL', 'gpt-4o')
-_VT_KEY   = os.environ.get('VIRUSTOTAL_API_KEY', '')
+_TOOLS       = [generic_linux_command, read_file, write_file]
+_JS_TOOLS    = [hunt_js_secrets, generic_linux_command, read_file, write_file]
+_MODEL       = os.environ.get('CAI_MODEL', 'gpt-4o')
+_VT_KEY      = os.environ.get('VIRUSTOTAL_API_KEY', '')
+_SHODAN_KEY  = os.environ.get('SHODAN_API_KEY', '')
 
 _BUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
@@ -38,15 +39,34 @@ RULES:
   5. Fall back to passive recon (whois/dig/Wayback/crt.sh)
 - OUTPUT FORMAT — use the format that matches severity:
 
-  For CONFIRMED vulnerabilities (Medium / High / Critical):
-    ### [WSTG-ID] — Vulnerability Name
-    **Severity**: Critical / High / Medium
-    **Summary**: One sentence — what was found and why it matters.
-    **Exploitation Steps**:
-    1. Exact reproduction step (URL, payload, tool command)
-    2. Additional steps as needed
-    **Proof of Impact**: Paste the EXACT server response / secret value / command output proving the finding.
-    **Notes**: Affected parameter, WAF bypass used, recommended fix.
+  For CONFIRMED vulnerabilities (Medium / High / Critical), use this EXACT structure:
+
+    ### [WSTG-ID]: Vulnerability Title
+    **Summary:**
+    - Vulnerable location: <exact endpoint, parameter, or file>
+    - Overview: <one sentence — what is exposed or broken>
+    - Impact: <what an attacker can do with this finding>
+    - Severity: Critical / High / Medium
+    - Prerequisites: <what is needed to exploit — e.g. "None", "valid auth token">
+
+    **Exploitation Steps:**
+    1. <description of what this step does>
+       ```
+       <exact curl / tool command to reproduce>
+       ```
+       Response:
+       ```json
+       <paste the EXACT server response — truncate after 30 lines>
+       ```
+    2. <next step if the exploit requires multiple requests>
+       ```
+       <command>
+       ```
+
+    **Proof of Impact:**
+    - <specific data obtained or action taken — e.g. "Admin account created with User ID 65">
+    - <second piece of evidence — e.g. "No authentication required — completely public endpoint">
+    - <third — e.g. "10 user records exposed including emails, hashes, and deluxe tokens">
 
   For informational findings (Info / Low), a table row is sufficient:
     | WSTG-ID | Info/Low | Finding | Evidence |
@@ -136,7 +156,7 @@ dig {{domain}} A +short 2>/dev/null && dig {{domain}} AAAA +short 2>/dev/null &&
 python3 -c "import subprocess; ua='{_UA}'; kw=('subject:','issuer:','expire date:','subjectaltname','start date:'); skip=('verification failed','self signed','self-signed','alert','error','warning'); getcert=lambda args: [l.strip('* ') for l in subprocess.run(args,capture_output=True,text=True,timeout=13).stderr.splitlines() if any(k in l.lower() for k in kw) and not any(s in l.lower() for s in skip)]; b=['curl','-L','-4','-vsk','--max-time','10','--connect-timeout','6']; tries=[('XFF spoof',b+['-A',ua,'-H','X-Forwarded-For: 66.249.66.1','-H','X-Real-IP: 66.249.66.1','-H','Referer: https://www.google.com/','https://{{domain}}/']),('www prefix',b+['-A',ua,'https://www.{{domain}}/']),('Googlebot UA',b+['-A','Googlebot/2.1 (+http://www.google.com/bot.html)','-H','From: googlebot(at)googlebot.com','https://{{domain}}/']),('HTTP/1.0',b+['--http1.0','-A',ua,'https://{{domain}}/'])]; found=next(((label,r) for label,a in tries for r in [getcert(a)] if r),(None,[])); found[1] and [print(l) for l in found[1][:15]] and print('[SSL] obtained via: '+found[0]) or print('[SSL FAIL] All 4 bypass attempts returned no cert data. Likely causes: 1) VPS IP is filtered by the hosting provider 2) Domain has no HTTPS 3) SNI mismatch. Fix: try nmap --script ssl-cert -p 443 {{domain}} or check manually from a browser.')"
 
 # [P1-D] Certificate Transparency — crt.sh with certspotter fallback + full diagnosis
-python3 -c "import subprocess,json; domain='{{domain}}'; r=subprocess.run(['curl','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.'+domain+'&output=json'],capture_output=True,text=True,timeout=25); body=r.stdout.strip(); d=json.loads(body) if body.startswith('[') else None; subs=sorted(set(v.replace('*.','') for e in (d or []) for v in e.get('name_value','').split() if domain in v)) if d is not None else []; [print('[crt.sh]',s) for s in subs[:40]] or print('[crt.sh] 0 results —', '[REASON] Empty response: crt.sh is blocking this VPS IP (rate-limited or geo-blocked). Fix: retry in 60s, or access https://crt.sh/?q=%25.'+domain+' from a browser.' if not body else '[REASON] Non-JSON response (HTTP 429 rate-limit or Cloudflare block on crt.sh). First 200 chars: '+body[:200] if not body.startswith('[') else '[REASON] Domain has 0 CT log entries — domain is very new (<3 months), uses a private/internal CA, or the .id ccTLD is not well-indexed in crt.sh.'); fb=subprocess.run(['curl','-4','-sk','--max-time','15','-A','curl/7.88','https://api.certspotter.com/v1/issuances?domain='+domain+'&include_subdomains=true&expand=dns_names'],capture_output=True,text=True,timeout=20).stdout.strip(); cs=json.loads(fb) if fb.startswith('[') else None; [print('[certspotter]',n) for e in (cs or []) for n in e.get('dns_names',[]) if domain in n][:20] or print('[certspotter fallback] 0 results' if isinstance(cs,list) else '[certspotter fallback] failed: '+fb[:100])"
+python3 -c "import subprocess,json; domain='{{domain}}'; r=subprocess.run(['curl','-4','-sk','--max-time','20','--connect-timeout','8','-A','Mozilla/5.0','https://crt.sh/?q=%.'+domain+'&output=json'],capture_output=True,text=True,timeout=25); body=r.stdout.strip(); d=json.loads(body) if body.startswith('[') else None; subs=sorted(set(v.replace('*.','') for e in (d or []) for v in e.get('name_value','').split() if domain in v)) if d is not None else []; [print('[crt.sh]',s) for s in subs[:40]] or print('[crt.sh] 0 results —', '[REASON] Empty response: crt.sh is blocking this VPS IP (rate-limited or geo-blocked). Fix: retry in 60s, or access https://crt.sh/?q=%25.'+domain+' from a browser.' if not body else '[REASON] Non-JSON response (HTTP 429 rate-limit or Cloudflare block on crt.sh). First 200 chars: '+body[:200] if not body.startswith('[') else '[REASON] Domain has 0 CT log entries — domain is very new (<3 months), uses a private/internal CA, or the .id ccTLD is not well-indexed in crt.sh.'); fb=subprocess.run(['curl','-4','-sk','--max-time','15','-A','curl/7.88','https://api.certspotter.com/v1/issuances?domain='+domain+'&include_subdomains=true&expand=dns_names'],capture_output=True,text=True,timeout=20).stdout.strip(); cs=json.loads(fb) if fb.startswith('[') else None; [print('[certspotter]',n) for e in (cs or []) for n in e.get('dns_names',[]) if domain in n][:20] or print('[certspotter fallback] 0 results' if isinstance(cs,list) else '[certspotter fallback] failed: '+fb[:100])"
 
 # [P1-E] Wayback Machine CDX — historical URLs + full diagnosis + text fallback
 python3 -c "import subprocess,json; domain='{{domain}}'; r=subprocess.run(['curl','-4','-s','--max-time','20','--connect-timeout','8','-A','curl/7.88','http://web.archive.org/cdx/search/cdx?url='+domain+'/*&output=json&limit=40&fl=original,statuscode,mimetype&collapse=urlkey'],capture_output=True,text=True,timeout=25); body=r.stdout.strip(); rows=json.loads(body)[1:] if body.startswith('[') else []; [print(row[1],row[2],row[0]) for row in rows] or print('[Wayback CDX] 0 results —', '[REASON] Empty response: Wayback CDX API returned nothing. The VPS IP may be rate-limited by archive.org (they apply per-IP limits). Fix: retry in 60s.' if not body else '[REASON] Non-JSON response from Wayback CDX. Raw: '+body[:200] if not body.startswith('[') else '[REASON] Domain has 0 archived pages — either never crawled by the Wayback Machine, or excluded via robots.txt disallow. This is common for new domains and sites that actively block crawlers.'); r2=subprocess.run(['curl','-4','-s','--max-time','15','-A','curl/7.88','http://web.archive.org/cdx/search/cdx?url='+domain+'&output=text&limit=5'],capture_output=True,text=True,timeout=20) if not rows else None; r2 and (print('[Wayback text fallback]:',r2.stdout.strip()[:400]) if r2.stdout.strip() else print('[Wayback text fallback] also empty — domain genuinely has no Wayback archive.'))"
@@ -148,8 +168,8 @@ python3 -c "import subprocess,json; domain='{{domain}}'; raw=subprocess.run(['cu
 python3 -c "import subprocess; r=subprocess.run(['curl','-4','-s','--max-time','12','-A','{_UA}','https://api.hackertarget.com/hostsearch/?q={{domain}}'],capture_output=True,text=True,timeout=15).stdout.strip(); print(r[:2000]) if r and 'API count' not in r and 'error' not in r.lower()[:30] else print('(HackerTarget hostsearch: daily quota exceeded for this IP)')"
 python3 -c "import subprocess; r=subprocess.run(['curl','-4','-s','--max-time','12','-A','{_UA}','https://api.hackertarget.com/dnslookup/?q={{domain}}'],capture_output=True,text=True,timeout=15).stdout.strip(); print(r[:2000]) if r and 'API count' not in r and 'error' not in r.lower()[:30] else print('(HackerTarget dnslookup: daily quota exceeded for this IP)')"
 
-# [P1-H] Shodan InternetDB — open ports/CVEs, no API key
-python3 -c "import subprocess,json; ip_r=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=10).stdout.strip(); ip=ip_r.splitlines()[0] if ip_r else ''; print('Resolved IP:',ip); raw=subprocess.run(['curl','-4','-sk','--max-time','10','--connect-timeout','8','https://internetdb.shodan.io/'+ip],capture_output=True,text=True,timeout=15).stdout if ip else ''; d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; print('Ports:',d.get('ports')); print('Hostnames:',d.get('hostnames')); print('CPEs:',d.get('cpes')); print('Vulns:',d.get('vulns'))"
+# [P1-H] Shodan — full authenticated API (open ports, banners, CVEs, tags, org, ASN)
+python3 -c "import subprocess,json; ip=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=10).stdout.strip().splitlines(); ip=ip[0] if ip else ''; print('Resolved IP:',ip); key='{_SHODAN_KEY}'; raw=subprocess.run(['curl','-4','-sk','--max-time','15','--connect-timeout','8','https://api.shodan.io/shodan/host/'+ip+'?key='+key],capture_output=True,text=True,timeout=20).stdout if (key and ip) else (subprocess.run(['curl','-4','-sk','--max-time','10','--connect-timeout','8','https://internetdb.shodan.io/'+ip],capture_output=True,text=True,timeout=15).stdout if ip else ''); d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; err=d.get('error',''); print('[Shodan error]',err) if err else [print(k+':',d.get(k,'')) for k in ['org','isp','asn','os','ports','tags']] and print('Vulns:',list(d.get('vulns',{{}}).keys())[:20]) and [print('  Port '+str(s.get('port',''))+'/'+str(s.get('transport','tcp'))+' ['+str(s.get('product',''))+' '+str(s.get('version',''))+']:',str(s.get('data',''))[:100]) for s in d.get('data',[])[:8]]"
 
 # [P1-I] IP geolocation + ASN
 python3 -c "import subprocess,json; ip_r=subprocess.run(['dig','+short','{{domain}}','A'],capture_output=True,text=True,timeout=10).stdout.strip(); ip=ip_r.splitlines()[0] if ip_r else ''; raw=subprocess.run(['curl','-4','-sk','--max-time','10','--connect-timeout','8','https://ipinfo.io/'+ip+'/json'],capture_output=True,text=True,timeout=15).stdout if ip else ''; d=json.loads(raw) if raw and raw.strip().startswith('{{') else {{}}; [print(k+':',d.get(k,'')) for k in ['ip','hostname','org','city','region','country','asn']]"

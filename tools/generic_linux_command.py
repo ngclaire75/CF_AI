@@ -8,8 +8,21 @@ TOOL_TIMEOUT = int(os.environ.get('CFAI_TOOL_TIMEOUT', '300'))
 CWD          = os.environ.get('CFAI_CWD', '/root')
 
 _EXIT_EXPLAIN = {
-    0:  'Empty response — the server accepted the request and returned exit 0 but sent no data. Likely causes: (1) API quota exceeded or rate-limited, (2) endpoint requires authentication/cookie, (3) empty dataset for this query, (4) redirect not followed. Try: add -L to follow redirects, add auth headers, use a different API endpoint, or try an alternate tool',
-    1:  'Command failed (exit 1) with no output — likely causes: (1) invalid flags or arguments, (2) tool not installed on this VPS, (3) permission denied, (4) no matches found. Check command syntax; if the tool is missing try: apt-get install <tool> or use a Python one-liner alternative',
+    0:  'Empty response (exit 0, no data) — server accepted the request but returned nothing. RECOVERY — try these to find development-time comments and debug info: '
+        '(1) Add -v to see response headers: X-Debug-Token, X-Powered-By, Server often reveal framework/version. '
+        '(2) Try debug activation headers: -H "X-Debug: 1" -H "X-Debug-Token: debug" -H "X-ASPNET-Debug: 1" -H "Pragma: akamai-x-get-client-ip, akamai-x-cache-on". '
+        '(3) Fetch debug/dev artifacts: /.env  /.git/HEAD  /debug  /phpinfo.php  /actuator/health  /healthz  /.well-known/security.txt  /server-status. '
+        '(4) Append query params: ?debug=1  ?XDEBUG_SESSION_START=1  ?_debugbar=1  ?env=debug. '
+        '(5) Try Accept: application/json to get a JSON error body instead of empty HTML. '
+        '(6) Try OPTIONS method (-X OPTIONS) to enumerate allowed HTTP methods. '
+        '(7) If this was a redirect-following request, add -L and rerun.',
+    1:  'Command failed (exit 1, no output) — RECOVERY for development-time debug info: '
+        '(1) Check tool is installed: which <tool>  or  apt-get install <tool>. '
+        '(2) Run with --verbose / -v to see the actual error. '
+        '(3) If curl: check URL quoting, try without -k, verify the endpoint with curl -I first. '
+        '(4) Substitute with a Python one-liner using subprocess + curl list args. '
+        '(5) Try fetching HTML comments directly: curl ... | grep -oP "<!--.*?-->" '
+        '(6) Try fetching JS source maps: curl <page.js>.map — source maps expose original dev code with comments.',
     6:  'DNS lookup failed — domain does not resolve (NXDOMAIN or no internet)',
     7:  'TCP connection refused — port is closed or no service listening on that port',
     28: 'Timed out — server is likely DROPPING PACKETS from this VPS IP (IP allowlist / geo-block / cloud-provider filtering). Skip retrying the same IP; pivot to Phase 4 (Shodan hostname, staging subdomain, Wayback cache)',
