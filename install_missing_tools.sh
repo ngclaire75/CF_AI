@@ -482,6 +482,10 @@ pip3 install --break-system-packages --upgrade openai 2>/dev/null \
     || warn "Failed to install openai — run: pip3 install --break-system-packages openai"
 ok "openai Python package installed"
 
+pip3 install --break-system-packages "anthropic>=0.40.0" 2>/dev/null \
+    || warn "Failed to install anthropic — run: pip3 install --break-system-packages anthropic"
+ok "anthropic Python package installed"
+
 # Phoenix AI observability (optional — enable with CFAI_TRACING=1 in .env)
 echo "[*] Installing Phoenix/OTel tracing packages..."
 pip3 install --break-system-packages \
