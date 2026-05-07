@@ -451,6 +451,41 @@ _WP_LOG_STATUS_RE = re.compile(
     re.I | re.MULTILINE,
 )
 
+# Fallback patterns: parse structured agent output lines into WP-LOG-style entries
+# for scans that predate the WP-LOG emission updates.
+_WP_LOG_FALLBACK = [
+    (re.compile(r'^EXPOSED_FILE \| (\S+) \| (/\S+)', re.M),
+     lambda m: ('CF_AI', f'Exposed sensitive file: {m.group(2)} (HTTP {m.group(1)})', '-', 'HIGH')),
+    (re.compile(r'^CREDS_FOUND_XMLRPC \| ([^\|\n]+?) \|', re.M),
+     lambda m: (m.group(1).strip(), 'WordPress credentials verified via XML-RPC brute-force', '-', 'HIGH')),
+    (re.compile(r'^CREDS_FOUND_FORM \| ([^\|\n]+?) \|', re.M),
+     lambda m: (m.group(1).strip(), 'WordPress credentials verified via login form', '-', 'HIGH')),
+    (re.compile(r'^APP_PASS_CREATED(?:_COOKIE)? \| ([^\|\n]+?) \|', re.M),
+     lambda m: (m.group(1).strip(), 'Application Password created by CF_AI scanner', '-', 'HIGH')),
+    (re.compile(r'^WP-USER-CONFIRMED \| ([^\|\n]+?) \|', re.M),
+     lambda m: (m.group(1).strip(), 'WordPress username confirmed via login error oracle', '-', 'MEDIUM')),
+    (re.compile(r'^WP-USER \| (\S+) \| (\S+) \|', re.M),
+     lambda m: (m.group(2), f'WordPress user enumerated via REST API (id={m.group(1)})', '-', 'MEDIUM')),
+    (re.compile(r'^WP-USER-ENUM \| (\S+) \| (\S+) \|', re.M),
+     lambda m: (m.group(2), 'WordPress user enumerated via author redirect', '-', 'MEDIUM')),
+    (re.compile(r'^FOUND_DB_USER:\s*(\S+)', re.M),
+     lambda m: ('CF_AI', f'Database username exposed in config file: {m.group(1)}', '-', 'HIGH')),
+]
+
+
+def _wp_log_fallback(output: str) -> list:
+    """Parse structured agent lines into WP-LOG entries (fallback for older scans)."""
+    entries = []
+    seen = set()
+    for pat, builder in _WP_LOG_FALLBACK:
+        for m in pat.finditer(output):
+            user, event, ip, risk = builder(m)
+            key = (user, event)
+            if key not in seen:
+                seen.add(key)
+                entries.append({'timestamp': '--', 'user': user, 'event': event, 'ip': ip, 'risk': risk})
+    return entries
+
 
 def extract_wp_logs(output: str) -> dict:
     """Parse WP-LOG lines from agent output. Returns {entries, status}."""
@@ -463,6 +498,8 @@ def extract_wp_logs(output: str) -> dict:
             'ip':        m.group(4).strip(),
             'risk':      m.group(5).strip().upper(),
         })
+    # Always supplement with fallback-parsed structured lines
+    entries.extend(_wp_log_fallback(output))
     status_match = _WP_LOG_STATUS_RE.search(output)
     status_code = status_match.group(1) if status_match else ('found' if entries else 'none')
     status_msg  = status_match.group(2).strip() if status_match else ''

