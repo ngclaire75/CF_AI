@@ -504,6 +504,51 @@ tr.hidden-r { display: none; }
 /* ── has-fixes badge in priority table ── */
 .fix-pill { background: #f0fdf4; border: 1px solid #86efac; border-radius: 3px; padding: 1px 7px; font-size: 11px; color: #166534; white-space: nowrap; margin-left: 6px; }
 
+/* ── Detailed findings view (Details button modal) ── */
+.detail-finding {
+    border: 1px solid #e5e7eb; border-radius: 7px; overflow: hidden; margin-bottom: 10px;
+}
+.detail-finding-hd {
+    display: flex; align-items: center; gap: 9px; padding: 11px 14px;
+    cursor: pointer; user-select: none;
+}
+.detail-finding-hd:hover { filter: brightness(0.97); }
+.dfhd-CRITICAL { background: #fef2f2; border-left: 4px solid #b91c1c; }
+.dfhd-HIGH     { background: #fff1f1; border-left: 4px solid #ef4444; }
+.dfhd-MEDIUM   { background: #fffbeb; border-left: 4px solid #f59e0b; }
+.dfhd-LOW      { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.dfhd-INFO     { background: #eff6ff; border-left: 4px solid #60a5fa; }
+.detail-fields {
+    display: grid; grid-template-columns: 1fr; gap: 6px;
+    margin-bottom: 12px;
+}
+.detail-field {
+    font-size: 13px; color: #374151; line-height: 1.55;
+}
+.detail-field strong { color: #111827; }
+.detail-section      { margin-top: 12px; }
+.detail-section h4   {
+    font-size: 11px; font-weight: bold; color: #6b7280;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    margin-bottom: 6px;
+}
+.detail-text {
+    font-family: Arial, Helvetica, sans-serif; font-size: 12px;
+    color: #1f2937; background: #f9fafb; border: 1px solid #e5e7eb;
+    border-radius: 5px; padding: 10px 12px; white-space: pre-wrap;
+    word-break: break-word; line-height: 1.65;
+    max-height: 320px; overflow-y: auto; margin: 0;
+}
+.detail-no-findings {
+    text-align: center; padding: 32px 24px; color: #9ca3af;
+}
+.detail-no-findings strong { display: block; margin-bottom: 6px; color: #6b7280; }
+.detail-clean-output {
+    font-family: Arial, Helvetica, sans-serif; font-size: 12px;
+    color: #374151; line-height: 1.7; white-space: pre-wrap;
+    word-break: break-word; max-height: 500px; overflow-y: auto;
+}
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
     .header-inner { grid-template-columns: 240px 1fr auto; }
@@ -763,7 +808,7 @@ tr.hidden-r { display: none; }
                 {% else %}<span class="st-err">Error</span>{% endif %}
               </td>
               <td class="td-dim">{{ s.display_date }}</td>
-              <td><button class="btn btn-sm" onclick="openModal({{ s.id }})">Details</button></td>
+              <td><button class="btn btn-sm" onclick="openDetailsModal({{ s.id }})">Details</button></td>
             </tr>
           {% endfor %}
           </tbody>
@@ -1132,6 +1177,179 @@ function buildCveHtml(data) {
     '<p style="font-size:12px;color:#6b7280;margin-bottom:10px;">'+cves.length+' CVE'+(cves.length===1?'':'s')+
     ' found. Source: National Vulnerability Database (nvd.nist.gov). Results are based on technology versions detected in the scan output.</p>'+
     cveCards;
+}
+
+/* ── Detailed findings parser (for Details button) ── */
+function normSev(s) {
+  if (!s) return 'INFO';
+  var u = s.toUpperCase();
+  if (u.includes('CRITICAL')) return 'CRITICAL';
+  if (u.includes('HIGH'))     return 'HIGH';
+  if (u.includes('MEDIUM'))   return 'MEDIUM';
+  if (u.includes('LOW'))      return 'LOW';
+  return 'INFO';
+}
+
+function inferSev(block) {
+  var negRe = /\b(no\b|not\b|failed|unsuccessful|did not|does not|found no|no evidence|could not|attempting|will attempt|testing for|checking for|i will|let me)\b/i;
+  var lines = block.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i].toLowerCase();
+    if (negRe.test(l)) continue;
+    if (l.includes('critical')) return 'CRITICAL';
+    if (l.includes('high'))     return 'HIGH';
+    if (l.includes('medium'))   return 'MEDIUM';
+    if (l.includes('low'))      return 'LOW';
+  }
+  return 'INFO';
+}
+
+function getField(block, name) {
+  var re = new RegExp('(?:^|\\n)' + name + '\\s*:\\s*([^\\n]+)', 'i');
+  var m = block.match(re);
+  return m ? m[1].trim() : '';
+}
+
+function getSection(block, name) {
+  var re = new RegExp(name + '\\s*:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z][\\w /-]+:|$)', 'i');
+  var m = block.match(re);
+  return m ? m[1].trim() : '';
+}
+
+function parseDetailedFindings(rawText) {
+  var text = stripMd(rawText);
+  var findings = [];
+  var seen = {};
+
+  // Match lines like "AUTH-VULN-06: Title" or "SSRF-VULN-01: Title"
+  var hdrRe = /^([A-Z][\w]*-(?:VULN|BUG|AUTH|AUTHZ|SSRF|IDOR|INJ|CMD|XSS|CRYP|SESS|CLNT|APIT)-\d+):\s*(.+)/gm;
+  var matches = [], m;
+  while ((m = hdrRe.exec(text)) !== null) {
+    matches.push({ id: m[1], title: m[2].trim(), pos: m.index });
+  }
+
+  matches.forEach(function(match, i) {
+    if (seen[match.id]) return;
+    seen[match.id] = 1;
+    var block = text.substring(match.pos, i + 1 < matches.length ? matches[i+1].pos : text.length);
+
+    var sevRaw = getField(block, 'Severity');
+    var sev    = normSev(sevRaw) !== 'INFO' ? normSev(sevRaw) : inferSev(block);
+
+    findings.push({
+      id:       match.id,
+      title:    match.title,
+      sev:      sev,
+      location: getField(block, 'Vulnerable[\\s\\w]*location') || getField(block, 'Location'),
+      overview: getField(block, 'Overview'),
+      impact:   getField(block, 'Impact'),
+      prereqs:  getSection(block, 'Prerequisites'),
+      steps:    getSection(block, 'Exploitation Steps'),
+      proof:    getSection(block, 'Proof of Impact') || getSection(block, 'Proof'),
+      notes:    getSection(block, 'Notes') || getSection(block, 'Technical Details'),
+    });
+  });
+
+  return findings;
+}
+
+function buildDetailCard(f) {
+  var sev   = f.sev || 'INFO';
+  var hdCls = 'dfhd-' + sev;
+
+  var fields = '';
+  if (f.location) fields += '<div class="detail-field"><strong>Vulnerable Location:</strong> ' + esc(f.location) + '</div>';
+  if (f.overview) fields += '<div class="detail-field"><strong>Overview:</strong> ' + esc(f.overview) + '</div>';
+  if (f.impact)   fields += '<div class="detail-field"><strong>Impact:</strong> ' + esc(f.impact) + '</div>';
+
+  var sections = '';
+  if (f.prereqs) sections += '<div class="detail-section"><h4>Prerequisites</h4><pre class="detail-text">' + esc(f.prereqs) + '</pre></div>';
+  if (f.steps)   sections += '<div class="detail-section"><h4>Exploitation Steps</h4><pre class="detail-text">' + esc(f.steps) + '</pre></div>';
+  if (f.proof)   sections += '<div class="detail-section"><h4>Proof of Impact</h4><pre class="detail-text">' + esc(f.proof) + '</pre></div>';
+  if (f.notes)   sections += '<div class="detail-section"><h4>Technical Notes</h4><pre class="detail-text">' + esc(f.notes) + '</pre></div>';
+
+  return '<div class="detail-finding">' +
+    '<div class="detail-finding-hd ' + hdCls + '" onclick="togFinding(this)">' +
+      '<span class="badge badge-' + sev + '">' + sev + '</span>' +
+      '<span class="finding-id">' + esc(f.id) + '</span>' +
+      '<span class="finding-title">' + esc(f.title) + '</span>' +
+      '<span class="finding-toggle">+</span>' +
+    '</div>' +
+    '<div class="finding-body">' +
+      (fields   ? '<div class="detail-fields">' + fields + '</div>' : '') +
+      (sections ? sections : '<p style="color:#9ca3af;font-size:13px;">No additional detail extracted for this finding.</p>') +
+    '</div>' +
+  '</div>';
+}
+
+/* ── Details modal (Scan History — more informative view) ── */
+function openDetailsModal(id) {
+  document.getElementById('mbg').classList.add('open');
+  document.getElementById('mbody').innerHTML =
+    '<p style="color:#9ca3af;text-align:center;padding:40px;">Loading scan details...</p>';
+
+  fetch('/api/scan/' + id)
+    .then(function(r) { return r.json(); })
+    .then(function(s) {
+      document.getElementById('mtitle').textContent = 'Scan Details: ' + s.target;
+      document.getElementById('msub').textContent   = s.agent_label + '  |  Scan #' + s.id + '  |  ' + (s.display_date || '');
+
+      var output   = s.output || '';
+      var findings = parseDetailedFindings(output);
+      var st = s.status === 'ok'          ? '<span class="st-ok">OK</span>'
+             : s.status === 'interrupted' ? '<span class="st-int">Stopped</span>'
+                                          : '<span class="st-err">Error</span>';
+
+      /* Agent activity description */
+      var agentType = (s.agent_type || '').toLowerCase();
+      var actDesc   = _agentDesc[agentType] || 'The agent performed an automated security assessment of the target.';
+
+      /* Build findings section */
+      var findingsHtml;
+      if (findings.length > 0) {
+        findingsHtml = findings.map(buildDetailCard).join('');
+      } else {
+        /* No structured VULN IDs found — show clean plain-text output */
+        var cleanOut = stripMd(output);
+        findingsHtml = cleanOut
+          ? '<div class="detail-no-findings">' +
+              '<strong>No structured vulnerability IDs detected in this scan.</strong>' +
+              'The full agent output is shown below.' +
+            '</div>' +
+            '<pre class="detail-clean-output">' + esc(cleanOut) + '</pre>'
+          : '<div class="detail-no-findings"><strong>No output recorded for this scan.</strong></div>';
+      }
+
+      document.getElementById('mbody').innerHTML =
+        /* Meta */ '<div class="meta-grid">' +
+          '<div class="meta-item"><label>Target</label><span>' + esc(s.target) + '</span></div>' +
+          '<div class="meta-item"><label>Risk Level</label><span class="badge badge-' + s.risk + '">' + s.risk + '</span></div>' +
+          '<div class="meta-item"><label>Status</label><span>' + st + '</span></div>' +
+          '<div class="meta-item"><label>Scan Type</label><span>' + esc(s.agent_label) + '</span></div>' +
+          '<div class="meta-item"><label>Model</label><span>' + esc(s.model || '--') + '</span></div>' +
+          '<div class="meta-item"><label>Duration</label><span>' + s.latency_s + 's</span></div>' +
+          '<div class="meta-item"><label>Tools Used</label><span>' + (s.tool_count || 0) + '</span></div>' +
+          '<div class="meta-item"><label>Date (UTC)</label><span>' + (s.display_date || '--') + '</span></div>' +
+        '</div>' +
+
+        /* What the agent did */ '<div class="rpt-sec" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:14px 16px;">' +
+          '<h3 style="color:#0369a1;border-color:#bae6fd;">What the Agent Did</h3>' +
+          '<p style="font-size:13px;color:#374151;line-height:1.6;">' + esc(actDesc) + '</p>' +
+          '<p style="font-size:13px;color:#6b7280;line-height:1.6;margin-top:6px;">' +
+            (findings.length > 0
+              ? findings.length + ' security finding' + (findings.length === 1 ? '' : 's') + ' were extracted from the scan output. Expand each one below to see exploitation steps, impact, and proof of compromise.'
+              : 'No structured vulnerability entries were detected. The full output is shown below.') +
+          '</p>' +
+        '</div>' +
+
+        /* Findings */ '<div class="rpt-sec"><h3>Security Findings (' + findings.length + ')</h3>' +
+          findingsHtml +
+        '</div>';
+    })
+    .catch(function(e) {
+      document.getElementById('mbody').innerHTML =
+        '<p style="color:#dc2626;padding:20px;">Failed to load: ' + esc(String(e)) + '</p>';
+    });
 }
 
 /* ── Open modal ── */
