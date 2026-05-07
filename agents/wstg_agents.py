@@ -792,8 +792,8 @@ for p in cred_paths:
             print(f'EXPOSED_FILE | {{code}} | {{p}}')
             # Parse wp-config.php for DB_USER / DB_PASSWORD
             for line in content.splitlines():
-                mu = re.search(r"define\\s*\\(\\s*['\"]DB_USER['\"]\s*,\\s*['\"]([^'\"]+)['\"]", line)
-                mp = re.search(r"define\\s*\\(\\s*['\"]DB_PASSWORD['\"]\s*,\\s*['\"]([^'\"]+)['\"]", line)
+                mu = re.search(r"define\\s*\\(\\s*['\"]DB_USER['\"]\\s*,\\s*['\"]([^'\"]+)['\"]", line)
+                mp = re.search(r"define\\s*\\(\\s*['\"]DB_PASSWORD['\"]\\s*,\\s*['\"]([^'\"]+)['\"]", line)
                 if mu: exposed_user = mu.group(1); print(f'FOUND_DB_USER: {{exposed_user}}')
                 if mp: exposed_pass = mp.group(1); print(f'FOUND_DB_PASS: (redacted len={{len(mp.group(1))}})')
             # Parse .env for WP credentials
