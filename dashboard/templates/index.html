@@ -926,6 +926,7 @@ tr.hidden-r { display: none; }
           <div class="cdb-meta" id="cwDoneMeta"></div>
         </div>
         <a id="cwReportLink" href="#" onclick="return cwOpenReport()">View Full Report</a>
+        <button class="btn btn-sm" id="cwPluginLogsBtn" onclick="cwOpenPluginLogs()" style="display:none;">Plugin Logs</button>
         <button class="btn btn-sm" onclick="cwRefreshDashboard()" style="background:#16a34a;color:#fff;border-color:#16a34a;">Refresh Dashboard</button>
         <button class="btn btn-sm" onclick="cwReset()" style="margin-left:4px;">New Scan</button>
       </div>
@@ -1838,17 +1839,22 @@ function openWpLogsModal(target) {
             '<th>User</th>'+
             '<th>Event</th>'+
             '<th>IP Address</th>'+
+            '<th>Country</th>'+
             '<th>Risk</th>'+
             '<th>Scan</th>'+
           '</tr></thead><tbody>';
 
       logs.forEach(function(l) {
         var riskClass = 'wplogs-risk-'+(l.risk||'INFO');
+        var countryBadge = l.country
+          ? '<span style="font-size:10px;background:#f3f4f6;border-radius:3px;padding:1px 5px;color:#374151;">'+esc(l.country)+'</span>'
+          : '<span style="color:#d1d5db;font-size:11px;">—</span>';
         html += '<tr>'+
           '<td style="white-space:nowrap;font-size:11px;color:#6b7280;">'+esc(l.timestamp||'--')+'</td>'+
           '<td style="font-weight:500;">'+esc(l.user||'--')+'</td>'+
           '<td>'+esc(l.event||'--')+'</td>'+
           '<td style="font-family:monospace;font-size:11px;">'+esc(l.ip||'--')+'</td>'+
+          '<td>'+countryBadge+'</td>'+
           '<td><span class="'+riskClass+'">'+esc(l.risk||'INFO')+'</span></td>'+
           '<td style="font-size:11px;color:#9ca3af;">#'+esc(String(l.scan_id||''))+'</td>'+
         '</tr>';
@@ -1993,9 +1999,11 @@ function cwToggleCreds() {
 }
 function cwUpdateCredFields() {
   var t = document.getElementById('cwCredType').value;
+  var map = {wordpress: 'wp', cpanel: 'cpanel', ssh: 'ssh', sftp: 'sftp'};
+  var key = map[t] || t;
   ['wp','cpanel','ssh','sftp'].forEach(function(k){
     var el = document.getElementById('cred-' + k);
-    if (el) el.style.display = (k === t || (k === 'sftp' && t === 'sftp')) ? 'block' : 'none';
+    if (el) el.style.display = (k === key) ? 'block' : 'none';
   });
 }
 function cwGetCreds() {
@@ -2011,10 +2019,11 @@ function cwGetCreds() {
 }
 
 /* ── Connect Your Website ── */
-var _cwJobId     = null;
-var _cwOffset    = 0;
-var _cwScanId    = null;
-var _cwPollTimer = null;
+var _cwJobId        = null;
+var _cwOffset       = 0;
+var _cwScanId       = null;
+var _cwPollTimer    = null;
+var _cwCurrentTarget = null;
 var _CW_LS_KEY   = 'cfai_cw_job';   // localStorage key for resuming after page reload
 
 // ── Persist / restore active scan across page reloads ──────────────────────
@@ -2076,12 +2085,14 @@ function startConnectScan() {
 
   var domain = url.replace(/^https?:\/\//i, '').split('/')[0].split('?')[0];
   if (!domain) { cwSetStatus('<span class="cs-error">Invalid URL.</span>'); return; }
+  _cwCurrentTarget = url.replace(/\/$/, '');
 
   document.getElementById('cwStartBtn').disabled = true;
   document.getElementById('cwOutput').innerHTML  = '';
   document.getElementById('cwOutput').classList.add('active');
   document.getElementById('cwDoneBar').classList.remove('active');
   document.getElementById('cwDoneBar').className = 'connect-done-bar';
+  document.getElementById('cwPluginLogsBtn').style.display = 'none';
   cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Scanning ' + domain + ' ...</span>');
 
   var creds = cwGetCreds();
@@ -2123,6 +2134,9 @@ function _cwRenderChunks(chunks, out) {
 }
 
 // ── Show the done/error bar ───────────────────────────────────────────────
+function cwOpenPluginLogs() {
+  if (_cwCurrentTarget) openWpLogsModal(_cwCurrentTarget);
+}
 function _cwShowDone(status, domain, errMsg) {
   var bar    = document.getElementById('cwDoneBar');
   var title  = document.getElementById('cwDoneTitle');
@@ -2138,6 +2152,7 @@ function _cwShowDone(status, domain, errMsg) {
     meta.textContent  = errMsg ? errMsg.substring(0, 160) : '';
     cwSetStatus('<span class="cs-error">⚠ Scan error — partial output logged. ' + (errMsg ? errMsg.substring(0,80) : '') + '</span>');
   }
+  document.getElementById('cwPluginLogsBtn').style.display = '';
   if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
 }
 

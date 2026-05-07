@@ -14,7 +14,9 @@ import http.cookiejar
 import json
 import os
 import re
+import shutil
 import ssl
+import subprocess
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -42,6 +44,53 @@ def _opener(jar: http.cookiejar.CookieJar = None) -> urllib.request.OpenerDirect
     return op
 
 
+def _curl_fetch(url: str, method: str = 'GET', headers: dict | None = None,
+                body: bytes | None = None, timeout: int = _TIMEOUT) -> tuple[int, str, dict]:
+    """Try fetching URL via curl with progressive bypass techniques for blocked IPs."""
+    if not shutil.which('curl'):
+        return 0, '[curl not available]', {}
+
+    base_cmd = [
+        'curl', '-s', '-L', '-k',
+        '-w', '\n__CF_STATUS__:%{http_code}',
+        '--max-time', str(timeout),
+        '--connect-timeout', str(min(timeout, 15)),
+    ]
+    if method == 'POST':
+        base_cmd += ['--request', 'POST']
+    if body:
+        base_cmd += ['--data-binary', '@-']
+    if headers:
+        for k, v in headers.items():
+            base_cmd += ['-H', f'{k}: {v}']
+
+    variants: list[list[str]] = [
+        [],  # standard curl
+        ['-H', 'X-Forwarded-For: 66.249.66.1', '-H', 'X-Real-IP: 66.249.66.1'],
+        ['-A', 'Googlebot/2.1 (+http://www.google.com/bot.html)'],
+        ['--http1.0'],
+    ]
+    urls_to_try = [url]
+    if url.startswith('https://'):
+        urls_to_try.append(url.replace('https://', 'http://', 1))
+
+    for target in urls_to_try:
+        for extra in variants:
+            args = base_cmd + extra + [target]
+            try:
+                res = subprocess.run(args, input=body, capture_output=True, timeout=timeout + 10)
+                text = res.stdout.decode('utf-8', errors='replace')
+                if '__CF_STATUS__:' in text:
+                    body_part, stat_part = text.rsplit('\n__CF_STATUS__:', 1)
+                    code = int(stat_part.strip() or '0')
+                    if code > 0:
+                        return code, body_part, {}
+            except Exception:
+                continue
+
+    return 0, '[all curl bypass attempts failed]', {}
+
+
 def _do(url: str, method: str = 'GET', headers: dict | None = None,
         body: bytes | None = None, jar: http.cookiejar.CookieJar | None = None,
         timeout: int = _TIMEOUT) -> tuple[int, str, dict]:
@@ -60,6 +109,12 @@ def _do(url: str, method: str = 'GET', headers: dict | None = None,
         except Exception:
             return e.code, str(e), {}
     except Exception as exc:
+        # urllib failed (firewall block?) — try curl with bypass techniques
+        if jar is None:  # only fall back when no cookie session in progress
+            code, body_text, resp_hdrs = _curl_fetch(url, method=method, headers=headers,
+                                                      body=body, timeout=timeout)
+            if code > 0:
+                return code, body_text, resp_hdrs
         return 0, f'[connection error: {exc}]', {}
 
 

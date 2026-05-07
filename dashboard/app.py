@@ -1,10 +1,14 @@
 """CF_AI Security Dashboard — Flask web application."""
 from __future__ import annotations
+import ipaddress
+import json as _json
 import os
 import re
 import sys
 import time as _time
 import threading as _threading
+import urllib.parse as _up_parse
+import urllib.request as _up_req
 import uuid as _uuid
 from pathlib import Path
 
@@ -20,6 +24,46 @@ app = Flask(__name__, template_folder='templates')
 
 # ── In-memory scan job store (Connect Your Website feature) ──────────────────
 _scan_jobs: dict = {}
+
+# ── IP geolocation (ip-api.com, free, no key required) ───────────────────────
+_geo_cache: dict[str, str] = {}
+
+def _geoip(ip_or_url: str) -> str:
+    """Return 'Country (City)' for a real IP or hostname. Returns '' on failure."""
+    raw = (ip_or_url or '').strip()
+    if not raw or raw in ('-', '--', ''):
+        return ''
+    # Extract hostname from URL
+    if raw.startswith('http'):
+        raw = _up_parse.urlparse(raw).netloc or raw
+    ip = raw.split(':')[0].strip()
+    if not ip:
+        return ''
+    if ip in _geo_cache:
+        return _geo_cache[ip]
+    # Skip private/reserved IPs
+    try:
+        addr = ipaddress.ip_address(ip)
+        if addr.is_private or addr.is_loopback or addr.is_reserved:
+            _geo_cache[ip] = ''
+            return ''
+    except ValueError:
+        pass  # hostname — proceed with lookup
+    try:
+        url = f'http://ip-api.com/json/{_up_parse.quote(ip)}?fields=status,country,city'
+        req = _up_req.Request(url, headers={'User-Agent': 'CF_AI/1.0'})
+        with _up_req.urlopen(req, timeout=5) as r:
+            data = _json.loads(r.read().decode())
+        if data.get('status') == 'success':
+            country = data.get('country', '')
+            city    = data.get('city', '')
+            result  = f'{country} ({city})' if city else country
+            _geo_cache[ip] = result
+            return result
+    except Exception:
+        pass
+    _geo_cache[ip] = ''
+    return ''
 
 
 def _build_cred_block(site_type: str, creds: dict, domain: str) -> str:
@@ -814,6 +858,9 @@ def api_wp_logs(target):
             overall_status = result['status']
             overall_msg    = result['status_msg']
     all_entries.sort(key=lambda e: e.get('timestamp', ''), reverse=True)
+    # Enrich entries with geolocation country from the IP field
+    for e in all_entries:
+        e['country'] = _geoip(e.get('ip', ''))
     return jsonify({
         'target':      target,
         'logs':        all_entries,
