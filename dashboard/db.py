@@ -35,15 +35,16 @@ def init_db():
 
 
 def save_scan(*, target, agent_type, model='', status='ok',
-              latency_s=0.0, tool_count=0, output=''):
+              latency_s=0.0, tool_count=0, output='') -> int:
     with _connect() as con:
-        con.execute(
+        cur = con.execute(
             'INSERT INTO scans (target, agent_type, model, status, latency_s, tool_count, output) '
             'VALUES (?, ?, ?, ?, ?, ?, ?)',
             (target, agent_type, model, status,
              round(float(latency_s), 2), int(tool_count), str(output)[:60000])
         )
         con.commit()
+        return cur.lastrowid
 
 
 def get_scans(limit=500):

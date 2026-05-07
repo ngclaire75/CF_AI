@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 import re
 import sys
+import time as _time
+import threading as _threading
+import uuid as _uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -14,6 +17,88 @@ from dashboard.remediations import REMEDIATIONS
 db.init_db()
 
 app = Flask(__name__, template_folder='templates')
+
+# ── In-memory scan job store (Connect Your Website feature) ──────────────────
+_scan_jobs: dict = {}
+
+
+def _run_background_scan(job_id: str, target: str, agent_type: str,
+                          model: str, wp_user: str, wp_app_pass: str, wp_pass: str):
+    """Run a WSTG agent in a background thread and stream chunks to _scan_jobs."""
+    job = _scan_jobs[job_id]
+
+    # Temporarily set WP credential env vars for this scan
+    env_restore: dict = {}
+    for k, v in [('WP_USER', wp_user), ('WP_APP_PASSWORD', wp_app_pass), ('WP_PASSWORD', wp_pass)]:
+        if v:
+            env_restore[k] = os.environ.get(k, '')
+            os.environ[k] = v
+
+    try:
+        import dataclasses as dc
+        from urllib.parse import urlparse as _up
+        from agents.wstg_agents import WSTG_REGISTRY
+        from sdk.agents import Runner
+        from sdk import tracing
+
+        # Normalise domain (strip scheme + path)
+        _url = target if '://' in target else 'https://' + target
+        _p   = _up(_url)
+        domain = (_p.netloc or _p.path.split('/')[0]).rstrip('/')
+        job['domain'] = domain
+
+        if agent_type == 'pentest':
+            from agents.pentest import run_full_pentest
+            t0 = _time.time()
+            parts: list = []
+            tools: list = [0]
+            def _ot(t):  parts.append(t);  job['chunks'].append({'k': 'txt', 'd': t})
+            def _oo(n,a): tools[0]+=1;      job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
+            def _or(n,r,e): job['chunks'].append({'k': 'res', 'n': n, 'r': str(r)[:300], 'e': bool(e)})
+            run_full_pentest(domain, model=model or None, on_text=_ot, on_tool=_oo, on_result=_or)
+            elapsed = _time.time() - t0
+            output  = '\n\n'.join(parts)
+        else:
+            base = WSTG_REGISTRY.get(agent_type)
+            if base is None:
+                job.update({'status': 'error', 'error': f'Unknown agent type: {agent_type}'}); return
+
+            agent = dc.replace(base, instructions=base.instructions.replace('{domain}', domain))
+            if model:
+                agent = dc.replace(agent, model=model)
+
+            t0 = _time.time()
+            parts, tools = [], [0]
+            def _ot(t):   parts.append(t);  job['chunks'].append({'k': 'txt', 'd': t})
+            def _oo(n, a): tools[0] += 1;    job['chunks'].append({'k': 'tool', 'n': n, 'a': str(a)[:200]})
+            def _or(n,r,e): job['chunks'].append({'k': 'res', 'n': n, 'r': str(r)[:300], 'e': bool(e)})
+
+            with tracing.span(f'dashboard:{agent_type}') as span:
+                span.set_attribute('cfai.target', domain)
+                Runner.run(agent, f'Run all WSTG-{agent_type.upper()} checks on {domain}.',
+                           on_text=_ot, on_tool=_oo, on_result=_or)
+
+            elapsed = _time.time() - t0
+            output  = '\n\n'.join(parts)
+
+        scan_id = db.save_scan(
+            target=domain, agent_type=agent_type,
+            model=getattr(agent, 'model', model) if agent_type != 'pentest' else model,
+            status='ok', latency_s=round(elapsed, 2),
+            tool_count=tools[0], output=output,
+        )
+        job.update({'status': 'done', 'elapsed': round(elapsed, 2),
+                    'tool_count': tools[0], 'scan_id': scan_id})
+
+    except Exception as exc:
+        import traceback as _tb
+        job.update({'status': 'error', 'error': str(exc),
+                    'trace': _tb.format_exc()[-800:]})
+    finally:
+        for k, orig in env_restore.items():
+            if orig: os.environ[k] = orig
+            else: os.environ.pop(k, None)
+
 
 # Optional shared secret for the remote-save API endpoint.
 # Set CFAI_API_KEY in the VPS .env to protect POST /api/scan.
@@ -86,11 +171,28 @@ def _strip_md(text: str) -> str:
     return text.strip()
 
 
+# Recommendations that describe scanner execution problems, not real vulnerabilities
+_SCANNER_NOISE = re.compile(
+    r'\b(check connectivity|internet connectivity|assessment platform|'
+    r'ensure proper internet|rerun with|retry with|adjust.*header|'
+    r'passive recon|historical.*data source|alternative means|'
+    r'manual inspection|firewall.*rule.*site|rate limit.*rule|'
+    r'scan.*block|blocked.*scan|increase.*timeout|reduce.*thread|'
+    r'try.*different.*approach|diagnostic|next step.*scan|'
+    r'consider passive|proper internet|platform.*connect|'
+    r'connectivity.*assess|assess.*connect)\b',
+    re.I,
+)
+
+
 def extract_recs(text: str) -> list[str]:
     recs, in_sec = [], False
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
+            in_sec = False
+            continue
+        if _NEGATION.search(line) or _SCANNER_NOISE.search(line):
             in_sec = False
             continue
         clean = _strip_md(re.sub(r'^[-*+\d.)#]+\s*', '', line))
@@ -99,7 +201,7 @@ def extract_recs(text: str) -> list[str]:
             in_sec = True
             if ':' in clean:
                 after = clean.split(':', 1)[1].strip()
-                if len(after) > 12:
+                if len(after) > 12 and not _SCANNER_NOISE.search(after):
                     recs.append(after)
                     in_sec = False
             continue
@@ -183,8 +285,15 @@ def agent_label(a: str) -> str:
     return _AGENT_LABELS.get((a or '').lower(), (a or '').upper())
 
 
+def _norm_target(raw: str) -> str:
+    """Strip scheme and path — keep only host[:port]."""
+    t = (raw or '').replace('https://', '').replace('http://', '')
+    return t.split('/')[0].split('?')[0].rstrip('.')
+
+
 def enrich(scan: dict) -> dict:
     scan = dict(scan)
+    scan['target']       = _norm_target(scan.get('target', ''))
     out  = scan.get('output', '') or ''
     scan['risk']         = risk_level(out)
     scan['agent_label']  = agent_label(scan.get('agent_type', ''))

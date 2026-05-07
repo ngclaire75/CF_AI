@@ -1039,7 +1039,7 @@ function buildFindingCards(findings) {
         '<span class="finding-title">'+esc(f.title)+'</span>'+
         '<span class="finding-toggle">+</span>'+
       '</div>'+
-      (body ? '<div class="finding-body"><div class="finding-steps">'+body+'</div></div>' : '')+
+      '<div class="finding-body">'+(body ? '<div class="finding-steps">'+body+'</div>' : '<p style="color:#9ca3af;font-size:12px;padding:4px 0;">No additional detail extracted from this scan output.</p>')+'</div>'+
     '</div>';
   }).join('');
 }
