@@ -443,6 +443,67 @@ td { padding: 11px 14px; color: #374151; vertical-align: middle; }
 /* ── Hidden rows ── */
 tr.hidden-r { display: none; }
 
+/* ── Fix code tabs ── */
+.fix-tabs-wrap  { margin-top: 12px; }
+.fix-tabs       { display: flex; gap: 3px; flex-wrap: wrap; border-bottom: 1px solid #e5e7eb; padding-bottom: 0; margin-bottom: 0; }
+.fix-tab {
+    background: #f3f4f6; border: 1px solid #e5e7eb; border-bottom: none;
+    border-radius: 4px 4px 0 0; padding: 5px 12px;
+    font-family: Arial, Helvetica, sans-serif; font-size: 12px;
+    color: #6b7280; cursor: pointer; position: relative; top: 1px;
+}
+.fix-tab:hover                 { background: #e5e7eb; }
+.fix-tab.active                { background: #fff; border-bottom-color: #fff; color: #111827; font-weight: bold; }
+.fix-panel                     { display: none; border: 1px solid #e5e7eb; border-radius: 0 4px 4px 4px; padding: 12px 12px 10px; position: relative; background: #fff; }
+.fix-panel.active              { display: block; }
+.fix-code {
+    font-family: Arial, Helvetica, sans-serif; font-size: 12px;
+    color: #1f2937; background: #f9fafb; border: 1px solid #e5e7eb;
+    border-radius: 4px; padding: 10px 44px 10px 12px;
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 200px; overflow-y: auto; margin: 0; line-height: 1.6;
+}
+.copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px;
+    padding: 3px 10px; font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px; color: #374151; cursor: pointer; white-space: nowrap;
+    z-index: 2;
+}
+.copy-btn:hover      { background: #e5e7eb; }
+.copy-btn.copied     { background: #dcfce7; border-color: #86efac; color: #166534; }
+
+/* ── CVE analysis panel ── */
+.cve-run-bar {
+    background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;
+    padding: 12px 16px; display: flex; align-items: center; gap: 14px;
+    margin-bottom: 20px;
+}
+.cve-run-bar p   { font-size: 13px; color: #0369a1; flex: 1; margin: 0; line-height: 1.5; }
+.btn-cve         { background: #0369a1; border-color: #0369a1; color: #fff; }
+.btn-cve:hover   { background: #0284c7; }
+.cve-card {
+    border: 1px solid #e5e7eb; border-radius: 7px; overflow: hidden; margin-bottom: 8px;
+}
+.cve-card-hd {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    background: #f9fafb; cursor: pointer; user-select: none;
+}
+.cve-card-hd:hover   { background: #f3f4f6; }
+.cve-id-badge {
+    font-size: 11px; font-weight: bold; color: #1f2937;
+    background: #f3f4f6; border: 1px solid #e5e7eb;
+    border-radius: 3px; padding: 2px 8px; white-space: nowrap;
+}
+.cve-score-lbl   { font-size: 12px; font-weight: bold; white-space: nowrap; }
+.cve-desc-snip   { flex: 1; font-size: 12px; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cve-tech-badge  { background: #f0fdf4; border: 1px solid #86efac; border-radius: 3px; padding: 2px 7px; font-size: 11px; color: #166534; white-space: nowrap; }
+.cve-src-badge   { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 3px; padding: 2px 7px; font-size: 11px; color: #1e40af; white-space: nowrap; }
+.cve-ref-link    { font-size: 11px; color: #2563eb; display: block; word-break: break-all; margin-top: 3px; }
+
+/* ── has-fixes badge in priority table ── */
+.fix-pill { background: #f0fdf4; border: 1px solid #86efac; border-radius: 3px; padding: 1px 7px; font-size: 11px; color: #166534; white-space: nowrap; margin-left: 6px; }
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
     .header-inner { grid-template-columns: 240px 1fr auto; }
@@ -574,10 +635,15 @@ tr.hidden-r { display: none; }
             <tr>
               <td><span class="badge badge-{{ rec.risk }}">{{ rec.risk }}</span></td>
               <td class="td-target" title="{{ rec.target }}">{{ rec.target }}</td>
-              <td><div class="rec-text">{{ rec.text }}</div></td>
+              <td>
+                <div class="rec-text">
+                  {{ rec.text }}
+                  {% if rec.has_fixes %}<span class="fix-pill">Fix Available</span>{% endif %}
+                </div>
+              </td>
               <td><div class="rec-agent">{{ rec.agent }}</div></td>
               <td class="td-dim">{{ rec.date }}</td>
-              <td><button class="btn btn-sm" onclick="openModal({{ rec.scan_id }})">View</button></td>
+              <td><button class="btn btn-sm" onclick="openModal({{ rec.scan_id }})">View Fix</button></td>
             </tr>
           {% endfor %}
           </tbody>
@@ -742,7 +808,7 @@ tr.hidden-r { display: none; }
 /* ── Timestamp ── */
 (function(){
   var d = new Date();
-  var p = n => String(n).padStart(2,'0');
+  var p = function(n){ return String(n).padStart(2,'0'); };
   document.getElementById('ts').textContent =
     d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+
     ' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+' UTC';
@@ -753,7 +819,7 @@ setTimeout(function(){ location.reload(); }, 60000);
 
 /* ── Risk filter ── */
 function doFilter(btn, level) {
-  document.querySelectorAll('.filt').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.filt').forEach(function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
   document.querySelectorAll('#hist tbody tr').forEach(function(r){
     r.classList.toggle('hidden-r', level !== 'all' && r.dataset.risk !== level);
@@ -799,8 +865,9 @@ function agentSummary(agentType, sev, findingsCount) {
   if (sev.high)     parts.push(sev.high+' high');
   if (sev.medium)   parts.push(sev.medium+' medium');
   if (sev.low)      parts.push(sev.low+' low');
+  var total = parts.reduce(function(a,p){ return a+parseInt(p); }, 0);
   var sevLine = parts.length
-    ? parts.join(', ') + ' severity issue'+(parts.reduce(function(a,p){return a+parseInt(p);},0)===1?'':'s')+' were identified in the output.'
+    ? parts.join(', ') + ' severity issue'+(total===1?'':'s')+' were identified in the output.'
     : 'No severity-classified issues were detected in this scan output.';
   return '<p style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:6px;">'+esc(desc)+'</p>'+
          '<p style="font-size:13px;color:#6b7280;line-height:1.6;">'+esc(sevLine)+'</p>';
@@ -810,13 +877,10 @@ function agentSummary(agentType, sev, findingsCount) {
 function countSev(text) {
   var t = text.toLowerCase();
   var out = {critical:0, high:0, medium:0, low:0, info:0};
-  // "Severity: X" explicit labels
   var m = t.match(/severity\s*:\s*(critical|high|medium|low|info)/g) || [];
   m.forEach(function(s){ var k=s.split(/:\s*/)[1].trim(); out[k]=(out[k]||0)+1; });
-  // **CRITICAL** / **HIGH** bold markers
   var m2 = text.match(/\*\*(CRITICAL|HIGH|MEDIUM|LOW|INFO)\*\*/g) || [];
   m2.forEach(function(s){ var k=s.replace(/\*\*/g,'').toLowerCase(); out[k]=(out[k]||0)+1; });
-  // | Severity | table cells
   var m3 = text.match(/\|\s*(Critical|High|Medium|Low|Info)\s*\|/gi) || [];
   m3.forEach(function(s){ var k=s.replace(/\||\s/g,'').toLowerCase(); out[k]=(out[k]||0)+1; });
   return out;
@@ -824,30 +888,20 @@ function countSev(text) {
 
 /* ── Parse structured findings from output ── */
 function parseFindings(text) {
-  var findings = [];
-  var seen = {};
-
-  // Pattern 1: "XY-VULN-01: Title" or "AUTH-VULN-01: Title" etc.
+  var findings = [], seen = {}, m;
   var re1 = /([A-Z]+-(?:VULN|BUG|INJ|AUTH|AUTHZ|SSRF|IDOR)-\d+):\s*([^\n]+)/g;
-  var m;
   while ((m = re1.exec(text)) !== null) {
     var id = m[1], title = m[2].trim();
-    if (seen[id]) continue;
-    seen[id] = 1;
-    // Extract severity from surrounding block
+    if (seen[id]) continue; seen[id] = 1;
     var block = text.substring(m.index, m.index + 800);
     var sevM = block.match(/severity\s*:\s*(critical|high|medium|low|info)/i);
     var sev  = sevM ? sevM[1].toUpperCase() : 'INFO';
-    // Extract overview/summary
     var sumM = block.match(/(?:overview|summary)\s*:\s*([^\n]{10,200})/i);
     var sum  = sumM ? sumM[1].trim() : '';
-    // Extract impact
     var impM = block.match(/impact\s*:\s*([^\n]{10,200})/i);
     var imp  = impM ? impM[1].trim() : '';
     findings.push({id:id, title:title, sev:sev, summary:sum, impact:imp});
   }
-
-  // Pattern 2: numbered "1. **Category | Type | Severity |**"
   if (findings.length === 0) {
     var re2 = /\d+\.\s+\*\*([^*\n]+)\*\*/g;
     while ((m = re2.exec(text)) !== null) {
@@ -855,21 +909,19 @@ function parseFindings(text) {
       var parts = raw.split('|').map(function(s){ return s.trim(); }).filter(Boolean);
       var sev = 'INFO';
       if (parts.length >= 3) {
-        var s = parts[2].toUpperCase();
-        if (s.includes('CRITICAL')) sev = 'CRITICAL';
-        else if (s.includes('HIGH'))   sev = 'HIGH';
-        else if (s.includes('MEDIUM')) sev = 'MEDIUM';
-        else if (s.includes('LOW'))    sev = 'LOW';
+        var sv = parts[2].toUpperCase();
+        if (sv.includes('CRITICAL')) sev = 'CRITICAL';
+        else if (sv.includes('HIGH'))   sev = 'HIGH';
+        else if (sv.includes('MEDIUM')) sev = 'MEDIUM';
+        else if (sv.includes('LOW'))    sev = 'LOW';
       }
       var title = parts.slice(0,2).join(' - ') || raw;
-      // grab evidence line below
       var below = text.substring(m.index, m.index+400);
       var evM = below.match(/evidence\s*:\s*([^\n]{10,200})/i);
       var sum = evM ? evM[1].trim() : '';
       findings.push({id:null, title:title, sev:sev, summary:sum, impact:''});
     }
   }
-
   return findings;
 }
 
@@ -877,18 +929,11 @@ function parseFindings(text) {
 var _chartInst = null;
 function buildChart(sev) {
   var labels=[], data=[], colors=[];
-  var map = [
-    ['critical','Critical','#7f1d1d'],
-    ['high','High','#dc2626'],
-    ['medium','Medium','#d97706'],
-    ['low','Low','#16a34a'],
-    ['info','Info','#2563eb'],
-  ];
-  map.forEach(function(r){
+  [['critical','Critical','#7f1d1d'],['high','High','#dc2626'],['medium','Medium','#d97706'],
+   ['low','Low','#16a34a'],['info','Info','#2563eb']].forEach(function(r){
     if(sev[r[0]]>0){ labels.push(r[1]); data.push(sev[r[0]]); colors.push(r[2]); }
   });
   if(labels.length===0){ labels=['No findings']; data=[1]; colors=['#e5e7eb']; }
-
   if(_chartInst){ _chartInst.destroy(); _chartInst=null; }
   var ctx = document.getElementById('sevChart');
   if(!ctx) return;
@@ -896,16 +941,8 @@ function buildChart(sev) {
     type: 'doughnut',
     data: { labels: labels, datasets:[{ data:data, backgroundColor:colors, borderWidth:2, borderColor:'#fff', hoverOffset:4 }] },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      cutout: '62%',
-      plugins: {
-        legend: { display:false },
-        tooltip: {
-          callbacks: {
-            label: function(ctx){ return ' '+ctx.label+': '+ctx.raw; }
-          }
-        }
-      }
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: { legend: { display:false }, tooltip: { callbacks: { label: function(c){ return ' '+c.label+': '+c.raw; } } } }
     }
   });
 }
@@ -913,41 +950,34 @@ function buildChart(sev) {
 /* ── Build severity stat bars ── */
 function buildSevBars(sev) {
   var total = Object.values(sev).reduce(function(a,b){return a+b;},0) || 1;
-  var rows = [
-    ['critical','Critical','#7f1d1d'],
-    ['high','High','#dc2626'],
-    ['medium','Medium','#d97706'],
-    ['low','Low','#16a34a'],
-    ['info','Info','#2563eb'],
-  ];
-  return rows.map(function(r){
+  return [['critical','Critical','#7f1d1d'],['high','High','#dc2626'],['medium','Medium','#d97706'],
+          ['low','Low','#16a34a'],['info','Info','#2563eb']].map(function(r){
     var cnt = sev[r[0]]||0;
     var pct = Math.round(cnt/total*100);
-    return '<div class="sev-row">' +
-      '<div class="sev-dot" style="background:'+r[2]+'"></div>' +
-      '<div class="sev-name">'+r[1]+'</div>' +
-      '<div class="sev-bar-bg"><div class="sev-bar-fill" style="width:'+pct+'%;background:'+r[2]+'"></div></div>' +
-      '<div class="sev-count">'+cnt+'</div>' +
-    '</div>';
+    return '<div class="sev-row">'+
+      '<div class="sev-dot" style="background:'+r[2]+'"></div>'+
+      '<div class="sev-name">'+r[1]+'</div>'+
+      '<div class="sev-bar-bg"><div class="sev-bar-fill" style="width:'+pct+'%;background:'+r[2]+'"></div></div>'+
+      '<div class="sev-count">'+cnt+'</div></div>';
   }).join('');
 }
 
 /* ── Build finding cards ── */
-function buildFindingCards(findings, riskClass) {
+function buildFindingCards(findings) {
   if (!findings.length) return '<p style="color:#9ca3af;font-size:13px;">No structured findings parsed from this scan output.</p>';
-  return findings.map(function(f, i) {
+  return findings.map(function(f) {
     var bc = 'badge-'+(f.sev||'INFO');
     var body = '';
     if (f.summary) body += '<p><strong>Overview:</strong> '+esc(f.summary)+'</p>';
     if (f.impact)  body += '<p><strong>Impact:</strong> '+esc(f.impact)+'</p>';
-    return '<div class="finding-card">' +
-      '<div class="finding-card-hd" onclick="togFinding(this)">' +
-        (f.id ? '<span class="finding-id">'+esc(f.id)+'</span>' : '') +
-        '<span class="badge '+bc+'">'+esc(f.sev)+'</span>' +
-        '<span class="finding-title">'+esc(f.title)+'</span>' +
-        '<span class="finding-toggle">+</span>' +
-      '</div>' +
-      (body ? '<div class="finding-body"><div class="finding-steps">'+body+'</div></div>' : '') +
+    return '<div class="finding-card">'+
+      '<div class="finding-card-hd" onclick="togFinding(this)">'+
+        (f.id ? '<span class="finding-id">'+esc(f.id)+'</span>' : '')+
+        '<span class="badge '+bc+'">'+esc(f.sev)+'</span>'+
+        '<span class="finding-title">'+esc(f.title)+'</span>'+
+        '<span class="finding-toggle">+</span>'+
+      '</div>'+
+      (body ? '<div class="finding-body"><div class="finding-steps">'+body+'</div></div>' : '')+
     '</div>';
   }).join('');
 }
@@ -958,6 +988,150 @@ function togFinding(hd) {
   if (!body) return;
   var open = body.classList.toggle('open');
   if (tog) tog.textContent = open ? '-' : '+';
+}
+
+/* ── Fix code tabs ── */
+var _curRemediations = [];
+
+function buildRemediationCards(remediations) {
+  _curRemediations = remediations || [];
+  if (!_curRemediations.length)
+    return '<p style="color:#9ca3af;font-size:13px;">No matching remediation templates found for this scan. See the recommended actions list above.</p>';
+
+  return _curRemediations.map(function(rem, ri) {
+    var sev      = rem.severity || 'INFO';
+    var fixes    = rem.fixes    || {};
+    var platforms = Object.keys(fixes);
+
+    var tabsHtml = platforms.map(function(p, i) {
+      return '<button class="fix-tab'+(i===0?' active':'')+
+             '" onclick="showFixTab(this,\'fg'+ri+'\','+i+')">'+esc(p)+'</button>';
+    }).join('');
+
+    var panelsHtml = platforms.map(function(p, i) {
+      return '<div class="fix-panel'+(i===0?' active':'')+'" data-panel="'+i+'">'+
+        '<button class="copy-btn" onclick="copyCode(this,'+ri+','+i+')">Copy</button>'+
+        '<pre class="fix-code">'+esc(fixes[p])+'</pre>'+
+      '</div>';
+    }).join('');
+
+    return '<div class="finding-card">'+
+      '<div class="finding-card-hd" onclick="togFinding(this)">'+
+        '<span class="badge badge-'+sev+'">'+sev+'</span>'+
+        '<span class="finding-title">'+esc(rem.title)+'</span>'+
+        '<span class="finding-toggle">+</span>'+
+      '</div>'+
+      '<div class="finding-body">'+
+        '<p>'+esc(rem.description)+'</p>'+
+        (platforms.length ?
+          '<div class="fix-tabs-wrap">'+
+            '<div class="fix-tabs">'+tabsHtml+'</div>'+
+            '<div id="fg'+ri+'">'+panelsHtml+'</div>'+
+          '</div>' : '')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function showFixTab(btn, groupId, idx) {
+  var group = document.getElementById(groupId);
+  if (!group) return;
+  btn.parentElement.querySelectorAll('.fix-tab').forEach(function(t){ t.classList.remove('active'); });
+  btn.classList.add('active');
+  group.querySelectorAll('.fix-panel').forEach(function(p){ p.classList.remove('active'); });
+  var panel = group.querySelector('.fix-panel[data-panel="'+idx+'"]');
+  if (panel) panel.classList.add('active');
+}
+
+function copyCode(btn, remIdx, platIdx) {
+  var rem = _curRemediations[remIdx];
+  if (!rem) return;
+  var code = Object.values(rem.fixes || {})[platIdx] || '';
+  var done = function(){ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent='Copy'; btn.classList.remove('copied'); }, 2000); };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(done).catch(function(){
+      var ta = document.createElement('textarea'); ta.value = code;
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); done();
+    });
+  } else {
+    var ta = document.createElement('textarea'); ta.value = code;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); done();
+  }
+}
+
+/* ── CVE Analysis ── */
+var _cveCurrentScanId = null;
+
+function runCveAnalysis(scanId) {
+  _cveCurrentScanId = scanId;
+  var section = document.getElementById('cve-results');
+  if (!section) return;
+  section.innerHTML = '<p style="color:#0369a1;font-size:13px;padding:10px 0;">Querying National Vulnerability Database (nvd.nist.gov) for confirmed CVEs — this may take 10-30 seconds due to NVD rate limits...</p>';
+  fetch('/api/scan/'+scanId+'/cve')
+    .then(function(r){ return r.json(); })
+    .then(function(data){ section.innerHTML = buildCveHtml(data); })
+    .catch(function(e){ section.innerHTML = '<p style="color:#dc2626;font-size:13px;">CVE lookup failed: '+esc(String(e))+'</p>'; });
+}
+
+function buildCveHtml(data) {
+  if (data.error) return '<p style="color:#dc2626;font-size:13px;">Error: '+esc(data.error)+'</p>';
+
+  var tech = data.tech || [];
+  var cves = data.cves || [];
+
+  var techHtml = tech.length
+    ? '<div style="margin-bottom:12px;"><span style="font-size:11px;font-weight:bold;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Technologies detected: </span>'+
+        tech.map(function(t){
+          return '<span style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:3px;padding:2px 8px;font-size:12px;margin-right:4px;display:inline-block;">'+esc(t.product+' '+t.version)+'</span>';
+        }).join('')+'</div>'
+    : '<p style="color:#9ca3af;font-size:13px;margin-bottom:8px;">No technology version strings detected in the scan output. The agent may not have fingerprinted the server stack.</p>';
+
+  if (!cves.length) {
+    return techHtml+'<p style="color:#9ca3af;font-size:13px;">No CVEs found for the detected technologies in NVD. The versions may be up to date, or no version strings were extracted from the output.</p>';
+  }
+
+  var scoreColor = function(sev) {
+    return ({CRITICAL:'#7f1d1d',HIGH:'#dc2626',MEDIUM:'#d97706',LOW:'#16a34a'})[sev] || '#6b7280';
+  };
+
+  var cveCards = cves.map(function(cve) {
+    var sc  = cve.score != null ? parseFloat(cve.score).toFixed(1) : 'N/A';
+    var sev = cve.severity || 'UNKNOWN';
+    var col = scoreColor(sev);
+    var techBadge = cve.tech_matched
+      ? '<span class="cve-tech-badge">'+esc(cve.tech_matched)+'</span>'
+      : '';
+    var srcBadge = cve.source === 'mentioned_in_output'
+      ? '<span class="cve-src-badge">Mentioned in scan</span>'
+      : '';
+    var refs = (cve.refs||[]).map(function(r){
+      return '<a href="'+esc(r)+'" target="_blank" rel="noopener" class="cve-ref-link">'+esc(r)+'</a>';
+    }).join('');
+    var snip = esc((cve.desc||'').substring(0,100))+(cve.desc&&cve.desc.length>100?'...':'');
+    return '<div class="cve-card">'+
+      '<div class="cve-card-hd" onclick="togFinding(this)">'+
+        '<span class="badge badge-'+sev+'">'+sev+'</span>'+
+        '<span class="cve-id-badge">'+esc(cve.id)+'</span>'+
+        '<span class="cve-score-lbl" style="color:'+col+'">CVSS '+sc+'</span>'+
+        techBadge+srcBadge+
+        '<span class="cve-desc-snip">'+snip+'</span>'+
+        '<span class="finding-toggle">+</span>'+
+      '</div>'+
+      '<div class="finding-body">'+
+        '<p style="font-size:13px;color:#374151;line-height:1.6;">'+esc(cve.desc)+'</p>'+
+        (cve.vector ? '<p style="font-size:11px;color:#9ca3af;margin-top:4px;">Vector: '+esc(cve.vector)+'</p>' : '')+
+        (cve.published ? '<p style="font-size:11px;color:#9ca3af;">Published: '+esc(cve.published)+'</p>' : '')+
+        (refs ? '<div style="margin-top:8px;">'+refs+'</div>' : '')+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  return techHtml+
+    '<p style="font-size:12px;color:#6b7280;margin-bottom:10px;">'+cves.length+' CVE'+(cves.length===1?'':'s')+
+    ' found. Source: National Vulnerability Database (nvd.nist.gov). Results are based on technology versions detected in the scan output.</p>'+
+    cveCards;
 }
 
 /* ── Open modal ── */
@@ -972,14 +1146,15 @@ function openModal(id) {
       document.getElementById('mtitle').textContent = 'Security Report: '+s.target;
       document.getElementById('msub').textContent   = s.agent_label+'  |  Scan #'+s.id;
 
-      var output = s.output || '';
-      var sev    = countSev(output);
+      var output   = s.output || '';
+      var sev      = countSev(output);
       var sevTotal = Object.values(sev).reduce(function(a,b){return a+b;},0);
       var findings = parseFindings(output);
       var recs     = s.recs || [];
-      var st       = s.status==='ok' ? '<span class="st-ok">OK</span>'
+      var remeds   = s.remediations || [];
+      var st       = s.status==='ok'          ? '<span class="st-ok">OK</span>'
                    : s.status==='interrupted' ? '<span class="st-int">Stopped</span>'
-                   : '<span class="st-err">Error</span>';
+                                              : '<span class="st-err">Error</span>';
 
       var recHtml = recs.length
         ? '<ul class="rec-list">'+recs.map(function(r){ return '<li class="r-'+s.risk+'">'+esc(r)+'</li>'; }).join('')+'</ul>'
@@ -988,47 +1163,74 @@ function openModal(id) {
       var cleanOutput = stripMd(output);
 
       document.getElementById('mbody').innerHTML =
-        /* Meta */ '<div class="meta-grid">' +
-          '<div class="meta-item"><label>Target</label><span>'+esc(s.target)+'</span></div>' +
-          '<div class="meta-item"><label>Risk Level</label><span class="badge badge-'+s.risk+'">'+s.risk+'</span></div>' +
-          '<div class="meta-item"><label>Status</label><span>'+st+'</span></div>' +
-          '<div class="meta-item"><label>Scan Type</label><span>'+esc(s.agent_label)+'</span></div>' +
-          '<div class="meta-item"><label>Model</label><span>'+esc(s.model||'--')+'</span></div>' +
-          '<div class="meta-item"><label>Duration</label><span>'+s.latency_s+'s</span></div>' +
-          '<div class="meta-item"><label>Tools Used</label><span>'+(s.tool_count||0)+'</span></div>' +
-          '<div class="meta-item"><label>Date (UTC)</label><span>'+(s.display_date||'--')+'</span></div>' +
-        '</div>' +
 
-        /* Plain summary */ '<div class="rpt-sec" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:14px 16px;">' +
-          '<h3 style="color:#0369a1;border-color:#bae6fd;">What This Scan Did and What Was Found</h3>' +
-          agentSummary(s.agent_type, sev, findings.length) +
-        '</div>' +
+        /* Meta grid */
+        '<div class="meta-grid">'+
+          '<div class="meta-item"><label>Target</label><span>'+esc(s.target)+'</span></div>'+
+          '<div class="meta-item"><label>Risk Level</label><span class="badge badge-'+s.risk+'">'+s.risk+'</span></div>'+
+          '<div class="meta-item"><label>Status</label><span>'+st+'</span></div>'+
+          '<div class="meta-item"><label>Scan Type</label><span>'+esc(s.agent_label)+'</span></div>'+
+          '<div class="meta-item"><label>Model</label><span>'+esc(s.model||'--')+'</span></div>'+
+          '<div class="meta-item"><label>Duration</label><span>'+s.latency_s+'s</span></div>'+
+          '<div class="meta-item"><label>Tools Used</label><span>'+(s.tool_count||0)+'</span></div>'+
+          '<div class="meta-item"><label>Date (UTC)</label><span>'+(s.display_date||'--')+'</span></div>'+
+        '</div>'+
 
-        /* Chart row */ '<div class="chart-row">' +
-          '<div class="chart-box">' +
-            '<h4>Severity Breakdown</h4>' +
-            '<div class="chart-canvas-wrap"><canvas id="sevChart"></canvas></div>' +
-            '<div style="font-size:11px;color:#9ca3af;margin-top:8px;">'+sevTotal+' severity mention'+(sevTotal===1?'':'s')+' detected</div>' +
-          '</div>' +
-          '<div class="sev-stats">' +
-            '<h4>Finding Distribution</h4>' +
-            buildSevBars(sev) +
-          '</div>' +
-        '</div>' +
+        /* CVE analysis bar */
+        '<div class="cve-run-bar">'+
+          '<p><strong>CVE Analysis:</strong> Check this scan against the National Vulnerability Database to find confirmed CVEs for the technologies detected on this target.</p>'+
+          '<button class="btn btn-cve" onclick="runCveAnalysis('+s.id+')">Run CVE Analysis</button>'+
+        '</div>'+
+        '<div class="rpt-sec" id="cve-results-wrap" style="display:none;"><h3>CVE Analysis Results</h3><div id="cve-results"></div></div>'+
 
-        /* Findings */ '<div class="rpt-sec"><h3>Structured Findings ('+findings.length+')</h3>' +
-          buildFindingCards(findings, s.risk) +
-        '</div>' +
+        /* Plain summary */
+        '<div class="rpt-sec" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:14px 16px;">'+
+          '<h3 style="color:#0369a1;border-color:#bae6fd;">What This Scan Did and What Was Found</h3>'+
+          agentSummary(s.agent_type, sev, findings.length)+
+        '</div>'+
 
-        /* Recommendations */ '<div class="rpt-sec"><h3>Remediations and Recommended Actions</h3>'+recHtml+'</div>' +
+        /* Chart row */
+        '<div class="chart-row">'+
+          '<div class="chart-box"><h4>Severity Breakdown</h4>'+
+            '<div class="chart-canvas-wrap"><canvas id="sevChart"></canvas></div>'+
+            '<div style="font-size:11px;color:#9ca3af;margin-top:8px;">'+sevTotal+' severity mention'+(sevTotal===1?'':'s')+' detected</div>'+
+          '</div>'+
+          '<div class="sev-stats"><h4>Finding Distribution</h4>'+buildSevBars(sev)+'</div>'+
+        '</div>'+
 
-        /* Raw output */ '<div class="rpt-sec"><h3>Full Agent Output</h3>' +
-          '<button class="toggle-link" id="tog" onclick="togFull()">Show full report</button>' +
-          '<div id="fout" style="display:none;"><div class="full-output">'+esc(cleanOutput||'No output recorded.')+'</div></div>' +
+        /* Structured findings */
+        '<div class="rpt-sec"><h3>Structured Findings ('+findings.length+')</h3>'+
+          buildFindingCards(findings)+
+        '</div>'+
+
+        /* Remediation fix code (structured templates) */
+        '<div class="rpt-sec"><h3>Remediation Fix Code ('+remeds.length+' template'+(remeds.length===1?'':'s')+')</h3>'+
+          buildRemediationCards(remeds)+
+        '</div>'+
+
+        /* Free-text recommended actions */
+        '<div class="rpt-sec"><h3>Recommended Actions</h3>'+recHtml+'</div>'+
+
+        /* Raw output */
+        '<div class="rpt-sec"><h3>Full Agent Output</h3>'+
+          '<button class="toggle-link" id="tog" onclick="togFull()">Show full output</button>'+
+          '<div id="fout" style="display:none;"><div class="full-output">'+esc(cleanOutput||'No output recorded.')+'</div></div>'+
         '</div>';
 
-      // Render chart after DOM update
       setTimeout(function(){ buildChart(sev); }, 50);
+
+      // Wire up CVE analysis button to show results section when clicked
+      var cveWrap = document.getElementById('cve-results-wrap');
+      var cveBtn  = document.querySelector('.btn-cve');
+      if (cveBtn && cveWrap) {
+        var origClick = cveBtn.onclick;
+        cveBtn.onclick = function() {
+          cveWrap.style.display = '';
+          cveBtn.disabled = true;
+          cveBtn.textContent = 'Analysing...';
+          runCveAnalysis(s.id);
+        };
+      }
     })
     .catch(function(e){
       document.getElementById('mbody').innerHTML =
@@ -1039,7 +1241,7 @@ function openModal(id) {
 function togFull(){
   var d=document.getElementById('fout'), b=document.getElementById('tog');
   if(d.style.display==='none'){ d.style.display='block'; b.textContent='Hide raw output'; }
-  else { d.style.display='none'; b.textContent='Show raw output'; }
+  else { d.style.display='none'; b.textContent='Show full output'; }
 }
 function closeModal(){ document.getElementById('mbg').classList.remove('open'); }
 function bgClose(e){ if(e.target===document.getElementById('mbg')) closeModal(); }
