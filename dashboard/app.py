@@ -248,14 +248,100 @@ def extract_wp_logs(output: str) -> dict:
     return {'entries': entries, 'status': status_code, 'status_msg': status_msg}
 
 
-def match_remediations(text: str) -> list[dict]:
-    """Return remediation templates whose patterns appear in confirmed (non-negated) lines."""
-    pos_lines = [l.lower() for l in text.splitlines() if not _NEGATION.search(l)]
+# Narrower negation for remediation matching — only skips lines that say
+# a check *passed* or the agent is *about to* test something.
+# Deliberately does NOT include \bno\b / \bnot\b because "No X-Frame-Options
+# header" is a real finding, not a negation.
+_REM_NEGATION = re.compile(
+    r'\b(no vulnerability|not vulnerable|not affected|properly configured|'
+    r'no issue found|no problem|correctly set|header present|header found|'
+    r'attempting|will attempt|will try|will now|testing for|checking for|'
+    r'i will test|let me test|i will check|checking if)\b',
+    re.I,
+)
+
+# Maps lowercase fix-key substrings → internal stack identifier
+_FIX_STACK_KEYS: dict[str, str] = {
+    'nginx':          'nginx',
+    'apache':         'apache',
+    '.htaccess':      'apache',
+    'php':            'php',
+    'wordpress':      'wp',
+    'wp-cli':         'wp',
+    'functions.php':  'wp',
+    'wp-config':      'wp',
+}
+
+
+def _detect_stacks(text: str) -> set[str]:
+    """Detect server / CMS stacks referenced in agent output."""
+    tl = text.lower()
+    found: set[str] = set()
+    if any(k in tl for k in ('wordpress', 'wp-content', 'wp-admin', 'wp-login',
+                              'xmlrpc.php', '/wp-', 'woocommerce')):
+        found.add('wp')
+    if 'nginx' in tl:
+        found.add('nginx')
+    if 'apache' in tl or '.htaccess' in tl:
+        found.add('apache')
+    if 'php' in tl:
+        found.add('php')
+    return found
+
+
+def _filter_fixes(fixes: dict, detected: set[str]) -> dict:
+    """Return only the fix entries relevant to detected stacks.
+
+    Fix keys that belong to an undetected stack are hidden; generic keys
+    (certbot, bash, manual, general) are always shown.
+    Falls back to all fixes when nothing was detected.
+    """
+    if not detected:
+        return fixes
+    filtered = {}
+    for key, code in fixes.items():
+        kl = key.lower()
+        fix_stack = next(
+            (sid for pattern, sid in _FIX_STACK_KEYS.items() if pattern in kl),
+            None,
+        )
+        is_generic = fix_stack is None or any(
+            g in kl for g in ('bash', 'manual', 'general', 'certbot', 'waf')
+        )
+        if is_generic or fix_stack in detected:
+            filtered[key] = code
+    return filtered if filtered else fixes
+
+
+def match_remediations(text: str, target: str = '') -> list[dict]:
+    """Return remediation templates for vulnerabilities found in this scan.
+
+    - Only confirms positive findings (skips _REM_NEGATION lines).
+    - WordPress-specific remediations require WordPress to be detected.
+    - Fix stacks are filtered to those seen in the scan output.
+    - The actual target domain replaces the placeholder 'yourdomain.com'.
+    """
+    pos_lines = [l.lower() for l in text.splitlines() if not _REM_NEGATION.search(l)]
     pos_text  = ' '.join(pos_lines)
-    matched   = []
+    detected  = _detect_stacks(text)
+
+    matched: list[dict] = []
     for rem in REMEDIATIONS:
-        if any(p in pos_text for p in rem['patterns']):
-            matched.append(rem)
+        if not any(p in pos_text for p in rem['patterns']):
+            continue
+        # WordPress-specific remediations only if WP is detected in this scan
+        if rem['id'].startswith('wp-') and 'wp' not in detected:
+            continue
+        # Filter fix stacks to those seen in this site's output
+        fixes = _filter_fixes(rem['fixes'], detected)
+        # Substitute the actual scanned domain (if known) into fix code
+        if target:
+            fixes = {
+                k: v.replace('yourdomain.com', target)
+                     .replace('YOUR.OFFICE.IP.HERE', '[your office IP]')
+                for k, v in fixes.items()
+            }
+        matched.append({**rem, 'fixes': fixes})
     return matched
 
 
@@ -298,7 +384,7 @@ def enrich(scan: dict) -> dict:
     scan['risk']         = risk_level(out)
     scan['agent_label']  = agent_label(scan.get('agent_type', ''))
     scan['recs']         = extract_recs(out)
-    scan['remediations'] = match_remediations(out)
+    scan['remediations'] = match_remediations(out, target=scan['target'])
     scan['preview']      = out[:400].replace('\n', ' ')
     dt = scan.get('created_at', '') or ''
     scan['display_date'] = dt[:16].replace('T', ' ')
