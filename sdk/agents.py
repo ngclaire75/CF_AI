@@ -116,8 +116,10 @@ class Runner:
             s.set_attribute('cfai.model', agent.model)
             s.set_attribute('cfai.max_turns', turns)
             s.set_attribute('openinference.span.kind', 'CHAIN')
+            s.set_attribute('input.value', message[:2000])
             try:
                 result = cls._run_openai(agent, message, on_text, on_tool, on_result, turns)
+                s.set_attribute('output.value', str(result)[:2000])
                 _ok(s)
                 return result
             except Exception as exc:
