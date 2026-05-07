@@ -6,6 +6,7 @@ import os
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 import subprocess
 from collections import deque
 from datetime import datetime
@@ -128,7 +129,10 @@ def _run_wstg(category: str, target: str, model: str = ''):
     from sdk.agents import Runner
     from sdk import tracing
 
-    domain = target.replace('https://', '').replace('http://', '').rstrip('/')
+    # Normalise: strip scheme, path, query — keep only host[:port]
+    _url = target if '://' in target else 'https://' + target
+    _parsed = urllib.parse.urlparse(_url)
+    domain = (_parsed.netloc or _parsed.path.split('/')[0]).rstrip('/')
     if not domain:
         _print_err(f'Usage: agent {category} <target>')
         return

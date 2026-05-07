@@ -750,56 +750,133 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   for ep in /graphql /api/graphql /gql /graph /graphql/v1; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__typename}}"}}' --max-time 8 2>/dev/null); if [ "$code" != "404" ] && [ "$code" != "000" ]; then echo "GraphQL: $code https://{{domain}}$ep"; curl -L -4 -s -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__schema{{types{{name}}}}}}"}}' --max-time 10 2>/dev/null | python3 -m json.tool 2>/dev/null | head -20; fi; done
   command -v graphql-cop &>/dev/null && graphql-cop -t https://{{domain}}/graphql 2>/dev/null | head -30 || true
 
-[APIT-WP] WordPress Activity Log — fetch real admin event logs
-This section runs automatically for any site. If WordPress REST API endpoints are
-reachable it fetches actual plugin log data. For non-WordPress sites it probes
-generic audit/log endpoints and reports whatever is found.
+[APIT-WP] WordPress / Site Activity Log — fetch real admin event logs
+This section runs for EVERY site. It tries three escalating auth methods then
+falls back to unauthenticated. Works for any site, not just WordPress.
 
-STEP 1 — Detect if WordPress is present
-  wp_check=$(curl -L -4 -so /dev/null -w "%{{http_code}}" https://{{domain}}/wp-json/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null)
-  echo "WP REST API probe: $wp_check https://{{domain}}/wp-json/"
-  curl -L -4 -sk https://{{domain}}/wp-json/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print('WP Version:', d.get('generator','?')); print('Site:', d.get('name','?'))" 2>/dev/null || true
+── AUTH METHOD 1: WordPress Application Password (most reliable for WP REST API) ──
+Application Passwords are built into WordPress core since 5.6.
+Set WP_USER and WP_APP_PASSWORD in the .env file before running this agent.
+The password may contain spaces — pass it exactly as shown in WP admin dashboard.
 
-STEP 2 — Try WP Activity Log plugin REST API (wp-security-audit-log 200k+ installs)
-  curl -L -4 -sk "https://{{domain}}/wp-json/wp-security-audit-log/v1/activity-log" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | python3 -c "
+  _WP_HOST=$(python3 -c "from urllib.parse import urlparse; u='https://{{domain}}'; p=urlparse(u); print(p.netloc or '{{domain}}'.split('/')[0])" 2>/dev/null || echo "{{domain}}")
+  WP_USER="${{WP_USER:-}}"
+  WP_APP_PASS="${{WP_APP_PASSWORD:-}}"
+  WP_PASS="${{WP_PASSWORD:-}}"
+
+  if [ -n "$WP_USER" ] && [ -n "$WP_APP_PASS" ]; then
+    echo "[AUTH] Trying Application Password for $WP_USER on $_WP_HOST"
+    curl -L -4 -sk "https://$_WP_HOST/wp-json/wp-security-audit-log/v1/activity-log" \
+      -u "$WP_USER:$WP_APP_PASS" \
+      -A "{_BUA}" -H "Accept: application/json" --max-time 15 2>/dev/null | python3 -c "
 import sys,json
 try:
     d=json.load(sys.stdin)
     entries = d if isinstance(d,list) else d.get('data',d.get('logs',d.get('events',[])))
-    if not entries: print('WP_ACTIVITY_LOG_EMPTY'); sys.exit()
+    if not entries: print('WP_ACTIVITY_LOG_EMPTY_AUTH'); sys.exit()
+    for e in entries[:100]:
+        ts   = e.get('Timestamp') or e.get('timestamp') or e.get('created_on','')
+        user = e.get('UserLogin') or e.get('user') or e.get('username','unknown')
+        evt  = e.get('EventType') or e.get('event') or e.get('message','')
+        ip   = e.get('ClientIP') or e.get('ip') or e.get('IP','')
+        risk = 'HIGH' if any(x in str(evt).lower() for x in ['login','password','admin','delete','install','update','brute','role','reset','export']) else 'MEDIUM' if any(x in str(evt).lower() for x in ['change','edit','upload','create','publish','setting']) else 'LOW'
+        print(f'WP-LOG | {{ts}} | {{user}} | {{evt}} | {{ip}} | {{risk}}')
+except Exception as ex:
+    print('APP_PASS_AUTH_ERROR:', ex)
+" 2>/dev/null
+  fi
+
+── AUTH METHOD 2: Cookie-based login (WP_USER + WP_PASSWORD) ──
+This logs in via wp-login.php, saves the session cookie, then uses it to get
+a REST API nonce for authenticated requests. Works when Application Passwords
+are disabled or the WP Activity Log plugin blocks non-cookie sessions.
+
+  if [ -n "$WP_USER" ] && [ -n "$WP_PASS" ]; then
+    echo "[AUTH] Trying cookie login for $WP_USER on $_WP_HOST"
+    # Step 1: obtain test cookie and post login
+    curl -L -4 -sk -c /tmp/wp_auth.txt \
+      -H "Cookie: wordpress_test_cookie=WP+Cookie+check" \
+      -X POST "https://$_WP_HOST/wp-login.php" \
+      -d "log=$WP_USER&pwd=$WP_PASS&wp-submit=Log+In&redirect_to=%2Fwp-admin%2F&testcookie=1" \
+      -A "{_BUA}" --max-time 15 -o /dev/null 2>/dev/null
+    # Step 2: get REST nonce (required for cookie-based REST auth)
+    NONCE=$(curl -L -4 -sk -b /tmp/wp_auth.txt \
+      "https://$_WP_HOST/wp-admin/admin-ajax.php?action=rest-nonce" \
+      -A "{_BUA}" --max-time 10 2>/dev/null | tr -d '"')
+    if [ -n "$NONCE" ] && [ "$NONCE" != "0" ] && [ "$NONCE" != "-1" ]; then
+      echo "[AUTH] Cookie login succeeded — nonce: $NONCE"
+      curl -L -4 -sk -b /tmp/wp_auth.txt \
+        -H "X-WP-Nonce: $NONCE" \
+        "https://$_WP_HOST/wp-json/wp-security-audit-log/v1/activity-log?per_page=100" \
+        -A "{_BUA}" -H "Accept: application/json" --max-time 15 2>/dev/null | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    entries = d if isinstance(d,list) else d.get('data',d.get('logs',d.get('events',[])))
+    if not entries: print('WP_ACTIVITY_LOG_EMPTY_COOKIE'); sys.exit()
+    for e in entries[:100]:
+        ts   = e.get('Timestamp') or e.get('timestamp') or e.get('created_on','')
+        user = e.get('UserLogin') or e.get('user') or e.get('username','unknown')
+        evt  = e.get('EventType') or e.get('event') or e.get('message','')
+        ip   = e.get('ClientIP') or e.get('ip') or e.get('IP','')
+        risk = 'HIGH' if any(x in str(evt).lower() for x in ['login','password','admin','delete','install','update','brute','role','reset','export']) else 'MEDIUM' if any(x in str(evt).lower() for x in ['change','edit','upload','create','publish','setting']) else 'LOW'
+        print(f'WP-LOG | {{ts}} | {{user}} | {{evt}} | {{ip}} | {{risk}}')
+except Exception as ex:
+    print('COOKIE_AUTH_ERROR:', ex)
+" 2>/dev/null
+    else
+      echo "[AUTH] Cookie login failed or nonce empty — login may require 2FA or is blocked"
+    fi
+  fi
+
+── AUTH METHOD 3: Unauthenticated (public endpoints) ──
+Try public REST API endpoints. WP Activity Log restricts its endpoint to admins
+by default, so this typically returns 401/403 unless the site misconfigured it.
+
+  echo "[AUTH] Trying unauthenticated REST access on $_WP_HOST"
+  # Detect WordPress and get site info
+  curl -L -4 -sk "https://$_WP_HOST/wp-json/" \
+    -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | \
+    python3 -c "import sys,json; d=json.load(sys.stdin); print('WP Version:', d.get('generator','?')); print('Site:', d.get('name','?'))" 2>/dev/null || echo "WP REST root not accessible"
+  # Try unauthenticated WP Activity Log
+  curl -L -4 -sk "https://$_WP_HOST/wp-json/wp-security-audit-log/v1/activity-log" \
+    -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    entries = d if isinstance(d,list) else d.get('data',d.get('logs',d.get('events',[])))
+    if not entries: print('WP_ACTIVITY_LOG_EMPTY_UNAUTH'); sys.exit()
     for e in entries[:50]:
         ts   = e.get('Timestamp') or e.get('timestamp') or e.get('created_on','')
         user = e.get('UserLogin') or e.get('user') or e.get('username','unknown')
         evt  = e.get('EventType') or e.get('event') or e.get('message','')
         ip   = e.get('ClientIP') or e.get('ip') or e.get('IP','')
-        sev  = str(e.get('Severity') or e.get('severity') or e.get('type','')).upper()
-        risk = 'HIGH' if any(x in evt.lower() for x in ['login','password','admin','delete','install','update','brute']) else 'MEDIUM' if any(x in evt.lower() for x in ['change','edit','upload','create','export']) else 'LOW'
+        risk = 'HIGH' if any(x in str(evt).lower() for x in ['login','password','admin','delete','install','update','brute','role','reset','export']) else 'MEDIUM' if any(x in str(evt).lower() for x in ['change','edit','upload','create','publish','setting']) else 'LOW'
         print(f'WP-LOG | {{ts}} | {{user}} | {{evt}} | {{ip}} | {{risk}}')
 except Exception as ex:
-    print('WP_ACTIVITY_LOG_ERROR:', ex)
+    print('UNAUTH_ACCESS_RESULT:', ex)
 " 2>/dev/null
-
-STEP 3 — Enumerate WordPress users via REST API (baseline for log cross-reference)
-  curl -L -4 -sk "https://{{domain}}/wp-json/wp/v2/users?per_page=20" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | python3 -c "
+  # WordPress user enumeration (public endpoint on most sites)
+  curl -L -4 -sk "https://$_WP_HOST/wp-json/wp/v2/users?per_page=20" \
+    -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | python3 -c "
 import sys,json
 try:
     users=json.load(sys.stdin)
     if not isinstance(users,list): sys.exit()
     for u in users:
-        name=u.get('name','?'); slug=u.get('slug','?'); uid=u.get('id','?')
-        print(f'WP-USER | {{uid}} | {{slug}} | {{name}}')
+        print(f'WP-USER | {{u.get(\"id\",\"?\")}} | {{u.get(\"slug\",\"?\")}} | {{u.get(\"name\",\"?\")}}')
 except: pass
 " 2>/dev/null
 
-STEP 4 — For non-WordPress sites, probe common audit/activity log endpoints
-  for ep in /api/audit-log /api/logs /api/events /api/activity /api/admin/logs /api/v1/audit /api/v1/logs /logs /audit /activity-log; do
+── Non-WordPress sites: probe generic audit/log REST endpoints ──
+  for ep in /api/audit-log /api/logs /api/events /api/activity /api/admin/logs /api/v1/audit /api/v1/logs /logs /audit /activity-log /_logs /api/history; do
     code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" "https://{{domain}}$ep" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null)
     [ "$code" != "404" ] && [ "$code" != "000" ] && echo "AUDIT_ENDPOINT | $code | https://{{domain}}$ep"
   done
 
 IMPORTANT — OUTPUT FORMAT FOR WP ACTIVITY LOG SECTION:
-After steps above, if you found log entries, output them in this EXACT format
-(one line per event — the dashboard parses this machine-readable format):
+After ALL steps above, collect every WP-LOG line found and output them in
+this EXACT machine-readable format (dashboard parses this directly):
 
 ## WP ACTIVITY LOG
 WP-LOG | <ISO-timestamp> | <username> | <event description> | <IP address> | <HIGH|MEDIUM|LOW>
@@ -808,13 +885,13 @@ Example:
 WP-LOG | 2024-06-01 09:14:22 | admin | Successful login | 203.0.113.42 | HIGH
 WP-LOG | 2024-06-01 09:10:05 | editor1 | Post modified (ID 47) | 198.51.100.7 | MEDIUM
 
-If NO log entries were found (plugin not installed or endpoint blocked), output:
+If all three auth methods failed (401/403) or the plugin is not installed:
 ## WP ACTIVITY LOG
-WP-LOG-STATUS | not_available | WP Activity Log plugin not installed or endpoint not accessible | - | INFO
+WP-LOG-STATUS | not_available | WP Activity Log endpoint returned 401/403 — set WP_USER and WP_APP_PASSWORD in .env | - | INFO
 
-If the site is not WordPress, output:
+If the site is not WordPress and no generic log endpoints responded:
 ## WP ACTIVITY LOG
-WP-LOG-STATUS | not_wordpress | Site does not appear to be WordPress | - | INFO
+WP-LOG-STATUS | not_wordpress | Site does not appear to be WordPress — no activity log endpoints found | - | INFO
 
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
