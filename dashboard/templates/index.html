@@ -160,6 +160,13 @@ code {
 .scroll-panel    { overflow-x: auto; overflow-y: auto; max-height: 420px; }
 .scroll-panel-lg { overflow-x: auto; overflow-y: auto; max-height: 540px; }
 
+/* ── Custom purple scrollbar ── */
+::-webkit-scrollbar              { width: 7px; height: 7px; }
+::-webkit-scrollbar-track        { background: #f3f4f6; border-radius: 4px; }
+::-webkit-scrollbar-thumb        { background: #7c3aed; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover  { background: #6d28d9; }
+*                                { scrollbar-width: thin; scrollbar-color: #7c3aed #f3f4f6; }
+
 /* ── Tables ── */
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th {
@@ -752,7 +759,13 @@ tr.hidden-r { display: none; }
         <div class="sec-title">Priority Actions Required</div>
         <div class="sec-desc">Items identified during security assessments. Address HIGH priority issues first.</div>
       </div>
-      <span class="sec-count">{{ all_recs|length }} item(s)</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="domain-filter-wrap">
+          <input type="text" id="prioDomainFilter" placeholder="Filter by domain..." oninput="filterPrioActions(this.value)">
+          <button id="prioFilterClear" onclick="clearPrioFilter()" style="display:none;" title="Clear">✕</button>
+        </div>
+        <span class="sec-count">{{ all_recs|length }} item(s)</span>
+      </div>
     </div>
     <div class="card">
       {% if all_recs %}
@@ -768,9 +781,9 @@ tr.hidden-r { display: none; }
               <th style="width:64px;"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="prio-tbody">
           {% for rec in all_recs %}
-            <tr>
+            <tr data-target="{{ rec.target|lower }}">
               <td><span class="badge badge-{{ rec.risk }}">{{ rec.risk }}</span></td>
               <td class="td-target" title="{{ rec.target }}">{{ rec.target }}</td>
               <td>
@@ -1130,6 +1143,19 @@ function filterTargets(val) {
 function clearTargetFilter() {
   document.getElementById('targetDomainFilter').value = '';
   filterTargets('');
+}
+
+/* ── Priority Actions domain filter ── */
+function filterPrioActions(val) {
+  var q = (val || '').trim().toLowerCase();
+  document.getElementById('prioFilterClear').style.display = q ? 'inline' : 'none';
+  document.querySelectorAll('#prio-tbody tr').forEach(function(r){
+    r.classList.toggle('hidden-r', q && (r.dataset.target || '').indexOf(q) === -1);
+  });
+}
+function clearPrioFilter() {
+  document.getElementById('prioDomainFilter').value = '';
+  filterPrioActions('');
 }
 
 /* ── HTML escape ── */
