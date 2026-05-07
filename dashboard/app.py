@@ -316,7 +316,8 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         if agent_type == 'pentest':
             from agents.pentest import run_full_pentest
             t0 = _time.time()
-            run_full_pentest(domain, model=model or None, on_text=_ot, on_tool=_oo, on_result=_or)
+            run_full_pentest(domain, model=model or None, on_text=_ot, on_tool=_oo, on_result=_or,
+                             cred_block=cred_block or None)
             model_used = model or ''
         elif agent_type in ('ctf', 'ot', 'enum'):
             from agents.special_agents import SPECIAL_REGISTRY as _SREG
@@ -324,9 +325,15 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             if base is None:
                 job.update({'status': 'error', 'error': f'Unknown special agent: {agent_type}'}); return
             _s_instr = base.instructions.replace('{target}', domain)
+            if cred_block:
+                _s_instr += cred_block
             agent    = dc.replace(base, instructions=_s_instr)
             if model:
                 agent = dc.replace(agent, model=model)
+            elif cred_block:
+                # Credentials supplied — use Claude for reliable execution
+                _cm = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
+                agent = dc.replace(agent, model=_cm)
             model_used = getattr(agent, 'model', model) or ''
             _label = {'ctf': 'CTF Solver', 'ot': 'OT/ICS Security', 'enum': 'API Enumeration'}.get(agent_type, agent_type.upper())
             t0 = _time.time()
@@ -346,10 +353,18 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 agent = dc.replace(agent, model=model)
             model_used = getattr(agent, 'model', model) or ''
 
-            # WordPress (Connect Your Website) → Claude + MCP tools
-            # APIT agent (any site type) → always gets MCP tools, model unchanged
-            _wp_creds   = (creds.get('wp_user') or creds.get('wp_pass') or creds.get('wp_app_pass'))
-            _needs_mcp  = (site_type == 'wordpress' and _wp_creds) or (agent_type == 'apit')
+            # Any agent + credentials → Claude model for reliable execution.
+            # WordPress site type or WP creds → also inject MCP tools for all agents.
+            # APIT → always gets MCP tools regardless of site type.
+            _wp_creds  = (creds.get('wp_user') or creds.get('wp_pass') or creds.get('wp_app_pass'))
+            _has_creds = bool(
+                _wp_creds
+                or creds.get('cpanel_user') or creds.get('cpanel_pass')
+                or creds.get('ssh_user')    or creds.get('ssh_pass')
+                or creds.get('ftp_user')    or creds.get('ftp_pass')
+            )
+            _needs_mcp = (site_type == 'wordpress') or bool(_wp_creds) or (agent_type == 'apit')
+
             if _needs_mcp:
                 from tools.wordpress_mcp import wp_api_call, wp_security_scan
                 mcp_block = (
@@ -368,23 +383,21 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 _existing = {getattr(t, '__name__', '') for t in agent.tools}
                 new_tools = [t for t in [wp_api_call, wp_security_scan]
                              if getattr(t, '__name__', '') not in _existing] + list(agent.tools)
-                if site_type == 'wordpress' and _wp_creds:
-                    # Authenticated WordPress scan → use Claude model
-                    _claude_model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
-                    agent = dc.replace(
-                        agent,
-                        model=_claude_model,
-                        instructions=base_instructions + mcp_block,
-                        tools=new_tools,
-                    )
-                    model_used = _claude_model
-                else:
-                    # APIT scan without WP credentials → keep current model, add MCP tools
-                    agent = dc.replace(
-                        agent,
-                        instructions=base_instructions + mcp_block,
-                        tools=new_tools,
-                    )
+                _claude_model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
+                agent = dc.replace(
+                    agent,
+                    model=_claude_model,
+                    instructions=base_instructions + mcp_block,
+                    tools=new_tools,
+                )
+                model_used = _claude_model
+            elif _has_creds:
+                # Non-WordPress credentials (SSH / cPanel / SFTP) — switch to Claude so
+                # the agent reliably executes the credential block instructions.
+                _claude_model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
+                agent = dc.replace(agent, model=_claude_model,
+                                   instructions=base_instructions)
+                model_used = _claude_model
 
             t0 = _time.time()
             with tracing.span(f'dashboard:{agent_type}') as span:
