@@ -94,7 +94,23 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         import traceback as _tb
         tb = _tb.format_exc()[-1200:]
         job['chunks'].append({'k': 'txt', 'd': f'\n[ERROR] {exc}\n{tb}'})
-        job.update({'status': 'error', 'error': str(exc), 'trace': tb})
+        # Save whatever partial output was collected so it appears in the dashboard
+        try:
+            partial_output = '\n\n'.join(parts) if 'parts' in dir() and parts else ''
+            partial_elapsed = (_time.time() - t0) if 't0' in dir() else 0.0
+            partial_tools   = tools[0] if 'tools' in dir() else 0
+            scan_id = db.save_scan(
+                target=domain if 'domain' in dir() else (target or ''),
+                agent_type=agent_type,
+                model=model or '',
+                status='error',
+                latency_s=round(partial_elapsed, 2),
+                tool_count=partial_tools,
+                output=partial_output or f'[ERROR] {exc}',
+            )
+            job.update({'status': 'error', 'error': str(exc), 'trace': tb, 'scan_id': scan_id})
+        except Exception:
+            job.update({'status': 'error', 'error': str(exc), 'trace': tb})
     finally:
         for k, orig in env_restore.items():
             if orig: os.environ[k] = orig

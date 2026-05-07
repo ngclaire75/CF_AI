@@ -582,15 +582,15 @@ tr.hidden-r { display: none; }
 .connect-status .cs-done    { color: #16a34a; font-weight: 600; }
 .connect-status .cs-error   { color: #dc2626; font-weight: 600; }
 .live-output {
-    background: #0f172a; border-radius: 8px; padding: 14px 16px;
+    background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px;
     font-family: 'Courier New', monospace; font-size: 12px;
-    color: #94a3b8; max-height: 400px; overflow-y: auto;
-    display: none; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+    color: #374151; max-height: 420px; overflow-y: auto;
+    display: none; line-height: 1.65; white-space: pre-wrap; word-break: break-word;
 }
 .live-output.active { display: block; }
-.live-line-txt  { color: #e2e8f0; }
-.live-line-tool { color: #818cf8; }
-.live-line-res  { color: #6b7280; font-size: 11px; }
+.live-line-txt  { color: #111827; }
+.live-line-tool { color: #4f46e5; font-weight: 600; }
+.live-line-res  { color: #6b7280; font-size: 11px; padding-left: 12px; }
 .connect-done-bar {
     display: none; background: #ecfdf5; border: 1px solid #86efac; border-radius: 6px;
     padding: 10px 14px; margin-top: 12px; font-size: 13px; color: #166534;
@@ -793,7 +793,8 @@ tr.hidden-r { display: none; }
         <span>&#10003; Scan complete.</span>
         <span id="cwDomainSpan"></span>
         <a id="cwReportLink" href="#" onclick="return cwOpenReport()">View Full Report</a>
-        <button class="btn btn-sm" onclick="cwReset()" style="margin-left:auto;">New Scan</button>
+        <button class="btn btn-sm" onclick="cwRefreshDashboard()" style="background:#16a34a;color:#fff;border-color:#16a34a;">Refresh Dashboard</button>
+        <button class="btn btn-sm" onclick="cwReset()" style="margin-left:4px;">New Scan</button>
       </div>
     </div>
   </section>
@@ -1859,16 +1860,19 @@ function cwPoll() {
     } else if (d.status === 'done') {
       _cwScanId = d.scan_id;
       var domain = d.domain || '';
-      cwSetStatus('<span class="cs-done">&#10003; Scan complete — ' + domain + ' &nbsp;·&nbsp; Saving to dashboard…</span>');
+      cwSetStatus('<span class="cs-done">&#10003; Scan complete — ' + domain + '</span>');
       document.getElementById('cwDomainSpan').textContent = domain ? 'Domain: ' + domain : '';
       document.getElementById('cwDoneBar').classList.add('active');
       cwUnlock();
-      // Store the scan_id so the page reload can auto-open the report modal
+      // Store scan_id so that after the manual refresh the report modal auto-opens
       if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
-      // Reload the page after 2 s so the new scan appears in Target Overview / Scan History
-      setTimeout(function() { window.location.reload(); }, 2000);
     } else {
-      cwSetStatus('<span class="cs-error">Scan error — see output above for details.</span>');
+      // Keep the output visible so the user can see what went wrong
+      _cwScanId = d.scan_id || null;
+      cwSetStatus('<span class="cs-error">&#9888; Scan error — see output above. '
+        + (d.error ? d.error.substring(0,120) : '') + '</span>');
+      document.getElementById('cwDoneBar').classList.add('active');
+      if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
       cwUnlock();
     }
   })
@@ -1881,6 +1885,11 @@ function cwPoll() {
 function cwOpenReport() {
   if (_cwScanId) openModal(_cwScanId);
   return false;
+}
+
+function cwRefreshDashboard() {
+  if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
+  window.location.reload();
 }
 
 function cwReset() {
