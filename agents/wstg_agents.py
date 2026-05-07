@@ -94,18 +94,37 @@ RULES:
     → Pivot to passive sources: curl "https://crt.sh/?q=<domain>&output=json" | python3 -m json.tool | head -40
     → Check Wayback Machine: curl "http://archive.org/wayback/available?url=<domain>" | python3 -m json.tool
 
-  Timeout / IP blocked:
-    → Skip active scans for this endpoint; pivot to Shodan, crt.sh, Wayback
-    → Try a different port (8080, 8443, 443, 80)
-    → Use --max-time 30 for slower responses
+  Timeout / IP blocked (geo-block, cloud-provider filter, or WAF ban):
+    Try each in order — stop as soon as one succeeds:
+    1. Different port:          curl ... <domain>:8080  or  <domain>:8443
+    2. Tor exit node (changes IP every request):
+         torsocks curl -L -4 --connect-timeout 15 -A "<UA>" <url>
+         — or — curl --socks5 127.0.0.1:9050 -L --connect-timeout 15 -A "<UA>" <url>
+         Check Tor is running first: systemctl status tor || tor &
+    3. Proxychains (routes through proxy chain configured in /etc/proxychains4.conf):
+         proxychains4 curl -L --connect-timeout 20 -A "<UA>" <url>
+         Check config: cat /etc/proxychains4.conf | head -30
+    4. Random public SOCKS5 proxy (test before use):
+         curl --socks5 <proxy_ip>:<port> -L --connect-timeout 15 -A "<UA>" <url>
+         Free proxy lists: curl -s "https://api.proxyscrape.com/v2/?request=getproxies&protocol=socks5&timeout=5000&country=all" | head -10
+    5. Cloud IP rotation — request from a different source IP by running:
+         python3 -c "import urllib.request; urllib.request.urlopen('<url>').read()" 2>&1 | head -20
+    6. Passive pivot (always works): Shodan, crt.sh, Wayback Machine
 
   SSL error:
     → Add -k to skip cert verification
     → Try HTTP instead of HTTPS
     → Check cert details: openssl s_client -connect <domain>:443 -servername <domain> 2>/dev/null | head -30
 
+  403 / WAF block:
+    → Rotate User-Agent: try Googlebot, then curl/7.0, then empty
+    → Add common bypass headers: -H "X-Originating-IP: 127.0.0.1" -H "X-Remote-IP: 127.0.0.1"
+    → Route through Tor: torsocks curl -L -4 --connect-timeout 15 -A "<UA>" <url>
+    → Try proxychains: proxychains4 curl -L --connect-timeout 20 -A "<UA>" <url>
+    → Path case variation: /Admin  /ADMIN  /admin/index.php
+
   PERSIST — keep trying alternatives until you get a real response from the target.
-  Only move on after exhausting all alternatives above.
+  Exhaust ALL of the above before concluding an endpoint is unreachable.
 """
 
 
