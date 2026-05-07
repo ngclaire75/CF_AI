@@ -1,10 +1,10 @@
-# CF_AI Python Dependencies
+# CF_AI — Core dependencies (required)
 
 # AI provider
 openai>=1.30.0
 
-# AI Observability — Phoenix + OpenTelemetry (enable with CFAI_TRACING=1)
-arize-phoenix
-openinference-instrumentation-openai
-opentelemetry-sdk>=1.20.0
-opentelemetry-exporter-otlp-proto-http>=1.20.0
+# Dashboard web server
+flask>=3.0.0
+
+# .env file loading
+python-dotenv>=1.0.0
