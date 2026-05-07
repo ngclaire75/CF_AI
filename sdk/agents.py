@@ -167,10 +167,12 @@ class Runner:
                     ts.set_attribute('llm.invocation_parameters',
                                      _json.dumps({'model': agent.model, 'tool_choice': 'auto' if tools else None}))
                     # Log input messages for Phoenix ChatCompletion view
-                    for i, m in enumerate(messages[-10:]):  # last 10 to stay under attr limit
-                        ts.set_attribute(f'llm.input_messages.{i}.message.role', m.get('role', ''))
-                        ts.set_attribute(f'llm.input_messages.{i}.message.content',
-                                         str(m.get('content') or '')[:500])
+                    # messages can be dicts OR ChatCompletionMessage objects
+                    for i, m in enumerate(messages[-10:]):
+                        role    = m.get('role', '')    if isinstance(m, dict) else (m.role or '')
+                        content = m.get('content', '') if isinstance(m, dict) else (m.content or '')
+                        ts.set_attribute(f'llm.input_messages.{i}.message.role', role)
+                        ts.set_attribute(f'llm.input_messages.{i}.message.content', str(content)[:500])
                     resp = client.chat.completions.create(
                         model=agent.model,
                         messages=messages,
