@@ -71,14 +71,41 @@ RULES:
   For informational findings (Info / Low), a table row is sufficient:
     | WSTG-ID | Info/Low | Finding | Evidence |
 
-- DIAGNOSTIC MESSAGES — when a tool returns any of the following, READ the explanation and act on it. Do NOT retry the same command. Choose a different approach based on the diagnosis:
-  - `[Exit 0: ...]`  → empty response: try adding -L, auth headers, or a different endpoint
-  - `[Exit 1: ...]`  → command failed: check syntax, install missing tool, or use a Python alternative
-  - `[Exit 6: ...]`  → DNS failure: domain may not exist or VPS has no internet
-  - `[Exit 7: ...]`  → connection refused: try a different port or protocol
-  - `[Exit 28: ...]` → timeout/IP-blocked: pivot to Shodan, Wayback, or other passive sources
-  - `[Exit 35: ...]` → SSL failure: add -k flag or try HTTP instead
-  - `[REASON] ...`   → follow the suggested next steps in the message exactly
+- RECOVERY RULES — when a tool result contains a diagnostic message, READ it and immediately
+  try the specific alternatives it suggests. NEVER stop and report failure — always attempt
+  at least 3 different approaches before concluding an endpoint is unreachable:
+
+  Empty response / no output:
+    → Add -L to follow redirects; add -v to inspect response headers
+    → Try XFF spoof: -H "X-Forwarded-For: 66.249.66.1"
+    → Switch User-Agent to Googlebot: -A "Googlebot/2.1 (+http://www.google.com/bot.html)"
+    → Try plain HTTP on port 80 instead of HTTPS
+    → Use a Python one-liner with subprocess to avoid shell quoting issues
+
+  Command produced no output:
+    → Check if the tool is installed: which <tool>; if missing, use curl or python3 equivalent
+    → Simplify the command — break a long one-liner into separate steps
+    → Try -v or --verbose to get error details
+    → Replace the shell command with a Python heredoc: python3 << 'EOF' ... EOF
+
+  DNS / connection failure:
+    → Try www. prefix if not already used (or remove it)
+    → Try IP address directly: dig +short <domain>
+    → Pivot to passive sources: curl "https://crt.sh/?q=<domain>&output=json" | python3 -m json.tool | head -40
+    → Check Wayback Machine: curl "http://archive.org/wayback/available?url=<domain>" | python3 -m json.tool
+
+  Timeout / IP blocked:
+    → Skip active scans for this endpoint; pivot to Shodan, crt.sh, Wayback
+    → Try a different port (8080, 8443, 443, 80)
+    → Use --max-time 30 for slower responses
+
+  SSL error:
+    → Add -k to skip cert verification
+    → Try HTTP instead of HTTPS
+    → Check cert details: openssl s_client -connect <domain>:443 -servername <domain> 2>/dev/null | head -30
+
+  PERSIST — keep trying alternatives until you get a real response from the target.
+  Only move on after exhausting all alternatives above.
 """
 
 

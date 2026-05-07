@@ -8,29 +8,32 @@ TOOL_TIMEOUT = int(os.environ.get('CFAI_TOOL_TIMEOUT', '300'))
 CWD          = os.environ.get('CFAI_CWD', '/root')
 
 _EXIT_EXPLAIN = {
-    0:  'Empty response (exit 0, no data) — server accepted the request but returned nothing. RECOVERY — try these to find development-time comments and debug info: '
-        '(1) Add -v to see response headers: X-Debug-Token, X-Powered-By, Server often reveal framework/version. '
-        '(2) Try debug activation headers: -H "X-Debug: 1" -H "X-Debug-Token: debug" -H "X-ASPNET-Debug: 1" -H "Pragma: akamai-x-get-client-ip, akamai-x-cache-on". '
-        '(3) Fetch debug/dev artifacts: /.env  /.git/HEAD  /debug  /phpinfo.php  /actuator/health  /healthz  /.well-known/security.txt  /server-status. '
-        '(4) Append query params: ?debug=1  ?XDEBUG_SESSION_START=1  ?_debugbar=1  ?env=debug. '
-        '(5) Try Accept: application/json to get a JSON error body instead of empty HTML. '
-        '(6) Try OPTIONS method (-X OPTIONS) to enumerate allowed HTTP methods. '
-        '(7) If this was a redirect-following request, add -L and rerun.',
-    1:  'Command failed (exit 1, no output) — RECOVERY for development-time debug info: '
-        '(1) Check tool is installed: which <tool>  or  apt-get install <tool>. '
-        '(2) Run with --verbose / -v to see the actual error. '
-        '(3) If curl: check URL quoting, try without -k, verify the endpoint with curl -I first. '
-        '(4) Substitute with a Python one-liner using subprocess + curl list args. '
-        '(5) Try fetching HTML comments directly: curl ... | grep -oP "<!--.*?-->" '
-        '(6) Try fetching JS source maps: curl <page.js>.map — source maps expose original dev code with comments.',
-    6:  'DNS lookup failed — domain does not resolve (NXDOMAIN or no internet)',
-    7:  'TCP connection refused — port is closed or no service listening on that port',
-    28: 'Timed out — server is likely DROPPING PACKETS from this VPS IP (IP allowlist / geo-block / cloud-provider filtering). Skip retrying the same IP; pivot to Phase 4 (Shodan hostname, staging subdomain, Wayback cache)',
-    35: 'SSL/TLS handshake failed — expired cert, SNI mismatch, or connection reset by WAF',
-    51: 'SSL peer certificate verification failed (self-signed or mismatched CN)',
-    52: 'No response received after connect — server accepted TCP but sent nothing',
-    56: 'Network data receive failure — connection dropped mid-transfer',
-    60: 'SSL certificate not trusted — add -k to skip cert verification',
+    0:  'The server returned an empty response. '
+        'Recovery options: '
+        '(1) Add -v to see response headers — X-Debug-Token, X-Powered-By, Server often reveal framework/version. '
+        '(2) Try debug headers: -H "X-Debug: 1" -H "X-Debug-Token: debug". '
+        '(3) Fetch debug artifacts: /.env  /.git/HEAD  /phpinfo.php  /actuator/health  /server-status. '
+        '(4) Append query params: ?debug=1  ?XDEBUG_SESSION_START=1  ?env=debug. '
+        '(5) Use Accept: application/json to get a JSON error body. '
+        '(6) Try OPTIONS method to enumerate allowed HTTP methods. '
+        '(7) Add -L to follow redirects.',
+    1:  'The command produced no output. '
+        'Recovery options: '
+        '(1) Check the tool is installed: which <tool>  or  apt-get install <tool>. '
+        '(2) Run with --verbose or -v to see the actual error. '
+        '(3) For curl: check URL quoting, try without -k, verify the endpoint with curl -I first. '
+        '(4) Replace with a Python one-liner using subprocess + curl list args to avoid shell quoting issues. '
+        '(5) Look for HTML comments: curl ... | grep -oP "<!--.*?-->". '
+        '(6) Check for JS source maps: curl <page.js>.map.',
+    6:  'DNS lookup failed — the domain does not resolve. Check for typos, or the VPS may have no internet access.',
+    7:  'TCP connection refused — the port is closed or no service is listening on it.',
+    28: 'Request timed out — the server is likely blocking this VPS IP (geo-block or cloud-provider filter). '
+        'Skip retrying; pivot to passive sources: Shodan, Wayback Machine, crt.sh, or a staging subdomain.',
+    35: 'SSL/TLS handshake failed — the certificate may be expired, SNI may be mismatched, or a WAF reset the connection. Try adding -k to skip certificate verification.',
+    51: 'SSL peer certificate verification failed — the certificate is self-signed or the CN does not match. Add -k to proceed.',
+    52: 'No data received — the server accepted the TCP connection but sent nothing back.',
+    56: 'Network receive failure — the connection dropped mid-transfer. Retry once; if it persists the host is rate-limiting.',
+    60: 'SSL certificate not trusted — add -k to skip certificate verification and retry.',
 }
 
 # Inject speed flags into every curl call:
@@ -75,6 +78,7 @@ def generic_linux_command(command: str) -> str:
         result = subprocess.run(
             patched,
             shell=True,
+            executable='/bin/bash',   # force bash — avoids dash ")" syntax errors in complex one-liners
             capture_output=True,
             text=True,
             timeout=TOOL_TIMEOUT,
@@ -83,15 +87,15 @@ def generic_linux_command(command: str) -> str:
         )
         output = (result.stdout + result.stderr).strip()
         if not output and result.returncode in _EXIT_EXPLAIN:
-            return f'[Exit {result.returncode}: {_EXIT_EXPLAIN[result.returncode]}]'
+            return _EXIT_EXPLAIN[result.returncode]
         if len(output) > 8000:
             lines = output.splitlines()
             kept  = '\n'.join(lines[:80]) + f'\n… [{len(lines)-80} more lines truncated]'
             return kept
         if not output:
-            return f'[exit code {result.returncode}, no output]'
+            return f'No output returned. The command completed but produced nothing — check the target or try a different approach.'
         if result.returncode in _EXIT_EXPLAIN and result.returncode not in (0, 1) and len(output) < 120:
-            return output + f'\n[Exit {result.returncode}: {_EXIT_EXPLAIN[result.returncode]}]'
+            return output + f'\n{_EXIT_EXPLAIN[result.returncode]}'
         return output
     except subprocess.TimeoutExpired:
         return f'[timeout after {TOOL_TIMEOUT}s — try a shorter scan or add --timeout]'
