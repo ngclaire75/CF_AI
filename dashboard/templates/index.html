@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CF_AI Security Intelligence Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-/* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
@@ -25,32 +25,92 @@ code {
     border-radius: 3px;
     font-size: 12px;
 }
-
-/* ── Layout ── */
 .wrap { max-width: 1320px; margin: 0 auto; padding: 0 24px; }
 
 /* ── Header ── */
 .site-header {
     background: #ffffff;
     border-bottom: 2px solid #e5e7eb;
-    padding: 14px 0;
+    padding: 12px 0;
     position: sticky;
     top: 0;
     z-index: 200;
     box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
-.header-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.brand-title { font-size: 19px; font-weight: bold; color: #111827; letter-spacing: -0.2px; }
+.header-inner {
+    display: grid;
+    grid-template-columns: 300px 1fr auto;
+    align-items: center;
+    gap: 20px;
+}
+
+/* ── Agent guide (left column) ── */
+.agent-guide {
+    border-right: 1px solid #e5e7eb;
+    padding-right: 18px;
+}
+.guide-label {
+    font-size: 10px;
+    font-weight: bold;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+.guide-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+.guide-row:last-child { margin-bottom: 0; }
+.agent-pill {
+    display: inline-block;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 11px;
+    color: #374151;
+    cursor: default;
+    position: relative;
+    white-space: nowrap;
+}
+.agent-pill:hover { background: #e5e7eb; }
+.agent-pill .tip {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: calc(100% + 4px);
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    white-space: nowrap;
+    z-index: 300;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-width: 260px;
+    white-space: normal;
+    line-height: 1.45;
+    width: 240px;
+}
+.agent-pill:hover .tip { display: block; }
+
+/* ── Brand ── */
+.brand-title { font-size: 18px; font-weight: bold; color: #111827; letter-spacing: -0.2px; }
 .brand-sub   { font-size: 12px; color: #6b7280; margin-top: 2px; }
-.header-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-.meta-label  { font-size: 12px; color: #9ca3af; white-space: nowrap; }
+
+/* ── Header right ── */
+.header-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.meta-label   { font-size: 12px; color: #9ca3af; white-space: nowrap; }
 .btn {
     background: #f3f4f6;
     border: 1px solid #d1d5db;
     border-radius: 5px;
-    padding: 6px 14px;
+    padding: 6px 13px;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 13px;
+    font-size: 12px;
     color: #374151;
     cursor: pointer;
     white-space: nowrap;
@@ -82,24 +142,12 @@ code {
     padding: 20px 22px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
-.stat-lbl {
-    font-size: 11px;
-    font-weight: bold;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.stat-val {
-    font-size: 34px;
-    font-weight: bold;
-    color: #111827;
-    margin-top: 5px;
-    line-height: 1.1;
-}
+.stat-lbl  { font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-val  { font-size: 34px; font-weight: bold; color: #111827; margin-top: 5px; line-height: 1.1; }
 .stat-val small { font-size: 15px; color: #9ca3af; font-weight: normal; }
 .stat-hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 
-/* ── Card shell ── */
+/* ── Card ── */
 .card {
     background: #ffffff;
     border: 1px solid #e5e7eb;
@@ -108,17 +156,9 @@ code {
     overflow: hidden;
 }
 
-/* ── Scrollable panel ── */
-.scroll-panel {
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 420px;
-}
-.scroll-panel-lg {
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 540px;
-}
+/* ── Scrollable panels ── */
+.scroll-panel    { overflow-x: auto; overflow-y: auto; max-height: 420px; }
+.scroll-panel-lg { overflow-x: auto; overflow-y: auto; max-height: 540px; }
 
 /* ── Tables ── */
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -141,20 +181,13 @@ tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
 tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: #f9fafb; }
 td { padding: 11px 14px; color: #374151; vertical-align: middle; }
-.td-target {
-    font-weight: bold;
-    color: #111827;
-    max-width: 240px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.td-dim   { color: #6b7280; font-size: 12px; white-space: nowrap; }
-.td-light { color: #9ca3af; font-size: 12px; }
-.td-mono  { font-size: 11px; color: #9ca3af; }
-.no-data td { text-align: center; color: #9ca3af; padding: 40px; font-size: 13px; }
+.td-target { font-weight: bold; color: #111827; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-dim    { color: #6b7280; font-size: 12px; white-space: nowrap; }
+.td-light  { color: #9ca3af; font-size: 12px; }
+.td-mono   { font-size: 11px; color: #9ca3af; }
+.no-data td { text-align: center; color: #9ca3af; padding: 40px; }
 
-/* ── Risk / status badges ── */
+/* ── Badges ── */
 .badge {
     display: inline-block;
     padding: 3px 9px;
@@ -165,42 +198,34 @@ td { padding: 11px 14px; color: #374151; vertical-align: middle; }
     white-space: nowrap;
     border: 1px solid transparent;
 }
-.badge-HIGH   { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
-.badge-MEDIUM { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
-.badge-LOW    { background: #f0fdf4; color: #166534; border-color: #86efac; }
-.badge-INFO   { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
-.st-ok    { color: #16a34a; font-weight: bold; font-size: 12px; }
-.st-err   { color: #dc2626; font-weight: bold; font-size: 12px; }
-.st-int   { color: #d97706; font-weight: bold; font-size: 12px; }
+.badge-HIGH     { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+.badge-MEDIUM   { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+.badge-LOW      { background: #f0fdf4; color: #166534; border-color: #86efac; }
+.badge-INFO     { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
+.badge-CRITICAL { background: #fef2f2; color: #7f1d1d; border-color: #f87171; }
+.st-ok  { color: #16a34a; font-weight: bold; font-size: 12px; }
+.st-err { color: #dc2626; font-weight: bold; font-size: 12px; }
+.st-int { color: #d97706; font-weight: bold; font-size: 12px; }
 
-/* ── Recommendations section ── */
+/* ── Rec section ── */
 .rec-text  { color: #1f2937; line-height: 1.5; }
 .rec-agent { font-size: 11px; color: #9ca3af; margin-top: 2px; }
 
 /* ── Filter bar ── */
 .filter-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .filt {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    padding: 4px 11px;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 12px;
-    color: #6b7280;
-    cursor: pointer;
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;
+    padding: 4px 11px; font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px; color: #6b7280; cursor: pointer;
 }
 .filt:hover:not(.active) { background: #f3f4f6; }
 .filt.active { background: #1f2937; border-color: #1f2937; color: #fff; }
 
 /* ── Empty state ── */
-.empty {
-    text-align: center;
-    padding: 52px 24px;
-    color: #9ca3af;
-}
+.empty { text-align: center; padding: 52px 24px; color: #9ca3af; }
 .empty strong { display: block; margin-bottom: 6px; font-size: 14px; color: #6b7280; }
 
-/* ── Modal ── */
+/* ── Modal overlay ── */
 .modal-bg {
     display: none;
     position: fixed;
@@ -208,13 +233,13 @@ td { padding: 11px 14px; color: #374151; vertical-align: middle; }
     background: rgba(0,0,0,0.42);
     z-index: 500;
     overflow-y: auto;
-    padding: 48px 20px;
+    padding: 40px 20px;
 }
 .modal-bg.open { display: block; }
 .modal-box {
     background: #fff;
     border-radius: 10px;
-    max-width: 860px;
+    max-width: 920px;
     margin: 0 auto;
     box-shadow: 0 24px 64px rgba(0,0,0,0.14);
     overflow: hidden;
@@ -222,7 +247,7 @@ td { padding: 11px 14px; color: #374151; vertical-align: middle; }
 .modal-hd {
     background: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
-    padding: 20px 24px;
+    padding: 18px 24px;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -231,45 +256,150 @@ td { padding: 11px 14px; color: #374151; vertical-align: middle; }
 .modal-title { font-size: 15px; font-weight: bold; color: #111827; }
 .modal-sub   { font-size: 12px; color: #6b7280; margin-top: 3px; }
 .modal-close {
-    background: none;
-    border: none;
-    font-size: 22px;
-    line-height: 1;
-    color: #6b7280;
-    cursor: pointer;
-    padding: 0 2px;
-    flex-shrink: 0;
+    background: none; border: none; font-size: 22px; line-height: 1;
+    color: #6b7280; cursor: pointer; padding: 0 2px; flex-shrink: 0;
 }
 .modal-close:hover { color: #111827; }
 .modal-body {
-    padding: 24px;
-    max-height: 76vh;
+    padding: 22px 24px;
+    max-height: 80vh;
     overflow-y: auto;
     overflow-x: hidden;
 }
+
+/* ── Modal meta grid ── */
 .meta-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
     border-radius: 6px;
-    padding: 16px;
-    margin-bottom: 22px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
 }
-.meta-item label { font-size: 10px; font-weight: bold; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px; }
+.meta-item label { font-size: 10px; font-weight: bold; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
 .meta-item span  { font-size: 13px; color: #1f2937; font-weight: bold; }
-.rpt-sec { margin-bottom: 22px; }
-.rpt-sec h3 {
+
+/* ── Chart row ── */
+.chart-row {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 16px;
+    margin-bottom: 22px;
+    align-items: start;
+}
+.chart-box {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+}
+.chart-box h4 {
     font-size: 11px;
     font-weight: bold;
     color: #6b7280;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     margin-bottom: 10px;
-    padding-bottom: 6px;
+}
+.chart-canvas-wrap { position: relative; height: 180px; }
+
+/* ── Severity legend ── */
+.sev-stats {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sev-stats h4 {
+    font-size: 11px;
+    font-weight: bold;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+}
+.sev-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.sev-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.sev-name { font-size: 13px; color: #374151; flex: 1; }
+.sev-count { font-size: 14px; font-weight: bold; color: #111827; }
+.sev-bar-bg {
+    flex: 1;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.sev-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s;
+}
+
+/* ── Findings cards ── */
+.rpt-sec { margin-bottom: 20px; }
+.rpt-sec h3 {
+    font-size: 11px; font-weight: bold; color: #6b7280;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 10px; padding-bottom: 6px;
     border-bottom: 1px solid #f3f4f6;
 }
+.finding-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+.finding-card-hd {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #f9fafb;
+    cursor: pointer;
+    user-select: none;
+}
+.finding-card-hd:hover { background: #f3f4f6; }
+.finding-id   { font-size: 11px; color: #9ca3af; font-weight: bold; white-space: nowrap; }
+.finding-title { font-size: 13px; color: #111827; flex: 1; font-weight: bold; }
+.finding-toggle { font-size: 14px; color: #9ca3af; flex-shrink: 0; }
+.finding-body {
+    display: none;
+    padding: 12px 14px;
+    background: #fff;
+    border-top: 1px solid #f3f4f6;
+}
+.finding-body.open { display: block; }
+.finding-body p  { font-size: 13px; color: #374151; margin-bottom: 6px; line-height: 1.55; }
+.finding-body strong { color: #111827; }
+.finding-steps {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 5px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #374151;
+    font-family: Arial, Helvetica, sans-serif;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 8px;
+    line-height: 1.6;
+}
+
+/* ── Rec list ── */
 .rec-list { list-style: none; }
 .rec-list li {
     padding: 9px 14px;
@@ -281,65 +411,55 @@ td { padding: 11px 14px; color: #374151; vertical-align: middle; }
     line-height: 1.55;
     color: #1f2937;
 }
-.rec-list li.r-HIGH   { border-left-color: #ef4444; background: #fef2f2; }
-.rec-list li.r-MEDIUM { border-left-color: #f59e0b; background: #fffbeb; }
-.rec-list li.r-LOW    { border-left-color: #22c55e; background: #f0fdf4; }
-.rec-list li.r-INFO   { border-left-color: #60a5fa; background: #eff6ff; }
-.full-output {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 14px 16px;
-    font-size: 12px;
-    font-family: Arial, Helvetica, sans-serif;
-    color: #374151;
-    line-height: 1.65;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 480px;
-    overflow-y: auto;
-    overflow-x: auto;
-}
+.rec-list li.r-HIGH     { border-left-color: #ef4444; background: #fef2f2; }
+.rec-list li.r-MEDIUM   { border-left-color: #f59e0b; background: #fffbeb; }
+.rec-list li.r-LOW      { border-left-color: #22c55e; background: #f0fdf4; }
+.rec-list li.r-INFO     { border-left-color: #60a5fa; background: #eff6ff; }
+.rec-list li.r-CRITICAL { border-left-color: #b91c1c; background: #fef2f2; }
+
+/* ── Raw output toggle ── */
 .toggle-link {
-    background: none;
-    border: none;
-    color: #2563eb;
+    background: none; border: none; color: #2563eb;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 12px;
-    cursor: pointer;
-    padding: 0;
-    margin-bottom: 8px;
-    display: block;
+    font-size: 12px; cursor: pointer; padding: 0;
+    margin-bottom: 8px; display: block;
 }
 .toggle-link:hover { text-decoration: underline; }
+.full-output {
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;
+    padding: 14px 16px; font-size: 12px; font-family: Arial, Helvetica, sans-serif;
+    color: #374151; line-height: 1.65; white-space: pre-wrap;
+    word-break: break-word; max-height: 400px;
+    overflow-y: auto; overflow-x: auto;
+}
 
 /* ── Footer ── */
 .site-footer {
-    border-top: 1px solid #e5e7eb;
-    background: #fff;
-    padding: 14px 0;
-    text-align: center;
-    font-size: 12px;
-    color: #9ca3af;
+    border-top: 1px solid #e5e7eb; background: #fff;
+    padding: 14px 0; text-align: center;
+    font-size: 12px; color: #9ca3af;
 }
 
 /* ── Hidden rows ── */
 tr.hidden-r { display: none; }
 
 /* ── Responsive ── */
-@media (max-width: 960px) {
-    .stats-row { grid-template-columns: repeat(2, 1fr); }
-    .meta-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1100px) {
+    .header-inner { grid-template-columns: 240px 1fr auto; }
+    .agent-guide  { padding-right: 12px; }
 }
-@media (max-width: 600px) {
+@media (max-width: 860px) {
+    .header-inner { grid-template-columns: 1fr auto; }
+    .agent-guide  { display: none; }
+    .stats-row    { grid-template-columns: repeat(2, 1fr); }
+    .meta-grid    { grid-template-columns: repeat(2, 1fr); }
+    .chart-row    { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
     .stats-row { grid-template-columns: 1fr; }
-    .header-inner { flex-direction: column; align-items: flex-start; }
-    .meta-grid { grid-template-columns: 1fr; }
 }
-
-/* ── Print ── */
 @media print {
-    .site-header { position: static; box-shadow: none; }
+    .site-header  { position: static; box-shadow: none; }
     .btn, .filter-bar, .modal-bg { display: none !important; }
     .card { box-shadow: none; }
     .scroll-panel, .scroll-panel-lg { max-height: none; overflow: visible; }
@@ -348,28 +468,61 @@ tr.hidden-r { display: none; }
 </head>
 <body>
 
-<!-- ── Header ────────────────────────────────────────────────────────────────── -->
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header class="site-header">
   <div class="wrap">
     <div class="header-inner">
+
+      <!-- Left: Agent guide (3 rows) -->
+      <div class="agent-guide">
+        <div class="guide-label">What each agent does</div>
+        <!-- Row 1: Discovery -->
+        <div class="guide-row">
+          <span class="agent-pill">info<span class="tip">Scans open ports, server software, DNS records, and SSL certificates to map the target.</span></span>
+          <span class="agent-pill">conf<span class="tip">Checks for exposed config files, admin panels, and insecure server settings.</span></span>
+          <span class="agent-pill">js<span class="tip">Reads JavaScript files to find leaked API keys, secrets, and hidden endpoints.</span></span>
+          <span class="agent-pill">idnt<span class="tip">Tests how the site handles user accounts, registration, and identity verification.</span></span>
+        </div>
+        <!-- Row 2: Access testing -->
+        <div class="guide-row">
+          <span class="agent-pill">athn<span class="tip">Tests login forms for weak passwords, missing lockout, and brute-force gaps.</span></span>
+          <span class="agent-pill">athz<span class="tip">Checks if users can access pages or data they are not allowed to see.</span></span>
+          <span class="agent-pill">sess<span class="tip">Tests how login sessions and cookies are issued, stored, and expired.</span></span>
+          <span class="agent-pill">inpv<span class="tip">Tries SQL injection, XSS, command injection, and other input attacks.</span></span>
+          <span class="agent-pill">cryp<span class="tip">Checks SSL/TLS encryption strength, certificate validity, and cipher choices.</span></span>
+        </div>
+        <!-- Row 3: Specialised -->
+        <div class="guide-row">
+          <span class="agent-pill">clnt<span class="tip">Tests browser-side code and client-facing scripts for vulnerabilities.</span></span>
+          <span class="agent-pill">apit<span class="tip">Tests API endpoints for missing auth, data leaks, and injection flaws.</span></span>
+          <span class="agent-pill">enum<span class="tip">Finds hidden API routes and tests for access control gaps across endpoints.</span></span>
+          <span class="agent-pill">ctf<span class="tip">Solves Capture The Flag security challenges using automated attack chains.</span></span>
+          <span class="agent-pill">pentest<span class="tip">Runs all 10 checks in sequence for a complete end-to-end security assessment.</span></span>
+        </div>
+      </div>
+
+      <!-- Centre: Brand -->
       <div>
         <div class="brand-title">CF_AI Security Intelligence Dashboard</div>
         <div class="brand-sub">Automated security analysis and vulnerability reporting</div>
       </div>
+
+      <!-- Right: Controls -->
       <div class="header-right">
         <span class="meta-label">Updated: <strong id="ts">--</strong></span>
         <button class="btn" onclick="location.reload()">Refresh</button>
         <button class="btn" onclick="window.print()">Print</button>
       </div>
+
     </div>
   </div>
 </header>
 
-<!-- ── Main ──────────────────────────────────────────────────────────────────── -->
+<!-- ── Main ───────────────────────────────────────────────────────────────── -->
 <main class="main">
 <div class="wrap">
 
-  <!-- Stats row -->
+  <!-- Stats -->
   <div class="stats-row">
     <div class="stat-card">
       <div class="stat-lbl">Total Scans Conducted</div>
@@ -398,7 +551,7 @@ tr.hidden-r { display: none; }
     <div class="sec-head">
       <div>
         <div class="sec-title">Priority Actions Required</div>
-        <div class="sec-desc">These items were identified during security assessments. Address HIGH priority issues first.</div>
+        <div class="sec-desc">Items identified during security assessments. Address HIGH priority issues first.</div>
       </div>
       <span class="sec-count">{{ all_recs|length }} item(s)</span>
     </div>
@@ -444,7 +597,7 @@ tr.hidden-r { display: none; }
     <div class="sec-head">
       <div>
         <div class="sec-title">Security Assessment by Target</div>
-        <div class="sec-desc">Most recent scan result per unique target. Click Report to view the full findings.</div>
+        <div class="sec-desc">Most recent scan result per target. Click Report to view the full findings with graphs.</div>
       </div>
       <span class="sec-count">{{ targets|length }} target(s)</span>
     </div>
@@ -459,7 +612,7 @@ tr.hidden-r { display: none; }
               <th>Scan Type</th>
               <th style="width:110px;">Action Items</th>
               <th style="width:90px;">Duration</th>
-              <th style="width:80px;">Tools Run</th>
+              <th style="width:76px;">Tools Run</th>
               <th>Last Scanned (UTC)</th>
               <th>Status</th>
               <th style="width:72px;"></th>
@@ -500,7 +653,7 @@ tr.hidden-r { display: none; }
     <div class="sec-head">
       <div>
         <div class="sec-title">Complete Scan History</div>
-        <div class="sec-desc">All security scans run, most recent first. Use the filters to narrow results.</div>
+        <div class="sec-desc">All security scans, most recent first. Use the filters to narrow results.</div>
       </div>
       <div class="filter-bar">
         <button class="filt active" onclick="doFilter(this,'all')">All</button>
@@ -519,11 +672,11 @@ tr.hidden-r { display: none; }
               <th style="width:38px;">#</th>
               <th>Target</th>
               <th>Scan Type</th>
-              <th style="width:140px;">Model</th>
+              <th style="width:130px;">Model</th>
               <th style="width:80px;">Duration</th>
-              <th style="width:72px;">Tools</th>
+              <th style="width:66px;">Tools</th>
               <th style="width:80px;">Risk</th>
-              <th style="width:72px;">Status</th>
+              <th style="width:70px;">Status</th>
               <th style="width:148px;">Date (UTC)</th>
               <th style="width:70px;"></th>
             </tr>
@@ -553,35 +706,34 @@ tr.hidden-r { display: none; }
       {% else %}
       <div class="empty">
         <strong>No scans recorded yet.</strong>
-        Scans will appear here automatically after running the agent.
+        Scans appear here automatically after running the agent.
       </div>
       {% endif %}
     </div>
   </section>
 
-</div><!-- /wrap -->
+</div>
 </main>
 
-<!-- ── Footer ─────────────────────────────────────────────────────────────────── -->
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer class="site-footer">
   <div class="wrap">
-    CF_AI Security Intelligence Dashboard &mdash; Auto-refreshes every 60 seconds &mdash;
-    Data is retained locally on the server
+    CF_AI Security Intelligence Dashboard &mdash; Auto-refreshes every 60 seconds &mdash; Data retained locally on the server
   </div>
 </footer>
 
-<!-- ── Report Modal ───────────────────────────────────────────────────────────── -->
+<!-- ── Report Modal ────────────────────────────────────────────────────────── -->
 <div class="modal-bg" id="mbg" onclick="bgClose(event)">
-  <div class="modal-box" id="mbox">
+  <div class="modal-box">
     <div class="modal-hd">
       <div>
         <div class="modal-title" id="mtitle">Security Report</div>
         <div class="modal-sub"   id="msub"></div>
       </div>
-      <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
     </div>
     <div class="modal-body" id="mbody">
-      <p style="color:#9ca3af;text-align:center;padding:40px;">Loading report...</p>
+      <p style="color:#9ca3af;text-align:center;padding:40px;">Loading...</p>
     </div>
   </div>
 </div>
@@ -590,58 +742,253 @@ tr.hidden-r { display: none; }
 /* ── Timestamp ── */
 (function(){
   var d = new Date();
-  var pad = n => String(n).padStart(2,'0');
+  var p = n => String(n).padStart(2,'0');
   document.getElementById('ts').textContent =
-    d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+
-    ' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+' UTC';
+    d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+
+    ' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+' UTC';
 })();
 
-/* ── Auto-refresh ── */
+/* ── Auto-refresh 60s ── */
 setTimeout(function(){ location.reload(); }, 60000);
 
 /* ── Risk filter ── */
 function doFilter(btn, level) {
   document.querySelectorAll('.filt').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('#hist tbody tr').forEach(function(r) {
+  document.querySelectorAll('#hist tbody tr').forEach(function(r){
     r.classList.toggle('hidden-r', level !== 'all' && r.dataset.risk !== level);
   });
 }
 
 /* ── HTML escape ── */
-function esc(s) {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── Strip markdown **bold** and *italic* markers ── */
+function stripMd(s){
+  return String(s||'')
+    .replace(/\*\*([^*\n]+)\*\*/g,'$1')
+    .replace(/\*([^*\n]+)\*/g,'$1')
+    .replace(/^#{1,6}\s+/gm,'')
+    .replace(/`([^`]+)`/g,'$1');
 }
 
-/* ── Modal ── */
+/* ── Plain-English "what the agent did" description ── */
+var _agentDesc = {
+  'info':    'The agent collected basic details about the target: open network ports, web server software, DNS records, SSL certificate information, and any publicly visible files or directories.',
+  'conf':    'The agent looked for insecure server settings, exposed configuration files, admin login pages, backup files, and debug endpoints that should not be publicly accessible.',
+  'athn':    'The agent tested the login system for weak password acceptance, missing account lockout after failed attempts, and insecure session token handling.',
+  'athz':    'The agent checked whether logged-in users can access pages, files, or actions they should not be allowed to, including horizontal and vertical privilege escalation.',
+  'sess':    'The agent tested how the website creates, stores, and expires login sessions, including checking cookie security flags and session token randomness.',
+  'inpv':    'The agent attempted SQL injection, cross-site scripting (XSS), command injection, and path traversal attacks through input fields and URL parameters.',
+  'cryp':    'The agent reviewed the HTTPS encryption setup, certificate validity dates, cipher strength, and whether older insecure protocols are still enabled.',
+  'clnt':    'The agent reviewed JavaScript code and browser-facing features for hard-coded secrets, unsafe redirects, and client-side security weaknesses.',
+  'apit':    'The agent tested API endpoints for missing or bypassable authentication, data leakage in responses, injection vulnerabilities, and broken access controls.',
+  'js':      'The agent read JavaScript source files to find exposed API keys, tokens, hardcoded passwords, and hidden endpoint paths left in the code.',
+  'idnt':    'The agent tested the account registration and user management flows for security gaps such as username enumeration, weak identity checks, and insecure account recovery.',
+  'ctf':     'The agent attempted to solve the security challenge using reconnaissance, injection attacks, cryptographic analysis, and file and binary analysis techniques.',
+  'ot':      'The agent assessed the industrial control system for exposed network services, default credentials, unpatched software, and insecure communication protocols.',
+  'enum':    'The agent mapped all available API endpoints, tested each for insecure direct object references (IDOR), and checked whether access controls are properly enforced.',
+  'pentest': 'The agent ran a full penetration test across all major vulnerability categories: information gathering, configuration, authentication, authorization, session management, input validation, cryptography, client-side, and API security.',
+  'recon':   'The agent performed passive and active reconnaissance to map the target infrastructure, identify technologies in use, and discover exposed services.',
+  'analyst': 'The agent performed a security analysis of the provided information and produced a detailed findings report.',
+};
+function agentSummary(agentType, sev, findingsCount) {
+  var desc = _agentDesc[(agentType||'').toLowerCase()] || 'The agent performed an automated security assessment of the target.';
+  var parts = [];
+  if (sev.critical) parts.push(sev.critical+' critical');
+  if (sev.high)     parts.push(sev.high+' high');
+  if (sev.medium)   parts.push(sev.medium+' medium');
+  if (sev.low)      parts.push(sev.low+' low');
+  var sevLine = parts.length
+    ? parts.join(', ') + ' severity issue'+(parts.reduce(function(a,p){return a+parseInt(p);},0)===1?'':'s')+' were identified in the output.'
+    : 'No severity-classified issues were detected in this scan output.';
+  return '<p style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:6px;">'+esc(desc)+'</p>'+
+         '<p style="font-size:13px;color:#6b7280;line-height:1.6;">'+esc(sevLine)+'</p>';
+}
+
+/* ── Parse severity counts from output text ── */
+function countSev(text) {
+  var t = text.toLowerCase();
+  var out = {critical:0, high:0, medium:0, low:0, info:0};
+  // "Severity: X" explicit labels
+  var m = t.match(/severity\s*:\s*(critical|high|medium|low|info)/g) || [];
+  m.forEach(function(s){ var k=s.split(/:\s*/)[1].trim(); out[k]=(out[k]||0)+1; });
+  // **CRITICAL** / **HIGH** bold markers
+  var m2 = text.match(/\*\*(CRITICAL|HIGH|MEDIUM|LOW|INFO)\*\*/g) || [];
+  m2.forEach(function(s){ var k=s.replace(/\*\*/g,'').toLowerCase(); out[k]=(out[k]||0)+1; });
+  // | Severity | table cells
+  var m3 = text.match(/\|\s*(Critical|High|Medium|Low|Info)\s*\|/gi) || [];
+  m3.forEach(function(s){ var k=s.replace(/\||\s/g,'').toLowerCase(); out[k]=(out[k]||0)+1; });
+  return out;
+}
+
+/* ── Parse structured findings from output ── */
+function parseFindings(text) {
+  var findings = [];
+  var seen = {};
+
+  // Pattern 1: "XY-VULN-01: Title" or "AUTH-VULN-01: Title" etc.
+  var re1 = /([A-Z]+-(?:VULN|BUG|INJ|AUTH|AUTHZ|SSRF|IDOR)-\d+):\s*([^\n]+)/g;
+  var m;
+  while ((m = re1.exec(text)) !== null) {
+    var id = m[1], title = m[2].trim();
+    if (seen[id]) continue;
+    seen[id] = 1;
+    // Extract severity from surrounding block
+    var block = text.substring(m.index, m.index + 800);
+    var sevM = block.match(/severity\s*:\s*(critical|high|medium|low|info)/i);
+    var sev  = sevM ? sevM[1].toUpperCase() : 'INFO';
+    // Extract overview/summary
+    var sumM = block.match(/(?:overview|summary)\s*:\s*([^\n]{10,200})/i);
+    var sum  = sumM ? sumM[1].trim() : '';
+    // Extract impact
+    var impM = block.match(/impact\s*:\s*([^\n]{10,200})/i);
+    var imp  = impM ? impM[1].trim() : '';
+    findings.push({id:id, title:title, sev:sev, summary:sum, impact:imp});
+  }
+
+  // Pattern 2: numbered "1. **Category | Type | Severity |**"
+  if (findings.length === 0) {
+    var re2 = /\d+\.\s+\*\*([^*\n]+)\*\*/g;
+    while ((m = re2.exec(text)) !== null) {
+      var raw = m[1];
+      var parts = raw.split('|').map(function(s){ return s.trim(); }).filter(Boolean);
+      var sev = 'INFO';
+      if (parts.length >= 3) {
+        var s = parts[2].toUpperCase();
+        if (s.includes('CRITICAL')) sev = 'CRITICAL';
+        else if (s.includes('HIGH'))   sev = 'HIGH';
+        else if (s.includes('MEDIUM')) sev = 'MEDIUM';
+        else if (s.includes('LOW'))    sev = 'LOW';
+      }
+      var title = parts.slice(0,2).join(' - ') || raw;
+      // grab evidence line below
+      var below = text.substring(m.index, m.index+400);
+      var evM = below.match(/evidence\s*:\s*([^\n]{10,200})/i);
+      var sum = evM ? evM[1].trim() : '';
+      findings.push({id:null, title:title, sev:sev, summary:sum, impact:''});
+    }
+  }
+
+  return findings;
+}
+
+/* ── Build severity chart ── */
+var _chartInst = null;
+function buildChart(sev) {
+  var labels=[], data=[], colors=[];
+  var map = [
+    ['critical','Critical','#7f1d1d'],
+    ['high','High','#dc2626'],
+    ['medium','Medium','#d97706'],
+    ['low','Low','#16a34a'],
+    ['info','Info','#2563eb'],
+  ];
+  map.forEach(function(r){
+    if(sev[r[0]]>0){ labels.push(r[1]); data.push(sev[r[0]]); colors.push(r[2]); }
+  });
+  if(labels.length===0){ labels=['No findings']; data=[1]; colors=['#e5e7eb']; }
+
+  if(_chartInst){ _chartInst.destroy(); _chartInst=null; }
+  var ctx = document.getElementById('sevChart');
+  if(!ctx) return;
+  _chartInst = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: labels, datasets:[{ data:data, backgroundColor:colors, borderWidth:2, borderColor:'#fff', hoverOffset:4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display:false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx){ return ' '+ctx.label+': '+ctx.raw; }
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ── Build severity stat bars ── */
+function buildSevBars(sev) {
+  var total = Object.values(sev).reduce(function(a,b){return a+b;},0) || 1;
+  var rows = [
+    ['critical','Critical','#7f1d1d'],
+    ['high','High','#dc2626'],
+    ['medium','Medium','#d97706'],
+    ['low','Low','#16a34a'],
+    ['info','Info','#2563eb'],
+  ];
+  return rows.map(function(r){
+    var cnt = sev[r[0]]||0;
+    var pct = Math.round(cnt/total*100);
+    return '<div class="sev-row">' +
+      '<div class="sev-dot" style="background:'+r[2]+'"></div>' +
+      '<div class="sev-name">'+r[1]+'</div>' +
+      '<div class="sev-bar-bg"><div class="sev-bar-fill" style="width:'+pct+'%;background:'+r[2]+'"></div></div>' +
+      '<div class="sev-count">'+cnt+'</div>' +
+    '</div>';
+  }).join('');
+}
+
+/* ── Build finding cards ── */
+function buildFindingCards(findings, riskClass) {
+  if (!findings.length) return '<p style="color:#9ca3af;font-size:13px;">No structured findings parsed from this scan output.</p>';
+  return findings.map(function(f, i) {
+    var bc = 'badge-'+(f.sev||'INFO');
+    var body = '';
+    if (f.summary) body += '<p><strong>Overview:</strong> '+esc(f.summary)+'</p>';
+    if (f.impact)  body += '<p><strong>Impact:</strong> '+esc(f.impact)+'</p>';
+    return '<div class="finding-card">' +
+      '<div class="finding-card-hd" onclick="togFinding(this)">' +
+        (f.id ? '<span class="finding-id">'+esc(f.id)+'</span>' : '') +
+        '<span class="badge '+bc+'">'+esc(f.sev)+'</span>' +
+        '<span class="finding-title">'+esc(f.title)+'</span>' +
+        '<span class="finding-toggle">+</span>' +
+      '</div>' +
+      (body ? '<div class="finding-body"><div class="finding-steps">'+body+'</div></div>' : '') +
+    '</div>';
+  }).join('');
+}
+
+function togFinding(hd) {
+  var body = hd.nextElementSibling;
+  var tog  = hd.querySelector('.finding-toggle');
+  if (!body) return;
+  var open = body.classList.toggle('open');
+  if (tog) tog.textContent = open ? '-' : '+';
+}
+
+/* ── Open modal ── */
 function openModal(id) {
   document.getElementById('mbg').classList.add('open');
   document.getElementById('mbody').innerHTML =
-    '<p style="color:#9ca3af;text-align:center;padding:40px;">Loading...</p>';
+    '<p style="color:#9ca3af;text-align:center;padding:40px;">Loading report...</p>';
 
-  fetch('/api/scan/' + id)
-    .then(r => r.json())
+  fetch('/api/scan/'+id)
+    .then(function(r){ return r.json(); })
     .then(function(s) {
-      document.getElementById('mtitle').textContent = 'Security Report: ' + s.target;
-      document.getElementById('msub').textContent   = s.agent_label + '  |  Scan #' + s.id;
+      document.getElementById('mtitle').textContent = 'Security Report: '+s.target;
+      document.getElementById('msub').textContent   = s.agent_label+'  |  Scan #'+s.id;
 
-      var recs = s.recs || [];
-      var recHtml;
-      if (recs.length) {
-        recHtml = '<ul class="rec-list">';
-        recs.forEach(function(r) { recHtml += '<li class="r-'+s.risk+'">'+esc(r)+'</li>'; });
-        recHtml += '</ul>';
-      } else {
-        recHtml = '<p style="color:#9ca3af;font-size:13px;">No specific action items were extracted from this scan.</p>';
-      }
+      var output = s.output || '';
+      var sev    = countSev(output);
+      var sevTotal = Object.values(sev).reduce(function(a,b){return a+b;},0);
+      var findings = parseFindings(output);
+      var recs     = s.recs || [];
+      var st       = s.status==='ok' ? '<span class="st-ok">OK</span>'
+                   : s.status==='interrupted' ? '<span class="st-int">Stopped</span>'
+                   : '<span class="st-err">Error</span>';
 
-      var st = s.status === 'ok' ? '<span class="st-ok">OK</span>'
-             : s.status === 'interrupted' ? '<span class="st-int">Stopped</span>'
-             : '<span class="st-err">Error</span>';
+      var recHtml = recs.length
+        ? '<ul class="rec-list">'+recs.map(function(r){ return '<li class="r-'+s.risk+'">'+esc(r)+'</li>'; }).join('')+'</ul>'
+        : '<p style="color:#9ca3af;font-size:13px;">No specific action items extracted from this scan.</p>';
+
+      var cleanOutput = stripMd(output);
 
       document.getElementById('mbody').innerHTML =
-        '<div class="meta-grid">' +
+        /* Meta */ '<div class="meta-grid">' +
           '<div class="meta-item"><label>Target</label><span>'+esc(s.target)+'</span></div>' +
           '<div class="meta-item"><label>Risk Level</label><span class="badge badge-'+s.risk+'">'+s.risk+'</span></div>' +
           '<div class="meta-item"><label>Status</label><span>'+st+'</span></div>' +
@@ -650,32 +997,53 @@ function openModal(id) {
           '<div class="meta-item"><label>Duration</label><span>'+s.latency_s+'s</span></div>' +
           '<div class="meta-item"><label>Tools Used</label><span>'+(s.tool_count||0)+'</span></div>' +
           '<div class="meta-item"><label>Date (UTC)</label><span>'+(s.display_date||'--')+'</span></div>' +
-          '<div class="meta-item"><label>Action Items</label><span>'+(s.recs||[]).length+'</span></div>' +
         '</div>' +
-        '<div class="rpt-sec"><h3>Recommended Actions</h3>'+recHtml+'</div>' +
-        '<div class="rpt-sec"><h3>Full Findings Report</h3>' +
-          '<button class="toggle-link" id="tog" onclick="togFull()">Show full report</button>' +
-          '<div id="fout" style="display:none;">' +
-            '<div class="full-output">'+esc(s.output||'No output recorded.')+'</div>' +
+
+        /* Plain summary */ '<div class="rpt-sec" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:14px 16px;">' +
+          '<h3 style="color:#0369a1;border-color:#bae6fd;">What This Scan Did and What Was Found</h3>' +
+          agentSummary(s.agent_type, sev, findings.length) +
+        '</div>' +
+
+        /* Chart row */ '<div class="chart-row">' +
+          '<div class="chart-box">' +
+            '<h4>Severity Breakdown</h4>' +
+            '<div class="chart-canvas-wrap"><canvas id="sevChart"></canvas></div>' +
+            '<div style="font-size:11px;color:#9ca3af;margin-top:8px;">'+sevTotal+' severity mention'+(sevTotal===1?'':'s')+' detected</div>' +
           '</div>' +
+          '<div class="sev-stats">' +
+            '<h4>Finding Distribution</h4>' +
+            buildSevBars(sev) +
+          '</div>' +
+        '</div>' +
+
+        /* Findings */ '<div class="rpt-sec"><h3>Structured Findings ('+findings.length+')</h3>' +
+          buildFindingCards(findings, s.risk) +
+        '</div>' +
+
+        /* Recommendations */ '<div class="rpt-sec"><h3>Remediations and Recommended Actions</h3>'+recHtml+'</div>' +
+
+        /* Raw output */ '<div class="rpt-sec"><h3>Full Agent Output</h3>' +
+          '<button class="toggle-link" id="tog" onclick="togFull()">Show full report</button>' +
+          '<div id="fout" style="display:none;"><div class="full-output">'+esc(cleanOutput||'No output recorded.')+'</div></div>' +
         '</div>';
+
+      // Render chart after DOM update
+      setTimeout(function(){ buildChart(sev); }, 50);
     })
-    .catch(function(e) {
+    .catch(function(e){
       document.getElementById('mbody').innerHTML =
-        '<p style="color:#dc2626;padding:20px;">Failed to load report: '+esc(String(e))+'</p>';
+        '<p style="color:#dc2626;padding:20px;">Failed to load: '+esc(String(e))+'</p>';
     });
 }
 
-function togFull() {
-  var d = document.getElementById('fout');
-  var b = document.getElementById('tog');
-  if (d.style.display === 'none') { d.style.display = 'block'; b.textContent = 'Hide full report'; }
-  else { d.style.display = 'none'; b.textContent = 'Show full report'; }
+function togFull(){
+  var d=document.getElementById('fout'), b=document.getElementById('tog');
+  if(d.style.display==='none'){ d.style.display='block'; b.textContent='Hide raw output'; }
+  else { d.style.display='none'; b.textContent='Show raw output'; }
 }
-
-function closeModal() { document.getElementById('mbg').classList.remove('open'); }
-function bgClose(e)   { if (e.target === document.getElementById('mbg')) closeModal(); }
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+function closeModal(){ document.getElementById('mbg').classList.remove('open'); }
+function bgClose(e){ if(e.target===document.getElementById('mbg')) closeModal(); }
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
 </script>
 </body>
 </html>

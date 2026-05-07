@@ -63,6 +63,13 @@ def risk_level(text: str) -> str:
     return 'INFO'
 
 
+def _strip_md(text: str) -> str:
+    """Strip markdown bold/italic markers from text."""
+    text = re.sub(r'\*\*([^*\n]+)\*\*', r'\1', text)
+    text = re.sub(r'\*([^*\n]+)\*', r'\1', text)
+    return text.strip()
+
+
 def extract_recs(text: str) -> list[str]:
     """Extract actionable recommendations from agent findings text."""
     recs, in_sec = [], False
@@ -71,21 +78,24 @@ def extract_recs(text: str) -> list[str]:
         if not line:
             in_sec = False
             continue
-        lower = line.lower()
-        if any(h in lower for h in _REC_HEADERS):
+        # Strip markdown markers so **Recommendation:** is detected
+        clean = _strip_md(re.sub(r'^[-*+\d.)#]+\s*', '', line))
+        clean_lower = clean.lower()
+        if any(h in clean_lower for h in _REC_HEADERS):
             in_sec = True
-            if ':' in line:
-                after = line.split(':', 1)[1].strip()
+            if ':' in clean:
+                after = clean.split(':', 1)[1].strip()
                 if len(after) > 12:
                     recs.append(after)
+                    in_sec = False
             continue
         is_bullet = line.startswith(('-', '*', '+')) or re.match(r'^\d+[.)]\s', line)
         if in_sec and is_bullet:
-            item = re.sub(r'^[-*+\d.)]+\s*', '', line).strip()
+            item = _strip_md(re.sub(r'^[-*+\d.)]+\s*', '', line).strip())
             if len(item) > 12:
                 recs.append(item)
-        elif _ACTION_RE.search(line) and 25 < len(line) < 300:
-            recs.append(line)
+        elif _ACTION_RE.search(clean) and 25 < len(clean) < 300:
+            recs.append(clean)
     # deduplicate
     seen, out = set(), []
     for r in recs:
