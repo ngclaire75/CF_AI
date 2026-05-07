@@ -104,8 +104,32 @@ def span(name: str):
     return _NullSpan()
 
 
+def set_ok(s):
+    """Mark span as OK (successful completion)."""
+    if not _enabled:
+        return
+    try:
+        from opentelemetry.trace import StatusCode
+        s.set_status(StatusCode.OK)
+    except Exception:
+        pass
+
+
+def set_error(s, exc: Exception):
+    """Mark span as ERROR with exception details."""
+    if not _enabled:
+        return
+    try:
+        from opentelemetry.trace import StatusCode
+        s.set_status(StatusCode.ERROR, str(exc))
+        s.record_exception(exc)
+    except Exception:
+        pass
+
+
 class _NullSpan:
-    def __enter__(self):       return self
-    def __exit__(self, *_):    pass
-    def set_attribute(self, *_): pass
-    def record_exception(self, *_): pass
+    def __enter__(self):              return self
+    def __exit__(self, *_):           pass
+    def set_attribute(self, *_):      pass
+    def set_status(self, *_):         pass
+    def record_exception(self, *_):   pass

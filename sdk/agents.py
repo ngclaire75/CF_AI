@@ -110,11 +110,19 @@ class Runner:
 
         turns = max_turns or agent.max_turns
 
+        from sdk.tracing import set_ok as _ok, set_error as _err
         with _span(f'agent:{agent.name}') as s:
             s.set_attribute('cfai.agent', agent.name)
             s.set_attribute('cfai.model', agent.model)
             s.set_attribute('cfai.max_turns', turns)
-            return cls._run_openai(agent, message, on_text, on_tool, on_result, turns)
+            s.set_attribute('openinference.span.kind', 'CHAIN')
+            try:
+                result = cls._run_openai(agent, message, on_text, on_tool, on_result, turns)
+                _ok(s)
+                return result
+            except Exception as exc:
+                _err(s, exc)
+                raise
 
     @classmethod
     def _run_openai(cls, agent: Agent, message: str,
@@ -147,19 +155,38 @@ class Runner:
         turns    = 0
         final    = ''
 
-        from sdk.tracing import span as _span
+        from sdk.tracing import span as _span, set_ok as _ok
 
         while turns < max_turns:
             turns += 1
             try:
                 with _span(f'turn:{turns}') as ts:
                     ts.set_attribute('cfai.turn', turns)
+                    ts.set_attribute('openinference.span.kind', 'LLM')
+                    ts.set_attribute('llm.model_name', agent.model)
+                    ts.set_attribute('llm.invocation_parameters',
+                                     _json.dumps({'model': agent.model, 'tool_choice': 'auto' if tools else None}))
+                    # Log input messages for Phoenix ChatCompletion view
+                    for i, m in enumerate(messages[-10:]):  # last 10 to stay under attr limit
+                        ts.set_attribute(f'llm.input_messages.{i}.message.role', m.get('role', ''))
+                        ts.set_attribute(f'llm.input_messages.{i}.message.content',
+                                         str(m.get('content') or '')[:500])
                     resp = client.chat.completions.create(
                         model=agent.model,
                         messages=messages,
                         tools=tools or None,
                         tool_choice='auto' if tools else None,
                     )
+                    # Log output
+                    out_msg = resp.choices[0].message
+                    ts.set_attribute('llm.output_messages.0.message.role', 'assistant')
+                    ts.set_attribute('llm.output_messages.0.message.content',
+                                     str(out_msg.content or '')[:500])
+                    ts.set_attribute('llm.token_count.prompt',
+                                     getattr(getattr(resp, 'usage', None), 'prompt_tokens', 0))
+                    ts.set_attribute('llm.token_count.completion',
+                                     getattr(getattr(resp, 'usage', None), 'completion_tokens', 0))
+                    _ok(ts)
             except KeyboardInterrupt:
                 instr = _hitl_pause(messages)
                 if instr is None:
