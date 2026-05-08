@@ -202,8 +202,8 @@ VULNERABILITY INTELLIGENCE (free, no key):
     curl -s -d "host=<domain>" "https://urlhaus-api.abuse.ch/v1/host/" | python3 -m json.tool | head -20
 
 WORDPRESS SPECIFIC (free + optional paid):
-- WPScan vulnerability DB (free tier 25 req/day; set $WP_SCAN_API_TOKEN for unlimited):
-    WP_KEY="${{WP_SCAN_API_TOKEN:-}}"
+- WPScan vulnerability DB (free tier 25 req/day; set $WPSCAN_API_TOKEN for more):
+    WP_KEY="${{WPSCAN_API_TOKEN:-}}"
     curl -s ${{WP_KEY:+-H "Authorization: Token token=$WP_KEY"}} "https://wpscan.com/api/v3/wordpresses/<version_nodots>" | python3 -m json.tool | head -40
     curl -s ${{WP_KEY:+-H "Authorization: Token token=$WP_KEY"}} "https://wpscan.com/api/v3/plugins/<plugin_slug>" | python3 -m json.tool | head -40
     curl -s ${{WP_KEY:+-H "Authorization: Token token=$WP_KEY"}} "https://wpscan.com/api/v3/themes/<theme_slug>" | python3 -m json.tool | head -20
@@ -218,8 +218,8 @@ WORDPRESS SPECIFIC (free + optional paid):
 - Sucuri malware check (no key):
     curl -s "https://sitecheck.sucuri.net/api/v3/?scan=<domain>" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Malware:', d.get('malware',{{}})); print('Blacklists:', d.get('blacklists',{{}}))"
 - Wordfence plugin endpoints (if Wordfence installed):
-    Use wp_api_call to GET /wp-json/wordfence/v1/scan/status
-    Use wp_api_call to GET /wp-json/wordfence/v1/ips/blocked
+    Use wp_api_call to GET /wp-json/wordfence/v1/scan/issues   (list scan findings — admin only)
+    Use wp_api_call to GET /wp-json/wordfence/v1/config        (Wordfence config — admin only)
 
 NETWORK + HOST INTELLIGENCE:
 - Shodan InternetDB (no key — open ports, vulns, hostnames):
