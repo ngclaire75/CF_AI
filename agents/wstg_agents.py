@@ -135,13 +135,35 @@ RULES:
 
   PERSIST — keep trying alternatives until you get a real response from the target.
   Exhaust ALL of the above before concluding an endpoint is unreachable.
+
+REAL-TIME API INTEGRATIONS (use these for accurate, target-specific intelligence):
+- NVD CVE lookup (no key):
+    curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=<product+version>&resultsPerPage=5" | python3 -m json.tool | grep -E "id|description|score" | head -30
+- Shodan host intel ($SHODAN_API_KEY required — skip if not set):
+    if [ -n "$SHODAN_API_KEY" ]; then curl -s "https://api.shodan.io/shodan/host/<ip>?key=$SHODAN_API_KEY" | python3 -m json.tool; fi
+- VirusTotal domain/IP reputation ($VIRUSTOTAL_API_KEY required — skip if not set):
+    if [ -n "$VIRUSTOTAL_API_KEY" ]; then curl -s -H "x-apikey: $VIRUSTOTAL_API_KEY" "https://www.virustotal.com/api/v3/domains/<domain>" | python3 -c "import sys,json; d=json.load(sys.stdin); s=d.get('data',{{}}).get('attributes',{{}}).get('last_analysis_stats',{{}}); print('VT stats:',s)"; fi
+- URLhaus malware/threat check (no key):
+    curl -s -d "host=<ip_or_domain>" "https://urlhaus-api.abuse.ch/v1/host/" | python3 -m json.tool
+- Certificate Transparency + subdomain discovery (no key):
+    curl -s "https://crt.sh/?q=%25.<domain>&output=json" | python3 -c "import sys,json; raw=sys.stdin.read(); d=json.loads(raw) if raw.strip().startswith('[') else []; [print(e['name_value']) for e in d[:20]]"
+- Mozilla Observatory security headers (no key):
+    curl -s -X POST "https://http-observatory.security.mozilla.org/api/v1/analyze?host=<domain>" | python3 -m json.tool
+- SSL Labs grade (no key, uses cache):
+    curl -s "https://api.ssllabs.com/api/v3/analyze?host=<domain>&fromCache=on&maxAge=24" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(e['host'],e.get('grade','pending')) for e in d.get('endpoints',[])]"
+- Datadog IP ranges (for allowlist/blocklist — no key):
+    curl -s "https://ip-ranges.datadoghq.com/" | python3 -c "import sys,json; d=json.load(sys.stdin); print('webhooks:', d.get('webhooks',{{}}).get('prefixes_ipv4',[][:3]))"
+
+IMPORTANT: Always substitute real values before calling. Never skip API checks because a key is missing
+  — use the free (keyless) APIs first, then conditionally use keyed APIs when available.
+  When an API returns findings, cite them explicitly: "NVD CVE-2024-XXXXX: <description>"
 """
 
 
 def _agent(category: str, desc: str, instructions: str, max_turns: int = 25,
-           extra_tools: list = None) -> Agent:
+           extra_tools: list = None, name: str = None) -> Agent:
     return Agent(
-        name=f'WSTG-{category}',
+        name=name or f'WSTG-{category}',
         description=desc,
         instructions=RULES + instructions,
         tools=(extra_tools or []) + _TOOLS,
@@ -171,7 +193,7 @@ _SHARED = {
     'supabase.co': 'Supabase',
 }
 
-INFO_AGENT = _agent('INFO', 'Information Gathering', f"""
+INFO_AGENT = _agent('INFO', 'Recon Scout — Passive & Active Reconnaissance', f"""
 You are the WSTG-INFO agent. Target: {{domain}}
 
 ══════════════════════════════════════════════════════════
@@ -466,7 +488,7 @@ After completing all checks, produce the final report:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-CONF  (CONF-01, 10)
 # ─────────────────────────────────────────────────────────────────────────────
-CONF_AGENT = _agent('CONF', 'Configuration & Deploy Management', f"""
+CONF_AGENT = _agent('CONF', 'Config Auditor — Infrastructure & Deployment Security', f"""
 You are the WSTG-CONF agent. Target: {{domain}}
 
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
@@ -491,7 +513,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-IDNT  (IDNT-01 to 05)
 # ─────────────────────────────────────────────────────────────────────────────
-IDNT_AGENT = _agent('IDNT', 'Identity Management', f"""
+IDNT_AGENT = _agent('IDNT', 'Identity Mapper — User Roles & Account Enumeration', f"""
 You are the WSTG-IDNT agent. Target: {{domain}}
 
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s and you get no output.
@@ -524,7 +546,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-ATHN  (ATHN-01,02,03,04,07,08,09,10,11)
 # ─────────────────────────────────────────────────────────────────────────────
-ATHN_AGENT = _agent('ATHN', 'Authentication Testing', f"""
+ATHN_AGENT = _agent('ATHN', 'Auth Prober — Authentication & Credential Security', f"""
 You are the WSTG-ATHN agent. Target: {{domain}}
 
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s and you get no output.
@@ -600,7 +622,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-ATHZ  (ATHZ-01 to 05)
 # ─────────────────────────────────────────────────────────────────────────────
-ATHZ_AGENT = _agent('ATHZ', 'Authorization Testing', f"""
+ATHZ_AGENT = _agent('ATHZ', 'Access Control Tester — Authorization & Privilege Escalation', f"""
 You are the WSTG-ATHZ agent. Target: {{domain}}
 
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
@@ -633,7 +655,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-SESS  (SESS-01,02,03,05,06,07,10)
 # ─────────────────────────────────────────────────────────────────────────────
-SESS_AGENT = _agent('SESS', 'Session Management Testing', f"""
+SESS_AGENT = _agent('SESS', 'Session Analyst — Cookie & Token Security', f"""
 You are the WSTG-SESS agent. Target: {{domain}}
 
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
@@ -677,7 +699,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-INPV  (INPV-01,02,05,11,12,18,19)
 # ─────────────────────────────────────────────────────────────────────────────
-INPV_AGENT = _agent('INPV', 'Input Validation Testing', f"""
+INPV_AGENT = _agent('INPV', 'Injection Hunter — SQLi, XSS, SSTI & Command Injection', f"""
 You are the WSTG-INPV agent. Target: {{domain}}
 
 CRITICAL: Use subprocess curl (NOT urllib — urllib stalls on VPS SSL). Every curl needs -L -4 -A "{_BUA}".
@@ -728,7 +750,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-CRYP  (CRYP-01, 03)
 # ─────────────────────────────────────────────────────────────────────────────
-CRYP_AGENT = _agent('CRYP', 'Cryptography Testing', f"""
+CRYP_AGENT = _agent('CRYP', 'Crypto Inspector — TLS, Cipher & Hashing Weaknesses', f"""
 You are the WSTG-CRYP agent. Target: {{domain}}
 
 CRITICAL: Use curl for TLS (NOT openssl s_client — it hangs on virtual-hosted servers that need SNI+Host).
@@ -756,7 +778,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # ─────────────────────────────────────────────────────────────────────────────
 # WSTG-CLNT  (CLNT-01,02,03,04,12,13)
 # ─────────────────────────────────────────────────────────────────────────────
-CLNT_AGENT = _agent('CLNT', 'Client-Side Testing', f"""
+CLNT_AGENT = _agent('CLNT', 'Client-Side Analyst — Browser Security & DOM Vulnerabilities', f"""
 You are the WSTG-CLNT agent. Target: {{domain}}
 
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
@@ -808,7 +830,7 @@ _MCP_INSTR = (
     '═══════════════════════════════════════════════════\n\n'
 ) if _MCP_TOOLS else ''
 
-APIT_AGENT = _agent('APIT', 'API Security Testing', f"""
+APIT_AGENT = _agent('APIT', 'API Security Tester — REST, GraphQL & WordPress API Audits', f"""
 You are the WSTG-APIT agent. Target: {{domain}}
 {_MCP_INSTR}
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
@@ -1124,8 +1146,8 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 # JS / SECRET HUNTER  (3-phase: Discovery → Secret Hunting → Evasion)
 # ─────────────────────────────────────────────────────────────────────────────
 JS_AGENT = Agent(
-    name='WSTG-JS',
-    description='JavaScript Intelligence: Intelligent Discovery → Advanced Secret Hunting → Evasion & Bypass',
+    name='JS Intelligence Agent',
+    description='JS Intelligence: Discovery → Secret Hunting → Evasion & WAF Bypass',
     instructions=RULES + f"""
 You are the CF_AI JavaScript Intelligence Agent. Target: {{domain}}
 
@@ -1201,21 +1223,255 @@ After all 3 phases, produce the final report using the OUTPUT FORMAT from RULES:
 )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# WORKFLOW AGENTS — Dynatrace-style post-scan intelligence layer
+# Run after WSTG scan completes to enrich, correlate, and prioritize findings.
+# Each agent receives the accumulated scan output as part of its prompt.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_WORKFLOW_RULES = f"""
+You receive aggregated security scan output for {{domain}}. Use real-time APIs to enrich findings.
+ALWAYS call external APIs to verify and score findings — never use guesses or generic advice.
+APIs available (use them):
+  NVD CVE:       curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=<product>&resultsPerPage=5"
+  URLhaus:       curl -s -d "host=<ip>" "https://urlhaus-api.abuse.ch/v1/host/"
+  Mozilla Obs:   curl -s "https://http-observatory.security.mozilla.org/api/v1/analyze?host={{domain}}&rescan=false"
+  SSL Labs:      curl -s "https://api.ssllabs.com/api/v3/analyze?host={{domain}}&fromCache=on&maxAge=24"
+  Shodan (key):  if [ -n "$SHODAN_API_KEY" ]; then dig +short {{domain}} | head -1 | xargs -I{{}} curl -s "https://api.shodan.io/shodan/host/{{}}?key=$SHODAN_API_KEY"; fi
+  VT (key):      if [ -n "$VIRUSTOTAL_API_KEY" ]; then curl -s -H "x-apikey: $VIRUSTOTAL_API_KEY" "https://www.virustotal.com/api/v3/domains/{{domain}}"; fi
+"""
+
+ASSOC_AGENT = Agent(
+    name='Security Association Agent',
+    description='Correlates CVEs with discovered services and links threat intel across scan findings',
+    instructions=_WORKFLOW_RULES + """
+You are the Security Association Agent. Target: {domain}
+
+Your job is to correlate all findings from the pentest scan output with real CVE data and threat intelligence.
+
+STEP 1 — Extract all identified software versions from scan output.
+  List every product + version found (e.g., WordPress 6.4.2, PHP 8.1.0, nginx/1.25.3, OpenSSL 3.0.2).
+
+STEP 2 — For each product+version, query NVD:
+  curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=<product+version>&resultsPerPage=5" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(v['cve']['id'],'|',v['cve']['descriptions'][0]['value'][:100],'| CVSS:',v['cve'].get('metrics',{}).get('cvssMetricV31',[{}])[0].get('cvssData',{}).get('baseScore','N/A')) for v in d.get('vulnerabilities',[])]"
+
+STEP 3 — Check target domain reputation:
+  curl -s -d "host={domain}" "https://urlhaus-api.abuse.ch/v1/host/" | python3 -m json.tool
+  curl -s "https://http-observatory.security.mozilla.org/api/v1/analyze?host={domain}&rescan=false" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Observatory grade:',d.get('grade','pending'),'Score:',d.get('score','N/A'),'Tests failed:',d.get('tests-failed',0))"
+
+STEP 4 — Cross-reference finding locations with Shodan if key is set:
+  dig +short {domain} | head -1
+
+FINAL REPORT:
+- Table: Software | Version | CVE IDs | CVSS Score | Impact Summary
+- Threat intel results (URLhaus, VT, Observatory)
+- Association map: which scan category found each service and what CVEs apply
+""",
+    tools=_TOOLS,
+    model=_MODEL,
+    max_turns=20,
+)
+
+TRIAGE_AGENT = Agent(
+    name='Threat Triage Agent',
+    description='Prioritizes findings by real-world exploitability using CVSS, threat intel, and attack surface analysis',
+    instructions=_WORKFLOW_RULES + """
+You are the Threat Triage Agent. Target: {domain}
+
+Your job is to prioritize every finding from the scan by actual exploitability — not just theoretical severity.
+
+STEP 1 — Score each finding on three axes:
+  a) CVSS Base Score (look up via NVD if software version is known)
+  b) Exploitability: is a public exploit available? (check ExploitDB via search or CVE mentions in Shodan)
+  c) Attack surface: is the vulnerable endpoint exposed externally? (probe it directly)
+
+STEP 2 — Verify top-3 critical/high findings with a live probe:
+  For each: curl -L -4 -sk --max-time 10 -A "Mozilla/5.0" <endpoint> -o /dev/null -w "%{http_code} %{time_total}s"
+  Confirm whether the vulnerability is still reachable and unpatched.
+
+STEP 3 — Calculate a Triage Priority Score (1-10):
+  P = CVSS × 0.4 + Exploitability (1-10) × 0.35 + Exposure (1-10) × 0.25
+  Sort all findings by P descending.
+
+FINAL REPORT — Prioritized finding table:
+| Rank | Finding | Category | CVSS | Exploitable | Exposed | Priority Score | Immediate Action |
+Sort by Priority Score. Include ONLY actionable items — omit pure informational findings.
+""",
+    tools=_TOOLS,
+    model=_MODEL,
+    max_turns=20,
+)
+
+REDUCE_AGENT = Agent(
+    name='Alert Reduction Agent',
+    description='Deduplicates and groups related findings to eliminate noise and highlight unique issues',
+    instructions=_WORKFLOW_RULES + """
+You are the Alert Reduction Agent. Target: {domain}
+
+Your job is to reduce alert noise by deduplicating related findings across all scan categories.
+
+STEP 1 — Group findings by root cause:
+  e.g., "Missing security headers" may appear in CONF, CRYP, and CLNT — merge into one finding.
+  "Outdated TLS" may appear in CONF and CRYP — merge.
+  Group by: same vulnerability class, same endpoint, same root cause.
+
+STEP 2 — For each group:
+  - Keep the highest severity instance
+  - List which scan categories also reported it
+  - Count how many duplicate alerts are being suppressed
+
+STEP 3 — Verify deduplication is correct: re-probe one merged finding to confirm it's the same root cause.
+
+FINAL REPORT:
+- Unique finding count (before vs after deduplication)
+- Merged finding table: Root Cause | Original Count | Categories | Final Severity | Recommended Fix
+- Alert reduction percentage: (duplicates removed / total alerts) × 100
+""",
+    tools=_TOOLS,
+    model=_MODEL,
+    max_turns=15,
+)
+
+VERIFY_AGENT = Agent(
+    name='Vulnerability Verification Agent',
+    description='Re-tests high and critical findings with live probes to confirm real exploitability',
+    instructions=_WORKFLOW_RULES + """
+You are the Vulnerability Verification Agent. Target: {domain}
+
+Your job is to re-test every HIGH and CRITICAL finding from the scan with a live proof-of-concept attempt.
+This converts theoretical vulnerabilities into confirmed exploits (or confirmed false positives).
+
+For each HIGH/CRITICAL finding:
+  1. Run the specific test command that would confirm exploitation
+  2. Record exact HTTP status, response snippet (first 200 chars), and timing
+  3. Classify as:
+     - CONFIRMED: exploit succeeded or sensitive data returned
+     - LIKELY: vulnerability present but not directly exploitable from this IP (WAF/auth required)
+     - FALSE POSITIVE: probe returned no evidence, endpoint not vulnerable
+
+MANDATORY VERIFICATION PROBES (run all that apply):
+  - Exposed file: curl -s --max-time 8 https://{domain}<path> | head -c 300
+  - Auth bypass: attempt unauthenticated access to admin endpoints
+  - Injection: send benign payload and check for reflection or error message
+  - SSL issue: openssl s_client -connect {domain}:443 -servername {domain} 2>/dev/null | grep -E "DONE|verify|depth|issuer"
+
+FINAL REPORT:
+| Finding | Severity | Status (CONFIRMED/LIKELY/FALSE POSITIVE) | Evidence | Confidence % |
+Include exact commands run and exact responses received for each CONFIRMED finding.
+""",
+    tools=_TOOLS,
+    model=_MODEL,
+    max_turns=25,
+)
+
+REPORT_AGENT = Agent(
+    name='Security Insights Report Agent',
+    description='Compiles executive-ready security report with trends, MTTR metrics, and prioritized remediation roadmap',
+    instructions=_WORKFLOW_RULES + """
+You are the Security Insights Report Agent. Target: {domain}
+
+Your job is to produce a complete, executive-ready security assessment report.
+
+STEP 1 — Pull current external scores:
+  curl -s "https://http-observatory.security.mozilla.org/api/v1/analyze?host={domain}&rescan=false" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Mozilla grade:',d.get('grade','?'),'score:',d.get('score','?'),'/100')"
+  curl -s "https://api.ssllabs.com/api/v3/analyze?host={domain}&fromCache=on&maxAge=24" | python3 -c "import sys,json; d=json.load(sys.stdin); eps=d.get('endpoints',[]); [print('SSL grade:',e.get('grade','?'),e.get('ipAddress','')) for e in eps]"
+
+STEP 2 — Compile the executive summary using real scan findings:
+  - Total findings by severity (HIGH/MEDIUM/LOW/INFO counts)
+  - Top 3 most critical issues (from Triage Agent output if available)
+  - Estimated remediation effort (hours) per severity tier
+
+STEP 3 — Remediation roadmap (30/60/90 days):
+  - IMMEDIATE (0-30 days): Critical + High findings
+  - SHORT-TERM (31-60 days): Medium findings
+  - STRATEGIC (61-90 days): Low/Info + hardening improvements
+
+REPORT FORMAT:
+  ## Executive Summary
+  ## Risk Dashboard: <counts table>
+  ## Critical Findings (Top 3)
+  ## Full Finding List
+  ## 30/60/90-Day Remediation Roadmap
+  ## External Security Scores
+""",
+    tools=_TOOLS,
+    model=_MODEL,
+    max_turns=20,
+)
+
+INFRA_AGENT = Agent(
+    name='Infrastructure Optimization Agent',
+    description='Analyses server configuration, performance bottlenecks, and hardening opportunities via SSH',
+    instructions=_WORKFLOW_RULES + """
+You are the Infrastructure Optimization Agent. Target: {domain}
+
+Your job is to analyse the server's infrastructure for security hardening and performance issues.
+Use SSH access if credentials are provided; otherwise use passive/external checks.
+
+EXTERNAL CHECKS (always run):
+  # Open ports and services
+  nmap -Pn -sV --top-ports 100 --host-timeout 30s {domain} 2>/dev/null | grep -E "open|filtered" | head -20
+  # DNSSEC and DNS security
+  dig {domain} DS +short; dig {domain} DNSKEY +short | wc -l
+  dig {domain} TXT +short | grep -iE "spf|dmarc|dkim|v=spf|v=DMARC"
+  # HTTP/2 and HSTS support
+  curl -sI https://{domain}/ -A "Mozilla/5.0" --max-time 10 | grep -iE "http/2|strict-transport|alt-svc|x-frame|content-security"
+  # IPv6 availability
+  curl -6 -sI https://{domain}/ --max-time 8 -o /dev/null -w "IPv6: %{http_code}" 2>/dev/null || echo "IPv6: not available"
+  # Global CDN/latency check (probe 3 paths)
+  for path in / /robots.txt /favicon.ico; do curl -L -4 -sk -o /dev/null -w "$path %{http_code} %{time_total}s\n" --max-time 10 -A "Mozilla/5.0" https://{domain}$path; done
+
+SSH CHECKS (if credentials are in instructions):
+  # System resource snapshot
+  uptime; free -h; df -h / 2>/dev/null
+  # Listening services
+  ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null | head -20
+  # Recent failed logins (auth anomalies)
+  lastb 2>/dev/null | head -20 || grep -iE "failed|invalid" /var/log/auth.log 2>/dev/null | tail -20
+  # Unpatched packages
+  apt list --upgradable 2>/dev/null | grep -iE "security" | head -20 || yum check-update --security 2>/dev/null | head -20
+  # Firewall rules
+  iptables -L INPUT -n --line-numbers 2>/dev/null | head -20 || ufw status verbose 2>/dev/null
+
+FINAL REPORT:
+  ## Infrastructure Health Score (0-100, computed from checks)
+  ## Open Services (table: port | service | version | risk)
+  ## DNS & Email Security (SPF/DKIM/DMARC/DNSSEC status)
+  ## Performance (latency, HTTP/2, CDN)
+  ## Hardening Recommendations (prioritized list)
+""",
+    tools=_TOOLS,
+    model=_MODEL,
+    max_turns=25,
+)
+
+
 # ── Registry ──────────────────────────────────────────────────────────────────
 
 WSTG_REGISTRY: dict[str, Agent] = {
-    'info': INFO_AGENT,
-    'js':   JS_AGENT,
-    'conf': CONF_AGENT,
-    'idnt': IDNT_AGENT,
-    'athn': ATHN_AGENT,
-    'athz': ATHZ_AGENT,
-    'sess': SESS_AGENT,
-    'inpv': INPV_AGENT,
-    'cryp': CRYP_AGENT,
-    'clnt': CLNT_AGENT,
-    'apit': APIT_AGENT,
+    # Core pentest agents (WSTG categories)
+    'info':   INFO_AGENT,
+    'js':     JS_AGENT,
+    'conf':   CONF_AGENT,
+    'idnt':   IDNT_AGENT,
+    'athn':   ATHN_AGENT,
+    'athz':   ATHZ_AGENT,
+    'sess':   SESS_AGENT,
+    'inpv':   INPV_AGENT,
+    'cryp':   CRYP_AGENT,
+    'clnt':   CLNT_AGENT,
+    'apit':   APIT_AGENT,
+    # Workflow agents (post-scan intelligence layer)
+    'assoc':  ASSOC_AGENT,
+    'triage': TRIAGE_AGENT,
+    'reduce': REDUCE_AGENT,
+    'verify': VERIFY_AGENT,
+    'report': REPORT_AGENT,
+    'infra':  INFRA_AGENT,
 }
 
 WSTG_ORDER = ['info', 'js', 'conf', 'idnt', 'athn', 'athz',
                'sess', 'inpv', 'cryp', 'clnt', 'apit']
+
+# Workflow agents run after full pentest scan to enrich and prioritize findings
+WORKFLOW_ORDER = ['assoc', 'triage', 'reduce', 'verify', 'report', 'infra']

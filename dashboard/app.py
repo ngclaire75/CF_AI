@@ -1125,6 +1125,313 @@ def api_connect_scan_abort(job_id):
     return jsonify({'ok': True})
 
 
+@app.route('/api/security-signals')
+def api_security_signals():
+    """Aggregate security events from scan history into a SIEM-style signal feed."""
+    import re as _re
+
+    _HIGH_SIGNALS = [
+        (r'sql\s*inject|union\s+select|1=1|sleep\(|benchmark\(', 'SQL Injection Attempt'),
+        (r'xss|<script|javascript:|onerror\s*=', 'Cross-Site Scripting (XSS)'),
+        (r'path\s+traversal|\.\./|%2e%2e|directory\s+list', 'Path Traversal'),
+        (r'rce|remote\s+code\s+exec|shell\s+upload|webshell', 'Remote Code Execution'),
+        (r'brute.?force|login\s+attempt|credential\s+stuff', 'Brute Force Attack'),
+        (r'exposed.*private.*key|api\s+key\s+leak|secret.*leak', 'Credential Exposure'),
+        (r'command\s+inject|cmd\.exe|/bin/bash|eval\(base64', 'Command Injection'),
+    ]
+    _MED_SIGNALS = [
+        (r'csrf|cross.site\s+request', 'CSRF Vulnerability'),
+        (r'open\s+redirect|redirect.*http', 'Open Redirect'),
+        (r'xxe|xml\s+external\s+entity', 'XXE Injection'),
+        (r'idor|insecure\s+direct\s+object', 'IDOR'),
+        (r'weak.*password|default\s+credential', 'Weak Credentials'),
+        (r'missing\s+security\s+header|x-frame-options\s+missing|csp\s+missing', 'Missing Security Headers'),
+        (r'outdated.*version|version.*vulnerabl|cve-\d{4}-\d+', 'Known CVE'),
+        (r'xmlrpc|wordpress.*vuln|wp-login.*exposed', 'WordPress Exposure'),
+    ]
+    _LOW_SIGNALS = [
+        (r'debug\s+mode|verbose\s+error|stack\s+trace', 'Debug Info Exposed'),
+        (r'directory\s+listing|index\s+of\s+/', 'Directory Listing'),
+        (r'ssl.*expired|certificate.*expir|self.signed', 'SSL Certificate Issue'),
+        (r'banner\s+grab|server\s+version\s+exposed', 'Server Banner Exposure'),
+    ]
+
+    scans = [enrich(s) for s in db.get_recent_scans(50)]
+    signals = []
+    seen = set()
+
+    for s in scans:
+        text = (s.get('output') or '') + ' '.join(s.get('recs', []))
+        target = s.get('target', '')
+        ts = s.get('display_date', '')
+        scan_id = s.get('id', 0)
+
+        for pat, label in _HIGH_SIGNALS:
+            if _re.search(pat, text, _re.I):
+                key = f'HIGH:{label}:{target}'
+                if key not in seen:
+                    seen.add(key)
+                    signals.append({'severity': 'HIGH', 'event': label,
+                                    'target': target, 'date': ts, 'scan_id': scan_id})
+        for pat, label in _MED_SIGNALS:
+            if _re.search(pat, text, _re.I):
+                key = f'MED:{label}:{target}'
+                if key not in seen:
+                    seen.add(key)
+                    signals.append({'severity': 'MEDIUM', 'event': label,
+                                    'target': target, 'date': ts, 'scan_id': scan_id})
+        for pat, label in _LOW_SIGNALS:
+            if _re.search(pat, text, _re.I):
+                key = f'LOW:{label}:{target}'
+                if key not in seen:
+                    seen.add(key)
+                    signals.append({'severity': 'LOW', 'event': label,
+                                    'target': target, 'date': ts, 'scan_id': scan_id})
+
+    _sev_order = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2, 'INFO': 3}
+    signals.sort(key=lambda x: _sev_order.get(x['severity'], 3))
+
+    counts = {k: sum(1 for s in signals if s['severity'] == k)
+              for k in ('HIGH', 'MEDIUM', 'LOW', 'INFO')}
+    counts['CRITICAL'] = sum(1 for sig in signals
+                             if sig['severity'] == 'HIGH' and
+                             any(kw in sig['event'].lower()
+                                 for kw in ('injection', 'rce', 'exposure', 'traversal')))
+    return jsonify({'signals': signals[:200], 'counts': counts})
+
+
+@app.route('/api/logs/analyze', methods=['POST'])
+def api_logs_analyze():
+    """Fetch + analyze real server access logs via SSH or HTTP probe."""
+    from tools.log_analyzer import analyze_from_ssh, analyze_from_probe, check_latency, check_error_rate
+
+    data    = request.get_json(force=True, silent=True) or {}
+    domain  = (data.get('domain') or '').strip().replace('https://', '').replace('http://', '').rstrip('/')
+    if not domain:
+        return jsonify({'error': 'domain is required'}), 400
+
+    ssh_host = (data.get('ssh_host') or domain).strip()
+    ssh_user = (data.get('ssh_user') or 'root').strip()
+    ssh_pass = (data.get('ssh_pass') or '').strip()
+    ssh_port = int(data.get('ssh_port') or 22)
+
+    if ssh_user and ssh_pass:
+        result = analyze_from_ssh(ssh_host, ssh_user, ssh_pass, ssh_port)
+    else:
+        result = analyze_from_probe(domain)
+
+    result['latency'] = check_latency(domain)
+    return jsonify(result)
+
+
+@app.route('/api/monitor/network', methods=['POST'])
+def api_monitor_network():
+    """Discover services + network topology via Nmap + SSH netstat."""
+    import subprocess, json as _j, re as _re
+
+    data   = request.get_json(force=True, silent=True) or {}
+    domain = (data.get('domain') or '').strip().replace('https://', '').replace('http://', '').rstrip('/')
+    if not domain:
+        return jsonify({'error': 'domain is required'}), 400
+
+    ssh_host = (data.get('ssh_host') or domain).strip()
+    ssh_user = (data.get('ssh_user') or '').strip()
+    ssh_pass = (data.get('ssh_pass') or '').strip()
+    ssh_port = int(data.get('ssh_port') or 22)
+
+    # ── Nmap service scan (external) ──────────────────────────────────────────
+    nodes = [{'id': domain, 'label': domain, 'type': 'target', 'group': 'target'}]
+    edges = []
+    services = []
+
+    try:
+        nmap_out = subprocess.run(
+            ['nmap', '-Pn', '-sV', '--top-ports', '20', '--host-timeout', '30s',
+             '--open', '-oG', '-', domain],
+            capture_output=True, text=True, timeout=45,
+        ).stdout
+        for line in nmap_out.splitlines():
+            m_ports = _re.findall(r'(\d+)/open/tcp//([^/]+)//([^/]*)', line)
+            for port, proto, ver in m_ports:
+                svc_id  = f'{proto.strip()}:{port}'
+                svc_label = f'{proto.strip()} ({port})'
+                services.append({'port': int(port), 'service': proto.strip(),
+                                  'version': ver.strip()[:40], 'state': 'open'})
+                nodes.append({'id': svc_id, 'label': svc_label, 'type': 'service', 'group': proto.strip()})
+                edges.append({'from': domain, 'to': svc_id,
+                               'label': f':{port}', 'arrows': 'to'})
+    except Exception as e:
+        services.append({'error': str(e)[:60]})
+
+    # ── SSH netstat — active connections ─────────────────────────────────────
+    connections = []
+    traffic     = {}
+    if ssh_user and ssh_pass:
+        import os as _os
+        ssh_base = ['sshpass', '-e', 'ssh', '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'ConnectTimeout=10', '-p', str(ssh_port), f'{ssh_user}@{ssh_host}']
+        run_env = _os.environ.copy()
+        run_env['SSHPASS'] = ssh_pass
+
+        try:
+            ss_out = subprocess.run(
+                ssh_base + ["ss -tuanp 2>/dev/null | head -40 || netstat -tunap 2>/dev/null | head -40"],
+                capture_output=True, text=True, timeout=15, env=run_env,
+            ).stdout
+            for line in ss_out.splitlines()[1:]:
+                parts = line.split()
+                if len(parts) >= 5 and parts[0] in ('tcp', 'udp', 'ESTAB', 'LISTEN', 'TIME-WAIT'):
+                    connections.append({'proto': parts[0], 'local': parts[3] if len(parts) > 3 else '',
+                                        'remote': parts[4] if len(parts) > 4 else '', 'state': parts[1] if len(parts) > 1 else ''})
+        except Exception:
+            pass
+
+        try:
+            dev_out = subprocess.run(
+                ssh_base + ["cat /proc/net/dev 2>/dev/null | tail -n +3"],
+                capture_output=True, text=True, timeout=10, env=run_env,
+            ).stdout
+            for line in dev_out.splitlines():
+                if ':' not in line:
+                    continue
+                iface, rest = line.split(':', 1)
+                nums = rest.split()
+                if len(nums) >= 9:
+                    traffic[iface.strip()] = {
+                        'rx_bytes': int(nums[0]),
+                        'tx_bytes': int(nums[8]),
+                        'rx_mb': round(int(nums[0]) / 1048576, 2),
+                        'tx_mb': round(int(nums[8]) / 1048576, 2),
+                    }
+        except Exception:
+            pass
+
+    # Add remote connection nodes
+    remote_ips = set()
+    for c in connections:
+        remote = c.get('remote', '')
+        if remote and remote not in ('*:*', '0.0.0.0:*', ':::*'):
+            ip = remote.rsplit(':', 1)[0].strip('[]')
+            if ip and ip not in ('0.0.0.0', '::', '127.0.0.1', '::1') and ip not in remote_ips:
+                remote_ips.add(ip)
+                geo = _geoip(ip)
+                label = f'{ip}\n{geo}' if geo else ip
+                nodes.append({'id': ip, 'label': label, 'type': 'remote', 'group': 'remote'})
+                edges.append({'from': domain, 'to': ip, 'arrows': 'to'})
+
+    return jsonify({
+        'nodes': nodes, 'edges': edges,
+        'services': services, 'connections': connections[:30],
+        'traffic': traffic,
+    })
+
+
+@app.route('/api/monitor/latency')
+def api_monitor_latency():
+    """Quick HTTP latency probe for a domain."""
+    from tools.log_analyzer import check_latency
+    domain = (request.args.get('domain') or '').strip().replace('https://', '').replace('http://', '').rstrip('/')
+    if not domain:
+        return jsonify({'error': 'domain required'}), 400
+    return jsonify({'results': check_latency(domain)})
+
+
+@app.route('/api/mitre/coverage')
+def api_mitre_coverage():
+    """MITRE ATT&CK coverage from all scan history."""
+    from dashboard.mitre_rules import get_coverage, TACTICS
+    scans   = db.get_recent_scans(100)
+    result  = get_coverage(scans)
+    result['tactic_order'] = [name for _, name in TACTICS]
+    return jsonify(result)
+
+
+@app.route('/api/incidents', methods=['GET'])
+def api_incidents_get():
+    status = request.args.get('status')
+    return jsonify({'incidents': db.get_incidents(status=status),
+                    'stats': db.get_incident_stats()})
+
+
+@app.route('/api/incidents', methods=['POST'])
+def api_incidents_create():
+    data = request.get_json(force=True, silent=True) or {}
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({'error': 'title required'}), 400
+    iid = db.create_incident(
+        title=title,
+        description=data.get('description', ''),
+        severity=data.get('severity', 'MEDIUM'),
+        target=data.get('target', ''),
+        scan_id=data.get('scan_id'),
+        mitre_tactic=data.get('mitre_tactic', ''),
+        mitre_technique=data.get('mitre_technique', ''),
+        rule_id=data.get('rule_id', ''),
+    )
+    return jsonify({'id': iid, 'created': True}), 201
+
+
+@app.route('/api/incidents/<int:iid>', methods=['PATCH'])
+def api_incidents_update(iid):
+    data = request.get_json(force=True, silent=True) or {}
+    ok   = db.update_incident(iid, **data)
+    return jsonify({'updated': ok})
+
+
+@app.route('/api/unified/overview')
+def api_unified_overview():
+    """Aggregate metrics for the unified observability dashboard."""
+    from dashboard.mitre_rules import get_coverage
+    scans      = db.get_recent_scans(50)
+    coverage   = get_coverage(scans)
+
+    # Build signal timeline (signals per day from recent scans)
+    import re as _re
+    from collections import defaultdict
+    daily: dict = defaultdict(int)
+    for s in scans:
+        day = s.get('created_at', '')[:10]
+        text = s.get('output', '')
+        # Count high-severity pattern hits
+        if _re.search(r'sql\s*inject|xss|rce|brute.force|exposed.*key|path.traversal', text, _re.I):
+            daily[day] += 1
+
+    # Slowest pages from latest scan per target
+    slowest = sorted(
+        [{'target': s['target'], 'latency': s.get('latency_s', 0),
+          'agent': s.get('agent_type', '')}
+         for s in scans],
+        key=lambda x: x['latency'], reverse=True
+    )[:10]
+
+    # Error rate from scan statuses
+    total = len(scans)
+    errors = sum(1 for s in scans if s.get('status') != 'ok')
+    error_rate = round(errors / max(total, 1) * 100, 1)
+
+    # Recent high-severity signals
+    from dashboard.mitre_rules import evaluate_rules
+    recent_signals = []
+    seen = set()
+    for s in scans[:20]:
+        for match in evaluate_rules(s.get('output', ''), s.get('target', '')):
+            if match['severity'] in ('HIGH',) and match['id'] not in seen:
+                seen.add(match['id'])
+                recent_signals.append({**match, 'date': s.get('created_at', '')[:10]})
+
+    return jsonify({
+        'signal_timeline':  dict(sorted(daily.items())[-14:]),
+        'slowest_pages':    slowest,
+        'error_rate_pct':   error_rate,
+        'total_scans':      total,
+        'mitre_total':      coverage['total'],
+        'mitre_severities': coverage['severities'],
+        'recent_high_signals': recent_signals[:10],
+        'incident_stats':   db.get_incident_stats(),
+    })
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('CFAI_DASHBOARD_PORT', 8889))
     print(f'CF_AI Dashboard running on http://0.0.0.0:{port}')

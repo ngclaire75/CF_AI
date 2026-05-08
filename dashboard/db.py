@@ -31,6 +31,23 @@ def init_db():
                 output      TEXT    DEFAULT ''
             )
         ''')
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS incidents (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                title           TEXT NOT NULL,
+                description     TEXT DEFAULT '',
+                severity        TEXT DEFAULT 'MEDIUM',
+                status          TEXT DEFAULT 'open',
+                target          TEXT DEFAULT '',
+                scan_id         INTEGER DEFAULT NULL,
+                mitre_tactic    TEXT DEFAULT '',
+                mitre_technique TEXT DEFAULT '',
+                rule_id         TEXT DEFAULT '',
+                notes           TEXT DEFAULT ''
+            )
+        ''')
         con.commit()
 
 
@@ -96,3 +113,69 @@ def get_scans_for_target(target: str) -> list:
             (target,)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_recent_scans(limit: int = 50) -> list:
+    with _connect() as con:
+        rows = con.execute(
+            'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?', (limit,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ── Incident management ───────────────────────────────────────────────────────
+
+def get_incidents(status: str = None, limit: int = 100) -> list:
+    with _connect() as con:
+        if status:
+            rows = con.execute(
+                'SELECT * FROM incidents WHERE status=? ORDER BY created_at DESC LIMIT ?',
+                (status, limit)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM incidents ORDER BY created_at DESC LIMIT ?', (limit,)
+            ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def create_incident(*, title: str, description: str = '', severity: str = 'MEDIUM',
+                    target: str = '', scan_id: int = None, mitre_tactic: str = '',
+                    mitre_technique: str = '', rule_id: str = '') -> int:
+    with _connect() as con:
+        cur = con.execute(
+            '''INSERT INTO incidents (title, description, severity, target, scan_id,
+               mitre_tactic, mitre_technique, rule_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (title, description, severity, target, scan_id,
+             mitre_tactic, mitre_technique, rule_id)
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def update_incident(incident_id: int, **kwargs) -> bool:
+    allowed = {'status', 'notes', 'severity', 'title', 'description'}
+    fields  = {k: v for k, v in kwargs.items() if k in allowed}
+    if not fields:
+        return False
+    fields['updated_at'] = 'datetime(\'now\')'
+    set_clause = ', '.join(
+        f'{k} = datetime(\'now\')' if k == 'updated_at' else f'{k} = ?'
+        for k in fields
+    )
+    vals = [v for k, v in fields.items() if k != 'updated_at']
+    vals.append(incident_id)
+    with _connect() as con:
+        con.execute(f'UPDATE incidents SET {set_clause} WHERE id = ?', vals)
+        con.commit()
+    return True
+
+
+def get_incident_stats() -> dict:
+    with _connect() as con:
+        total    = con.execute('SELECT COUNT(*) FROM incidents').fetchone()[0]
+        open_c   = con.execute("SELECT COUNT(*) FROM incidents WHERE status='open'").fetchone()[0]
+        inv_c    = con.execute("SELECT COUNT(*) FROM incidents WHERE status='investigating'").fetchone()[0]
+        res_c    = con.execute("SELECT COUNT(*) FROM incidents WHERE status='resolved'").fetchone()[0]
+    return {'total': total, 'open': open_c, 'investigating': inv_c, 'resolved': res_c}

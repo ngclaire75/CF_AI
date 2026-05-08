@@ -9,12 +9,15 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+                 'Helvetica Neue', Arial, sans-serif;
     font-size: 14px;
-    background: #f0f2f5;
-    color: #1f2937;
+    background: #f5f5f7;
+    color: #1d1d1f;
     line-height: 1.55;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 a { color: #2563eb; text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -716,6 +719,150 @@ tr.hidden-r { display: none; }
     .card { box-shadow: none; }
     .scroll-panel, .scroll-panel-lg { max-height: none; overflow: visible; }
 }
+
+/* ── Security Signals ── */
+.signals-layout { display:grid; grid-template-columns:200px 1fr; gap:16px; align-items:start; }
+.signals-sidebar { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; }
+.signals-sidebar h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#6b7280; margin-bottom:12px; }
+.sig-sev-row { display:flex; align-items:center; justify-content:space-between; padding:5px 0; cursor:pointer; border-radius:6px; padding:4px 8px; }
+.sig-sev-row:hover { background:#f5f5f7; }
+.sig-sev-row.active { background:#f0f7ff; }
+.sig-sev-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-right:8px; }
+.sig-sev-label { font-size:13px; color:#374151; flex:1; }
+.sig-sev-count { font-size:12px; font-weight:600; color:#374151; background:#f3f4f6; border-radius:10px; padding:1px 8px; }
+.dot-crit { background:#dc2626; }
+.dot-high { background:#ef4444; }
+.dot-med  { background:#f59e0b; }
+.dot-low  { background:#10b981; }
+.dot-info { background:#6b7280; }
+.signals-main { display:flex; flex-direction:column; gap:12px; }
+.signals-timeline-wrap { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 20px; }
+.signals-timeline-wrap h4 { font-size:12px; font-weight:600; color:#6b7280; margin-bottom:10px; }
+.signals-table-wrap { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+.signals-toolbar { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #f3f4f6; background:#fafafa; }
+.signals-toolbar input { flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:6px 12px; font-size:13px; font-family:inherit; outline:none; }
+.signals-toolbar input:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+.signals-count-badge { font-size:12px; color:#6b7280; white-space:nowrap; }
+#signals-table { width:100%; border-collapse:collapse; font-size:13px; }
+#signals-table th { padding:8px 12px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:#9ca3af; border-bottom:1px solid #f3f4f6; background:#fafafa; }
+#signals-table td { padding:9px 12px; border-bottom:1px solid #f9fafb; vertical-align:middle; }
+#signals-table tr:last-child td { border-bottom:none; }
+#signals-table tr:hover td { background:#f9fafb; }
+.sig-badge { display:inline-block; font-size:10px; font-weight:700; border-radius:5px; padding:2px 7px; text-transform:uppercase; letter-spacing:.3px; }
+.sig-badge-CRITICAL, .sig-badge-HIGH   { background:#fee2e2; color:#dc2626; }
+.sig-badge-MEDIUM  { background:#fef3c7; color:#d97706; }
+.sig-badge-LOW     { background:#d1fae5; color:#059669; }
+.sig-badge-INFO    { background:#f3f4f6; color:#6b7280; }
+
+/* ── Log Explorer ── */
+.log-form { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px; }
+.log-form input { border:1px solid #e5e7eb; border-radius:8px; padding:7px 12px; font-size:13px; font-family:inherit; flex:1; min-width:160px; outline:none; }
+.log-form input:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+.log-explorer-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+.log-stat-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; }
+.log-stat-card h5 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9ca3af; margin-bottom:10px; }
+.log-kv-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:12px; border-bottom:1px solid #f9fafb; }
+.log-kv-row:last-child { border-bottom:none; }
+.log-kv-key { color:#374151; font-family:-apple-system,sans-serif; }
+.log-kv-val { font-weight:600; color:#1d1d1f; background:#f5f5f7; border-radius:6px; padding:1px 8px; font-size:11px; }
+.log-bar-row { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; }
+.log-bar-fill { height:7px; border-radius:4px; background:#2563eb; min-width:4px; }
+.pattern-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+.pattern-card h5 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9ca3af; margin-bottom:10px; }
+.pattern-item { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid #f9fafb; font-size:13px; }
+.pattern-item:last-child { border-bottom:none; }
+.pattern-type { font-weight:600; min-width:160px; }
+.log-timeline-wrap { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+.log-timeline-wrap h5 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9ca3af; margin-bottom:10px; }
+.latency-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+.latency-card { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:10px 14px; flex:1; min-width:120px; text-align:center; }
+.latency-ms { font-size:22px; font-weight:700; color:#1d1d1f; line-height:1; }
+.latency-path { font-size:11px; color:#6b7280; margin-top:3px; }
+.latency-ok  { color:#10b981; }
+.latency-med { color:#f59e0b; }
+.latency-bad { color:#ef4444; }
+
+/* ── Network Monitor ── */
+.net-grid { display:grid; grid-template-columns:1fr 280px; gap:14px; }
+#net-map-container { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; height:380px; position:relative; }
+#net-map-container canvas, #net-vis { width:100%; height:100%; }
+.net-sidebar { display:flex; flex-direction:column; gap:12px; }
+.net-services-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; flex:1; overflow:auto; max-height:200px; }
+.net-services-card h5 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9ca3af; margin-bottom:8px; }
+.net-svc-row { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; border-bottom:1px solid #f9fafb; }
+.net-svc-row:last-child { border-bottom:none; }
+.net-port-badge { background:#1d1d1f; color:#fff; border-radius:5px; padding:1px 7px; font-size:10px; font-weight:700; font-family:monospace; }
+.net-traffic-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; }
+.net-traffic-card h5 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9ca3af; margin-bottom:8px; }
+.net-iface-row { display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px solid #f9fafb; }
+.net-iface-row:last-child { border-bottom:none; }
+.net-tx { color:#2563eb; font-weight:600; }
+.net-rx { color:#10b981; font-weight:600; }
+
+/* ── APM / Monitor section card improvements ── */
+.card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.sec-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+.sec-title { font-size:16px; font-weight:700; color:#1d1d1f; margin-bottom:2px; }
+.sec-desc  { font-size:12px; color:#8e8e93; }
+
+/* ── Unified Observability ── */
+.obs-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+.obs-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
+.obs-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; }
+.obs-card h5 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#8e8e93; margin-bottom:12px; }
+.obs-metric-row { display:flex; align-items:center; justify-content:space-between; padding:5px 0; font-size:13px; border-bottom:1px solid #f9fafb; }
+.obs-metric-row:last-child { border-bottom:none; }
+.obs-metric-val { font-weight:700; font-size:18px; color:#1d1d1f; }
+.obs-metric-lbl { font-size:11px; color:#8e8e93; margin-top:1px; }
+.obs-stat-block { text-align:center; }
+.obs-tabs { display:flex; gap:2px; background:#f5f5f7; border-radius:10px; padding:3px; margin-bottom:16px; width:fit-content; }
+.obs-tab { padding:5px 16px; font-size:13px; font-weight:500; border-radius:8px; cursor:pointer; border:none; background:transparent; color:#6b7280; font-family:inherit; }
+.obs-tab.active { background:#fff; color:#1d1d1f; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+.obs-tab-panel { display:none; }
+.obs-tab-panel.active { display:block; }
+
+/* ── Cloud SIEM / MITRE ATT&CK ── */
+.siem-layout { display:grid; grid-template-columns:220px 1fr; gap:16px; }
+.siem-tactic-sidebar { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+.siem-tactic-sidebar h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#8e8e93; padding:12px 14px 8px; border-bottom:1px solid #f3f4f6; }
+.siem-tac-row { display:flex; align-items:center; justify-content:space-between; padding:7px 14px; cursor:pointer; font-size:13px; color:#374151; border-left:3px solid transparent; }
+.siem-tac-row:hover { background:#f9fafb; }
+.siem-tac-row.active { background:#f0f7ff; color:#2563eb; font-weight:600; border-left-color:#2563eb; }
+.siem-tac-count { font-size:11px; font-weight:700; background:#f3f4f6; border-radius:10px; padding:1px 8px; color:#6b7280; }
+.siem-tac-row.active .siem-tac-count { background:#dbeafe; color:#2563eb; }
+.siem-tac-new { font-size:10px; background:#10b981; color:#fff; border-radius:8px; padding:1px 6px; margin-right:4px; }
+.siem-rules-panel { display:flex; flex-direction:column; gap:10px; }
+.siem-rule-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; transition:box-shadow .15s; }
+.siem-rule-card:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); }
+.siem-rule-header { display:flex; align-items:flex-start; gap:10px; margin-bottom:6px; }
+.siem-rule-title { font-weight:600; font-size:14px; color:#1d1d1f; flex:1; }
+.siem-rule-meta { font-size:11px; color:#8e8e93; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.siem-rule-source { display:inline-flex; align-items:center; gap:4px; background:#f5f5f7; border-radius:6px; padding:2px 8px; font-size:11px; font-weight:500; }
+.siem-rule-tactic-link { color:#2563eb; font-size:11px; }
+.siem-rule-tech { font-size:11px; color:#8e8e93; font-family:monospace; }
+.siem-empty { padding:32px; text-align:center; color:#9ca3af; font-size:13px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; }
+
+/* ── Incident Management ── */
+.inc-tabs { display:flex; gap:6px; margin-bottom:14px; }
+.inc-tab { padding:5px 14px; font-size:12px; font-weight:600; border-radius:8px; cursor:pointer; border:1px solid #e5e7eb; background:#fff; color:#6b7280; font-family:inherit; }
+.inc-tab.active { background:#1d1d1f; color:#fff; border-color:#1d1d1f; }
+.inc-create-form { background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; margin-bottom:14px; display:none; }
+.inc-create-form.open { display:block; }
+.inc-create-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.inc-create-row input, .inc-create-row select { border:1px solid #e5e7eb; border-radius:8px; padding:6px 10px; font-size:13px; font-family:inherit; outline:none; }
+.inc-create-row input:focus, .inc-create-row select:focus { border-color:#2563eb; }
+.inc-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; margin-bottom:8px; }
+.inc-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.inc-card-title { font-weight:600; font-size:14px; color:#1d1d1f; }
+.inc-card-meta { font-size:11px; color:#8e8e93; margin-top:3px; }
+.inc-status-pill { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; border-radius:20px; padding:2px 10px; }
+.inc-status-open { background:#fee2e2; color:#dc2626; }
+.inc-status-investigating { background:#fef3c7; color:#d97706; }
+.inc-status-resolved  { background:#d1fae5; color:#059669; }
+.inc-status-dismissed { background:#f3f4f6; color:#9ca3af; }
+.inc-actions { display:flex; gap:6px; margin-top:8px; }
+.inc-action-btn { font-size:11px; padding:3px 10px; border-radius:6px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-family:inherit; color:#374151; }
+.inc-action-btn:hover { background:#f5f5f7; }
 </style>
 </head>
 <body>
@@ -730,26 +877,27 @@ tr.hidden-r { display: none; }
         <div class="guide-label">What each agent does</div>
         <!-- Row 1: Discovery -->
         <div class="guide-row">
-          <span class="agent-pill">info<span class="tip">Scans open ports, server software, DNS records, and SSL certificates to map the target.</span></span>
-          <span class="agent-pill">conf<span class="tip">Checks for exposed config files, admin panels, and insecure server settings.</span></span>
-          <span class="agent-pill">js<span class="tip">Reads JavaScript files to find leaked API keys, secrets, and hidden endpoints.</span></span>
-          <span class="agent-pill">idnt<span class="tip">Tests how the site handles user accounts, registration, and identity verification.</span></span>
+          <span class="agent-pill">info<span class="tip">Recon Scout — maps open ports, DNS, SSL, and server software.</span></span>
+          <span class="agent-pill">conf<span class="tip">Config Auditor — checks exposed configs, admin panels, and insecure settings.</span></span>
+          <span class="agent-pill">js<span class="tip">JS Intelligence Agent — finds leaked API keys and secrets in JavaScript.</span></span>
+          <span class="agent-pill">idnt<span class="tip">Identity Mapper — tests user registration, enumeration, and role definitions.</span></span>
         </div>
         <!-- Row 2: Access testing -->
         <div class="guide-row">
-          <span class="agent-pill">athn<span class="tip">Tests login forms for weak passwords, missing lockout, and brute-force gaps.</span></span>
-          <span class="agent-pill">athz<span class="tip">Checks if users can access pages or data they are not allowed to see.</span></span>
-          <span class="agent-pill">sess<span class="tip">Tests how login sessions and cookies are issued, stored, and expired.</span></span>
-          <span class="agent-pill">inpv<span class="tip">Tries SQL injection, XSS, command injection, and other input attacks.</span></span>
-          <span class="agent-pill">cryp<span class="tip">Checks SSL/TLS encryption strength, certificate validity, and cipher choices.</span></span>
+          <span class="agent-pill">athn<span class="tip">Auth Prober — tests login forms for brute-force gaps and weak credentials.</span></span>
+          <span class="agent-pill">athz<span class="tip">Access Control Tester — checks for IDOR, privilege escalation, and path bypasses.</span></span>
+          <span class="agent-pill">sess<span class="tip">Session Analyst — audits cookie security, token handling, and CSRF protections.</span></span>
+          <span class="agent-pill">inpv<span class="tip">Injection Hunter — tests SQLi, XSS, SSTI, and command injection.</span></span>
+          <span class="agent-pill">cryp<span class="tip">Crypto Inspector — checks TLS strength, cipher choices, and certificate validity.</span></span>
         </div>
-        <!-- Row 3: Specialised -->
+        <!-- Row 3: Specialised + Workflow -->
         <div class="guide-row">
-          <span class="agent-pill">clnt<span class="tip">Tests browser-side code and client-facing scripts for vulnerabilities.</span></span>
-          <span class="agent-pill">apit<span class="tip">Tests API endpoints for missing auth, data leaks, and injection flaws.</span></span>
-          <span class="agent-pill">enum<span class="tip">Finds hidden API routes and tests for access control gaps across endpoints.</span></span>
-          <span class="agent-pill">ctf<span class="tip">Solves Capture The Flag security challenges using automated attack chains.</span></span>
-          <span class="agent-pill">pentest<span class="tip">Runs all 10 checks in sequence for a complete end-to-end security assessment.</span></span>
+          <span class="agent-pill">clnt<span class="tip">Client-Side Analyst — tests DOM-based XSS, CORS, and browser-facing vulnerabilities.</span></span>
+          <span class="agent-pill">apit<span class="tip">API Security Tester — audits REST, GraphQL, and WordPress API endpoints.</span></span>
+          <span class="agent-pill" style="background:#fef3c7;border-color:#fbbf24;">assoc<span class="tip">Security Association Agent — correlates CVEs with discovered services via NVD API.</span></span>
+          <span class="agent-pill" style="background:#fef3c7;border-color:#fbbf24;">triage<span class="tip">Threat Triage Agent — scores findings by real-world exploitability.</span></span>
+          <span class="agent-pill" style="background:#fef3c7;border-color:#fbbf24;">report<span class="tip">Security Insights Report Agent — compiles executive-ready 30/60/90-day roadmap.</span></span>
+          <span class="agent-pill">pentest<span class="tip">Runs all 11 WSTG agents + workflow layer for a complete security assessment.</span></span>
         </div>
       </div>
 
@@ -936,21 +1084,33 @@ tr.hidden-r { display: none; }
         <div>
           <label>AI Agent</label>
           <select id="cwAgent" class="agent-select">
-            <option value="apit">API Security (APIT)</option>
-            <option value="info">Information Gathering</option>
-            <option value="conf">Configuration Review</option>
-            <option value="athn">Authentication Testing</option>
-            <option value="athz">Authorization Testing</option>
-            <option value="sess">Session Management</option>
-            <option value="inpv">Input Validation</option>
-            <option value="cryp">Cryptography Review</option>
-            <option value="clnt">Client-Side Testing</option>
-            <option value="js">JavaScript / Secret Hunter</option>
-            <option value="idnt">Identity Management</option>
-            <option value="enum">API Enumeration / IDOR</option>
-            <option value="ctf">CTF / Challenge Solver</option>
-            <option value="ot">OT / ICS Security</option>
-            <option value="pentest">Full Pentest (all agents)</option>
+            <optgroup label="Core Security Agents">
+              <option value="apit">API Security Tester</option>
+              <option value="info">Recon Scout</option>
+              <option value="conf">Config Auditor</option>
+              <option value="athn">Auth Prober</option>
+              <option value="athz">Access Control Tester</option>
+              <option value="sess">Session Analyst</option>
+              <option value="inpv">Injection Hunter</option>
+              <option value="cryp">Crypto Inspector</option>
+              <option value="clnt">Client-Side Analyst</option>
+              <option value="js">JS Intelligence Agent</option>
+              <option value="idnt">Identity Mapper</option>
+            </optgroup>
+            <optgroup label="Workflow Intelligence">
+              <option value="assoc">Security Association Agent</option>
+              <option value="triage">Threat Triage Agent</option>
+              <option value="reduce">Alert Reduction Agent</option>
+              <option value="verify">Vulnerability Verification Agent</option>
+              <option value="report">Security Insights Report Agent</option>
+              <option value="infra">Infrastructure Optimization Agent</option>
+            </optgroup>
+            <optgroup label="Advanced">
+              <option value="enum">API Enumeration / IDOR</option>
+              <option value="ctf">CTF / Challenge Solver</option>
+              <option value="ot">OT / ICS Security</option>
+              <option value="pentest">Full Pentest (all agents)</option>
+            </optgroup>
           </select>
         </div>
         <div>
@@ -1177,6 +1337,301 @@ tr.hidden-r { display: none; }
       </div>
       {% endif %}
     </div>
+  </section>
+
+
+  <!-- ── Unified Observability Dashboard ──────────────────────────────────── -->
+  <section class="section" id="obs-section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Unified Observability</div>
+        <div class="sec-desc">Correlated logs, metrics, traces, and security signals — no tool switching required</div>
+      </div>
+      <button class="btn btn-sm" onclick="loadUnifiedOverview()" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:6px 16px;">Refresh</button>
+    </div>
+    <!-- Tab bar -->
+    <div class="obs-tabs">
+      <button class="obs-tab active" onclick="obsTab('overview',this)">Overview</button>
+      <button class="obs-tab" onclick="obsTab('signals',this)">Signals</button>
+      <button class="obs-tab" onclick="obsTab('performance',this)">Performance</button>
+      <button class="obs-tab" onclick="obsTab('incidents',this)">Incidents</button>
+    </div>
+
+    <!-- Overview tab -->
+    <div class="obs-tab-panel active" id="obs-panel-overview">
+      <div class="obs-grid-3">
+        <div class="obs-card" style="text-align:center;">
+          <h5>Active Incidents</h5>
+          <div class="obs-metric-val" id="obs-inc-open" style="color:#ef4444;">—</div>
+          <div class="obs-metric-lbl">Open</div>
+        </div>
+        <div class="obs-card" style="text-align:center;">
+          <h5>MITRE Rules Triggered</h5>
+          <div class="obs-metric-val" id="obs-mitre-total" style="color:#f59e0b;">—</div>
+          <div class="obs-metric-lbl">Detections</div>
+        </div>
+        <div class="obs-card" style="text-align:center;">
+          <h5>Scan Error Rate</h5>
+          <div class="obs-metric-val" id="obs-error-rate" style="color:#6b7280;">—</div>
+          <div class="obs-metric-lbl">% failed scans</div>
+        </div>
+      </div>
+      <div class="obs-grid">
+        <div class="obs-card">
+          <h5>Security Signal Timeline (last 14 days)</h5>
+          <canvas id="obs-signal-chart" height="100"></canvas>
+        </div>
+        <div class="obs-card">
+          <h5>Slowest Scan Targets</h5>
+          <div id="obs-slowest-list"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
+        </div>
+      </div>
+      <div class="obs-card">
+        <h5>Recent High-Severity Detections</h5>
+        <div id="obs-high-signals"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
+      </div>
+    </div>
+
+    <!-- Signals tab (reuses security-signals data) -->
+    <div class="obs-tab-panel" id="obs-panel-signals">
+      <div id="obs-signals-embed" style="color:#9ca3af;font-size:13px;padding:20px;text-align:center;">
+        Click "Refresh" then switch to the Security Signals section below for the full feed.
+        <br><br><button class="btn btn-sm" onclick="document.getElementById('signals-section').scrollIntoView({behavior:'smooth'})">Go to Security Signals ↓</button>
+      </div>
+    </div>
+
+    <!-- Performance tab -->
+    <div class="obs-tab-panel" id="obs-panel-performance">
+      <div class="log-form" style="margin-bottom:14px;">
+        <input type="text" id="obs-perf-domain" placeholder="yourdomain.com for latency probe" style="max-width:260px;">
+        <button class="btn btn-sm" onclick="obsPerfProbe()" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;">Run Probe</button>
+      </div>
+      <div id="obs-perf-result"><em style="color:#9ca3af;font-size:13px;">Enter a domain and run a latency probe to see response times.</em></div>
+    </div>
+
+    <!-- Incidents tab (quick view) -->
+    <div class="obs-tab-panel" id="obs-panel-incidents">
+      <div style="text-align:right;margin-bottom:10px;">
+        <button class="btn btn-sm" onclick="document.getElementById('inc-section').scrollIntoView({behavior:'smooth'})" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;">Open Incident Manager ↓</button>
+      </div>
+      <div id="obs-incidents-preview"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
+    </div>
+  </section>
+
+  <!-- ── Cloud SIEM — MITRE ATT&CK Coverage ────────────────────────────────── -->
+  <section class="section" id="siem-section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Cloud SIEM — MITRE ATT&CK Coverage</div>
+        <div class="sec-desc">Detection rules mapped to MITRE ATT&CK tactics — evaluated against all scan findings</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="siem-total-badge" style="font-size:12px;background:#fef3c7;color:#d97706;border-radius:20px;padding:3px 12px;font-weight:600;"></span>
+        <button class="btn btn-sm" onclick="loadMitreCoverage()" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:6px 16px;">Refresh</button>
+      </div>
+    </div>
+    <div class="siem-layout">
+      <!-- Tactic sidebar -->
+      <div>
+        <div class="siem-tactic-sidebar">
+          <h4>MITRE ATT&amp;CK</h4>
+          <div id="siem-tactic-list"><div style="padding:12px 14px;color:#9ca3af;font-size:12px;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Rules panel -->
+      <div class="siem-rules-panel" id="siem-rules-panel">
+        <div class="siem-empty">Select a tactic to view matched detection rules.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Incident Management ────────────────────────────────────────────────── -->
+  <section class="section" id="inc-section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Incident Management</div>
+        <div class="sec-desc">Track, triage, and resolve security incidents — trigger workflows from monitors, signals, or dashboards</div>
+      </div>
+      <button class="btn btn-sm" onclick="toggleIncCreateForm()" style="background:#2563eb;color:#fff;border-color:#2563eb;border-radius:8px;padding:6px 16px;">+ New Incident</button>
+    </div>
+    <!-- Create form -->
+    <div class="inc-create-form" id="inc-create-form">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:#1d1d1f;">Create New Incident</div>
+      <div class="inc-create-row">
+        <input type="text" id="inc-title" placeholder="Incident title…" style="flex:2;min-width:200px;">
+        <select id="inc-severity" style="min-width:120px;">
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM" selected>MEDIUM</option>
+          <option value="LOW">LOW</option>
+        </select>
+        <input type="text" id="inc-target" placeholder="Target domain" style="min-width:160px;">
+      </div>
+      <div class="inc-create-row">
+        <input type="text" id="inc-desc" placeholder="Description / notes…" style="flex:1;">
+        <input type="text" id="inc-mitre" placeholder="MITRE tactic" style="min-width:160px;">
+        <button class="btn btn-sm" onclick="createIncident()" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;white-space:nowrap;">Create</button>
+        <button class="btn btn-sm" onclick="toggleIncCreateForm()" style="border-radius:8px;">Cancel</button>
+      </div>
+    </div>
+    <!-- Filter tabs -->
+    <div class="inc-tabs">
+      <button class="inc-tab active" onclick="loadIncidents('all',this)">All</button>
+      <button class="inc-tab" onclick="loadIncidents('open',this)">Open <span id="inc-cnt-open" style="background:#fee2e2;color:#dc2626;border-radius:8px;padding:1px 6px;font-size:10px;"></span></button>
+      <button class="inc-tab" onclick="loadIncidents('investigating',this)">Investigating</button>
+      <button class="inc-tab" onclick="loadIncidents('resolved',this)">Resolved</button>
+    </div>
+    <!-- Incidents list -->
+    <div id="inc-list"><em style="color:#9ca3af;font-size:13px;padding:16px;display:block;">Loading incidents…</em></div>
+  </section>
+
+  <!-- ── Security Signals ──────────────────────────────────────────────────── -->
+  <section class="section" id="signals-section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Security Signals</div>
+        <div class="sec-desc">Real-time threat events derived from scan findings — SIEM-style feed</div>
+      </div>
+      <button class="btn btn-sm" onclick="loadSignals()" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:6px 16px;">Refresh</button>
+    </div>
+    <div class="signals-layout">
+      <!-- Sidebar: severity filters -->
+      <div class="signals-sidebar">
+        <h4>Severity</h4>
+        <div class="sig-sev-row active" onclick="filterSignals('all',this)">
+          <span class="sig-sev-dot" style="background:#6b7280;"></span>
+          <span class="sig-sev-label">All</span>
+          <span class="sig-sev-count" id="sig-cnt-all">0</span>
+        </div>
+        <div class="sig-sev-row" onclick="filterSignals('CRITICAL',this)">
+          <span class="sig-sev-dot dot-crit"></span>
+          <span class="sig-sev-label">Critical</span>
+          <span class="sig-sev-count" id="sig-cnt-crit">0</span>
+        </div>
+        <div class="sig-sev-row" onclick="filterSignals('HIGH',this)">
+          <span class="sig-sev-dot dot-high"></span>
+          <span class="sig-sev-label">High</span>
+          <span class="sig-sev-count" id="sig-cnt-high">0</span>
+        </div>
+        <div class="sig-sev-row" onclick="filterSignals('MEDIUM',this)">
+          <span class="sig-sev-dot dot-med"></span>
+          <span class="sig-sev-label">Medium</span>
+          <span class="sig-sev-count" id="sig-cnt-med">0</span>
+        </div>
+        <div class="sig-sev-row" onclick="filterSignals('LOW',this)">
+          <span class="sig-sev-dot dot-low"></span>
+          <span class="sig-sev-label">Low</span>
+          <span class="sig-sev-count" id="sig-cnt-low">0</span>
+        </div>
+        <div class="sig-sev-row" onclick="filterSignals('INFO',this)">
+          <span class="sig-sev-dot dot-info"></span>
+          <span class="sig-sev-label">Info</span>
+          <span class="sig-sev-count" id="sig-cnt-info">0</span>
+        </div>
+      </div>
+      <!-- Main: timeline + events table -->
+      <div class="signals-main">
+        <div class="signals-timeline-wrap">
+          <h4>Event Timeline</h4>
+          <canvas id="signals-timeline-chart" height="70"></canvas>
+        </div>
+        <div class="signals-table-wrap">
+          <div class="signals-toolbar">
+            <input type="text" id="signals-search" placeholder="Search events, targets..." oninput="renderSignalsTable()">
+            <span class="signals-count-badge" id="sig-shown-count">0 results found</span>
+          </div>
+          <table id="signals-table">
+            <thead><tr>
+              <th style="width:160px;">Date</th>
+              <th style="width:90px;">Severity</th>
+              <th>Event</th>
+              <th>Target</th>
+            </tr></thead>
+            <tbody id="signals-tbody">
+              <tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af;">Loading signals…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Log Explorer ──────────────────────────────────────────────────────── -->
+  <section class="section" id="log-explorer-section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Log Explorer</div>
+        <div class="sec-desc">Real HTTP access log analysis — fetch via SSH or probe observable behaviour</div>
+      </div>
+    </div>
+    <!-- Input form -->
+    <div class="log-form">
+      <input type="text" id="le-domain" placeholder="yourdomain.com" style="max-width:240px;">
+      <input type="text" id="le-ssh-host" placeholder="SSH host (optional)" style="max-width:200px;">
+      <input type="text" id="le-ssh-user" placeholder="SSH user" style="max-width:130px;">
+      <input type="password" id="le-ssh-pass" placeholder="SSH password" style="max-width:160px;">
+      <input type="text" id="le-ssh-port" placeholder="Port (22)" style="max-width:90px;">
+      <button class="btn btn-sm" onclick="runLogExplorer()" id="le-run-btn" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:7px 18px;white-space:nowrap;">Analyze Logs</button>
+    </div>
+    <div id="le-results" style="display:none;">
+      <!-- Timeline chart -->
+      <div class="log-timeline-wrap">
+        <h5>Request Timeline</h5>
+        <canvas id="le-timeline-chart" height="80"></canvas>
+      </div>
+      <!-- Latency -->
+      <div class="log-timeline-wrap">
+        <h5>Response Latency</h5>
+        <div class="latency-row" id="le-latency-row"></div>
+      </div>
+      <!-- Stats grid -->
+      <div class="log-explorer-grid" id="le-stats-grid"></div>
+      <!-- Pattern detections -->
+      <div class="pattern-card" id="le-patterns-card">
+        <h5>Threat Detections</h5>
+        <div id="le-patterns-list"><em style="color:#9ca3af;font-size:13px;">No patterns detected.</em></div>
+      </div>
+    </div>
+    <div id="le-loading" style="display:none;padding:20px;text-align:center;color:#6b7280;">
+      <span>Analyzing logs…</span>
+    </div>
+    <div id="le-error" style="display:none;padding:16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;"></div>
+  </section>
+
+  <!-- ── Network Monitor ───────────────────────────────────────────────────── -->
+  <section class="section" id="net-monitor-section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Network Monitor</div>
+        <div class="sec-desc">Service topology, open ports, and traffic flow — Nmap + SSH netstat</div>
+      </div>
+    </div>
+    <div class="log-form">
+      <input type="text" id="nm-domain" placeholder="yourdomain.com" style="max-width:240px;">
+      <input type="text" id="nm-ssh-host" placeholder="SSH host (optional)" style="max-width:200px;">
+      <input type="text" id="nm-ssh-user" placeholder="SSH user" style="max-width:130px;">
+      <input type="password" id="nm-ssh-pass" placeholder="SSH password" style="max-width:160px;">
+      <button class="btn btn-sm" onclick="runNetMonitor()" id="nm-run-btn" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:7px 18px;white-space:nowrap;">Scan Network</button>
+    </div>
+    <div id="nm-results" style="display:none;">
+      <div class="net-grid">
+        <div id="net-map-container">
+          <canvas id="net-map-canvas"></canvas>
+          <div id="net-map-empty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:13px;">No services discovered.</div>
+        </div>
+        <div class="net-sidebar">
+          <div class="net-services-card">
+            <h5>Open Services</h5>
+            <div id="nm-services-list"></div>
+          </div>
+          <div class="net-traffic-card">
+            <h5>Network Interfaces</h5>
+            <div id="nm-traffic-list"><em style="color:#9ca3af;font-size:12px;">SSH required for interface stats.</em></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="nm-loading" style="display:none;padding:20px;text-align:center;color:#6b7280;">Scanning network…</div>
+    <div id="nm-error" style="display:none;padding:16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;"></div>
   </section>
 
 </div>
@@ -2518,7 +2973,715 @@ function closeInsightsModal() {
   }
   // Resume polling if a scan was interrupted by a page reload
   _cwResumeFromLS();
+
+  // Auto-load unified overview, MITRE coverage, signals, and incidents
+  loadUnifiedOverview();
+  loadMitreCoverage();
+  loadSignals();
+  loadIncidents('all');
 })();
+
+// ── Unified Observability ─────────────────────────────────────────────────────
+var _obsSignalChart = null;
+var _obsData = null;
+
+function obsTab(name, el) {
+  document.querySelectorAll('.obs-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.obs-tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  el.classList.add('active');
+  var panel = document.getElementById('obs-panel-' + name);
+  if (panel) panel.classList.add('active');
+  if (name === 'incidents') loadIncidents('all');
+}
+
+function loadUnifiedOverview() {
+  fetch('/api/unified/overview')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _obsData = d;
+      document.getElementById('obs-inc-open').textContent = (d.incident_stats && d.incident_stats.open) || 0;
+      document.getElementById('obs-mitre-total').textContent = d.mitre_total || 0;
+      document.getElementById('obs-error-rate').textContent = (d.error_rate_pct || 0) + '%';
+
+      // Signal timeline chart
+      var canvas = document.getElementById('obs-signal-chart');
+      if (_obsSignalChart) { _obsSignalChart.destroy(); _obsSignalChart = null; }
+      var tl = d.signal_timeline || {};
+      var labels = Object.keys(tl).sort();
+      var vals   = labels.map(function(k){ return tl[k]; });
+      if (canvas && labels.length) {
+        _obsSignalChart = new Chart(canvas.getContext('2d'), {
+          type: 'bar',
+          data: { labels: labels, datasets: [{
+            label: 'Security Events', data: vals,
+            backgroundColor: 'rgba(239,68,68,.7)', borderRadius: 4,
+          }]},
+          options: {
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+              y: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 }, stepSize: 1 } },
+            },
+            animation: { duration: 400 },
+          },
+        });
+      }
+
+      // Slowest targets
+      var sl = document.getElementById('obs-slowest-list');
+      var slow = (d.slowest_pages || []).slice(0, 8);
+      sl.innerHTML = slow.length ? slow.map(function(s){
+        var color = s.latency > 60 ? '#ef4444' : s.latency > 20 ? '#f59e0b' : '#10b981';
+        return '<div class="obs-metric-row"><span style="font-family:monospace;font-size:12px;">' + escHtml(s.target.slice(-40)) + '</span>' +
+          '<span style="font-weight:700;color:' + color + ';">' + s.latency + 's</span></div>';
+      }).join('') : '<em style="color:#9ca3af;font-size:13px;">No scan data yet.</em>';
+
+      // Recent high signals
+      var hs = document.getElementById('obs-high-signals');
+      var sigs = (d.recent_high_signals || []).slice(0, 8);
+      hs.innerHTML = sigs.length ? '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+        '<thead><tr><th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Rule</th>' +
+        '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Tactic</th>' +
+        '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Target</th>' +
+        '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Date</th></tr></thead><tbody>' +
+        sigs.map(function(s){
+          return '<tr><td style="padding:6px 8px;font-weight:500;">' + escHtml(s.title) + '</td>' +
+            '<td style="padding:6px 8px;"><span class="siem-rule-tactic-link">' + escHtml(s.tactic) + '</span></td>' +
+            '<td style="padding:6px 8px;font-family:monospace;font-size:12px;">' + escHtml(s.target||'—') + '</td>' +
+            '<td style="padding:6px 8px;font-size:12px;color:#8e8e93;">' + (s.date||'—') + '</td></tr>';
+        }).join('') + '</tbody></table>'
+      : '<em style="color:#9ca3af;font-size:13px;">No high-severity detections yet. Run scans to populate.</em>';
+
+      // Incidents preview
+      var ip = document.getElementById('obs-incidents-preview');
+      var ist = d.incident_stats || {};
+      ip.innerHTML = '<div style="display:flex;gap:14px;flex-wrap:wrap;">' +
+        _obsStatChip('Open', ist.open||0, '#fee2e2', '#dc2626') +
+        _obsStatChip('Investigating', ist.investigating||0, '#fef3c7', '#d97706') +
+        _obsStatChip('Resolved', ist.resolved||0, '#d1fae5', '#059669') +
+        _obsStatChip('Total', ist.total||0, '#f5f5f7', '#374151') +
+        '</div>';
+    })
+    .catch(function(){});
+}
+
+function _obsStatChip(label, val, bg, color) {
+  return '<div style="background:' + bg + ';border-radius:10px;padding:10px 18px;text-align:center;min-width:100px;">' +
+    '<div style="font-size:22px;font-weight:700;color:' + color + ';">' + val + '</div>' +
+    '<div style="font-size:12px;color:' + color + ';opacity:.7;">' + label + '</div></div>';
+}
+
+function obsPerfProbe() {
+  var domain = (document.getElementById('obs-perf-domain').value||'').trim();
+  if (!domain) return;
+  var el = document.getElementById('obs-perf-result');
+  el.innerHTML = '<em style="color:#9ca3af;font-size:13px;">Probing…</em>';
+  fetch('/api/monitor/latency?domain=' + encodeURIComponent(domain))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var results = d.results || [];
+      el.innerHTML = '<div class="latency-row">' + results.map(function(l){
+        var ms = l.latency_ms;
+        var cls = ms < 500 ? 'latency-ok' : ms < 2000 ? 'latency-med' : 'latency-bad';
+        var disp = ms < 0 ? 'ERR' : ms + 'ms';
+        return '<div class="latency-card"><div class="latency-ms ' + cls + '">' + disp + '</div>' +
+               '<div class="latency-path">' + escHtml(l.path) + '</div>' +
+               (l.status ? '<div style="font-size:10px;color:#9ca3af;">HTTP ' + l.status + '</div>' : '') + '</div>';
+      }).join('') + '</div>';
+    })
+    .catch(function(e){ el.textContent = 'Error: ' + e.message; });
+}
+
+// ── Cloud SIEM / MITRE ATT&CK ─────────────────────────────────────────────────
+var _mitreData = null;
+var _selectedTactic = null;
+
+function loadMitreCoverage() {
+  fetch('/api/mitre/coverage')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _mitreData = d;
+      var total = d.total || 0;
+      var badge = document.getElementById('siem-total-badge');
+      badge.textContent = total + ' detection rule' + (total !== 1 ? 's' : '') + ' triggered';
+
+      var list = document.getElementById('siem-tactic-list');
+      var order = d.tactic_order || [];
+      list.innerHTML = order.map(function(tname){
+        var tac = (d.tactics||{})[tname] || {};
+        var cnt = tac.count || 0;
+        var newBadge = cnt > 0 ? '<span class="siem-tac-new">NEW</span>' : '';
+        return '<div class="siem-tac-row' + (cnt > 0 ? '' : '') + '" onclick="showMitreTactic(\'' + escHtml(tname).replace(/'/g,"\\'") + '\',this)">' +
+          newBadge + '<span style="flex:1;">' + escHtml(tname) + '</span>' +
+          '<span class="siem-tac-count">' + cnt + '</span></div>';
+      }).join('');
+
+      // Auto-select first tactic with findings
+      var firstWithFindings = order.find(function(t){ return ((d.tactics||{})[t]||{}).count > 0; });
+      if (firstWithFindings) {
+        var firstEl = list.querySelector('.siem-tac-row');
+        if (firstEl) {
+          // find the matching element
+          list.querySelectorAll('.siem-tac-row').forEach(function(el){
+            if (el.textContent.trim().includes(firstWithFindings)) showMitreTactic(firstWithFindings, el);
+          });
+        }
+      }
+    })
+    .catch(function(){});
+}
+
+function showMitreTactic(tname, el) {
+  _selectedTactic = tname;
+  document.querySelectorAll('.siem-tac-row').forEach(function(r){ r.classList.remove('active'); });
+  if (el) el.classList.add('active');
+
+  var panel = document.getElementById('siem-rules-panel');
+  if (!_mitreData) return;
+  var tac = (_mitreData.tactics||{})[tname] || {};
+  var rules = tac.rules || [];
+
+  if (!rules.length) {
+    panel.innerHTML = '<div class="siem-empty">No detection rules triggered for <strong>' + escHtml(tname) + '</strong> yet.<br>Run more scans to detect attacks in this category.</div>';
+    return;
+  }
+
+  panel.innerHTML = '<div style="font-size:12px;color:#8e8e93;margin-bottom:8px;">' +
+    rules.length + ' rule(s) matched for <strong style="color:#1d1d1f;">' + escHtml(tname) + '</strong> · Tactic ID: ' + escHtml(tac.tactic_id||'') + '</div>' +
+    rules.map(function(r){
+      var sev = r.severity || 'INFO';
+      return '<div class="siem-rule-card">' +
+        '<div class="siem-rule-header">' +
+          '<span class="sig-badge sig-badge-' + sev + '">' + sev + '</span>' +
+          '<div style="flex:1;">' +
+            '<div class="siem-rule-title">' + escHtml(r.title) + '</div>' +
+            '<div class="siem-rule-meta">' +
+              '<span class="siem-rule-source">' + escHtml(r.source||'') + '</span>' +
+              '<span class="siem-rule-tech">' + escHtml(r.technique||'') + ' · ' + escHtml(r.technique_name||'') + '</span>' +
+              (r.target ? '<span style="font-family:monospace;font-size:11px;color:#374151;">' + escHtml(r.target) + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+          '<button class="btn btn-sm" onclick="raiseIncidentFromRule(' + JSON.stringify({title:r.title,severity:r.severity,target:r.target||'',mitre_tactic:r.tactic,mitre_technique:r.technique,rule_id:r.id}).replace(/"/g,"'") + ')" ' +
+            'style="white-space:nowrap;font-size:11px;border-radius:6px;padding:3px 10px;">Create Incident</button>' +
+        '</div>' +
+        '<div style="font-size:12px;color:#6b7280;">' + escHtml(r.desc||'') + '</div>' +
+        '<div style="font-size:11px;color:#d1d5db;margin-top:4px;">Rule ID: ' + escHtml(r.id||'') + '</div>' +
+      '</div>';
+    }).join('');
+}
+
+// ── Incident Management ───────────────────────────────────────────────────────
+var _incStatus = 'all';
+
+function toggleIncCreateForm() {
+  var f = document.getElementById('inc-create-form');
+  f.classList.toggle('open');
+}
+
+function createIncident() {
+  var title = (document.getElementById('inc-title').value||'').trim();
+  if (!title) { alert('Please enter an incident title.'); return; }
+  fetch('/api/incidents', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      title:        title,
+      severity:     document.getElementById('inc-severity').value,
+      target:       document.getElementById('inc-target').value,
+      description:  document.getElementById('inc-desc').value,
+      mitre_tactic: document.getElementById('inc-mitre').value,
+    }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.created) {
+      document.getElementById('inc-title').value = '';
+      document.getElementById('inc-desc').value  = '';
+      document.getElementById('inc-target').value = '';
+      document.getElementById('inc-create-form').classList.remove('open');
+      loadIncidents(_incStatus);
+      loadUnifiedOverview();
+    }
+  });
+}
+
+function raiseIncidentFromRule(data) {
+  fetch('/api/incidents', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      title: data.title || 'Security Incident',
+      severity: data.severity || 'MEDIUM',
+      target: data.target || '',
+      mitre_tactic: data.mitre_tactic || '',
+      mitre_technique: data.mitre_technique || '',
+      rule_id: data.rule_id || '',
+    }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.created) {
+      document.getElementById('inc-section').scrollIntoView({behavior:'smooth'});
+      loadIncidents('open');
+      loadUnifiedOverview();
+    }
+  });
+}
+
+function loadIncidents(status, el) {
+  _incStatus = status || 'all';
+  if (el) {
+    document.querySelectorAll('.inc-tab').forEach(function(t){ t.classList.remove('active'); });
+    el.classList.add('active');
+  }
+  var url = '/api/incidents' + (status && status !== 'all' ? '?status=' + status : '');
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var stats = d.stats || {};
+      var el2 = document.getElementById('inc-cnt-open');
+      if (el2) el2.textContent = stats.open || '';
+      renderIncidents(d.incidents || []);
+    });
+}
+
+function renderIncidents(incidents) {
+  var list = document.getElementById('inc-list');
+  if (!incidents.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:#9ca3af;font-size:13px;">No incidents' + (_incStatus !== 'all' ? ' with status "' + _incStatus + '"' : '') + '. Create one from a MITRE detection rule or manually.</div>';
+    return;
+  }
+  list.innerHTML = incidents.map(function(inc){
+    var stCls = 'inc-status-' + (inc.status||'open');
+    var sevCls = 'sig-badge-' + (inc.severity||'MEDIUM');
+    return '<div class="inc-card">' +
+      '<div class="inc-card-header">' +
+        '<div>' +
+          '<div class="inc-card-title">' + escHtml(inc.title) + '</div>' +
+          '<div class="inc-card-meta">' +
+            (inc.target ? '<span style="font-family:monospace;">' + escHtml(inc.target) + ' · </span>' : '') +
+            (inc.mitre_tactic ? '<span class="siem-rule-tactic-link">' + escHtml(inc.mitre_tactic) + ' · </span>' : '') +
+            '<span>' + (inc.created_at||'').slice(0,16) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<span class="sig-badge ' + sevCls + '">' + (inc.severity||'MEDIUM') + '</span>' +
+          '<span class="inc-status-pill ' + stCls + '">' + (inc.status||'open') + '</span>' +
+        '</div>' +
+      '</div>' +
+      (inc.description ? '<div style="font-size:12px;color:#6b7280;margin-top:6px;">' + escHtml(inc.description) + '</div>' : '') +
+      (inc.mitre_technique ? '<div style="font-size:11px;color:#9ca3af;margin-top:4px;font-family:monospace;">' + escHtml(inc.mitre_technique) + ' · ' + (inc.rule_id||'') + '</div>' : '') +
+      '<div class="inc-actions">' +
+        (inc.status !== 'investigating' ? '<button class="inc-action-btn" onclick="updateIncident(' + inc.id + ',\'investigating\')">Investigate</button>' : '') +
+        (inc.status !== 'resolved' ? '<button class="inc-action-btn" onclick="updateIncident(' + inc.id + ',\'resolved\')" style="color:#059669;border-color:#a7f3d0;">Resolve</button>' : '') +
+        (inc.status !== 'dismissed' ? '<button class="inc-action-btn" onclick="updateIncident(' + inc.id + ',\'dismissed\')" style="color:#9ca3af;">Dismiss</button>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function updateIncident(id, status) {
+  fetch('/api/incidents/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({status: status}),
+  })
+  .then(function(){ loadIncidents(_incStatus); loadUnifiedOverview(); });
+}
+
+// ── Security Signals ──────────────────────────────────────────────────────────
+var _allSignals = [];
+var _sigFilter  = 'all';
+var _sigTimeline = null;
+
+function loadSignals() {
+  fetch('/api/security-signals')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _allSignals = d.signals || [];
+      var c = d.counts || {};
+      var total = _allSignals.length;
+      document.getElementById('sig-cnt-all').textContent  = total;
+      document.getElementById('sig-cnt-crit').textContent = c.CRITICAL || 0;
+      document.getElementById('sig-cnt-high').textContent = c.HIGH     || 0;
+      document.getElementById('sig-cnt-med').textContent  = c.MEDIUM   || 0;
+      document.getElementById('sig-cnt-low').textContent  = c.LOW      || 0;
+      document.getElementById('sig-cnt-info').textContent = c.INFO     || 0;
+      renderSignalsTimeline();
+      renderSignalsTable();
+    })
+    .catch(function(){ });
+}
+
+function renderSignalsTimeline() {
+  var canvas = document.getElementById('signals-timeline-chart');
+  if (!canvas) return;
+  // Build hourly buckets from signal dates
+  var buckets = {};
+  _allSignals.forEach(function(s){
+    var key = (s.date || '').slice(0, 13) || 'unknown';
+    buckets[key] = (buckets[key] || 0) + 1;
+  });
+  var labels = Object.keys(buckets).sort().slice(-24);
+  var values = labels.map(function(k){ return buckets[k]; });
+
+  if (_sigTimeline) { _sigTimeline.destroy(); _sigTimeline = null; }
+  _sigTimeline = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: { labels: labels, datasets: [{ data: values, backgroundColor: '#ef4444', borderRadius: 3, borderSkipped: false }] },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10, family: '-apple-system,sans-serif' }, maxRotation: 45 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, stepSize: 1 }, grid: { color: '#f3f4f6' } },
+      },
+      animation: { duration: 400 },
+    },
+  });
+}
+
+function filterSignals(sev, el) {
+  _sigFilter = sev;
+  document.querySelectorAll('.sig-sev-row').forEach(function(r){ r.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  renderSignalsTable();
+}
+
+function renderSignalsTable() {
+  var q     = (document.getElementById('signals-search').value || '').toLowerCase();
+  var tbody = document.getElementById('signals-tbody');
+  var filtered = _allSignals.filter(function(s){
+    var sevMatch = _sigFilter === 'all' ||
+                   s.severity === _sigFilter ||
+                   (_sigFilter === 'CRITICAL' && s.severity === 'HIGH' &&
+                    /injection|rce|exposure|traversal/i.test(s.event));
+    var qMatch   = !q || s.event.toLowerCase().includes(q) || (s.target||'').toLowerCase().includes(q);
+    return sevMatch && qMatch;
+  });
+  document.getElementById('sig-shown-count').textContent = filtered.length + ' results found';
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af;">No signals match the current filter.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.slice(0, 100).map(function(s){
+    var badgeCls = 'sig-badge-' + s.severity;
+    var isCrit   = s.severity === 'HIGH' && /injection|rce|exposure|traversal/i.test(s.event);
+    if (isCrit) badgeCls = 'sig-badge-CRITICAL';
+    var dispSev  = isCrit ? 'CRITICAL' : s.severity;
+    return '<tr>' +
+      '<td style="font-size:12px;color:#8e8e93;white-space:nowrap;">' + (s.date||'—') + '</td>' +
+      '<td><span class="sig-badge ' + badgeCls + '">' + dispSev + '</span></td>' +
+      '<td style="font-weight:500;">' + escHtml(s.event) + '</td>' +
+      '<td style="font-family:monospace;font-size:12px;color:#374151;">' + escHtml(s.target||'—') + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Log Explorer ──────────────────────────────────────────────────────────────
+var _leTimelineChart = null;
+
+function runLogExplorer() {
+  var domain  = (document.getElementById('le-domain').value||'').trim();
+  var sshHost = (document.getElementById('le-ssh-host').value||'').trim();
+  var sshUser = (document.getElementById('le-ssh-user').value||'').trim();
+  var sshPass = (document.getElementById('le-ssh-pass').value||'').trim();
+  var sshPort = (document.getElementById('le-ssh-port').value||'22').trim();
+  if (!domain) { alert('Please enter a domain.'); return; }
+
+  document.getElementById('le-results').style.display = 'none';
+  document.getElementById('le-error').style.display   = 'none';
+  document.getElementById('le-loading').style.display = 'block';
+  document.getElementById('le-run-btn').disabled = true;
+
+  fetch('/api/logs/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain: domain, ssh_host: sshHost, ssh_user: sshUser,
+                           ssh_pass: sshPass, ssh_port: parseInt(sshPort)||22 }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    document.getElementById('le-loading').style.display = 'none';
+    document.getElementById('le-run-btn').disabled = false;
+    if (d.error && !d.probe_results) {
+      document.getElementById('le-error').style.display = 'block';
+      document.getElementById('le-error').textContent = d.error;
+      return;
+    }
+    document.getElementById('le-results').style.display = 'block';
+    _renderLeTimeline(d.timeline || []);
+    _renderLeLatency(d.latency || []);
+    _renderLeStats(d.stats || {});
+    _renderLePatterns(d.patterns || [], d.probe_results || []);
+  })
+  .catch(function(e){
+    document.getElementById('le-loading').style.display = 'none';
+    document.getElementById('le-run-btn').disabled = false;
+    document.getElementById('le-error').style.display = 'block';
+    document.getElementById('le-error').textContent = 'Request failed: ' + e.message;
+  });
+}
+
+function _renderLeTimeline(tl) {
+  var canvas = document.getElementById('le-timeline-chart');
+  if (_leTimelineChart) { _leTimelineChart.destroy(); _leTimelineChart = null; }
+  if (!tl.length) return;
+  var labels  = tl.map(function(b){ return b.t; });
+  var totals  = tl.map(function(b){ return b.total; });
+  var errors  = tl.map(function(b){ return b.errors; });
+  _leTimelineChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: { labels: labels, datasets: [
+      { label: 'Requests', data: totals, backgroundColor: 'rgba(37,99,235,.7)', borderRadius: 3, order: 2 },
+      { label: 'Errors',   data: errors, backgroundColor: 'rgba(239,68,68,.85)', borderRadius: 3, order: 1 },
+    ]},
+    options: {
+      plugins: { legend: { labels: { font: { size: 11, family: '-apple-system,sans-serif' } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 } } },
+      },
+      animation: { duration: 400 },
+    },
+  });
+}
+
+function _renderLeLatency(latency) {
+  var row = document.getElementById('le-latency-row');
+  if (!latency.length) { row.innerHTML = '<em style="color:#9ca3af;font-size:13px;">No latency data.</em>'; return; }
+  row.innerHTML = latency.map(function(l){
+    var ms   = l.latency_ms;
+    var cls  = ms < 500 ? 'latency-ok' : ms < 2000 ? 'latency-med' : 'latency-bad';
+    var disp = ms < 0 ? 'ERR' : ms + 'ms';
+    return '<div class="latency-card"><div class="latency-ms ' + cls + '">' + disp + '</div>' +
+           '<div class="latency-path">' + escHtml(l.path) + '</div>' +
+           (l.status ? '<div style="font-size:10px;color:#9ca3af;">HTTP ' + l.status + '</div>' : '') + '</div>';
+  }).join('');
+}
+
+function _renderLeStats(stats) {
+  var grid = document.getElementById('le-stats-grid');
+  if (!Object.keys(stats).length) { grid.innerHTML = ''; return; }
+  var topIps   = Object.entries(stats.top_ips   || {}).slice(0, 8);
+  var statuses = Object.entries(stats.status_codes || {}).slice(0, 8);
+  var topPaths = Object.entries(stats.top_paths || {}).slice(0, 8);
+  var methods  = Object.entries(stats.http_methods || {});
+  var maxIp    = Math.max(1, ...topIps.map(function(e){ return e[1]; }));
+  var maxPath  = Math.max(1, ...topPaths.map(function(e){ return e[1]; }));
+
+  grid.innerHTML =
+    _leStatCard('Top Client IPs', topIps, maxIp, '#2563eb') +
+    _leStatCard('Top Paths', topPaths, maxPath, '#7c3aed') +
+    _leKvCard('Status Codes', statuses) +
+    _leKvCard('HTTP Methods', methods);
+}
+
+function _leStatCard(title, pairs, maxVal, color) {
+  var rows = pairs.map(function(p){
+    var pct = Math.round(p[1] / maxVal * 100);
+    return '<div class="log-bar-row"><span style="font-size:11px;color:#374151;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(p[0]) + '">' + escHtml(p[0].slice(-30)) + '</span>' +
+           '<div class="log-bar-fill" style="width:' + Math.max(pct, 4) + 'px;background:' + color + ';margin:0 6px;"></div>' +
+           '<span style="font-size:11px;font-weight:600;color:#374151;white-space:nowrap;">' + p[1] + '</span></div>';
+  }).join('');
+  return '<div class="log-stat-card"><h5>' + title + '</h5>' + (rows || '<em style="color:#9ca3af;font-size:12px;">No data</em>') + '</div>';
+}
+
+function _leKvCard(title, pairs) {
+  var rows = pairs.map(function(p){
+    return '<div class="log-kv-row"><span class="log-kv-key">' + escHtml(String(p[0])) + '</span><span class="log-kv-val">' + escHtml(String(p[1])) + '</span></div>';
+  }).join('');
+  return '<div class="log-stat-card"><h5>' + title + '</h5>' + (rows || '<em style="color:#9ca3af;font-size:12px;">No data</em>') + '</div>';
+}
+
+function _renderLePatterns(patterns, probes) {
+  var list = document.getElementById('le-patterns-list');
+  var items = [];
+  patterns.forEach(function(p){
+    var sevColor = p.severity === 'HIGH' ? '#dc2626' : p.severity === 'MEDIUM' ? '#d97706' : '#059669';
+    items.push('<div class="pattern-item">' +
+      '<span class="sig-badge sig-badge-' + p.severity + '">' + p.severity + '</span>' +
+      '<div><div class="pattern-type" style="color:' + sevColor + ';">' + escHtml(p.type) + '</div>' +
+      '<div style="font-size:12px;color:#6b7280;">' + escHtml(p.detail||'') + '</div>' +
+      (p.ip ? '<div style="font-size:11px;color:#9ca3af;">Source: ' + escHtml(p.ip) + ' · ' + p.count + ' request(s)</div>' : '') +
+      '</div></div>');
+  });
+  probes.filter(function(p){ return p.finding; }).forEach(function(p){
+    var sevColor = p.severity === 'HIGH' ? '#dc2626' : p.severity === 'MEDIUM' ? '#d97706' : '#059669';
+    items.push('<div class="pattern-item">' +
+      '<span class="sig-badge sig-badge-' + p.severity + '">' + p.severity + '</span>' +
+      '<div><div class="pattern-type" style="color:' + sevColor + ';">' + escHtml(p.label||p.path) + '</div>' +
+      '<div style="font-size:12px;color:#6b7280;">' + escHtml(p.finding||'') + '</div>' +
+      '<div style="font-size:11px;color:#9ca3af;">HTTP ' + (p.status||'?') + ' · ' + (p.path||'') + '</div>' +
+      '</div></div>');
+  });
+  list.innerHTML = items.length ? items.join('') : '<em style="color:#9ca3af;font-size:13px;">No threats detected.</em>';
+}
+
+// ── Network Monitor ───────────────────────────────────────────────────────────
+var _nmChart = null;
+
+function runNetMonitor() {
+  var domain  = (document.getElementById('nm-domain').value||'').trim();
+  var sshHost = (document.getElementById('nm-ssh-host').value||'').trim();
+  var sshUser = (document.getElementById('nm-ssh-user').value||'').trim();
+  var sshPass = (document.getElementById('nm-ssh-pass').value||'').trim();
+  if (!domain) { alert('Please enter a domain.'); return; }
+
+  document.getElementById('nm-results').style.display = 'none';
+  document.getElementById('nm-error').style.display   = 'none';
+  document.getElementById('nm-loading').style.display = 'block';
+  document.getElementById('nm-run-btn').disabled = true;
+
+  fetch('/api/monitor/network', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain: domain, ssh_host: sshHost, ssh_user: sshUser, ssh_pass: sshPass }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    document.getElementById('nm-loading').style.display = 'none';
+    document.getElementById('nm-run-btn').disabled = false;
+    if (d.error) {
+      document.getElementById('nm-error').style.display = 'block';
+      document.getElementById('nm-error').textContent = d.error;
+      return;
+    }
+    document.getElementById('nm-results').style.display = 'block';
+    _renderNetMap(d.nodes||[], d.edges||[]);
+    _renderNetServices(d.services||[]);
+    _renderNetTraffic(d.traffic||{});
+  })
+  .catch(function(e){
+    document.getElementById('nm-loading').style.display = 'none';
+    document.getElementById('nm-run-btn').disabled = false;
+    document.getElementById('nm-error').style.display = 'block';
+    document.getElementById('nm-error').textContent = 'Request failed: ' + e.message;
+  });
+}
+
+function _renderNetMap(nodes, edges) {
+  var canvas = document.getElementById('net-map-canvas');
+  if (!canvas || !nodes.length) return;
+  if (_nmChart) { _nmChart.destroy(); _nmChart = null; }
+
+  var ctx = canvas.getContext('2d');
+  var W = canvas.parentElement.offsetWidth || 500;
+  var H = 380;
+  canvas.width  = W;
+  canvas.height = H;
+
+  // Simple force-directed layout: place nodes in a circle around the target
+  var cx = W / 2, cy = H / 2, r = Math.min(W, H) * 0.36;
+  var posMap = {};
+  var nonTarget = nodes.filter(function(n){ return n.type !== 'target'; });
+  posMap[nodes[0].id] = { x: cx, y: cy };
+  nonTarget.forEach(function(n, i){
+    var angle = (2 * Math.PI * i / Math.max(nonTarget.length, 1)) - Math.PI / 2;
+    posMap[n.id] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  });
+
+  var _groupColors = { target:'#1d1d1f', http:'#2563eb', https:'#2563eb', ssh:'#10b981',
+                        mysql:'#f59e0b', ftp:'#ef4444', smtp:'#8b5cf6', remote:'#6b7280', service:'#374151' };
+
+  function _draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw edges
+    edges.forEach(function(e){
+      var a = posMap[e.from], b = posMap[e.to];
+      if (!a || !b) return;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Arrow
+      var angle = Math.atan2(b.y - a.y, b.x - a.x);
+      var nx = b.x - 18 * Math.cos(angle), ny = b.y - 18 * Math.sin(angle);
+      ctx.beginPath();
+      ctx.moveTo(nx, ny);
+      ctx.lineTo(nx - 8 * Math.cos(angle - 0.4), ny - 8 * Math.sin(angle - 0.4));
+      ctx.lineTo(nx - 8 * Math.cos(angle + 0.4), ny - 8 * Math.sin(angle + 0.4));
+      ctx.closePath();
+      ctx.fillStyle = '#d1d5db';
+      ctx.fill();
+      // Edge label
+      if (e.label) {
+        ctx.font = '10px -apple-system,sans-serif';
+        ctx.fillStyle = '#9ca3af';
+        ctx.textAlign = 'center';
+        ctx.fillText(e.label, (a.x + b.x) / 2, (a.y + b.y) / 2 - 4);
+      }
+    });
+
+    // Draw nodes
+    nodes.forEach(function(n){
+      var p = posMap[n.id];
+      if (!p) return;
+      var isTarget = n.type === 'target';
+      var rad = isTarget ? 24 : 16;
+      var col = _groupColors[n.group] || _groupColors[n.type] || '#6b7280';
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rad, 0, 2 * Math.PI);
+      ctx.fillStyle = isTarget ? col : '#fff';
+      ctx.fill();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = isTarget ? 0 : 2;
+      ctx.stroke();
+
+      ctx.font = (isTarget ? 'bold 11px' : '10px') + ' -apple-system,sans-serif';
+      ctx.fillStyle = isTarget ? '#fff' : col;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var shortLabel = (n.label||n.id).split('\n')[0].slice(-18);
+      ctx.fillText(shortLabel, p.x, p.y);
+      if (!isTarget) {
+        ctx.font = '10px -apple-system,sans-serif';
+        ctx.fillStyle = '#9ca3af';
+        ctx.textBaseline = 'top';
+        ctx.fillText((n.label||'').split('\n').slice(1).join(' ').slice(0, 20), p.x, p.y + rad + 3);
+      }
+    });
+  }
+  _draw();
+}
+
+function _renderNetServices(services) {
+  var list = document.getElementById('nm-services-list');
+  var valid = services.filter(function(s){ return s.port && !s.error; });
+  if (!valid.length) {
+    list.innerHTML = '<em style="color:#9ca3af;font-size:12px;">No open services found or Nmap not available.</em>';
+    return;
+  }
+  list.innerHTML = valid.map(function(s){
+    var risk = s.port === 22 ? 'MEDIUM' : [21, 23, 3306, 5432, 6379, 27017].includes(s.port) ? 'HIGH' : 'LOW';
+    var badgeCls = 'sig-badge-' + risk;
+    return '<div class="net-svc-row"><span class="net-port-badge">' + s.port + '</span>' +
+      '<span style="flex:1;font-size:12px;">' + escHtml(s.service) + '</span>' +
+      '<span class="sig-badge ' + badgeCls + '" style="font-size:9px;">' + risk + '</span></div>';
+  }).join('');
+}
+
+function _renderNetTraffic(traffic) {
+  var list = document.getElementById('nm-traffic-list');
+  var ifaces = Object.entries(traffic).filter(function(e){ return e[0] !== 'lo'; });
+  if (!ifaces.length) {
+    list.innerHTML = '<em style="color:#9ca3af;font-size:12px;">SSH required for traffic stats.</em>';
+    return;
+  }
+  list.innerHTML = ifaces.map(function(e){
+    var name = e[0], data = e[1];
+    return '<div class="net-iface-row"><span style="font-family:monospace;">' + escHtml(name) + '</span>' +
+      '<span class="net-rx">↓ ' + data.rx_mb + ' MB</span>' +
+      '<span class="net-tx">↑ ' + data.tx_mb + ' MB</span></div>';
+  }).join('');
+}
 </script>
 </body>
 </html>
