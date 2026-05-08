@@ -2168,12 +2168,15 @@ def api_cloudflare_insights():
                     'resolution': f'{len(skip_rules)} WAF rule(s) use the skip action, bypassing security checks. Review and remove unnecessary skip rules.',
                 })
 
-        # ── Bot Management / AI Labyrinth ─────────────────────────────────
-        bm = _cf_json(f'/zones/{zid}/bot_management')
-        if bm and bm.get('success'):
-            bm_result = bm.get('result') or {}
-            ai_labyrinth = bm_result.get('ai_bots_protection') or bm_result.get('ai_labyrinth_enabled')
-            if ai_labyrinth in (None, False, 'disabled', 'off'):
+        # ── AI Labyrinth — check via zone rulesets (works on all plans) ──────
+        rulesets_resp = _cf_json(f'/zones/{zid}/rulesets')
+        if rulesets_resp and rulesets_resp.get('success'):
+            active_rulesets = rulesets_resp.get('result') or []
+            ai_enabled = any(
+                'ai' in (r.get('name') or '').lower() or 'labyrinth' in (r.get('name') or '').lower()
+                for r in active_rulesets if isinstance(r, dict)
+            )
+            if not ai_enabled:
                 insights.append({
                     'id': f'ai-labyrinth-{zid}',
                     'subject': zname,
