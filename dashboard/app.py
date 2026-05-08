@@ -373,10 +373,16 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                     'STEP 0 — ALWAYS DO THIS FIRST:\n'
                     f'  1. Call wp_security_scan(site_url="https://{domain}")\n'
                     '     Runs a full WordPress security audit and emits WP-LOG entries.\n'
-                    '  2. CRITICAL: Include ALL lines starting with "WP-LOG |" from the\n'
-                    '     tool result VERBATIM in your output — needed for plugin logs.\n'
+                    '  2. CRITICAL: Copy ALL lines starting with "WP-LOG |" from the tool\n'
+                    '     result VERBATIM into your response — DO NOT generate WP-LOG lines\n'
+                    '     yourself, only echo what the tool returned.\n'
                     f'  3. Call wp_api_call(site_url="https://{domain}", endpoint="/wp-json/wp/v2/users")\n'
                     '     and other REST endpoints for deeper investigation.\n'
+                    '  4. If no WP-LOG entries were returned by the tool, instruct the user\n'
+                    '     to install the free "WP Activity Log" plugin (wp-security-audit-log)\n'
+                    '     and re-run the scan to get real admin login events with IP addresses.\n'
+                    '     If admin credentials are provided, attempt installation via WP-CLI:\n'
+                    f'     generic_linux_command("wp plugin install wp-security-audit-log --activate --path=/var/www/html --url=https://{domain}")\n'
                     'Auth is handled automatically: Basic Auth → Cookie+Nonce → public.\n'
                     '═══════════════════════════════════════════════════\n\n'
                 )
@@ -509,6 +515,17 @@ def risk_level(text: str) -> str:
     return 'INFO'
 
 
+def rec_risk(text: str) -> str:
+    """Score a single recommendation line independently — avoids scan-wide HIGH bleeding."""
+    if not text:
+        return 'INFO'
+    tl = text.lower()
+    for kw_list, label in ((_HIGH_KW, 'HIGH'), (_MED_KW, 'MEDIUM'), (_LOW_KW, 'LOW')):
+        if any(k in tl for k in kw_list):
+            return label
+    return 'MEDIUM'  # actionable but no severity keyword → treat as medium
+
+
 def _strip_md(text: str) -> str:
     text = re.sub(r'\*\*([^*\n]+)\*\*', r'\1', text)
     text = re.sub(r'\*([^*\n]+)\*', r'\1', text)
@@ -616,19 +633,32 @@ def _wp_log_fallback(output: str) -> list:
     return entries
 
 
+# Users that indicate scanner-generated entries, not real admin logins
+_SCANNER_USERS = {'system', 'cf_ai', 'cf_ai-mcp', 'cf_ai_mcp', 'scanner'}
+
+
 def extract_wp_logs(output: str) -> dict:
-    """Parse WP-LOG lines from agent output. Returns {entries, status}."""
+    """Parse WP-LOG lines from agent output. Returns {entries, status}.
+
+    Scanner-generated entries (user == 'system', 'CF_AI', etc.) are excluded —
+    Plugin Logs shows only real WordPress user activity.
+    """
     entries = []
     for m in _WP_LOG_RE.finditer(output):
+        user = m.group(2).strip()
+        if user.lower() in _SCANNER_USERS:
+            continue
         entries.append({
             'timestamp': m.group(1).strip(),
-            'user':      m.group(2).strip(),
+            'user':      user,
             'event':     m.group(3).strip(),
             'ip':        m.group(4).strip(),
             'risk':      m.group(5).strip().upper(),
         })
-    # Always supplement with fallback-parsed structured lines
-    entries.extend(_wp_log_fallback(output))
+    # Fallback: structured agent-emitted lines (CF_AI scanner patterns)
+    fallback = [e for e in _wp_log_fallback(output)
+                if e.get('user', '').lower() not in _SCANNER_USERS]
+    entries.extend(fallback)
     status_match = _WP_LOG_STATUS_RE.search(output)
     status_code = status_match.group(1) if status_match else ('found' if entries else 'none')
     status_msg  = status_match.group(2).strip() if status_match else ''
@@ -660,19 +690,39 @@ _FIX_STACK_KEYS: dict[str, str] = {
 }
 
 
+# Negation patterns specific to stack detection — a line saying
+# "checking for xmlrpc.php" or "xmlrpc.php returned 404" is NOT evidence of WordPress.
+_STACK_NEG = re.compile(
+    r'\b(checking|testing|looking for|scanning for|probing|not found|'
+    r'returns?\s*404|http\s*404|status\s*404|not present|not installed|'
+    r'not detected|not running|no evidence|not a wordpress|not wordpress|'
+    r'no wordpress|does not appear|does not use|is not running)\b',
+    re.I,
+)
+
+
 def _detect_stacks(text: str) -> set[str]:
-    """Detect server / CMS stacks referenced in agent output."""
-    tl = text.lower()
+    """Detect server / CMS stacks referenced in agent output.
+
+    Only fires on lines with *positive* evidence — lines that look like
+    "checking for X" or "X returned 404" are skipped via _STACK_NEG.
+    """
     found: set[str] = set()
-    if any(k in tl for k in ('wordpress', 'wp-content', 'wp-admin', 'wp-login',
-                              'xmlrpc.php', '/wp-', 'woocommerce')):
-        found.add('wp')
-    if 'nginx' in tl:
-        found.add('nginx')
-    if 'apache' in tl or '.htaccess' in tl:
-        found.add('apache')
-    if 'php' in tl:
-        found.add('php')
+    for line in text.splitlines():
+        if _STACK_NEG.search(line) or _NEGATION.search(line):
+            continue
+        ll = line.lower()
+        # WordPress: require definitive positive signals, not just any mention
+        if any(k in ll for k in ('wp-content/', 'wp-admin/', 'wp-login.php',
+                                  '/wp-json/', 'wordpress version', 'woocommerce',
+                                  '/wp-includes/', 'wp-config.php', 'xmlrpc.php')):
+            found.add('wp')
+        if 'nginx' in ll:
+            found.add('nginx')
+        if 'apache' in ll or '.htaccess' in ll:
+            found.add('apache')
+        if 'php' in ll:
+            found.add('php')
     return found
 
 
@@ -809,14 +859,14 @@ def index():
                     'scan_id':   s['id'],
                     'has_fixes': True,
                 })
-        # Secondary: free-text extracted recommendations
+        # Secondary: free-text extracted recommendations — risk scored per-item
         for r in s['recs']:
             k = r[:60].lower()
             if k not in seen:
                 seen.add(k)
                 all_recs.append({
                     'target':    tgt,
-                    'risk':      s['risk'],
+                    'risk':      rec_risk(r),   # per-recommendation, not scan-wide
                     'text':      r,
                     'agent':     s['agent_label'],
                     'date':      s['display_date'][:10],
@@ -826,11 +876,31 @@ def index():
 
     all_recs.sort(key=lambda x: (_prio.get(x['risk'], 3), x['target']))
 
+    # ── Severity distribution per target (for overview charts) ────────────────
+    from collections import defaultdict as _dd
+    _tgt_sev: dict = _dd(lambda: {'HIGH': 0, 'MEDIUM': 0, 'LOW': 0, 'INFO': 0})
+    for s in scans:
+        _tgt_sev[s['target']][s['risk']] += 1
+    severity_summary = {
+        'total': {
+            'HIGH':   sum(v['HIGH']   for v in _tgt_sev.values()),
+            'MEDIUM': sum(v['MEDIUM'] for v in _tgt_sev.values()),
+            'LOW':    sum(v['LOW']    for v in _tgt_sev.values()),
+            'INFO':   sum(v['INFO']   for v in _tgt_sev.values()),
+        },
+        'by_target': sorted(
+            [{'target': k, **v} for k, v in _tgt_sev.items()],
+            key=lambda x: x['HIGH'] * 10 + x['MEDIUM'] * 3 + x['LOW'],
+            reverse=True,
+        )[:12],
+    }
+
     return render_template('index.html',
                            scans=scans,
                            targets=targets,
                            stats=stats,
-                           all_recs=all_recs[:40])
+                           all_recs=all_recs[:40],
+                           severity_summary=severity_summary)
 
 
 @app.route('/api/scan/<int:scan_id>')
@@ -932,6 +1002,28 @@ def api_save_scan():
         output     = str(data['output'])[:60000],
     )
     return jsonify({'saved': True}), 201
+
+
+@app.route('/api/target/<path:target>/analytics')
+def api_target_analytics(target):
+    from dashboard.monitor import get_target_analytics
+    from dashboard.security_apis import get_site_scores
+    scans = [enrich(s) for s in db.get_scans_for_target(target)]
+    analytics = get_target_analytics(target, scans)
+    scores = get_site_scores(target)
+    return jsonify({**analytics, 'scores': scores})
+
+
+@app.route('/api/target/<path:target>/compare')
+def api_target_compare(target):
+    from dashboard.monitor import compare_scans
+    scans = [enrich(s) for s in db.get_scans_for_target(target)]
+    if len(scans) < 2:
+        return jsonify({'error': 'Need at least 2 scans to compare', 'new': [], 'resolved': [], 'persistent': []})
+    result = compare_scans(scans[0], scans[1])  # latest vs previous
+    result['latest_date'] = scans[0].get('display_date', '')
+    result['previous_date'] = scans[1].get('display_date', '')
+    return jsonify(result)
 
 
 @app.route('/api/connect/scan', methods=['POST'])

@@ -599,37 +599,74 @@ def wp_security_scan(site_url: str) -> str:
             except Exception:
                 pass
 
-        # Fallback: authenticated user list
+        # Fallback: try to install WSAL via WP-CLI if admin credentials available
+        if not log_entries and user and passwd:
+            _wpcli = (f'wp plugin install wp-security-audit-log --activate '
+                      f'--url={base} 2>&1 | head -5')
+            try:
+                import subprocess as _sp
+                _r = _sp.run(_wpcli, shell=True, capture_output=True, text=True, timeout=15)
+                if 'activated' in (_r.stdout or '').lower():
+                    lines.append('[INFO] WP Activity Log plugin installed and activated via WP-CLI')
+                    # Retry the activity log endpoints after installation
+                    import time as _t; _t.sleep(2)
+                    for ep in all_eps[:2]:
+                        _c2, _b2 = _wp_rest(base, ep)
+                        if _c2 == 200:
+                            try:
+                                _d2 = json.loads(_b2)
+                                _items2 = _d2 if isinstance(_d2, list) else _d2.get('items', [])
+                                for _ev in (_items2 or [])[:50]:
+                                    _u   = (_ev.get('user_login') or _ev.get('username') or 'unknown')
+                                    _ts  = _ev.get('created_on') or _ev.get('timestamp') or scan_ts
+                                    _ip  = _ev.get('ip') or _ev.get('client_ip') or '-'
+                                    _msg = _ev.get('message') or _ev.get('event_type') or 'WordPress event'
+                                    log_entries.append((_ts, str(_u), str(_msg)[:160], str(_ip)))
+                            except Exception:
+                                pass
+                            if log_entries:
+                                break
+            except Exception:
+                pass
+
+        # Fallback: authenticated user list (no login IPs available without activity plugin)
         if not log_entries and user:
             _c_u, _b_u = _req('/wp-json/wp/v2/users?context=edit&per_page=100')
             try:
                 _users = json.loads(_b_u)
                 if isinstance(_users, list) and _users:
-                    lines.append(f'[INFO] {len(_users)} WordPress user(s) via REST API (no activity log plugin found)')
+                    lines.append(f'[INFO] {len(_users)} WordPress user(s) via REST API — '
+                                 f'install WP Activity Log plugin for real login events with IP addresses')
                     for _u in _users:
                         _roles  = _u.get('roles', [])
                         _uname  = _u.get('slug') or _u.get('name', 'unknown')
                         _email  = _u.get('email', '')
                         _role_s = ', '.join(_roles) or 'subscriber'
-                        _msg    = f'WordPress user account (roles: {_role_s})'
+                        _msg    = f'WordPress user (roles: {_role_s})'
                         if _email:
-                            _msg += f' — {_email}'
+                            _msg += f', email: {_email}'
                         lines.append(f'  {_uname}: {_msg}')
                         log_entries.append((scan_ts, _uname, _msg, '-'))
             except Exception:
                 pass
 
         if not log_entries:
-            lines.append('[INFO] No activity log plugin detected. Install WP Activity Log plugin')
-            lines.append('  and re-run with admin credentials to see real login history.')
+            lines.append('[INFO] No activity log plugin detected.')
+            lines.append('  Install the free "WP Activity Log" plugin (wp-security-audit-log)')
+            lines.append('  and re-run with admin credentials to see real login history with IPs.')
 
         lines.append('')
         lines.append('# Admin activity log (real WordPress data):')
         for _ts, _uname, _event, _ip in log_entries:
-            _risk = ('HIGH' if any(k in _event.lower() for k in
-                                   ('admin', 'administrator', 'login', 'password', 'install', 'delete', 'activate'))
-                     else 'MEDIUM')
-            lines.append(f'WP-LOG | {_ts} | {_uname} | {_event} | {_ip} | {_risk}')
+            # Sanitize pipe chars in event message so WP-LOG regex always parses correctly
+            _event_safe = str(_event).replace('|', '/').replace('\n', ' ')
+            _risk = ('HIGH' if any(k in _event_safe.lower() for k in
+                                   ('login', 'password', 'install', 'delete', 'activate',
+                                    'admin created', 'role changed', 'plugin activated'))
+                     else 'MEDIUM' if any(k in _event_safe.lower() for k in
+                                          ('settings', 'update', 'profile', 'export'))
+                     else 'LOW')
+            lines.append(f'WP-LOG | {_ts} | {_uname} | {_event_safe} | {_ip} | {_risk}')
         return lines
 
     # ── Run all checks in parallel ────────────────────────────────────────────

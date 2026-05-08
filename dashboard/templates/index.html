@@ -570,6 +570,52 @@ tr.hidden-r { display: none; }
 .btn-logs { background: #7c3aed; border-color: #7c3aed; color: #fff; font-size: 11px; padding: 3px 9px; }
 .btn-logs:hover { background: #6d28d9; }
 
+/* ── Vulnerability Overview ── */
+.vuln-overview-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin-bottom:16px; }
+.vsev-card { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:16px 20px; }
+.vsev-card-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#6b7280; margin-bottom:10px; }
+.vsev-bars { display:flex; flex-direction:column; gap:5px; }
+.vsev-bar-row { display:flex; align-items:center; gap:8px; font-size:12px; }
+.vsev-bar-label { width:52px; color:#6b7280; text-align:right; flex-shrink:0; }
+.vsev-bar-track { flex:1; background:#f3f4f6; border-radius:3px; height:14px; overflow:hidden; }
+.vsev-bar-fill { height:100%; border-radius:3px; transition:width .4s; min-width:2px; }
+.vsev-bar-count { width:28px; font-weight:600; color:#374151; text-align:right; flex-shrink:0; }
+.vsev-bar-fill.sev-high   { background:#dc2626; }
+.vsev-bar-fill.sev-medium { background:#f59e0b; }
+.vsev-bar-fill.sev-low    { background:#16a34a; }
+.vsev-bar-fill.sev-info   { background:#6b7280; }
+.sev-summary-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+.sev-sum-box { flex:1; min-width:90px; border-radius:7px; padding:10px 14px; text-align:center; border:1px solid; }
+.sev-sum-box.b-high   { background:#fef2f2; border-color:#fca5a5; }
+.sev-sum-box.b-medium { background:#fffbeb; border-color:#fcd34d; }
+.sev-sum-box.b-low    { background:#f0fdf4; border-color:#86efac; }
+.sev-sum-box.b-info   { background:#f9fafb; border-color:#e5e7eb; }
+.sev-sum-val  { font-size:26px; font-weight:800; line-height:1; }
+.sev-sum-lbl  { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-top:3px; }
+.b-high .sev-sum-val, .b-high .sev-sum-lbl     { color:#b91c1c; }
+.b-medium .sev-sum-val, .b-medium .sev-sum-lbl { color:#b45309; }
+.b-low .sev-sum-val, .b-low .sev-sum-lbl       { color:#166534; }
+.b-info .sev-sum-val, .b-info .sev-sum-lbl     { color:#6b7280; }
+
+/* ── Security Insights (APM-style) ── */
+.insight-card { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px 18px; margin-bottom:10px; }
+.insight-NEW      { border-left:4px solid #dc2626; }
+.insight-RESOLVED { border-left:4px solid #16a34a; }
+.insight-row { display:flex; align-items:flex-start; gap:12px; }
+.insight-icon { font-size:16px; flex-shrink:0; padding-top:1px; }
+.insight-body { flex:1; }
+.insight-title { font-weight:600; font-size:13px; color:#111827; }
+.insight-meta  { font-size:11px; color:#6b7280; margin-top:2px; }
+.score-pill { display:inline-block; font-size:11px; font-weight:700; border-radius:4px; padding:2px 8px; border:1px solid; }
+.score-pill.A  { background:#f0fdf4; color:#166534; border-color:#86efac; }
+.score-pill.B  { background:#f0fdf4; color:#166534; border-color:#86efac; }
+.score-pill.C  { background:#fffbeb; color:#b45309; border-color:#fcd34d; }
+.score-pill.D  { background:#fef2f2; color:#b91c1c; border-color:#fca5a5; }
+.score-pill.E  { background:#fef2f2; color:#b91c1c; border-color:#fca5a5; }
+.score-pill.F  { background:#fef2f2; color:#b91c1c; border-color:#fca5a5; }
+.score-pill.na { background:#f9fafb; color:#6b7280; border-color:#e5e7eb; }
+.mttr-badge { display:inline-block; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:600; }
+
 /* ── Domain filter ── */
 .domain-filter-wrap { display:flex; align-items:center; gap:6px; }
 .domain-filter-wrap input {
@@ -613,7 +659,7 @@ tr.hidden-r { display: none; }
 }
 .connect-form input:focus, .connect-form select:focus { border-color: #6366f1; }
 .connect-form input.url-input { min-width: 240px; flex: 1 1 240px; }
-.connect-form select.agent-select { min-width: 180px; }
+.connect-form select.agent-select { min-width: 180px; padding-right: 28px; }
 .btn-connect { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
 .btn-connect:hover { background: #4f46e5; }
 .btn-connect:disabled { background: #a5b4fc; cursor: not-allowed; }
@@ -752,6 +798,69 @@ tr.hidden-r { display: none; }
     </div>
   </div>
 
+  <!-- Vulnerability Overview -->
+  <section class="section" id="vuln-overview-sec">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Vulnerability Overview</div>
+        <div class="sec-desc">Severity distribution across all scanned targets — updated after each scan</div>
+      </div>
+    </div>
+    <!-- Severity summary totals -->
+    <div class="sev-summary-row">
+      <div class="sev-sum-box b-high">
+        <div class="sev-sum-val" id="ovr-high">{{ severity_summary.total.HIGH }}</div>
+        <div class="sev-sum-lbl">High</div>
+      </div>
+      <div class="sev-sum-box b-medium">
+        <div class="sev-sum-val" id="ovr-medium">{{ severity_summary.total.MEDIUM }}</div>
+        <div class="sev-sum-lbl">Medium</div>
+      </div>
+      <div class="sev-sum-box b-low">
+        <div class="sev-sum-val" id="ovr-low">{{ severity_summary.total.LOW }}</div>
+        <div class="sev-sum-lbl">Low</div>
+      </div>
+      <div class="sev-sum-box b-info">
+        <div class="sev-sum-val" id="ovr-info">{{ severity_summary.total.INFO }}</div>
+        <div class="sev-sum-lbl">Info</div>
+      </div>
+    </div>
+    <!-- Per-target bar charts -->
+    <div class="vuln-overview-grid" id="vuln-grid">
+      {% for t in severity_summary.by_target %}
+      {% set mx = [t.HIGH, t.MEDIUM, t.LOW, t.INFO, 1] | max %}
+      <div class="vsev-card">
+        <div class="vsev-card-title" title="{{ t.target }}">{{ t.target[:38] }}</div>
+        <div class="vsev-bars">
+          <div class="vsev-bar-row">
+            <span class="vsev-bar-label">High</span>
+            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-high" style="width:{{ (t.HIGH / mx * 100)|int }}%"></div></div>
+            <span class="vsev-bar-count">{{ t.HIGH }}</span>
+          </div>
+          <div class="vsev-bar-row">
+            <span class="vsev-bar-label">Medium</span>
+            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-medium" style="width:{{ (t.MEDIUM / mx * 100)|int }}%"></div></div>
+            <span class="vsev-bar-count">{{ t.MEDIUM }}</span>
+          </div>
+          <div class="vsev-bar-row">
+            <span class="vsev-bar-label">Low</span>
+            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-low" style="width:{{ (t.LOW / mx * 100)|int }}%"></div></div>
+            <span class="vsev-bar-count">{{ t.LOW }}</span>
+          </div>
+          <div class="vsev-bar-row">
+            <span class="vsev-bar-label">Info</span>
+            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-info" style="width:{{ (t.INFO / mx * 100)|int }}%"></div></div>
+            <span class="vsev-bar-count">{{ t.INFO }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      {% if not severity_summary.by_target %}
+      <div style="color:#9ca3af;font-size:13px;padding:20px;">No scan data yet. Run a scan via Connect Your Website to populate this section.</div>
+      {% endif %}
+    </div>
+  </section>
+
   <!-- Priority Actions -->
   <section class="section">
     <div class="sec-head">
@@ -847,7 +956,7 @@ tr.hidden-r { display: none; }
         <div>
           <label>&nbsp;</label>
           <button class="btn-connect" id="cwStartBtn" onclick="startConnectScan()">Run Scan</button>
-          <button class="btn-connect" id="cwStopBtn" onclick="cwAbortScan()" style="display:none;background:#ef4444;margin-left:6px;">&#9632; Stop Scan</button>
+          <button class="btn-connect" id="cwStopBtn" onclick="cwAbortScan()" style="display:none;background:#ef4444;margin-left:6px;">Stop Scan</button>
         </div>
       </div>
 
@@ -984,6 +1093,7 @@ tr.hidden-r { display: none; }
               <td style="white-space:nowrap;">
                 <button class="btn btn-sm" onclick="openModal({{ t.id }})" style="margin-right:4px;">Report</button>
                 <button class="btn btn-logs btn-sm" onclick="openWpLogsModal('{{ t.target|e }}')">Plugin Logs</button>
+                <button class="btn btn-sm" onclick="openInsightsModal('{{ t.target|e }}')" style="background:#0f172a;color:#fff;border-color:#0f172a;">Insights</button>
               </td>
             </tr>
           {% endfor %}
@@ -1080,6 +1190,21 @@ tr.hidden-r { display: none; }
 </footer>
 
 <!-- ── Report Modal ────────────────────────────────────────────────────────── -->
+<!-- ── Security Insights modal ── -->
+<div id="ins-bg" class="modal-bg" onclick="if(event.target===this)closeInsightsModal()">
+  <div class="modal-box" style="max-width:860px;">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title" id="ins-title">Security Insights</div>
+      </div>
+      <button class="modal-close" onclick="closeInsightsModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="ins-body">
+      <p style="color:#9ca3af;text-align:center;padding:40px;">Loading...</p>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="mbg" onclick="bgClose(event)">
   <div class="modal-box">
     <div class="modal-hd">
@@ -1986,7 +2111,12 @@ function togFull(){
 }
 function closeModal(){ document.getElementById('mbg').classList.remove('open'); }
 function bgClose(e){ if(e.target===document.getElementById('mbg')) closeModal(); }
-document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape'){
+    closeModal();
+    closeInsightsModal();
+  }
+});
 
 /* ── Credential panel ── */
 function cwToggleCreds() {
@@ -2270,6 +2400,108 @@ function cwUnlock() {
 function cwLock() {
   document.getElementById('cwStartBtn').disabled = true;
   document.getElementById('cwStopBtn').style.display = '';
+}
+
+/* ── Security Insights modal ── */
+function openInsightsModal(target) {
+  document.getElementById('ins-bg').classList.add('open');
+  document.getElementById('ins-title').textContent = 'Security Insights: ' + target;
+  document.getElementById('ins-body').innerHTML =
+    '<p style="color:#9ca3af;text-align:center;padding:40px;">Loading analytics...</p>';
+
+  fetch('/api/target/' + encodeURIComponent(target) + '/analytics')
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    var html = '';
+
+    // External scores
+    var sc = d.scores || {};
+    var obs = sc.observatory || {}; var ssl = sc.ssl_labs || {}; var shd = sc.security_headers || {};
+    function gradeClass(g) {
+      if (!g || g === 'pending' || g === 'N/A') return 'na';
+      return g.replace('+','')[0] || 'na';
+    }
+    html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center;">';
+    html += '<span style="font-size:12px;color:#6b7280;font-weight:600;">EXTERNAL SCORES</span>';
+    if (obs.grade !== undefined)
+      html += '<span class="score-pill ' + gradeClass(obs.grade) + '">Mozilla Observatory: ' + (obs.grade||'?') + (obs.score !== undefined ? ' ('+obs.score+'/100)' : '') + '</span>';
+    if (ssl.grade)
+      html += '<span class="score-pill ' + gradeClass(ssl.grade) + '">SSL Labs: ' + ssl.grade + '</span>';
+    if (shd.grade)
+      html += '<span class="score-pill ' + gradeClass(shd.grade) + '">Security Headers: ' + shd.grade + '</span>';
+    if (!obs.grade && !ssl.grade && !shd.grade)
+      html += '<span style="color:#9ca3af;font-size:12px;">Scores loading in background — refresh in 30s</span>';
+    html += '</div>';
+
+    // MTTR / MTTD
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">';
+    if (d.mttr_days !== null && d.mttr_days !== undefined)
+      html += '<div><span style="font-size:11px;color:#6b7280;display:block;margin-bottom:3px;">AVG MTTR</span><span class="mttr-badge">' + (+d.mttr_days).toFixed(1) + ' days</span></div>';
+    if (d.mttd_days !== null && d.mttd_days !== undefined)
+      html += '<div><span style="font-size:11px;color:#6b7280;display:block;margin-bottom:3px;">SCAN CADENCE</span><span class="mttr-badge">' + (+d.mttd_days).toFixed(1) + ' days avg</span></div>';
+    if (d.risk_trend)
+      html += '<div><span style="font-size:11px;color:#6b7280;display:block;margin-bottom:3px;">TREND</span><span class="mttr-badge" style="'+(d.risk_trend==='improving'?'background:#f0fdf4;color:#166534;border-color:#86efac':d.risk_trend==='degrading'?'background:#fef2f2;color:#b91c1c;border-color:#fca5a5':'')+'">'+d.risk_trend+'</span></div>';
+    html += '</div>';
+
+    // New findings since last scan
+    var nw = d.new_since_last || [];
+    if (nw.length) {
+      html += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">New Since Last Scan (' + nw.length + ')</div>';
+      nw.forEach(function(f) {
+        html += '<div class="insight-card insight-NEW"><div class="insight-row">' +
+          '<div class="insight-body"><div class="insight-title">' + esc(f.title||f.id||f) + '</div>' +
+          '<div class="insight-meta">First detected in latest scan &bull; Severity: ' + esc(f.severity||'') + '</div></div></div></div>';
+      });
+      html += '</div>';
+    }
+
+    // Resolved since last scan
+    var rv = d.resolved_since_last || [];
+    if (rv.length) {
+      html += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Resolved Since Last Scan (' + rv.length + ')</div>';
+      rv.forEach(function(f) {
+        html += '<div class="insight-card insight-RESOLVED"><div class="insight-row">' +
+          '<div class="insight-body"><div class="insight-title">' + esc(f.title||f.id||f) + '</div>' +
+          '<div class="insight-meta">No longer detected in latest scan</div></div></div></div>';
+      });
+      html += '</div>';
+    }
+
+    // Vulnerability trend chart
+    var tr = d.trend || [];
+    if (tr.length > 1) {
+      html += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Vulnerability Trend</div>';
+      html += '<canvas id="ins-trend-chart" height="120"></canvas></div>';
+    }
+
+    if (!nw.length && !rv.length && !obs.grade && !ssl.grade && !shd.grade && tr.length <= 1) {
+      html += '<p style="color:#9ca3af;font-size:13px;">Run at least 2 scans on this target to see trend data. External scores will load in the background.</p>';
+    }
+
+    document.getElementById('ins-body').innerHTML = html;
+
+    // Render trend chart if data available
+    if (tr.length > 1) {
+      var ctx = document.getElementById('ins-trend-chart');
+      if (ctx) new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: tr.map(function(x){ return (x.date||'').substring(0,10); }),
+          datasets: [
+            {label:'High',   data:tr.map(function(x){return x.HIGH;}),   backgroundColor:'#dc2626'},
+            {label:'Medium', data:tr.map(function(x){return x.MEDIUM;}), backgroundColor:'#f59e0b'},
+            {label:'Low',    data:tr.map(function(x){return x.LOW;}),    backgroundColor:'#16a34a'},
+          ]
+        },
+        options: { responsive:true, plugins:{legend:{position:'bottom'}}, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}} }
+      });
+    }
+  })
+  .catch(function(){ document.getElementById('ins-body').innerHTML = '<p style="color:#ef4444;padding:20px;">Failed to load analytics.</p>'; });
+}
+
+function closeInsightsModal() {
+  document.getElementById('ins-bg').classList.remove('open');
 }
 
 // On page load: resume any in-progress scan, or open report modal if scan just completed
