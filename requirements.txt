@@ -27,3 +27,12 @@ python-dotenv>=1.0.0
 
 # Jinja2 for FastAPI templates (also used by Flask)
 jinja2>=3.1.0
+
+# Cloudflare/WAF bypass
+cloudscraper>=1.2.71         # solves CF JS challenge v1/v2 — used in wordpress_mcp.py
+requests>=2.31.0             # required by cloudscraper
+
+# Security scanning frameworks
+python-nmap>=0.7.1           # nmap port scanner Python binding
+wappalyzer>=0.4.0            # technology fingerprinting
+bs4>=0.0.2                   # BeautifulSoup — HTML parsing for crawlers

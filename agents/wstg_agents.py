@@ -41,12 +41,64 @@ RULES:
   -H "Referer: https://www.google.com/"
 - Add -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt for cookie persistence (CF challenge cookies).
 - Add -Pn --host-timeout 30s to nmap scans to prevent 90s+ hangs.
-- Cloudflare / WAF bypass sequence (try in order if curl returns empty, 403, or 503):
-  1. XFF spoof: -H "X-Forwarded-For: 66.249.66.1" -H "CF-Connecting-IP: 66.249.66.1"
-  2. Googlebot UA: -A "Googlebot/2.1 (+http://www.google.com/bot.html)" -H "From: googlebot(at)googlebot.com"
-  3. HTTP/1.0 downgrade: --http1.0
-  4. Plain HTTP port 80 instead of HTTPS
-  5. Fall back to passive recon (whois/dig/Wayback/crt.sh)
+- Cloudflare / WAF bypass — ATTEMPT ALL LAYERS in order. Never give up after first block:
+
+  LAYER 1 — Header manipulation (fastest):
+    curl -s -L -k --connect-timeout 10 -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt \
+      -A "{_BUA}" \
+      -H "Accept: text/html,application/xhtml+xml,*/*;q=0.8" \
+      -H "Accept-Language: en-US,en;q=0.9" \
+      -H "Accept-Encoding: gzip, deflate, br" \
+      -H "Cache-Control: max-age=0" \
+      -H "Referer: https://www.google.com/" \
+      "https://{{domain}}"
+
+  LAYER 2 — Origin-IP bypass (CF passes requests from origin server IPs and search bots):
+    curl -s -L -k -A "Googlebot/2.1 (+http://www.google.com/bot.html)" \
+      -H "From: googlebot@googlebot.com" \
+      -H "X-Forwarded-For: 66.249.66.1" \
+      -H "CF-Connecting-IP: 66.249.66.1" \
+      -H "X-Real-IP: 66.249.66.1" \
+      "https://{{domain}}"
+
+  LAYER 3 — cloudscraper Python library (solves CF JS challenge v1/v2/v3 automatically):
+    python3 -c "
+import cloudscraper, json
+s = cloudscraper.create_scraper(browser={{'browser':'chrome','platform':'windows'}})
+r = s.get('https://{{domain}}', timeout=20)
+print('Status:', r.status_code)
+print(r.text[:3000])
+"
+
+  LAYER 4 — WordPress REST API (CF typically allows /wp-json/ through):
+    curl -s -L -k -A "{_BUA}" "https://{{domain}}/wp-json/" | python3 -m json.tool | head -30
+    curl -s -L -k -A "{_BUA}" "https://{{domain}}/wp-json/wp/v2/" | python3 -m json.tool | head -30
+
+  LAYER 5 — XMLSitemap + robots.txt (static files often whitelisted by WAF):
+    curl -s -L -k "https://{{domain}}/robots.txt"
+    curl -s -L -k "https://{{domain}}/sitemap.xml" | head -50
+    curl -s -L -k "https://{{domain}}/sitemap_index.xml" | head -50
+
+  LAYER 6 — HTTP/1.0 + port fallback (bypasses protocol-level filters):
+    curl -s -L -k --http1.0 "https://{{domain}}"
+    curl -s -L -k "http://{{domain}}"        # plain HTTP port 80
+    curl -s -L -k "https://{{domain}}:8443"  # alternate HTTPS port
+
+  LAYER 7 — ScraperAPI (paid, handles CF JS challenges + headless Chrome — set $SCRAPER_API_KEY):
+    if [ -n "$SCRAPER_API_KEY" ]; then
+      curl -s "http://api.scraperapi.com/?api_key=$SCRAPER_API_KEY&url=https://{{domain}}&render=true"
+    fi
+
+  LAYER 8 — ZenRows (paid, CF anti-bot v3 + IUAM — set $ZENROWS_API_KEY):
+    if [ -n "$ZENROWS_API_KEY" ]; then
+      curl -s "https://api.zenrows.com/v1/?apikey=$ZENROWS_API_KEY&url=https://{{domain}}&js_render=true&antibot=true"
+    fi
+
+  LAYER 9 — Passive intelligence (always works regardless of WAF):
+    curl -s "https://crt.sh/?q={{domain}}&output=json" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); [print(e['name_value']) for e in d[:30]]"
+    curl -s "https://web.archive.org/cdx/search/cdx?url={{domain}}&output=json&limit=20" | python3 -m json.tool
+    curl -s "https://api.hackertarget.com/hostsearch/?q={{domain}}" | head -20
+    curl -s "https://urlscan.io/api/v1/search/?q=domain:{{domain}}&size=5" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(r.get('page',{{}}).get('url','')) for r in d.get('results',[])]"
 - OUTPUT FORMAT — use the format that matches severity:
 
   For CONFIRMED vulnerabilities (Medium / High / Critical), use this EXACT structure:
@@ -136,41 +188,68 @@ RULES:
   PERSIST — keep trying alternatives until you get a real response from the target.
   Exhaust ALL of the above before concluding an endpoint is unreachable.
 
-REAL-TIME API INTEGRATIONS (use these for accurate, target-specific intelligence):
-- NVD CVE lookup (no key):
-    curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=<product+version>&resultsPerPage=5" | python3 -m json.tool | grep -E "id|description|score" | head -30
-- Shodan host intel ($SHODAN_API_KEY required — skip if not set):
-    if [ -n "$SHODAN_API_KEY" ]; then curl -s "https://api.shodan.io/shodan/host/<ip>?key=$SHODAN_API_KEY" | python3 -m json.tool; fi
-- VirusTotal domain/IP reputation ($VIRUSTOTAL_API_KEY required — skip if not set):
-    if [ -n "$VIRUSTOTAL_API_KEY" ]; then curl -s -H "x-apikey: $VIRUSTOTAL_API_KEY" "https://www.virustotal.com/api/v3/domains/<domain>" | python3 -c "import sys,json; d=json.load(sys.stdin); s=d.get('data',{{}}).get('attributes',{{}}).get('last_analysis_stats',{{}}); print('VT stats:',s)"; fi
-- URLhaus malware/threat check (no key):
-    curl -s -d "host=<ip_or_domain>" "https://urlhaus-api.abuse.ch/v1/host/" | python3 -m json.tool
-- Certificate Transparency + subdomain discovery (no key):
-    curl -s "https://crt.sh/?q=%25.<domain>&output=json" | python3 -c "import sys,json; raw=sys.stdin.read(); d=json.loads(raw) if raw.strip().startswith('[') else []; [print(e['name_value']) for e in d[:20]]"
-- Mozilla Observatory security headers (no key):
-    curl -s -X POST "https://http-observatory.security.mozilla.org/api/v1/analyze?host=<domain>" | python3 -m json.tool
-- SSL Labs grade (no key, uses cache):
-    curl -s "https://api.ssllabs.com/api/v3/analyze?host=<domain>&fromCache=on&maxAge=24" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(e['host'],e.get('grade','pending')) for e in d.get('endpoints',[])]"
-- Datadog IP ranges (for allowlist/blocklist — no key):
-    curl -s "https://ip-ranges.datadoghq.com/" | python3 -c "import sys,json; d=json.load(sys.stdin); print('webhooks:', d.get('webhooks',{{}}).get('prefixes_ipv4',[][:3]))"
+REAL-TIME API INTEGRATIONS — use ALL applicable sources, never skip a free source:
 
-- WPScan vulnerability database (WordPress-specific CVEs — no key for basic use):
-    curl -s "https://wpscan.com/api/v3/wordpresses/<wp_version_no_dots>" | python3 -m json.tool | head -40
-    curl -s "https://wpscan.com/api/v3/plugins/<plugin_slug>" | python3 -m json.tool | head -40
-    (Uses WP_SCAN_API_TOKEN env var if set: -H "Authorization: Token token=$WP_SCAN_API_TOKEN")
-- Wordfence Live Traffic API (if plugin active on target — requires WP credentials):
-    Use wp_api_call to GET /wp-json/wordfence/v1/scan/status  or  /wp-json/wf/v1/summary
-- WordPress.org Plugin API (public, no key — checks if plugin has known vulns):
-    curl -s "https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&slug=<slug>" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Last updated:', d.get('last_updated')); print('Requires:', d.get('requires')); print('Tested up to:', d.get('tested'))"
-- Have I Been Pwned (breach data — no key for domain search):
-    curl -s -A "CyberINK-Scanner" "https://haveibeenpwned.com/api/v3/breacheddomain/<domain>" | python3 -m json.tool | head -20
-- SecurityHeaders.com grade (no key):
-    curl -s -I "https://securityheaders.com/?q=<domain>&followRedirects=on" | grep -i "x-grade"
+VULNERABILITY INTELLIGENCE (free, no key):
+- NVD CVE lookup:
+    curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=<product>+<version>&resultsPerPage=5" | python3 -m json.tool | grep -E '"id"|description|baseScore' | head -30
+- CISA KEV (known actively exploited):
+    curl -s "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(v['cveID'],v['vulnerabilityName']) for v in d['vulnerabilities'] if '<product>' in v.get('product','').lower()]" | head -10
+- EPSS exploitation probability:
+    curl -s "https://api.first.org/data/v1/epss?cve=<CVE-ID>" | python3 -m json.tool
+- URLhaus malware check (no key):
+    curl -s -d "host=<domain>" "https://urlhaus-api.abuse.ch/v1/host/" | python3 -m json.tool | head -20
 
-IMPORTANT: These are the ONLY data sources agents use. No model training, no self-learning,
-  no feedback loops — agents run inference only. Always use the APIs above for real findings.
-  Use free (keyless) APIs first, then conditionally use keyed APIs when available.
-  When an API returns findings, cite them explicitly: "NVD CVE-2024-XXXXX: <description>"
+WORDPRESS SPECIFIC (free + optional paid):
+- WPScan vulnerability DB (free tier 25 req/day; set $WP_SCAN_API_TOKEN for unlimited):
+    WP_KEY="${{WP_SCAN_API_TOKEN:-}}"
+    curl -s ${{WP_KEY:+-H "Authorization: Token token=$WP_KEY"}} "https://wpscan.com/api/v3/wordpresses/<version_nodots>" | python3 -m json.tool | head -40
+    curl -s ${{WP_KEY:+-H "Authorization: Token token=$WP_KEY"}} "https://wpscan.com/api/v3/plugins/<plugin_slug>" | python3 -m json.tool | head -40
+    curl -s ${{WP_KEY:+-H "Authorization: Token token=$WP_KEY"}} "https://wpscan.com/api/v3/themes/<theme_slug>" | python3 -m json.tool | head -20
+- WordPress.org Plugin API (public, no key — version, last update, tested):
+    curl -s "https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&slug=<slug>" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Version:', d.get('version')); print('Tested:', d.get('tested')); print('Last updated:', d.get('last_updated'))"
+- WordPress REST API (use wp_api_call tool — always test these endpoints):
+    /wp-json/                     → version, auth methods, active plugins
+    /wp-json/wp/v2/users          → user enumeration (HIGH risk if open)
+    /wp-json/wp/v2/posts?per_page=1 → confirm REST API active
+    /wp-json/wp/v2/settings       → siteurl, admin_email (admin only)
+    /wp-json/wp/v2/plugins        → full plugin list with versions (admin only)
+- Sucuri malware check (no key):
+    curl -s "https://sitecheck.sucuri.net/api/v3/?scan=<domain>" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Malware:', d.get('malware',{{}})); print('Blacklists:', d.get('blacklists',{{}}))"
+- Wordfence plugin endpoints (if Wordfence installed):
+    Use wp_api_call to GET /wp-json/wordfence/v1/scan/status
+    Use wp_api_call to GET /wp-json/wordfence/v1/ips/blocked
+
+NETWORK + HOST INTELLIGENCE:
+- Shodan InternetDB (no key — open ports, vulns, hostnames):
+    IP=$(dig +short <domain> A | grep -Eo '[0-9.]+' | head -1)
+    curl -s "https://internetdb.shodan.io/$IP" | python3 -m json.tool
+- Shodan full host (set $SHODAN_API_KEY):
+    if [ -n "$SHODAN_API_KEY" ]; then curl -s "https://api.shodan.io/shodan/host/$IP?key=$SHODAN_API_KEY" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Ports:', d.get('ports')); print('Vulns:', list(d.get('vulns',{{}}).keys())[:10])"; fi
+- VirusTotal domain rep (set $VIRUSTOTAL_API_KEY):
+    if [ -n "$VIRUSTOTAL_API_KEY" ]; then curl -s -H "x-apikey: $VIRUSTOTAL_API_KEY" "https://www.virustotal.com/api/v3/domains/<domain>" | python3 -c "import sys,json; d=json.load(sys.stdin); a=d.get('data',{{}}).get('attributes',{{}}); print('Malicious:', a.get('last_analysis_stats',{{}}).get('malicious',0))"; fi
+- HackerTarget host search (no key):
+    curl -s "https://api.hackertarget.com/hostsearch/?q=<domain>" | head -20
+- Certificate Transparency subdomains (no key):
+    curl -s "https://crt.sh/?q=%25.<domain>&output=json" | python3 -c "import sys,json; raw=sys.stdin.read(); d=json.loads(raw) if raw.strip().startswith('[') else []; subs=list({{e['name_value'] for e in d}}); [print(s) for s in sorted(subs)[:30]]"
+
+HEADER / SSL / CONFIG CHECKS (free, no key):
+- Mozilla Observatory header grade:
+    curl -s -X POST "https://http-observatory.security.mozilla.org/api/v1/analyze?host=<domain>" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Grade:', d.get('grade'), '| Score:', d.get('score'))"
+- SSL Labs grade (24h cache):
+    curl -s "https://api.ssllabs.com/api/v3/analyze?host=<domain>&fromCache=on&maxAge=24" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(e.get('grade','pending'), '-', e.get('ipAddress')) for e in d.get('endpoints',[])]"
+
+PASSIVE RECON (always works regardless of firewalls):
+- Wayback Machine URLs:
+    curl -s "https://web.archive.org/cdx/search/cdx?url=<domain>/*&output=json&limit=30&fl=original,statuscode&filter=statuscode:200" | python3 -c "import sys,json; [print(r[0]) for r in json.load(sys.stdin)[1:]]"
+- urlscan.io tech detection:
+    curl -s "https://urlscan.io/api/v1/search/?q=domain:<domain>&size=5" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(r['page'].get('url'), '|', ','.join(r.get('verdicts',{{}}).get('overall',{{}}).get('tags',[]))) for r in d.get('results',[])]"
+- Have I Been Pwned domain breaches:
+    curl -s -A "CyberINK-Scanner/1.0" "https://haveibeenpwned.com/api/v3/breacheddomain/<domain>" | python3 -m json.tool | head -20
+
+IMPORTANT: These are the ONLY data sources used — no model training, no self-learning.
+  Always substitute <domain>, <ip>, <version>, <slug> with real values before calling.
+  Cite API findings explicitly: "WPScan: CVE-2024-XXXXX found in plugin X v1.2"
 """
 
 

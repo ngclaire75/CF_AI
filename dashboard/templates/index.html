@@ -3487,18 +3487,9 @@ if (typeof Chart !== 'undefined') {
 
 var _mvdCharts = {};
 
-var _spinnerReady = false;
-var _spinnerWantHide = false;
-setTimeout(function() {
-  _spinnerReady = true;
-  if (_spinnerWantHide) _hideLoadingOverlay();
-}, 600);
-setTimeout(_hideLoadingOverlay, 3000);
-
 function _hideLoadingOverlay() {
-  if (!_spinnerReady) { _spinnerWantHide = true; return; }
   var el = document.getElementById('ink-loading-overlay');
-  if (el) el.classList.add('hidden');
+  if (el) el.style.display = 'none';
 }
 
 function loadDefDashboard() {
@@ -3824,8 +3815,9 @@ function _mvdRenderRemediation(incidents, scans) {
   }).join('');
 }
 
-// Init on DOMContentLoaded — do not wait for CDN resources to resolve
+// Hide overlay immediately once DOM is ready, then load data asynchronously
 document.addEventListener('DOMContentLoaded', function(){
+  _hideLoadingOverlay();
   loadDefDashboard();
 });
 
@@ -6610,7 +6602,7 @@ function loadThreatAnalytics() {
       '<div style="font-size:32px;font-weight:700;color:#201f1e;font-family:\'Segoe UI\';">' + cves.length + '</div>' +
       '<div style="font-size:11px;color:#605e5c;margin-top:4px;">Total CVEs identified across all scans</div>' +
       '<div style="margin-top:12px;">' +
-        Object.entries(sevCounts).map(function(e){ var cols={CRITICAL:\'#a80000\',HIGH:\'#c50f1f\',MEDIUM:\'#986f0b\',LOW:\'#107c10\'}; return \'<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;display:flex;justify-content:space-between;align-items:center;"><span style="color:\' + cols[e[0]] + \';font-weight:600;">\' + e[0] + \'</span><strong>\' + e[1] + \'</strong></div>\'; }).join(\'\') +
+        Object.entries(sevCounts).map(function(e){ var cols={CRITICAL:'#a80000',HIGH:'#c50f1f',MEDIUM:'#986f0b',LOW:'#107c10'}; var c=cols[e[0]]||'#605e5c'; return '<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;display:flex;justify-content:space-between;align-items:center;"><span style="color:'+c+';font-weight:600;">'+e[0]+'</span><strong>'+e[1]+'</strong></div>'; }).join('') +
       '</div></div>');
 
     grid.innerHTML = cards.join('');

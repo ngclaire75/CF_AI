@@ -23,9 +23,23 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from sdk.agents import function_tool
 
-_UA = 'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0'
-_TIMEOUT  = 10   # default per-request timeout (was 20)
-_FAST     = 6    # quick-check timeout (probe-only requests)
+_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+_TIMEOUT  = 15
+_FAST     = 8
+
+# ── Optional Cloudflare-bypass library ───────────────────────────────────────
+try:
+    import cloudscraper as _cloudscraper
+    _cs = _cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
+    _HAS_CLOUDSCRAPER = True
+except ImportError:
+    _cs = None
+    _HAS_CLOUDSCRAPER = False
+
+# ── External scraping API keys (optional — unlocks Cloudflare JS challenges) ─
+_SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')   # scraperapi.com
+_ZENROWS_API_KEY = os.environ.get('ZENROWS_API_KEY', '')   # zenrows.com
+_SCRAPINGBEE_KEY = os.environ.get('SCRAPINGBEE_API_KEY', '')
 
 
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -48,7 +62,7 @@ def _opener(jar: http.cookiejar.CookieJar = None) -> urllib.request.OpenerDirect
 
 def _curl_fetch(url: str, method: str = 'GET', headers: dict | None = None,
                 body: bytes | None = None, timeout: int = _TIMEOUT) -> tuple[int, str, dict]:
-    """Try fetching URL via curl with progressive bypass techniques for blocked IPs."""
+    """Try curl with multiple Cloudflare/WAF bypass variants."""
     if not shutil.which('curl'):
         return 0, '[curl not available]', {}
 
@@ -56,7 +70,8 @@ def _curl_fetch(url: str, method: str = 'GET', headers: dict | None = None,
         'curl', '-s', '-L', '-k',
         '-w', '\n__CF_STATUS__:%{http_code}',
         '--max-time', str(timeout),
-        '--connect-timeout', str(min(timeout, 15)),
+        '--connect-timeout', str(min(timeout, 12)),
+        '-c', '/tmp/cf_cookies.txt', '-b', '/tmp/cf_cookies.txt',
     ]
     if method == 'POST':
         base_cmd += ['--request', 'POST']
@@ -66,52 +81,149 @@ def _curl_fetch(url: str, method: str = 'GET', headers: dict | None = None,
         for k, v in headers.items():
             base_cmd += ['-H', f'{k}: {v}']
 
-    # Two fast bypass variants only — keeps total curl time under 2× timeout
-    variants: list[list[str]] = [
-        [],  # standard curl
-        ['-H', 'X-Forwarded-For: 66.249.66.1', '-A', 'Googlebot/2.1 (+http://www.google.com/bot.html)'],
+    variants = [
+        # Standard Chrome UA
+        ['-A', _UA,
+         '-H', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+         '-H', 'Accept-Language: en-US,en;q=0.9',
+         '-H', 'Accept-Encoding: gzip, deflate, br',
+         '-H', 'Cache-Control: max-age=0'],
+        # Googlebot UA (passes many origin-level rules)
+        ['-A', 'Googlebot/2.1 (+http://www.google.com/bot.html)',
+         '-H', 'From: googlebot@googlebot.com',
+         '-H', 'X-Forwarded-For: 66.249.66.1'],
+        # CF-Connecting-IP origin bypass (tricks origin server behind CF)
+        ['-A', _UA,
+         '-H', 'CF-Connecting-IP: 127.0.0.1',
+         '-H', 'X-Real-IP: 127.0.0.1',
+         '-H', 'X-Forwarded-For: 127.0.0.1'],
+        # HTTP/1.0 fallback (bypasses some protocol-level filters)
+        ['--http1.0', '-A', _UA],
     ]
     for extra in variants:
         args = base_cmd + extra + [url]
         try:
-            res = subprocess.run(args, input=body, capture_output=True, timeout=timeout + 5)
+            res = subprocess.run(args, input=body, capture_output=True, timeout=timeout + 6)
             text = res.stdout.decode('utf-8', errors='replace')
             if '__CF_STATUS__:' in text:
                 body_part, stat_part = text.rsplit('\n__CF_STATUS__:', 1)
                 code = int(stat_part.strip() or '0')
-                if code > 0:
+                if code in (200, 201, 204, 301, 302, 400, 401, 403, 404, 405):
                     return code, body_part, {}
         except Exception:
             continue
 
-    return 0, '[curl bypass failed]', {}
+    return 0, '[curl bypass exhausted]', {}
+
+
+def _cloudscraper_fetch(url: str, method: str = 'GET', headers: dict | None = None,
+                        body: bytes | None = None, timeout: int = _TIMEOUT) -> tuple[int, str, dict]:
+    """Use cloudscraper to solve Cloudflare JS challenge."""
+    if not _HAS_CLOUDSCRAPER:
+        return 0, '[cloudscraper not installed — run: pip install cloudscraper]', {}
+    try:
+        h = {'User-Agent': _UA}
+        if headers:
+            h.update(headers)
+        resp = _cs.request(method, url, headers=h, data=body, timeout=timeout, verify=False)
+        return resp.status_code, resp.text, dict(resp.headers)
+    except Exception as exc:
+        return 0, f'[cloudscraper error: {exc}]', {}
+
+
+def _scraping_api_fetch(url: str, timeout: int = _TIMEOUT) -> tuple[int, str, dict]:
+    """Route request through a scraping API (ScraperAPI → ZenRows → ScrapingBee)."""
+    # ScraperAPI — ?api_key=...&url=...&render=true handles CF JS challenges
+    if _SCRAPER_API_KEY:
+        try:
+            encoded = urllib.parse.quote(url, safe='')
+            api_url = f'http://api.scraperapi.com/?api_key={_SCRAPER_API_KEY}&url={encoded}&render=true'
+            req = urllib.request.Request(api_url, headers={'User-Agent': _UA})
+            with urllib.request.urlopen(req, timeout=timeout + 10) as r:
+                return r.getcode(), r.read().decode('utf-8', errors='replace'), dict(r.headers)
+        except Exception:
+            pass
+
+    # ZenRows — supports Cloudflare v2 + v3 (IUAM)
+    if _ZENROWS_API_KEY:
+        try:
+            params = urllib.parse.urlencode({'url': url, 'apikey': _ZENROWS_API_KEY,
+                                             'js_render': 'true', 'antibot': 'true'})
+            api_url = f'https://api.zenrows.com/v1/?{params}'
+            req = urllib.request.Request(api_url, headers={'User-Agent': _UA})
+            with urllib.request.urlopen(req, timeout=timeout + 10) as r:
+                return r.getcode(), r.read().decode('utf-8', errors='replace'), dict(r.headers)
+        except Exception:
+            pass
+
+    # ScrapingBee — JS rendering + stealth mode
+    if _SCRAPINGBEE_KEY:
+        try:
+            params = urllib.parse.urlencode({'api_key': _SCRAPINGBEE_KEY, 'url': url,
+                                             'render_js': 'true', 'stealth_proxy': 'true'})
+            api_url = f'https://app.scrapingbee.com/api/v1/?{params}'
+            req = urllib.request.Request(api_url, headers={'User-Agent': _UA})
+            with urllib.request.urlopen(req, timeout=timeout + 10) as r:
+                return r.getcode(), r.read().decode('utf-8', errors='replace'), dict(r.headers)
+        except Exception:
+            pass
+
+    return 0, '[no scraping API keys configured]', {}
 
 
 def _do(url: str, method: str = 'GET', headers: dict | None = None,
         body: bytes | None = None, jar: http.cookiejar.CookieJar | None = None,
         timeout: int = _TIMEOUT) -> tuple[int, str, dict]:
-    """Make an HTTP request. Returns (status, body_text, response_headers)."""
-    h = {'User-Agent': _UA, 'Accept': 'application/json, text/html, */*'}
+    """Multi-layer HTTP fetch with progressive Cloudflare/WAF bypass.
+
+    Layer 1: Standard urllib (fast, works for most sites)
+    Layer 2: cloudscraper (solves CF JS challenge v1/v2 — pip install cloudscraper)
+    Layer 3: curl with UA/header rotation (passes many origin rules)
+    Layer 4: External scraping API (ScraperAPI / ZenRows / ScrapingBee — paid, set API keys in .env)
+    """
+    h = {'User-Agent': _UA,
+         'Accept': 'application/json, text/html, */*',
+         'Accept-Language': 'en-US,en;q=0.9'}
     if headers:
         h.update(headers)
+
+    # Layer 1: standard urllib
     req = urllib.request.Request(url, data=body, headers=h, method=method)
     try:
         with _opener(jar).open(req, timeout=timeout) as r:
-            resp_headers = dict(r.headers)
-            return r.getcode(), r.read().decode('utf-8', errors='replace'), resp_headers
+            return r.getcode(), r.read().decode('utf-8', errors='replace'), dict(r.headers)
     except urllib.error.HTTPError as e:
         try:
-            return e.code, e.read().decode('utf-8', errors='replace'), dict(e.headers)
+            body_text = e.read().decode('utf-8', errors='replace')
         except Exception:
-            return e.code, str(e), {}
-    except Exception as exc:
-        # urllib failed (firewall block?) — try curl with bypass techniques
-        if jar is None:  # only fall back when no cookie session in progress
-            code, body_text, resp_hdrs = _curl_fetch(url, method=method, headers=headers,
-                                                      body=body, timeout=timeout)
-            if code > 0:
-                return code, body_text, resp_hdrs
-        return 0, f'[connection error: {exc}]', {}
+            body_text = str(e)
+        # CF challenge page — escalate to cloudscraper
+        if e.code in (403, 503) and ('cloudflare' in body_text.lower() or 'cf-ray' in str(e.headers).lower()):
+            pass  # fall through to Layer 2
+        elif e.code not in (429,):
+            return e.code, body_text, dict(e.headers)
+    except Exception:
+        pass
+
+    # Layer 2: cloudscraper (Cloudflare JS challenge solver)
+    if jar is None:  # cloudscraper manages its own session
+        code, text, hdrs = _cloudscraper_fetch(url, method=method, headers=headers,
+                                                body=body, timeout=timeout)
+        if code > 0:
+            return code, text, hdrs
+
+    # Layer 3: curl with bypass header variants
+    code, text, hdrs = _curl_fetch(url, method=method, headers=headers, body=body, timeout=timeout)
+    if code > 0:
+        return code, text, hdrs
+
+    # Layer 4: paid scraping API (ScraperAPI / ZenRows / ScrapingBee)
+    if method == 'GET' and jar is None:
+        code, text, hdrs = _scraping_api_fetch(url, timeout=timeout)
+        if code > 0:
+            return code, text, hdrs
+
+    return 0, f'[all bypass layers exhausted for {url}]', {}
 
 
 def _norm(site_url: str) -> str:
