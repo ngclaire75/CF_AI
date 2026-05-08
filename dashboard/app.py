@@ -2127,83 +2127,95 @@ def api_cloudflare_insights():
     if not account_id:
         return jsonify({'error': 'Cloudflare Account ID required — visible in the URL when logged into dash.cloudflare.com'}), 400
 
-    def _parse_cf_issues(resp_body_str):
-        """Parse CF security-center response body → list of raw issue dicts."""
-        try:
-            resp = _j.loads(resp_body_str)
-        except Exception:
-            return []
-        if not resp.get('success'):
-            return []
-        raw = resp.get('result') or []
-        if isinstance(raw, dict):
-            for _k in ('issues', 'insights', 'data', 'items'):
-                if isinstance(raw.get(_k), list):
-                    raw = raw[_k]
-                    break
-            else:
-                raw = [v for v in raw.values() if isinstance(v, list)]
-                raw = raw[0] if raw else []
-        if not isinstance(raw, list):
-            return []
-        out = []
-        for i in raw:
-            if isinstance(i, dict):
-                out.append(i)
-            elif isinstance(i, str) and i:
-                out.append({'description': i})
-        return out
-
-    # 1. Account-level insights
-    code, body = _cf_request(
-        f'/accounts/{account_id}/security-center/insights?per_page={limit}',
-        cf_token, timeout=20)
-
-    if code in (401, 403):
-        return jsonify({'error': f'Token auth failed (HTTP {code}) — check Security Insights:Read permission'}), code
-    if code not in (200,):
-        try:
-            msg = (_j.loads(body).get('errors') or [{}])[0].get('message', body[:200])
-        except Exception:
-            msg = body[:200]
-        return jsonify({'error': f'Cloudflare API error (HTTP {code}): {msg}'}), 500
-
-    raw = _parse_cf_issues(body)
-
-    # 2. If account-level returned 0, fall back to per-zone queries
-    if not raw:
-        zones_code, zones_body = _cf_request(
-            f'/zones?account.id={account_id}&per_page=20', cf_token, timeout=15)
-        if zones_code == 200:
+    def _cf_json(path):
+        c, b = _cf_request(path, cf_token, timeout=15)
+        if c == 200:
             try:
-                zone_ids = [z['id'] for z in (_j.loads(zones_body).get('result') or [])]
+                return _j.loads(b)
             except Exception:
-                zone_ids = []
-            for zid in zone_ids[:10]:
-                zc, zb = _cf_request(
-                    f'/zones/{zid}/security-center/insights?per_page={limit}',
-                    cf_token, timeout=15)
-                if zc == 200:
-                    raw.extend(_parse_cf_issues(zb))
+                pass
+        return None
 
-    # Filter dismissed
-    if not dismissed:
-        raw = [i for i in raw if not i.get('dismissed', False)]
+    # Get zones for this account
+    zresp = _cf_json(f'/zones?account.id={account_id}&per_page=50')
+    if zresp is None:
+        return jsonify({'error': 'Could not list zones — check Zone:Read permission on token'}), 500
+    zones = zresp.get('result') or []
+    if not zones:
+        return jsonify({'error': 'No zones found for this account'}), 404
 
+    now_ts = __import__('datetime').datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
     insights = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        insights.append({
-            'id':           item.get('id', ''),
-            'subject':      item.get('subject', ''),
-            'severity':     (item.get('severity') or item.get('issue_class', '')).lower(),
-            'description':  item.get('description') or item.get('issue_type', ''),
-            'insight_type': item.get('issue_type') or item.get('type', ''),
-            'timestamp':    item.get('timestamp') or item.get('first_detected') or item.get('resolve_by') or '',
-            'dismissed':    item.get('dismissed', False),
-            'resolution':   item.get('resolution', ''),
-        })
+
+    for zone in zones[:10]:
+        zid   = zone['id']
+        zname = zone['name']
+
+        # ── WAF custom rules — flag any with action=skip ──────────────────
+        rs = _cf_json(f'/zones/{zid}/rulesets/phases/http_request_firewall_custom/entrypoint')
+        if rs:
+            rules = (rs.get('result') or {}).get('rules') or []
+            skip_rules = [r for r in rules if isinstance(r, dict) and r.get('action') == 'skip']
+            if skip_rules:
+                insights.append({
+                    'id': f'skip-rules-{zid}',
+                    'subject': zname,
+                    'severity': 'moderate',
+                    'description': 'Reduce skip rules for improved protection',
+                    'insight_type': 'Configuration suggestion',
+                    'timestamp': now_ts,
+                    'dismissed': False,
+                    'resolution': f'{len(skip_rules)} WAF rule(s) use the skip action, bypassing security checks. Review and remove unnecessary skip rules.',
+                })
+
+        # ── Bot Management / AI Labyrinth ─────────────────────────────────
+        bm = _cf_json(f'/zones/{zid}/bot_management')
+        if bm and bm.get('success'):
+            bm_result = bm.get('result') or {}
+            ai_labyrinth = bm_result.get('ai_bots_protection') or bm_result.get('ai_labyrinth_enabled')
+            if ai_labyrinth in (None, False, 'disabled', 'off'):
+                insights.append({
+                    'id': f'ai-labyrinth-{zid}',
+                    'subject': zname,
+                    'severity': 'low',
+                    'description': 'Review unwanted AI crawlers with AI Labyrinth',
+                    'insight_type': 'Configuration suggestion',
+                    'timestamp': now_ts,
+                    'dismissed': False,
+                    'resolution': 'Enable AI Labyrinth in Security → Bots to waste AI crawler resources and protect your content.',
+                })
+
+        # ── SSL/TLS mode ──────────────────────────────────────────────────
+        ssl = _cf_json(f'/zones/{zid}/settings/ssl')
+        if ssl and ssl.get('success'):
+            ssl_val = (ssl.get('result') or {}).get('value', '')
+            if ssl_val in ('off', 'flexible'):
+                insights.append({
+                    'id': f'ssl-mode-{zid}',
+                    'subject': zname,
+                    'severity': 'high',
+                    'description': f'SSL/TLS mode is set to "{ssl_val}" — upgrade to Full or Full (Strict)',
+                    'insight_type': 'Configuration suggestion',
+                    'timestamp': now_ts,
+                    'dismissed': False,
+                    'resolution': 'Set SSL/TLS mode to Full (Strict) in SSL/TLS → Overview for end-to-end encryption.',
+                })
+
+        # ── Security level ────────────────────────────────────────────────
+        sl = _cf_json(f'/zones/{zid}/settings/security_level')
+        if sl and sl.get('success'):
+            sl_val = (sl.get('result') or {}).get('value', '')
+            if sl_val in ('essentially_off', 'low'):
+                insights.append({
+                    'id': f'security-level-{zid}',
+                    'subject': zname,
+                    'severity': 'moderate',
+                    'description': f'Security level is set to "{sl_val}" — consider raising it',
+                    'insight_type': 'Configuration suggestion',
+                    'timestamp': now_ts,
+                    'dismissed': False,
+                    'resolution': 'Raise Security Level to Medium or High in Security → Settings.',
+                })
 
     return jsonify({
         'insights': insights,
