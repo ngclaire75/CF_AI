@@ -42,11 +42,14 @@ try:
 except ImportError:
     _HAS_CLOUDSCRAPER = False
 
+_SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
+
 
 def _wp_request(url: str, method: str = 'GET', headers: dict | None = None,
                 body: bytes | None = None, timeout: int = 20) -> tuple[int, str]:
     """HTTP request with progressive bypass for Cloudflare/WAF-protected sites.
 
+    Layer 0: ScraperAPI — routes through residential IPs, bypasses VPS/datacenter blocks
     Layer 1: requests library — verify=False, full browser headers
     Layer 2: cloudscraper — solves Cloudflare JS challenges
     Layer 3: curl -sk — handles edge cases (cert issues, header quirks)
@@ -64,6 +67,24 @@ def _wp_request(url: str, method: str = 'GET', headers: dict | None = None,
         hdrs.update(headers)
 
     last_err = 'unknown error'
+
+    # Layer 0 — ScraperAPI (residential IPs — bypasses VPS/datacenter Cloudflare blocks)
+    if _SCRAPER_API_KEY and _HAS_REQUESTS:
+        try:
+            scraper_url = (
+                f'http://api.scraperapi.com/?api_key={_SCRAPER_API_KEY}'
+                f'&url={_up_parse.quote(url, safe="")}&render=false'
+            )
+            resp = _requests.request(
+                method, scraper_url,
+                headers=hdrs,
+                data=body,
+                verify=False,
+                timeout=timeout + 10,
+            )
+            return resp.status_code, resp.text
+        except Exception as e:
+            last_err = str(e)
 
     # Layer 1 — requests with SSL verification disabled
     if _HAS_REQUESTS:
