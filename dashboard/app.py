@@ -69,7 +69,8 @@ def _wp_request(url: str, method: str = 'GET', headers: dict | None = None,
     last_err = 'unknown error'
 
     # Layer 0 — ScraperAPI (residential IPs — bypasses VPS/datacenter Cloudflare blocks)
-    if _SCRAPER_API_KEY and _HAS_REQUESTS:
+    # Skip for cookie-auth requests: nonce is bound to the session established by _wp_cookie_auth
+    if _SCRAPER_API_KEY and _HAS_REQUESTS and 'Cookie' not in hdrs:
         try:
             scraper_url = (
                 f'http://api.scraperapi.com/?api_key={_SCRAPER_API_KEY}'
@@ -158,6 +159,62 @@ def _wp_request(url: str, method: str = 'GET', headers: dict | None = None,
         last_err = 'curl not found; requests unavailable'
 
     return 0, last_err
+
+
+def _wp_cookie_auth(site_url: str, username: str, password: str) -> tuple[str | None, str | None]:
+    """Login via wp-login.php and return (nonce, cookie_header) for REST API cookie auth.
+
+    Works with regular WordPress admin passwords (not just Application Passwords).
+    Uses ScraperAPI sticky-session proxy when available so login + API calls share one
+    residential IP — avoiding Cloudflare session binding rejects.
+    Returns (nonce, cookie_header) on success, (None, None) on failure.
+    """
+    if not _HAS_REQUESTS:
+        return None, None
+    import re as _rmod, random as _rand
+
+    def _make_session(use_scraper: bool) -> '_requests.Session':
+        sess = _requests.Session()
+        sess.verify = False
+        sess.headers.update({'User-Agent': _BROWSER_UA})
+        if use_scraper and _SCRAPER_API_KEY:
+            session_id = _rand.randint(100000, 999999)
+            proxy = (f'http://scraperapi.session_number={session_id}'
+                     f':{_SCRAPER_API_KEY}@proxy-server.scraperapi.com:8001')
+            sess.proxies = {'http': proxy, 'https': proxy}
+        return sess
+
+    def _try_login(sess):
+        try:
+            sess.post(
+                f'{site_url}/wp-login.php',
+                data={'log': username, 'pwd': password,
+                      'wp-submit': 'Log In', 'redirect_to': '/wp-admin/',
+                      'testcookie': '1'},
+                cookies={'wordpress_test_cookie': 'WP Cookie check'},
+                allow_redirects=True, timeout=25,
+            )
+            if not any('wordpress_logged_in' in k for k in sess.cookies.keys()):
+                return None, None
+            admin_r = sess.get(f'{site_url}/wp-admin/', allow_redirects=True, timeout=15)
+            nonce = ''
+            m = _rmod.search(r'"nonce"\s*:\s*"([a-f0-9]{10})"', admin_r.text)
+            if m:
+                nonce = m.group(1)
+            cookie_hdr = '; '.join(f'{k}={v}' for k, v in sess.cookies.items())
+            return nonce, cookie_hdr
+        except Exception:
+            return None, None
+
+    # Try with ScraperAPI proxy first (handles Cloudflare-protected sites from VPS)
+    if _SCRAPER_API_KEY:
+        nonce, ck = _try_login(_make_session(use_scraper=True))
+        if nonce is not None:
+            return nonce, ck
+
+    # Direct fallback (works if site is not blocking VPS IP)
+    return _try_login(_make_session(use_scraper=False))
+
 
 app = Flask(__name__, template_folder='templates')
 
@@ -1371,9 +1428,11 @@ def api_logs_wp_live():
     if wp_user and app_pass:
         auth_header = 'Basic ' + _b64.b64encode(f'{wp_user}:{app_pass}'.encode()).decode()
 
-    def _wp_get(path, timeout=15):
+    def _wp_get(path, timeout=15, override_hdrs=None):
         hdrs = {}
-        if auth_header:
+        if override_hdrs:
+            hdrs.update(override_hdrs)
+        elif auth_header:
             hdrs['Authorization'] = auth_header
         code, body = _wp_request(f'{url}{path}', headers=hdrs, timeout=timeout)
         if code == 200:
@@ -1436,7 +1495,7 @@ def api_logs_wp_live():
             if events:
                 source = 'simple_history'
 
-    # 3. WP REST API authenticated — verify auth + pull current user info
+    # 3. WP REST API authenticated — verify auth, fallback to cookie auth for regular passwords
     if not events and auth_header:
         me, _ = _wp_get('/wp-json/wp/v2/users/me?context=edit')
         if me and me.get('id'):
@@ -1447,10 +1506,54 @@ def api_logs_wp_live():
                 'event':    f"Authenticated session active — Role: {', '.join(me.get('roles', []))}",
                 'severity': 'INFO', 'status': 'success', 'source': 'wp_rest',
             })
-            note = ('No login event plugin detected. Install "WP Activity Log" (free) on your '
-                    'WordPress site and enable its REST API to see real-time login events with IP addresses.')
+            note = ('No login event plugin detected. Install "Simple History" or "WP Activity Log" '
+                    'on your WordPress site to see real-time login events with IP addresses.')
         else:
-            note = 'Authentication failed. Check username and Application Password (Dashboard → Users → Profile → Application Passwords).'
+            # Basic Auth (Application Password) failed — try cookie auth with regular admin password
+            ck_nonce, ck_hdr = _wp_cookie_auth(url, wp_user, app_pass)
+            if ck_nonce is not None:
+                ck_hdrs = {'Cookie': ck_hdr}
+                if ck_nonce:
+                    ck_hdrs['X-WP-Nonce'] = ck_nonce
+                # Retry Simple History with cookie auth
+                sh2, _ = _wp_get(f'/wp-json/simple-history/v1/events?per_page={limit}',
+                                  override_hdrs=ck_hdrs)
+                if sh2 and isinstance(sh2, list):
+                    for ev in sh2:
+                        msg = str(ev.get('message') or '')
+                        if not any(k in msg.lower() for k in ('login', 'logged', 'sign', 'auth', 'fail', 'password')):
+                            continue
+                        _idata = ev.get('initiator_data') or {}
+                        _user  = (_idata.get('user_login') or _idata.get('user_email') or
+                                  ev.get('initiator') or '—')
+                        _ips   = ev.get('ip_addresses') or []
+                        _ip    = str(_ips[0]) if _ips else ''
+                        events.append({
+                            'timestamp': str(ev.get('date_gmt') or ev.get('date_local') or ''),
+                            'user': str(_user), 'event': msg[:120], 'ip': _ip,
+                            'severity': 'HIGH' if 'fail' in msg.lower() else 'INFO',
+                            'status': 'failed' if 'fail' in msg.lower() else 'success',
+                            'source': 'simple_history',
+                        })
+                    if events:
+                        source = 'simple_history'
+                if not events:
+                    # Verify cookie auth worked at all
+                    me2, _ = _wp_get('/wp-json/wp/v2/users/me?context=edit', override_hdrs=ck_hdrs)
+                    if me2 and me2.get('id'):
+                        source = 'wp_rest'
+                        events.append({
+                            'timestamp': '', 'ip': '',
+                            'user':     me2.get('slug') or me2.get('name') or wp_user,
+                            'event':    f"Authenticated via admin session — Role: {', '.join(me2.get('roles', []))}",
+                            'severity': 'INFO', 'status': 'success', 'source': 'wp_rest',
+                        })
+                        note = ('No login event plugin detected. Install "Simple History" or '
+                                '"WP Activity Log" to see real-time login events with IP addresses.')
+                    else:
+                        note = 'Authentication failed — wrong username or password.'
+            else:
+                note = 'Authentication failed — wrong username or password.'
 
     if not auth_header and not events:
         root, _ = _wp_get('/wp-json/')
@@ -1488,54 +1591,73 @@ def api_wp_install_plugin():
         url = 'https://' + url
 
     auth = 'Basic ' + _b64.b64encode(f'{wp_user}:{app_pass}'.encode()).decode()
-    auth_hdrs = {'Authorization': auth, 'Content-Type': 'application/json'}
 
-    def _wp_get(path):
-        code, body = _wp_request(f'{url}{path}', headers={'Authorization': auth}, timeout=15)
-        try:
-            return code, _j.loads(body)
-        except Exception:
-            return code, {}
+    def _make_helpers(hdrs_get, hdrs_post):
+        def _wp_get(path):
+            code, body = _wp_request(f'{url}{path}', headers=hdrs_get, timeout=15)
+            try:
+                return code, _j.loads(body)
+            except Exception:
+                return code, {}
+        def _wp_post(path, body_dict):
+            code, body = _wp_request(
+                f'{url}{path}', method='POST', headers=hdrs_post,
+                body=_j.dumps(body_dict).encode(), timeout=90,
+            )
+            try:
+                return code, _j.loads(body)
+            except Exception:
+                return code, {'message': body[:200]}
+        return _wp_get, _wp_post
 
-    def _wp_post(path, body_dict):
-        code, body = _wp_request(
-            f'{url}{path}',
-            method='POST',
-            headers=auth_hdrs,
-            body=_j.dumps(body_dict).encode(),
-            timeout=90,  # plugin install can take time downloading from wordpress.org
-        )
-        try:
-            return code, _j.loads(body)
-        except Exception:
-            return code, {'message': body[:200]}
+    def _do_install(hdrs_get, hdrs_post):
+        _wp_get, _wp_post = _make_helpers(hdrs_get, hdrs_post)
+        chk_code, existing = _wp_get(f'/wp-json/wp/v2/plugins/{slug}/{slug}')
+        if chk_code == 401:
+            return 401, None
+        if chk_code == 200 and existing.get('plugin'):
+            if existing.get('status') == 'active':
+                return 200, {'ok': True, 'status': 'already_active',
+                             'message': f'{existing.get("name", slug)} is already installed and active.'}
+            act_code, act_resp = _wp_post(f'/wp-json/wp/v2/plugins/{slug}/{slug}', {'status': 'active'})
+            if act_code == 401:
+                return 401, None
+            if act_code in (200, 201):
+                return 200, {'ok': True, 'status': 'activated',
+                             'message': f'{act_resp.get("name", slug)} activated successfully.'}
+            return act_code, act_resp
+        code, resp = _wp_post('/wp-json/wp/v2/plugins', {'slug': slug, 'status': 'active'})
+        if code in (200, 201) and resp.get('plugin'):
+            return 200, {'ok': True, 'status': 'installed',
+                         'message': f'{resp.get("name", slug)} installed and activated successfully.',
+                         'version': resp.get('version', '')}
+        return code, resp
 
-    # Check if already installed (GET /wp-json/wp/v2/plugins/<slug>/<slug>)
-    chk_code, existing = _wp_get(f'/wp-json/wp/v2/plugins/{slug}/{slug}')
-    if chk_code == 200 and existing.get('plugin'):
-        if existing.get('status') == 'active':
-            return jsonify({'ok': True, 'status': 'already_active',
-                            'message': f'{existing.get("name", slug)} is already installed and active.'})
-        # Installed but inactive — activate it via POST with status=active
-        act_code, act_resp = _wp_post(f'/wp-json/wp/v2/plugins/{slug}/{slug}', {'status': 'active'})
-        if act_code in (200, 201):
-            return jsonify({'ok': True, 'status': 'activated',
-                            'message': f'{act_resp.get("name", slug)} activated successfully.'})
-        return jsonify({'ok': False, 'error': act_resp.get('message', f'Activation failed (HTTP {act_code})')}), 500
+    # Try Application Password (Basic Auth) first
+    basic_get  = {'Authorization': auth}
+    basic_post = {'Authorization': auth, 'Content-Type': 'application/json'}
+    code, resp = _do_install(basic_get, basic_post)
 
-    # Not installed — install + activate from WordPress.org in one call
-    code, resp = _wp_post('/wp-json/wp/v2/plugins', {'slug': slug, 'status': 'active'})
-    if code in (200, 201) and resp.get('plugin'):
-        return jsonify({'ok': True, 'status': 'installed',
-                        'message': f'{resp.get("name", slug)} installed and activated successfully.',
-                        'version': resp.get('version', '')})
+    if code == 401:
+        # Fallback: cookie auth — works with regular WordPress admin passwords
+        ck_nonce, ck_hdr = _wp_cookie_auth(url, wp_user, app_pass)
+        if ck_nonce is not None:
+            ck_get  = {'Cookie': ck_hdr}
+            ck_post = {'Cookie': ck_hdr, 'Content-Type': 'application/json'}
+            if ck_nonce:
+                ck_get['X-WP-Nonce']  = ck_nonce
+                ck_post['X-WP-Nonce'] = ck_nonce
+            code, resp = _do_install(ck_get, ck_post)
+
+    if code == 200 and resp and resp.get('ok'):
+        return jsonify(resp)
 
     # Surface the real WordPress error message
-    raw_err = resp.get('message') or resp.get('error') or ''
+    raw_err = (resp or {}).get('message') or (resp or {}).get('error') or ''
     if code == 403:
         wp_msg = 'Permission denied — account needs administrator role (manage_plugins capability).'
     elif code == 401:
-        wp_msg = 'Authentication failed — wrong username or Application Password.'
+        wp_msg = 'Authentication failed — wrong username or password.'
     elif code == 0:
         wp_msg = (
             'VPS/server IP blocked — Cloudflare or the hosting firewall is dropping '
