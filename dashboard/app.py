@@ -2125,32 +2125,36 @@ def api_cloudflare_insights():
     if not account_id:
         return jsonify({'error': 'Cloudflare Account ID required — visible in the URL when logged into dash.cloudflare.com'}), 400
 
-    params = f'?page=1&per_page={limit}'
-    if not dismissed:
-        params += '&dismissed=false'
-
-    # Try Security Center insights endpoint first, fall back to attack-surface-report
-    for path in [
-        f'/accounts/{account_id}/intel/attack-surface-report/issues{params}',
-        f'/accounts/{account_id}/security-center/insights{params}',
-    ]:
+    # Try endpoints in order — stop on first success
+    # dismissed param only on endpoints that support it
+    candidates = [
+        f'/accounts/{account_id}/security-center/insights?per_page={limit}',
+        f'/accounts/{account_id}/intel/attack-surface-report/issues?per_page={limit}',
+        f'/accounts/{account_id}/security-center/insights',
+        f'/accounts/{account_id}/intel/attack-surface-report/issues',
+    ]
+    code, body = 0, ''
+    for path in candidates:
         code, body = _cf_request(path, cf_token, timeout=20)
         if code == 200:
             break
 
-    if code == 401:
-        return jsonify({'error': 'Invalid API token — check permissions (needs Security Insights:Read)'}), 401
-    if code == 403:
-        return jsonify({'error': 'Forbidden — token lacks Security Insights:Read permission for this account'}), 403
-    if code == 404:
-        return jsonify({'error': 'Security Insights not available — requires Cloudflare Business or Enterprise plan'}), 404
+    if code in (401, 403):
+        return jsonify({'error': (
+            'Token authentication failed — make sure you created the token with '
+            '"Account Security Insights:Read" permission and the correct Account Resources. '
+            f'CF returned HTTP {code}.'
+        )}), code
     if code != 200:
         try:
             err_body = _j.loads(body)
-            msg = (err_body.get('errors') or [{}])[0].get('message', body[:200])
+            errs = err_body.get('errors') or []
+            msg = errs[0].get('message', '') if errs else ''
         except Exception:
-            msg = body[:200] if body else f'HTTP {code}'
-        return jsonify({'error': f'Cloudflare API error: {msg}'}), 500
+            msg = ''
+        if not msg:
+            msg = (body or '')[:300]
+        return jsonify({'error': f'Cloudflare API error (HTTP {code}): {msg}'}), 500
 
     try:
         resp = _j.loads(body)
@@ -2164,7 +2168,12 @@ def api_cloudflare_insights():
 
     raw         = resp.get('result') or []
     result_info = resp.get('result_info') or {}
-    insights    = []
+
+    # Filter dismissed client-side if requested
+    if not dismissed:
+        raw = [i for i in raw if not i.get('dismissed', False)]
+
+    insights = []
     for item in raw:
         insights.append({
             'id':           item.get('id', ''),
