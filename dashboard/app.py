@@ -2191,11 +2191,17 @@ def api_cloudflare_insights():
                     'id': f'ai-labyrinth-{zid}',
                     'subject': zname,
                     'severity': 'low',
-                    'description': 'Review unwanted AI crawlers with AI Labyrinth',
+                    'description': 'Disrupt unwanted AI crawlers with AI Labyrinth',
                     'insight_type': 'Configuration suggestion',
                     'timestamp': now_ts,
                     'dismissed': False,
-                    'resolution': 'Enable AI Labyrinth in Security → Bots to waste AI crawler resources and protect your content.',
+                    'resolution': (
+                        'Risk: AI crawlers that do not adhere to recommended guidelines crawl without permission, '
+                        'consuming bandwidth and scraping content.\n'
+                        'Detection: Cloudflare Security settings reviewed — AI Labyrinth is not enabled for this zone.\n'
+                        'Recommended actions: Enable AI Labyrinth in Security → Bots. It adds nofollow links with '
+                        'AI-generated content visible only to bots, disrupting non-compliant crawlers without affecting real visitors.'
+                    ),
                 })
 
         # ── SSL/TLS mode ──────────────────────────────────────────────────
