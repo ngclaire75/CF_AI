@@ -165,27 +165,60 @@ def _wp_cookie_auth(site_url: str, username: str, password: str) -> tuple[str | 
     """Login via wp-login.php and return (nonce, cookie_header) for REST API cookie auth.
 
     Works with regular WordPress admin passwords (not just Application Passwords).
-    Uses ScraperAPI sticky-session proxy when available so login + API calls share one
-    residential IP — avoiding Cloudflare session binding rejects.
+    Uses ScraperAPI URL mode (residential IPs) — proxy mode fails Cloudflare JS challenge.
     Returns (nonce, cookie_header) on success, (None, None) on failure.
     """
     if not _HAS_REQUESTS:
         return None, None
-    import re as _rmod, random as _rand
+    import re as _rmod
 
-    def _make_session(use_scraper: bool) -> '_requests.Session':
-        sess = _requests.Session()
-        sess.verify = False
-        sess.headers.update({'User-Agent': _BROWSER_UA})
-        if use_scraper and _SCRAPER_API_KEY:
-            session_id = _rand.randint(100000, 999999)
-            proxy = (f'http://scraperapi.session_number={session_id}'
-                     f':{_SCRAPER_API_KEY}@proxy-server.scraperapi.com:8001')
-            sess.proxies = {'http': proxy, 'https': proxy}
-        return sess
+    def _sa_req(target, method='GET', data=None, extra_hdrs=None):
+        sa = (f'http://api.scraperapi.com/?api_key={_SCRAPER_API_KEY}'
+              f'&url={_up_parse.quote(target, safe="")}')
+        h = {'User-Agent': _BROWSER_UA}
+        if extra_hdrs:
+            h.update(extra_hdrs)
+        if method == 'POST':
+            h.setdefault('Content-Type', 'application/x-www-form-urlencoded')
+            return _requests.post(sa, data=data, headers=h, verify=False, timeout=30)
+        return _requests.get(sa, headers=h, verify=False, timeout=20)
 
-    def _try_login(sess):
+    def _try_scraper():
+        if not _SCRAPER_API_KEY:
+            return None, None
         try:
+            login_r = _sa_req(
+                f'{site_url}/wp-login.php', method='POST',
+                data={'log': username, 'pwd': password,
+                      'wp-submit': 'Log In', 'redirect_to': '/wp-admin/',
+                      'testcookie': '1'},
+                extra_hdrs={'Cookie': 'wordpress_test_cookie=WP Cookie check'},
+            )
+            # Collect cookies — ScraperAPI may return them in response.cookies or Set-Cookie headers
+            cookies = {k: v for k, v in login_r.cookies.items()}
+            for raw in login_r.headers.getlist('set-cookie') if hasattr(login_r.headers, 'getlist') \
+                    else [login_r.headers.get('set-cookie', '')]:
+                nv = raw.split(';')[0].strip()
+                if '=' in nv:
+                    n, v2 = nv.split('=', 1)
+                    cookies[n.strip()] = v2.strip()
+            if not any('wordpress_logged_in' in k for k in cookies):
+                return None, None
+            cookie_hdr = '; '.join(f'{k}={v}' for k, v in cookies.items())
+            admin_r = _sa_req(f'{site_url}/wp-admin/', extra_hdrs={'Cookie': cookie_hdr})
+            nonce = ''
+            m = _rmod.search(r'"nonce"\s*:\s*"([a-f0-9]{10})"', admin_r.text)
+            if m:
+                nonce = m.group(1)
+            return nonce, cookie_hdr
+        except Exception:
+            return None, None
+
+    def _try_direct():
+        try:
+            sess = _requests.Session()
+            sess.verify = False
+            sess.headers.update({'User-Agent': _BROWSER_UA})
             sess.post(
                 f'{site_url}/wp-login.php',
                 data={'log': username, 'pwd': password,
@@ -206,14 +239,10 @@ def _wp_cookie_auth(site_url: str, username: str, password: str) -> tuple[str | 
         except Exception:
             return None, None
 
-    # Try with ScraperAPI proxy first (handles Cloudflare-protected sites from VPS)
-    if _SCRAPER_API_KEY:
-        nonce, ck = _try_login(_make_session(use_scraper=True))
-        if nonce is not None:
-            return nonce, ck
-
-    # Direct fallback (works if site is not blocking VPS IP)
-    return _try_login(_make_session(use_scraper=False))
+    nonce, ck = _try_scraper()
+    if nonce is not None:
+        return nonce, ck
+    return _try_direct()
 
 
 app = Flask(__name__, template_folder='templates')
