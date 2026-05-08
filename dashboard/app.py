@@ -2113,8 +2113,12 @@ def api_cloudflare_insights():
     """Fetch Cloudflare Security Insights via real Cloudflare v4 API (direct, no proxy)."""
     import json as _j
     data       = request.get_json(force=True, silent=True) or {}
-    cf_token   = (data.get('cf_token') or os.environ.get('CF_API_TOKEN', '')).strip()
-    account_id = (data.get('account_id') or os.environ.get('CF_ACCOUNT_ID', '')).strip()
+    def _strip_env_prefix(v):
+        # Handle accidental copy-paste of KEY=value from .env file
+        return v.split('=', 1)[-1].strip() if '=' in v else v.strip()
+
+    cf_token   = _strip_env_prefix(data.get('cf_token') or os.environ.get('CF_API_TOKEN', ''))
+    account_id = _strip_env_prefix(data.get('account_id') or os.environ.get('CF_ACCOUNT_ID', ''))
     dismissed  = data.get('dismissed', False)
     limit      = min(int(data.get('limit') or 100), 500)
 
@@ -2195,9 +2199,12 @@ def api_cloudflare_insights():
 def api_cloudflare_zones():
     """List all Cloudflare zones (domains) for an account — direct, no proxy."""
     import json as _j
+    def _strip_env_prefix(v):
+        return v.split('=', 1)[-1].strip() if '=' in v else v.strip()
+
     data       = request.get_json(force=True, silent=True) or {}
-    cf_token   = (data.get('cf_token') or os.environ.get('CF_API_TOKEN', '')).strip()
-    account_id = (data.get('account_id') or os.environ.get('CF_ACCOUNT_ID', '')).strip()
+    cf_token   = _strip_env_prefix(data.get('cf_token') or os.environ.get('CF_API_TOKEN', ''))
+    account_id = _strip_env_prefix(data.get('account_id') or os.environ.get('CF_ACCOUNT_ID', ''))
 
     if not cf_token:
         return jsonify({'error': 'cf_token required'}), 400
