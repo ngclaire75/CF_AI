@@ -2170,16 +2170,28 @@ def api_cloudflare_insights():
 
     result_info = resp.get('result_info') or {}
 
-    # result may be a list of dicts or a nested object
+    # result may be a list of dicts, a dict wrapper, or something unexpected
     raw = resp.get('result') or []
     if isinstance(raw, dict):
-        # Some CF endpoints wrap the list: {"issues": [...], "total": N}
-        raw = raw.get('issues') or raw.get('insights') or list(raw.values())
+        # Find the first list value (issues/insights key), ignore scalar values
+        for _k in ('issues', 'insights', 'data', 'items'):
+            if isinstance(raw.get(_k), list):
+                raw = raw[_k]
+                break
+        else:
+            raw = [v for v in raw.values() if isinstance(v, list)]
+            raw = raw[0] if raw else []
     if not isinstance(raw, list):
         raw = []
 
-    # Normalise: convert plain strings to minimal dicts
-    raw = [{'description': i} if isinstance(i, str) else i for i in raw if i]
+    # Normalise all items to dicts; skip non-dict/non-str scalars
+    normalised = []
+    for i in raw:
+        if isinstance(i, dict):
+            normalised.append(i)
+        elif isinstance(i, str) and i:
+            normalised.append({'description': i})
+    raw = normalised
 
     # Filter dismissed client-side
     if not dismissed:
@@ -2201,9 +2213,10 @@ def api_cloudflare_insights():
         })
 
     return jsonify({
-        'insights': insights,
-        'total':    result_info.get('total_count', len(insights)),
-        'count':    len(insights),
+        'insights':   insights,
+        'total':      result_info.get('total_count', len(insights)),
+        'count':      len(insights),
+        '_raw_sample': raw[:2] if not insights and raw else None,  # debug: show raw if no insights parsed
     })
 
 
