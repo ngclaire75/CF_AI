@@ -768,9 +768,6 @@ def wp_security_scan(site_url: str) -> str:
             '/wp-json/ithemes-security/v1/log?per_page=50',
             '/wp-json/sucuri/v1/auditlogs',
             '/wp-json/wfls/v1/summary',
-            '/wp-json/jetpack/v4/protect/status',
-            '/wp-json/jetpack/v4/scan',
-            '/wp-json/jetpack-protect/v1/status',
         ]
         with ThreadPoolExecutor(max_workers=len(all_eps)) as ex:
             futs = {ex.submit(_wp_rest, base, ep): ep for ep in all_eps}
@@ -876,67 +873,125 @@ def wp_security_scan(site_url: str) -> str:
         return lines
 
     def chk_jetpack_protect():
+        # Real endpoint: GET /wp-json/jetpack-protect/v1/status
+        # Source: github.com/Automattic/jetpack — projects/packages/protect-status/src/class-rest-controller.php
+        # Response shape: Status_Model — projects/packages/protect-models/src/class-status-model.php
+        # Threat shape:   Threat_Model  — projects/packages/protect-models/src/class-threat-model.php
         lines = ['--- Jetpack Protect ---']
-        # Probe all known Jetpack Protect endpoints
-        eps = [
-            '/wp-json/jetpack/v4/protect/status',
-            '/wp-json/jetpack/v4/scan',
-            '/wp-json/jetpack-protect/v1/status',
-            '/wp-json/jetpack/v4/module/protect',
-        ]
-        found_any = False
-        for ep in eps:
-            code_jp, body_jp = _req(ep)
-            if code_jp != 200:
-                continue
+
+        code_jp, body_jp = _req('/wp-json/jetpack-protect/v1/status')
+
+        if code_jp == 404:
+            lines.append('[INFO] Jetpack Protect plugin not installed or not connected to WordPress.com')
+            lines.append('  Install free: wordpress.org/plugins/jetpack-protect')
+            lines.append('  Uses WPScan vulnerability database — scans plugins, themes, and WP core for CVEs')
+            return lines
+
+        if code_jp in (401, 403):
+            lines.append(f'[INFO] Jetpack Protect found (HTTP {code_jp}) — admin credentials required')
+            lines.append('  Set WP_USER + WP_APP_PASSWORD env vars to read scan results')
+            return lines
+
+        if code_jp != 200:
+            lines.append(f'[INFO] Jetpack Protect status: HTTP {code_jp}')
+            return lines
+
+        try:
+            d = json.loads(body_jp)
+        except Exception:
+            lines.append('[INFO] Jetpack Protect returned non-JSON response')
+            return lines
+
+        # Status_Model fields
+        status       = d.get('status', 'unknown')         # idle|scanning|in_progress|scheduled|unavailable
+        last_checked = d.get('last_checked', '')
+        has_error    = d.get('error', False)
+        error_msg    = d.get('error_message', '')
+        has_unchecked = d.get('has_unchecked_items', False)
+        threats      = d.get('threats') or []              # flat array — ALL threat types combined
+
+        lines.append(f'Status: {status}  |  Last checked: {last_checked or "never"}')
+        if has_error:
+            lines.append(f'[INFO] Jetpack Protect error: {error_msg}')
+        if has_unchecked:
+            lines.append('[INFO] Some items have not been checked yet — trigger a scan to get full results')
+
+        # Severity mapping: Threat_Model.severity is 1-5
+        def _sev_label(sev):
+            if sev is None:
+                return 'HIGH'
             try:
-                data_jp = json.loads(body_jp)
+                n = int(sev)
+            except (ValueError, TypeError):
+                return 'HIGH'
+            return 'CRITICAL' if n >= 5 else 'HIGH' if n >= 3 else 'MEDIUM' if n == 2 else 'LOW'
+
+        if not threats:
+            lines.append('No threats detected ✓')
+            return lines
+
+        lines.append(f'[FINDING HIGH] JETPACK_PROTECT: {len(threats)} threat(s) detected')
+        lines.append('')
+
+        for t in threats:
+            # Threat_Model fields (from actual source)
+            tid        = t.get('id', '')
+            title      = t.get('title') or t.get('description') or 'Unknown threat'
+            desc       = t.get('description', '')
+            severity   = t.get('severity')
+            fixed_in   = t.get('fixed_in', '')
+            fixable    = t.get('fixable')           # False or object when auto-fix available
+            filename   = t.get('filename', '')      # file-level threats
+            table      = t.get('table', '')         # database threats
+            source     = t.get('source', '')
+            ext        = t.get('extension') or {}   # Extension_Model: type, slug, name, version
+            vulns      = t.get('vulnerabilities') or []
+
+            ext_type   = ext.get('type', '')        # plugins|themes|core
+            ext_slug   = ext.get('slug', '')
+            ext_name   = ext.get('name', '')
+            ext_ver    = ext.get('version', '')
+
+            sev_label  = _sev_label(severity)
+            sev_num    = f'(severity {severity}/5)' if severity else ''
+
+            lines.append(f'  [{sev_label}] {title} {sev_num}')
+            if desc and desc != title:
+                lines.append(f'    {desc[:200]}')
+            if ext_slug:
+                lines.append(f'    {ext_type}: {ext_name or ext_slug} v{ext_ver}')
+            if fixed_in:
+                lines.append(f'    Fix: update to v{fixed_in}')
+            elif fixable and fixable is not False:
+                lines.append(f'    Auto-fix available via Jetpack Protect dashboard')
+            if filename:
+                lines.append(f'    File: {filename}')
+            if table:
+                lines.append(f'    DB table: {table}')
+            for v in (vulns or [])[:3]:
+                v_title = v.get('title') or v.get('description', '')
+                if v_title:
+                    lines.append(f'    CVE: {v_title}')
+
+            # Dashboard risk marker
+            lines.append(f'    WP-LOG | {scan_ts} | jetpack-protect | {title.replace("|","/")} | - | {sev_label}')
+            lines.append('')
+
+        # WAF status (separate endpoint, same namespace)
+        code_waf, body_waf = _req('/wp-json/jetpack-protect/v1/waf')
+        if code_waf == 200:
+            try:
+                waf = json.loads(body_waf)
+                waf_on  = waf.get('isEnabled', False)
+                waf_sup = waf.get('wafSupported', False)
+                stats   = waf.get('stats', {}) or {}
+                blocked = stats.get('totalBlockedRequests', 0) if isinstance(stats, dict) else 0
+                lines.append(f'WAF: {"enabled" if waf_on else "disabled"}  |  Supported: {waf_sup}  |  Blocked: {blocked} requests')
+                if not waf_on and waf_sup:
+                    lines.append('  [INFO] WAF is supported but disabled — enable in Jetpack Protect settings')
             except Exception:
-                continue
-            found_any = True
+                pass
 
-            # Jetpack Protect scan results
-            threats = (data_jp.get('threats') or
-                       data_jp.get('scan_result', {}).get('threats') or
-                       data_jp.get('results', {}).get('threats') or [])
-            if threats:
-                lines.append(f'[FINDING HIGH] JETPACK_PROTECT_THREATS: {len(threats)} threat(s) detected')
-                for t in threats[:10]:
-                    title = t.get('title') or t.get('name') or t.get('description', 'Unknown threat')
-                    fix   = t.get('fix', {})
-                    fix_v = fix.get('extensionStatus') or fix.get('release') or ''
-                    ext   = t.get('extension', {})
-                    slug_t = ext.get('slug', '')
-                    ver_t  = ext.get('version', '')
-                    loc    = t.get('fileName') or t.get('file', '')
-                    sev_t  = t.get('severity', 'high').upper()
-                    lines.append(f'  [{sev_t}] {title}')
-                    if slug_t:
-                        lines.append(f'    Plugin/Theme: {slug_t} v{ver_t}')
-                    if fix_v:
-                        lines.append(f'    Fix: update to {fix_v}')
-                    if loc:
-                        lines.append(f'    Location: {loc}')
-                    lines.append(f'  WP-LOG | {scan_ts} | jetpack-protect | {title} | - | HIGH')
-            else:
-                status_msg = data_jp.get('status') or data_jp.get('state', '')
-                lines.append(f'Jetpack Protect: active, no threats detected ✓ (status: {status_msg})')
-
-            # Plugin vulnerabilities from Jetpack Protect database (uses WPScan data)
-            checks_jp = (data_jp.get('checked') or
-                         data_jp.get('num_threats') or
-                         data_jp.get('plugins', {}) or {})
-            if isinstance(checks_jp, dict):
-                for pslug, pinfo in checks_jp.items():
-                    p_vulns = pinfo.get('vulnerabilities', []) if isinstance(pinfo, dict) else []
-                    if p_vulns:
-                        lines.append(f'[FINDING HIGH] JP_PLUGIN_VULN: {pslug} — {len(p_vulns)} vulnerability(ies)')
-            break  # stop at first successful endpoint
-
-        if not found_any:
-            lines.append('[INFO] Jetpack Protect not active or REST endpoints not accessible')
-            lines.append('  Install free plugin: wordpress.org/plugins/jetpack-protect')
-            lines.append('  It uses the same WPScan vulnerability database to scan your plugins/themes')
         return lines
 
     def chk_wpscan_cli():
