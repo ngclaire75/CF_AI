@@ -6489,6 +6489,7 @@ function invTab(name, btn) {
 }
 
 function loadInventories() {
+  if (typeof _invData === 'undefined' || !_invData) _invData = { software: [], plugins: [], targets: [] };
   var tbody = document.getElementById('inv-tbody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading...</td></tr>';
@@ -6715,8 +6716,15 @@ var _dashEditOpen = false;
 function toggleDashboardEdit() {
   _dashEditOpen = !_dashEditOpen;
   var bar = document.getElementById('dash-edit-bar');
-  if (bar) bar.classList.toggle('visible', _dashEditOpen);
-  if (_dashEditOpen) _dashRenderEditBar();
+  if (!bar) return;
+  if (_dashEditOpen) {
+    _dashRenderEditBar();
+    bar.style.display = 'flex';
+    bar.classList.add('visible');
+  } else {
+    bar.style.display = 'none';
+    bar.classList.remove('visible');
+  }
 }
 
 function _dashPanelToggle(id, checked) {
