@@ -863,6 +863,52 @@ def wp_security_scan(site_url: str) -> str:
             except Exception:
                 pass
 
+        # Fallback: direct MySQL — Hostinger / any host with Remote MySQL enabled
+        # Reads Simple History tables directly; no WordPress REST API or auth needed.
+        # Credentials from env: WP_DB_HOST, WP_DB_NAME, WP_DB_USER, WP_DB_PASS, WP_DB_PREFIX
+        if not log_entries:
+            _dbh  = os.environ.get('WP_DB_HOST', '')
+            _dbn  = os.environ.get('WP_DB_NAME', '')
+            _dbu  = os.environ.get('WP_DB_USER', '')
+            _dbp  = os.environ.get('WP_DB_PASS', '')
+            _pfx  = os.environ.get('WP_DB_PREFIX', 'wp_')
+            _port = int(os.environ.get('WP_DB_PORT', '3306'))
+            if _dbh and _dbn and _dbu:
+                try:
+                    import pymysql, pymysql.cursors
+                    _cn = pymysql.connect(
+                        host=_dbh, port=_port, user=_dbu, password=_dbp,
+                        database=_dbn, charset='utf8mb4', connect_timeout=10,
+                        cursorclass=pymysql.cursors.DictCursor,
+                    )
+                    with _cn.cursor() as _cur:
+                        _sh  = f'{_pfx}simple_history'
+                        _ctx = f'{_pfx}simple_history_contexts'
+                        _cur.execute(f"""
+                            SELECT h.id, h.date, h.logger, h.level, h.message,
+                                COALESCE((SELECT value FROM {_ctx}
+                                    WHERE history_id=h.id AND key_name='_user_login' LIMIT 1),'') AS user_login,
+                                COALESCE((SELECT value FROM {_ctx}
+                                    WHERE history_id=h.id AND key_name='_server_remote_addr' LIMIT 1),'') AS ip
+                            FROM {_sh} h ORDER BY h.id DESC LIMIT 50
+                        """)
+                        for _row in _cur.fetchall():
+                            _msg = str(_row.get('message') or _row.get('logger') or '')
+                            if _msg:
+                                log_entries.append((
+                                    str(_row.get('date') or scan_ts),
+                                    str(_row.get('user_login') or 'unknown'),
+                                    _msg[:160],
+                                    str(_row.get('ip') or '-'),
+                                ))
+                    _cn.close()
+                    if log_entries:
+                        lines.append(f'[INFO] Activity log via direct MySQL ({_dbh}/{_dbn}) — {len(log_entries)} event(s)')
+                except ImportError:
+                    lines.append('[WARN] pymysql not installed — run: pip install pymysql')
+                except Exception as _me:
+                    lines.append(f'[WARN] MySQL direct fallback: {_me}')
+
         # Fallback: authenticated user list (no login IPs available without activity plugin)
         if not log_entries and user:
             _c_u, _b_u = _req('/wp-json/wp/v2/users?context=edit&per_page=100')

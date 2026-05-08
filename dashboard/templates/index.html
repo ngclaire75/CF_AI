@@ -3011,6 +3011,31 @@ Export Power BI
         </div>
       </div>
 
+      <!-- Hostinger / Direct MySQL -->
+      <div style="border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px;margin-top:10px;background:#f9f9f9;">
+        <div style="font-weight:600;font-size:13px;color:#323130;margin-bottom:6px;cursor:pointer;" onclick="var s=document.getElementById('le-wp-mysql-body');s.style.display=s.style.display==='none'?'block':'none';">
+          Hostinger / Direct MySQL <span style="font-size:11px;color:#605e5c;font-weight:400;">(no WordPress auth — reads DB directly)</span>
+          <span style="float:right;color:#0078d4;font-size:11px;">click to expand &#9660;</span>
+        </div>
+        <div id="le-wp-mysql-body" style="display:none;">
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+            <div><label class="le-cred-label">DB Host</label><input type="text" id="le-mysql-host" class="le-cred-input" placeholder="srv1234.hstgr.io" style="width:180px;"></div>
+            <div><label class="le-cred-label">DB Port</label><input type="number" id="le-mysql-port" class="le-cred-input" value="3306" style="width:70px;"></div>
+            <div><label class="le-cred-label">DB Name</label><input type="text" id="le-mysql-name" class="le-cred-input" placeholder="u123456_wp"></div>
+            <div><label class="le-cred-label">DB Username</label><input type="text" id="le-mysql-user" class="le-cred-input" placeholder="u123456_user"></div>
+            <div><label class="le-cred-label">DB Password</label><input type="password" id="le-mysql-pass" class="le-cred-input" placeholder="database password"></div>
+            <div><label class="le-cred-label">Table Prefix</label><input type="text" id="le-mysql-prefix" class="le-cred-input" value="wp_" style="width:80px;"></div>
+          </div>
+          <button class="btn btn-sm" onclick="runWpMysql()" id="le-mysql-btn" style="background:#0078d4;color:#fff;border-color:#0078d4;border-radius:8px;padding:7px 20px;">Fetch via MySQL</button>
+          <div id="le-mysql-status" style="display:none;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;"></div>
+          <div class="le-hint" style="margin-top:8px;">
+            Get credentials from <strong>Hostinger hPanel → Databases → MySQL Databases</strong>.
+            Enable remote access: <strong>hPanel → Databases → Remote MySQL → add <code>114.5.244.37</code></strong>.
+            Works with any host that supports Remote MySQL.
+          </div>
+        </div>
+      </div>
+
       <div id="le-wp-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Fetching live WordPress events…</div>
       <div id="le-wp-note" style="display:none;padding:10px 14px;background:#fff4ce;border-radius:6px;color:#7a5c00;font-size:12px;margin-bottom:10px;"></div>
       <div id="le-wp-error" style="display:none;padding:12px 14px;background:#fde7e9;border-radius:6px;color:#a80000;font-size:12px;margin-bottom:10px;"></div>
@@ -6436,6 +6461,46 @@ function runWpLive() {
     document.getElementById('le-wp-btn').disabled = false;
     document.getElementById('le-wp-error').textContent = 'Error: ' + err.message;
     document.getElementById('le-wp-error').style.display = 'block';
+  });
+}
+
+function runWpMysql() {
+  var url    = (document.getElementById('le-wp-url').value||'').trim();
+  var host   = (document.getElementById('le-mysql-host').value||'').trim();
+  var port   = (document.getElementById('le-mysql-port').value||'3306').trim();
+  var name   = (document.getElementById('le-mysql-name').value||'').trim();
+  var user   = (document.getElementById('le-mysql-user').value||'').trim();
+  var pass   = (document.getElementById('le-mysql-pass').value||'').trim();
+  var prefix = (document.getElementById('le-mysql-prefix').value||'wp_').trim();
+  var limit  = parseInt(document.getElementById('le-wp-limit').value||'50');
+  var stat   = document.getElementById('le-mysql-status');
+  if (!host) { alert('Enter the DB Host.'); return; }
+  if (!name) { alert('Enter the DB Name.'); return; }
+  if (!user) { alert('Enter the DB Username.'); return; }
+  var btn = document.getElementById('le-mysql-btn');
+  btn.disabled = true; btn.textContent = 'Connecting…';
+  stat.style.display = 'none';
+  fetch('/api/logs/wp-mysql-direct', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({db_host:host, db_port:parseInt(port), db_name:name, db_user:user, db_pass:pass, table_prefix:prefix, limit:limit})
+  }).then(function(r){return r.json();}).then(function(d){
+    btn.disabled = false; btn.textContent = 'Fetch via MySQL';
+    if (d.error) {
+      stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fde7e9;color:#a80000;';
+      stat.textContent = d.error; return;
+    }
+    if (d.note && !d.events.length) {
+      stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fff4ce;color:#7a5c00;';
+      stat.textContent = d.note; return;
+    }
+    stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#dff6dd;color:#107c10;';
+    stat.textContent = 'Loaded ' + d.events.length + ' events from MySQL.';
+    renderWpEvents(d.events || [], d.source, d.note, d.total);
+  }).catch(function(e){
+    btn.disabled = false; btn.textContent = 'Fetch via MySQL';
+    stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fde7e9;color:#a80000;';
+    stat.textContent = 'Request failed: ' + e;
   });
 }
 

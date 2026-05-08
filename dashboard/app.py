@@ -1985,6 +1985,106 @@ def api_logs_wp_cpanel_db():
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
+@app.route('/api/logs/wp-mysql-direct', methods=['POST'])
+def api_logs_wp_mysql_direct():
+    """Read WordPress Simple History events via direct MySQL connection.
+
+    Works with Hostinger (hPanel) and any host that supports Remote MySQL.
+    Requires: DB host, name, user, password from hPanel → Databases → MySQL Databases.
+    The VPS IP (114.5.244.37) must be whitelisted in hPanel → Databases → Remote MySQL.
+    """
+    import json as _j
+    data       = request.get_json(force=True, silent=True) or {}
+    db_host    = (data.get('db_host') or '').strip()
+    db_port    = int(data.get('db_port') or 3306)
+    db_name    = (data.get('db_name') or '').strip()
+    db_user    = (data.get('db_user') or '').strip()
+    db_pass    = (data.get('db_pass') or '').strip()
+    table_pfx  = (data.get('table_prefix') or 'wp_').strip()
+    limit      = min(int(data.get('limit') or 50), 200)
+
+    if not db_host or not db_name or not db_user:
+        return jsonify({'error': 'db_host, db_name, and db_user are required'}), 400
+
+    try:
+        import pymysql
+        import pymysql.cursors
+    except ImportError:
+        return jsonify({'error': 'pymysql not installed — run: pip install pymysql'}), 500
+
+    try:
+        conn = pymysql.connect(
+            host=db_host, port=db_port,
+            user=db_user, password=db_pass,
+            database=db_name, charset='utf8mb4',
+            connect_timeout=15,
+            cursorclass=pymysql.cursors.DictCursor,
+        )
+    except Exception as e:
+        err = str(e)
+        if 'Access denied' in err:
+            return jsonify({'error': 'Access denied — wrong database username or password'}), 401
+        if 'Can\'t connect' in err or 'Connection refused' in err or 'timed out' in err.lower():
+            return jsonify({'error': f'Cannot connect to MySQL at {db_host}:{db_port} — make sure Remote MySQL is enabled in hPanel and VPS IP 114.5.244.37 is whitelisted'}), 500
+        return jsonify({'error': f'MySQL connection failed: {err}'}), 500
+
+    events, source, note = [], 'none', ''
+    try:
+        with conn.cursor() as cur:
+            sh_table  = f'{table_pfx}simple_history'
+            ctx_table = f'{table_pfx}simple_history_contexts'
+
+            # Verify Simple History table exists
+            cur.execute("SHOW TABLES LIKE %s", (sh_table,))
+            if not cur.fetchone():
+                return jsonify({'error': f'Table {sh_table} not found — is Simple History plugin installed and active?'}), 404
+
+            cur.execute(f"""
+                SELECT
+                    h.id, h.date, h.logger, h.level, h.message,
+                    COALESCE(
+                        (SELECT value FROM {ctx_table}
+                         WHERE history_id = h.id AND key_name = '_user_login' LIMIT 1), ''
+                    ) AS user_login,
+                    COALESCE(
+                        (SELECT value FROM {ctx_table}
+                         WHERE history_id = h.id AND key_name = '_server_remote_addr' LIMIT 1), ''
+                    ) AS ip
+                FROM {sh_table} h
+                ORDER BY h.id DESC
+                LIMIT %s
+            """, (limit,))
+
+            rows = cur.fetchall()
+            for row in rows:
+                msg = str(row.get('message') or row.get('logger') or '')
+                if not msg:
+                    continue
+                events.append({
+                    'timestamp': str(row.get('date') or ''),
+                    'user':      str(row.get('user_login') or '—'),
+                    'event':     msg[:120],
+                    'ip':        str(row.get('ip') or ''),
+                    'severity':  ('HIGH' if any(k in msg.lower()
+                                   for k in ('fail', 'block', 'attack', 'brute', 'invalid'))
+                                  else 'INFO'),
+                    'status':    ('failed' if any(k in msg.lower()
+                                   for k in ('fail', 'block', 'denied', 'invalid'))
+                                  else 'success'),
+                    'source': 'mysql_direct',
+                })
+            source = 'mysql_direct'
+    except Exception as e:
+        note = f'Query error: {e}'
+    finally:
+        conn.close()
+
+    if not events and not note:
+        note = 'No Simple History events found. Is the plugin installed and active?'
+
+    return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
+
+
 @app.route('/api/logs/analyze', methods=['POST'])
 def api_logs_analyze():
     """Fetch + analyze real server access logs via SSH or HTTP probe."""
