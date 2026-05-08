@@ -6,9 +6,8 @@
 <title>CF_AI Security Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.all.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1328,6 +1327,81 @@ tr.hidden-r { display: none; }
 .inc-actions { display:flex; gap:6px; margin-top:8px; }
 .inc-action-btn { font-size:11px; padding:3px 10px; border-radius:6px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-family:inherit; color:#374151; }
 .inc-action-btn:hover { background:#f5f5f7; }
+
+/* ════════════════════════════════════════════════════════════
+   MICROSOFT DEFENDER STYLE REDESIGN
+   ════════════════════════════════════════════════════════════ */
+body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif!important;}
+.sidebar{background:#faf9f8!important;border-right:1px solid #e1dfdd!important;width:220px!important;min-width:220px!important;}
+.main-shell{margin-left:220px!important;}
+.main-shell.expanded{margin-left:48px!important;}
+.sidebar.collapsed{width:48px!important;}
+.sb-brand{border-bottom-color:#e1dfdd!important;padding:10px 12px!important;background:transparent!important;}
+.sb-brand-logo{background:linear-gradient(135deg,#0078d4,#2b88d8)!important;border-radius:4px!important;width:28px!important;height:28px!important;}
+.sb-brand-logo .material-icons{font-size:16px!important;color:#fff!important;}
+.sb-brand-text{font-size:13px!important;font-weight:600!important;color:#201f1e!important;}
+.sb-brand-tag{color:#605e5c!important;font-size:10px!important;}
+.sb-nav-label{font-size:10px!important;color:#a19f9d!important;padding:8px 12px 3px!important;letter-spacing:.3px!important;}
+.sb-item{color:#323130!important;font-size:13px!important;font-weight:400!important;padding:5px 8px 5px 10px!important;border-radius:0!important;margin:0!important;width:100%!important;border-left:3px solid transparent!important;transition:background .1s!important;gap:8px!important;}
+.sb-item:hover{background:rgba(0,0,0,.04)!important;color:#201f1e!important;}
+.sb-item.active{background:rgba(0,120,212,.08)!important;color:#0078d4!important;font-weight:600!important;border-left-color:#0078d4!important;}
+.sb-item .material-icons{font-size:16px!important;color:inherit!important;flex-shrink:0;}
+.sb-item svg{stroke:#605e5c!important;width:15px!important;height:15px!important;}
+.sb-item.active svg{stroke:#0078d4!important;}
+.sb-divider{background:#e1dfdd!important;margin:3px 0!important;}
+.sb-footer{border-top-color:#e1dfdd!important;color:#a19f9d!important;font-size:11px!important;}
+.sb-badge{background:#fde7e9!important;color:#a80000!important;}
+.sb-search-wrap input{background:#fff!important;border-color:#c8c6c4!important;color:#323130!important;border-radius:2px!important;}
+.sb-search-wrap input:focus{border-color:#0078d4!important;}
+.topbar{background:#fff!important;border-bottom:1px solid #e1dfdd!important;box-shadow:none!important;height:48px!important;min-height:48px!important;padding:0 20px!important;}
+.topbar-title{font-size:14px!important;font-weight:600!important;color:#201f1e!important;}
+.btn-topbar{border-radius:2px!important;font-size:12px!important;height:28px!important;padding:0 10px!important;gap:4px!important;color:#323130!important;border-color:#c8c6c4!important;background:#fff!important;}
+.btn-topbar:hover{background:#f3f2f1!important;}
+.btn-topbar.primary{background:#0078d4!important;color:#fff!important;border-color:#0078d4!important;}
+.btn-topbar.primary:hover{background:#106ebe!important;}
+.live-stats-bar{background:#f3f2f1!important;border-color:#e1dfdd!important;border-radius:2px!important;font-size:11px!important;}
+.live-dot{width:6px!important;height:6px!important;background:#107c10!important;}
+.page-content{background:#f5f5f5!important;padding:20px 24px!important;}
+/* Defender Dashboard */
+.def-container{padding-bottom:40px;}
+.def-breadcrumb{font-size:12px;color:#605e5c;margin-bottom:6px;}
+.def-breadcrumb a{color:#0078d4;text-decoration:none;}
+.def-page-title{font-size:22px;font-weight:700;color:#201f1e;margin-bottom:16px;letter-spacing:-.2px;}
+.def-timerange-wrap{display:flex;align-items:center;gap:6px;margin-bottom:14px;}
+.def-timerange-label{font-size:12px;color:#605e5c;}
+.def-timerange-sel{height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 24px 0 8px;font-size:12px;color:#201f1e;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23605e5c' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") calc(100% - 6px) center no-repeat;appearance:none;font-family:'Segoe UI',sans-serif;cursor:pointer;outline:none;}
+.def-timerange-sel:focus{border-color:#0078d4;}
+.def-banner{background:#fff;border:1px solid #e1dfdd;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:32px;flex-wrap:wrap;border-top:3px solid #0078d4;}
+.def-banner-headline{font-size:17px;font-weight:700;color:#201f1e;flex:1;min-width:200px;}
+.def-banner-kpi{display:flex;flex-direction:column;align-items:flex-start;border-left:3px solid;padding-left:12px;min-width:80px;}
+.def-banner-kpi-label{font-size:11px;color:#605e5c;white-space:nowrap;margin-bottom:2px;}
+.def-banner-kpi-val{font-size:22px;font-weight:700;color:#201f1e;line-height:1;}
+.def-kpi-blue{border-color:#0078d4;}.def-kpi-green{border-color:#107c10;}.def-kpi-teal{border-color:#008575;}.def-kpi-pink{border-color:#e3008c;}
+.def-section{background:#fff;border:1px solid #e1dfdd;margin-bottom:12px;overflow:hidden;}
+.def-section-head{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 8px;border-bottom:1px solid #f3f2f1;gap:12px;}
+.def-section-title{font-size:13px;font-weight:600;color:#201f1e;display:flex;align-items:center;gap:5px;}
+.def-section-title .info-ic{font-size:14px!important;color:#a19f9d;cursor:help;vertical-align:middle;}
+.def-section-body{padding:14px 16px;}
+.def-chart-wrap{position:relative;}
+.def-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:#605e5c;padding-top:10px;border-top:1px solid #f3f2f1;margin-top:10px;}
+.def-leg-item{display:flex;align-items:center;gap:5px;cursor:default;}
+.def-leg-dot{width:12px;height:12px;border-radius:2px;flex-shrink:0;}
+.def-view-btn{font-size:12px;color:#0078d4;border:1px solid #c8c6c4;background:#fff;border-radius:2px;padding:3px 10px;cursor:pointer;font-family:'Segoe UI',sans-serif;white-space:nowrap;flex-shrink:0;}
+.def-view-btn:hover{background:#eff6fc;border-color:#0078d4;}
+.def-grouped-layout{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start;}
+.def-group-desc{font-size:12px;color:#201f1e;margin-bottom:4px;font-weight:500;}
+.def-group-label{font-size:11px;color:#605e5c;line-height:1.5;}
+.def-assets-grid{display:grid;grid-template-columns:1fr 1fr;}
+.def-assets-col:first-child{border-right:1px solid #e1dfdd;}
+.def-assets-head{display:grid;grid-template-columns:1fr auto;padding:7px 14px;background:#f3f2f1;font-size:11px;font-weight:600;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;}
+.def-assets-row{display:grid;grid-template-columns:1fr auto;padding:7px 14px;border-bottom:1px solid #f3f2f1;font-size:12px;color:#201f1e;transition:background .1s;align-items:center;}
+.def-assets-row:hover{background:#f7f7f7;}
+.def-assets-row:last-child{border-bottom:none;}
+.def-assets-name{display:flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.def-assets-name .material-icons{font-size:13px!important;color:#605e5c;flex-shrink:0;}
+.def-assets-count{font-weight:700;color:#0078d4;font-size:13px;}
+.def-risk-critical{color:#a80000;font-weight:600;}.def-risk-high{color:#d83b01;font-weight:600;}.def-risk-medium{color:#986f0b;font-weight:600;}.def-risk-low{color:#107c10;font-weight:600;}
+.def-empty-chart{display:flex;align-items:center;justify-content:center;height:100%;color:#a19f9d;font-size:12px;font-style:italic;text-align:center;padding:20px;}
 </style>
 </head>
 <body>
@@ -1340,7 +1414,7 @@ tr.hidden-r { display: none; }
   <!-- Brand -->
   <div class="sb-brand">
     <div class="sb-brand-logo">
-      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <span class="material-icons">shield</span>
     </div>
     <div class="sb-brand-text">CF_AI<span class="sb-brand-tag">Security Intelligence</span></div>
   </div>
@@ -1355,20 +1429,20 @@ tr.hidden-r { display: none; }
     <!-- Monitoring -->
     <div class="sb-nav-label">Monitoring</div>
     <button class="sb-item active" id="sb-dashboard" onclick="sbNav('dashboard',this)">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span class="material-icons">dashboard</span>
       <span class="sb-label">Dashboard</span>
     </button>
     <button class="sb-item" id="sb-observability" onclick="sbNav('observability',this)">
-      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span class="material-icons">analytics</span>
       <span class="sb-label">Observability</span>
     </button>
     <button class="sb-item" id="sb-signals" onclick="sbNav('signals',this)">
-      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="material-icons">notifications</span>
       <span class="sb-label">Security Signals</span>
       <span class="sb-badge" id="sb-badge-signals" style="display:none;"></span>
     </button>
     <button class="sb-item" id="sb-network" onclick="sbNav('network',this)">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="16"/><circle cx="5" cy="19" r="3"/><line x1="5" y1="16" x2="12" y2="16"/><circle cx="19" cy="19" r="3"/><line x1="19" y1="16" x2="12" y2="16"/></svg>
+      <span class="material-icons">hub</span>
       <span class="sb-label">Network Monitor</span>
     </button>
 
@@ -1377,16 +1451,16 @@ tr.hidden-r { display: none; }
     <!-- Security -->
     <div class="sb-nav-label">Security</div>
     <button class="sb-item" id="sb-mitre" onclick="sbNav('mitre',this)">
-      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span class="material-icons">security</span>
       <span class="sb-label">MITRE ATT&amp;CK</span>
     </button>
     <button class="sb-item" id="sb-incidents" onclick="sbNav('incidents',this)">
-      <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span class="material-icons">warning</span>
       <span class="sb-label">Incidents</span>
       <span class="sb-badge" id="sb-badge-inc" style="display:none;"></span>
     </button>
     <button class="sb-item" id="sb-logexplorer" onclick="sbNav('logexplorer',this)">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <span class="material-icons">article</span>
       <span class="sb-label">Log Explorer</span>
     </button>
 
@@ -1395,23 +1469,23 @@ tr.hidden-r { display: none; }
     <!-- Scanning -->
     <div class="sb-nav-label">Scanning</div>
     <button class="sb-item" id="sb-scan" onclick="sbNav('scan',this)">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span class="material-icons">radar</span>
       <span class="sb-label">Connect &amp; Scan</span>
     </button>
     <button class="sb-item" id="sb-vulns" onclick="sbNav('vulns',this)">
-      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span class="material-icons">verified_user</span>
       <span class="sb-label">Vulnerabilities</span>
     </button>
     <button class="sb-item" id="sb-priority" onclick="sbNav('priority',this)">
-      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span class="material-icons">flag</span>
       <span class="sb-label">Priority Actions</span>
     </button>
     <button class="sb-item" id="sb-targets" onclick="sbNav('targets',this)">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span class="material-icons">manage_search</span>
       <span class="sb-label">Scan Results</span>
     </button>
     <button class="sb-item" id="sb-history" onclick="sbNav('history',this)">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="material-icons">history</span>
       <span class="sb-label">Scan History</span>
     </button>
 
@@ -1420,7 +1494,7 @@ tr.hidden-r { display: none; }
     <!-- Help -->
     <div class="sb-nav-label">Setup</div>
     <button class="sb-item" id="sb-setup" onclick="sbNav('setup',this)">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span class="material-icons">settings</span>
       <span class="sb-label">API &amp; Setup Guide</span>
     </button>
 
@@ -1444,49 +1518,17 @@ tr.hidden-r { display: none; }
   <!-- Topbar -->
   <div class="topbar">
     <div class="topbar-left">
-      <button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
       <span class="topbar-title" id="topbar-title">Dashboard</span>
     </div>
     <div class="topbar-right">
-      <div id="topbar-dashboard-actions" style="display:flex;gap:8px;">
-        <button class="btn-topbar" id="dash-edit-btn" onclick="toggleDashEdit()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          Edit Dashboard
-        </button>
-        <div class="widget-add-wrap" id="widget-add-wrap" style="display:none;">
-          <button class="btn-topbar active" onclick="toggleWidgetMenu()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Widget
-          </button>
-          <div class="widget-add-menu" id="widget-add-menu">
-            <div class="widget-menu-item" onclick="addWidget('stats')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Summary Stats</div>
-            <div class="widget-menu-item" onclick="addWidget('vuln_chart')"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Vulnerability Chart</div>
-            <div class="widget-menu-item" onclick="addWidget('top_targets')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Top Vulnerable Targets</div>
-            <div class="widget-menu-item" onclick="addWidget('priority_actions')"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>Priority Actions</div>
-            <div class="widget-menu-item" onclick="addWidget('signal_timeline')"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Signal Timeline</div>
-            <div class="widget-menu-item" onclick="addWidget('mitre_summary')"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>MITRE Coverage</div>
-            <div class="widget-menu-item" onclick="addWidget('incident_status')"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Incident Status</div>
-            <div class="widget-menu-item" onclick="addWidget('recent_scans')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Recent Scans</div>
-            <div class="widget-menu-item" onclick="addWidget('agent_guide')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Agent Reference</div>
-          </div>
-        </div>
-        <button class="btn-topbar" id="dash-done-btn" onclick="saveDashLayout()" style="display:none;background:#10b981;color:#fff;border-color:#10b981;">✓ Done</button>
-        <button class="btn-topbar dash-btn danger" id="dash-reset-btn" onclick="resetDashLayout()" style="display:none;">Reset</button>
+      <div id="topbar-dashboard-actions" style="display:none;">
       </div>
-      <!-- Live stats (populated by /ws/live) -->
       <div class="live-stats-bar" id="live-stats-bar" style="display:none;">
         <span class="live-badge"><span class="live-dot"></span>Live</span>
-        <span class="dhb-sep"></span>
         <span class="dhb-item"><span class="dhb-val" id="ls-scans">—</span> scans</span>
-        <span class="dhb-sep"></span>
-        <span class="dhb-item"><span class="dhb-val" id="ls-incidents" style="color:#ef4444;">—</span> open</span>
+        <span class="dhb-item"><span class="dhb-val" id="ls-incidents" style="color:#a80000;">—</span> open</span>
       </div>
-      <button class="btn-topbar primary" onclick="location.reload()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Refresh
-      </button>
+      <button class="btn-topbar primary" onclick="loadDefDashboard()">Refresh</button>
       <button class="btn-topbar" onclick="window.print()">Print</button>
     </div>
   </div>
@@ -1495,17 +1537,165 @@ tr.hidden-r { display: none; }
   <div class="page-content" id="page-content">
   <div class="wrap">
 
-  <!-- ══ DASHBOARD PAGE ══════════════════════════════════════════════════════ -->
+  <!-- ══ DASHBOARD PAGE — MICROSOFT DEFENDER STYLE ══════════════════════════ -->
   <div id="page-dashboard" class="page-section">
-    <div class="dashboard-toolbar">
-      <div>
-        <div class="dashboard-title">Security Dashboard</div>
-        <div style="font-size:12px;color:#8e8e93;margin-top:2px;">Customizable overview — drag and resize widgets</div>
+  <div class="def-container">
+
+    <!-- Breadcrumb -->
+    <div class="def-breadcrumb"><a href="#">Reports</a> &rsaquo; CF_AI Security Dashboard</div>
+
+    <!-- Page title -->
+    <div class="def-page-title">CF_AI Security Intelligence Dashboard</div>
+
+    <!-- Time range -->
+    <div class="def-timerange-wrap">
+      <span class="def-timerange-label">Showing results for</span>
+      <select class="def-timerange-sel" id="def-days" onchange="loadDefDashboard()">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="365">Last year</option>
+      </select>
+    </div>
+
+    <!-- Summary banner -->
+    <div class="def-banner">
+      <div class="def-banner-headline" id="def-headline">Loading security summary…</div>
+      <div class="def-banner-kpi def-kpi-blue">
+        <span class="def-banner-kpi-label">Scans conducted</span>
+        <span class="def-banner-kpi-val" id="def-kpi-total">—</span>
+      </div>
+      <div class="def-banner-kpi def-kpi-green">
+        <span class="def-banner-kpi-label">Issues found</span>
+        <span class="def-banner-kpi-val" id="def-kpi-issues">—</span>
+      </div>
+      <div class="def-banner-kpi def-kpi-teal">
+        <span class="def-banner-kpi-label">Resolved</span>
+        <span class="def-banner-kpi-val" id="def-kpi-resolved">—</span>
+      </div>
+      <div class="def-banner-kpi def-kpi-pink">
+        <span class="def-banner-kpi-label">Open incidents</span>
+        <span class="def-banner-kpi-val" id="def-kpi-open">—</span>
       </div>
     </div>
-    <!-- Gridstack widget grid -->
-    <div class="grid-stack" id="dash-grid"></div>
-  </div>
+
+    <!-- Section 1: Average scan duration by severity (grouped bar) -->
+    <div class="def-section">
+      <div class="def-section-head">
+        <span class="def-section-title">
+          Average scan duration by severity
+          <span class="material-icons info-ic" title="Average latency and tool calls, grouped by highest severity found in each scan">info</span>
+        </span>
+      </div>
+      <div class="def-section-body">
+        <div class="def-grouped-layout">
+          <div>
+            <div class="def-group-desc"><span style="color:#0078d4;font-weight:600;">&#9632;</span> Scan latency (seconds)</div>
+            <div class="def-group-label">The average time each scan took, grouped by the highest severity finding detected.</div>
+            <br>
+            <div class="def-group-desc"><span style="color:#e3008c;font-weight:600;">&#9632;</span> Tool calls</div>
+            <div class="def-group-label">Average number of security tool invocations made during scans at each severity level.</div>
+          </div>
+          <div class="def-chart-wrap" style="height:220px;">
+            <canvas id="def-avg-bar-chart"></canvas>
+            <div class="def-empty-chart" id="def-avg-empty" style="display:none;">No scan data yet — run a scan to populate this chart.</div>
+          </div>
+        </div>
+        <div class="def-legend">
+          <div class="def-leg-item"><div class="def-leg-dot" style="background:#0078d4"></div>Scan latency (s)</div>
+          <div class="def-leg-item"><div class="def-leg-dot" style="background:#e3008c"></div>Tool calls</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Security findings by severity over time (stacked bar) -->
+    <div class="def-section">
+      <div class="def-section-head">
+        <span class="def-section-title">
+          Security findings by severity
+          <span class="material-icons info-ic" title="Daily count of security findings, stacked by severity level">info</span>
+        </span>
+        <button class="def-view-btn" onclick="sbNav('vulns', document.getElementById('sb-vulns'))">View all findings</button>
+      </div>
+      <div class="def-section-body">
+        <div class="def-chart-wrap" style="height:200px;">
+          <canvas id="def-severity-chart"></canvas>
+          <div class="def-empty-chart" id="def-sev-empty" style="display:none;">No findings data yet — run scans to populate this chart.</div>
+        </div>
+        <div class="def-legend">
+          <div class="def-leg-item"><div class="def-leg-dot" style="background:#a80000"></div>Critical</div>
+          <div class="def-leg-item"><div class="def-leg-dot" style="background:#d83b01"></div>High severity</div>
+          <div class="def-leg-item"><div class="def-leg-dot" style="background:#ffb900"></div>Medium severity</div>
+          <div class="def-leg-item"><div class="def-leg-dot" style="background:#499205"></div>Low severity</div>
+          <div class="def-leg-item"><div class="def-leg-dot" style="background:#0078d4"></div>Informational</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Findings by category (multi-line smooth) -->
+    <div class="def-section">
+      <div class="def-section-head">
+        <span class="def-section-title">
+          Findings by category
+          <span class="material-icons info-ic" title="Security finding counts grouped by vulnerability category over time">info</span>
+        </span>
+        <button class="def-view-btn" onclick="sbNav('mitre', document.getElementById('sb-mitre'))">View selected findings</button>
+      </div>
+      <div class="def-section-body">
+        <div class="def-chart-wrap" style="height:220px;">
+          <canvas id="def-category-chart"></canvas>
+          <div class="def-empty-chart" id="def-cat-empty" style="display:none;">No category data yet — run more scans to see trends.</div>
+        </div>
+        <div class="def-legend" id="def-cat-legend"></div>
+      </div>
+    </div>
+
+    <!-- Section 4: Findings by scan agent (multi-line smooth) -->
+    <div class="def-section">
+      <div class="def-section-head">
+        <span class="def-section-title">
+          Findings by scan agent
+          <span class="material-icons info-ic" title="Scan counts per AI security agent over time">info</span>
+        </span>
+        <button class="def-view-btn" onclick="sbNav('history', document.getElementById('sb-history'))">View selected scans</button>
+      </div>
+      <div class="def-section-body">
+        <div class="def-chart-wrap" style="height:220px;">
+          <canvas id="def-agent-chart"></canvas>
+          <div class="def-empty-chart" id="def-agent-empty" style="display:none;">No agent data yet — run scans with different agents.</div>
+        </div>
+        <div class="def-legend" id="def-agent-legend"></div>
+      </div>
+    </div>
+
+    <!-- Section 5: Most impacted targets -->
+    <div class="def-section">
+      <div class="def-section-head">
+        <span class="def-section-title">
+          Most impacted targets
+          <span class="material-icons info-ic" title="Targets with the highest security finding counts across all scans">info</span>
+        </span>
+      </div>
+      <div class="def-assets-grid">
+        <div class="def-assets-col">
+          <div class="def-assets-head">
+            <span>Target / Domain</span>
+            <span>Scans</span>
+          </div>
+          <div id="def-targets-left"></div>
+        </div>
+        <div class="def-assets-col">
+          <div class="def-assets-head">
+            <span>Target</span>
+            <span>Risk level</span>
+          </div>
+          <div id="def-targets-right"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /def-container -->
+  </div><!-- /page-dashboard -->
 
   <!-- ══ ALL OTHER SECTIONS (each is an independent SPA page) ════════════════ -->
 
@@ -2222,6 +2412,40 @@ tr.hidden-r { display: none; }
     <div id="le-error" style="display:none;padding:16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;"></div>
   </section>
 
+  <!-- ── WordPress Login Events ─────────────────────────────────────────────── -->
+  <section class="section" id="wp-login-section" style="margin-top:24px;">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">WordPress Login Events</div>
+        <div class="sec-desc">User logins captured from WordPress security audit logs — includes IP address and geo-location</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="le-login-target" placeholder="Filter by target (optional)" style="height:30px;border:1px solid #c8c6c4;border-radius:2px;padding:0 10px;font-size:12px;width:220px;font-family:inherit;">
+        <button onclick="loadLoginEvents()" style="height:30px;padding:0 14px;background:#0078d4;color:#fff;border:none;border-radius:2px;font-size:12px;cursor:pointer;font-family:inherit;">Load Login Events</button>
+      </div>
+    </div>
+    <div id="login-events-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Loading login events…</div>
+    <div id="login-events-error" style="display:none;padding:12px 16px;background:#fde7e9;border-radius:2px;color:#a80000;font-size:12px;margin-bottom:12px;"></div>
+    <div id="login-events-wrap" style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;" id="login-events-table">
+        <thead>
+          <tr style="background:#f3f2f1;border-bottom:1px solid #e1dfdd;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Username</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Event</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">IP Address</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Country / Location</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Status</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Target</th>
+          </tr>
+        </thead>
+        <tbody id="login-events-body">
+          <tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Click "Load Login Events" to fetch WordPress user logins from scan history.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   </div><!-- /page-logexplorer -->
 
   <!-- ══ NETWORK MONITOR PAGE ══════════════════════════════════════════════ -->
@@ -2557,8 +2781,8 @@ function sbNav(section, el) {
   // Update topbar title
   document.getElementById('topbar-title').textContent = _PAGE_TITLES[section] || section;
   // Show/hide dashboard edit buttons
-  var dashActions = document.getElementById('topbar-dashboard-actions');
-  if (dashActions) dashActions.style.display = section === 'dashboard' ? 'flex' : 'none';
+  // Lazy-load defender dashboard when navigating to it
+  if (section === 'dashboard') loadDefDashboard();
   _currentPage = section;
 
   // Lazy-load data for relevant pages
@@ -2591,10 +2815,13 @@ function _initDashPage() {
 }
 _initDashPage();
 
-// ── Gridstack Widget Dashboard ────────────────────────────────────────────────
+// ── MS Defender Style Dashboard ───────────────────────────────────────────────
+
+// Legacy stubs to prevent errors from other functions referencing these
 var _grid = null;
 var _dashEditMode = false;
 var _signalChartInst = null;
+function toggleDashEdit(){} function saveDashLayout(){} function resetDashLayout(){} function addWidget(){} function removeWidget(){} function toggleWidgetMenu(){} function closeWidgetMenu(){} function initDashGrid(){}
 
 var _DEFAULT_WIDGETS = [
   { id:'stats',          x:0, y:0, w:12, h:3 },
@@ -2607,6 +2834,7 @@ var _DEFAULT_WIDGETS = [
 ];
 
 function initDashGrid() {
+  if (typeof GridStack === 'undefined') return;
   _grid = GridStack.init({
     column: 12, cellHeight: 60, margin: 8,
     disableDrag: true, disableResize: true,
@@ -2832,11 +3060,346 @@ function _loadWidgetData() {
   }
 }
 
-// Init grid on load
-window.addEventListener('load', function(){
-  if (typeof GridStack !== 'undefined') {
-    initDashGrid();
+// ── Defender Dashboard: Chart defaults (Segoe UI, MS style) ──────────────────
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = '#605e5c';
+}
+
+var _defCharts = {};
+
+function loadDefDashboard() {
+  var days = parseInt((document.getElementById('def-days') || {}).value || '30');
+  Promise.all([
+    fetch('/api/stats').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
+    fetch('/api/incidents').then(function(r){ return r.json(); }).catch(function(){ return {incidents:[], stats:{}}; }),
+    fetch('/api/security-signals?days=' + days).then(function(r){ return r.json(); }).catch(function(){ return {events:[], timeline:[], counts:{}}; }),
+    fetch('/api/scans/recent?limit=500').then(function(r){ return r.json(); }).catch(function(){ return []; }),
+  ]).then(function(results) {
+    var stats = results[0], incidents = results[1], signals = results[2], scans = results[3];
+    _renderDefBanner(stats, incidents.stats || {});
+    _renderAvgDurationChart(scans);
+    _renderSeverityTimelineChart(signals.timeline || []);
+    _renderCategoryChart(signals.events || [], scans);
+    _renderAgentChart(scans);
+    _renderMostImpacted(scans);
+  });
+}
+
+function _renderDefBanner(stats, incStats) {
+  var success = parseFloat(stats.success_rate || 0);
+  var headline;
+  if (stats.total_scans === 0 || stats.total_scans === undefined) {
+    headline = 'No scans recorded yet — connect a target and run your first scan.';
+  } else if (success >= 90) {
+    headline = Math.round(success) + '% of your scans completed successfully';
+  } else if (success >= 70) {
+    headline = Math.round(success) + '% scans passed — review failed scans for issues';
+  } else {
+    headline = 'Security attention required — ' + Math.round(100 - success) + '% of scans encountered issues';
   }
+  var el = document.getElementById('def-headline');
+  if (el) el.textContent = headline;
+  var t = document.getElementById('def-kpi-total'); if (t) t.textContent = stats.total_scans || 0;
+  var i = document.getElementById('def-kpi-issues'); if (i) i.textContent = incStats.total || 0;
+  var r = document.getElementById('def-kpi-resolved'); if (r) r.textContent = incStats.resolved || 0;
+  var o = document.getElementById('def-kpi-open'); if (o) o.textContent = incStats.open || 0;
+}
+
+function _renderAvgDurationChart(scans) {
+  var ctx = document.getElementById('def-avg-bar-chart');
+  if (!ctx) return;
+  if (_defCharts.avg) { try { _defCharts.avg.destroy(); } catch(e){} }
+
+  if (!scans.length) {
+    ctx.style.display = 'none';
+    var em = document.getElementById('def-avg-empty'); if (em) em.style.display = 'flex';
+    return;
+  }
+
+  // Group by severity level found in output
+  var groups = { Critical:[], High:[], Medium:[], Low:[], Informational:[] };
+  scans.forEach(function(s) {
+    var out = (s.output||'').toLowerCase();
+    var sev = /\bcritical\b/.test(out) ? 'Critical' :
+              /\bhigh\b/.test(out) ? 'High' :
+              /\bmedium\b/.test(out) ? 'Medium' :
+              /\blow\b/.test(out) ? 'Low' : 'Informational';
+    groups[sev].push(s);
+  });
+
+  function avg(arr, key) {
+    return arr.length ? Math.round(arr.reduce(function(a,s){ return a+(parseFloat(s[key])||0); },0)/arr.length*10)/10 : 0;
+  }
+
+  var labels = ['All', 'Critical', 'High', 'Medium', 'Low', 'Informational'];
+  var grpArr = [scans, groups.Critical, groups.High, groups.Medium, groups.Low, groups.Informational];
+  var latData = grpArr.map(function(g){ return avg(g,'latency_s'); });
+  var toolData = grpArr.map(function(g){ return avg(g,'tool_count'); });
+
+  _defCharts.avg = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label:'Scan latency (s)', data:latData, backgroundColor:'rgba(0,120,212,0.80)', borderColor:'#0078d4', borderWidth:0, borderRadius:3, barPercentage:0.38, categoryPercentage:0.7 },
+        { label:'Tool calls',       data:toolData, backgroundColor:'rgba(227,0,140,0.80)', borderColor:'#e3008c', borderWidth:0, borderRadius:3, barPercentage:0.38, categoryPercentage:0.7 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        mode:'index', intersect:false,
+        backgroundColor:'#fff', titleColor:'#201f1e', bodyColor:'#605e5c',
+        borderColor:'#e1dfdd', borderWidth:1, padding:10,
+        titleFont:{size:12,weight:'600'}, bodyFont:{size:11}
+      }},
+      scales:{
+        x:{ grid:{display:false}, border:{display:false}, ticks:{font:{size:11},color:'#605e5c'} },
+        y:{ grid:{color:'#f3f2f1',lineWidth:1}, border:{display:false},
+            ticks:{font:{size:11},color:'#605e5c'}, beginAtZero:true }
+      }
+    }
+  });
+}
+
+function _renderSeverityTimelineChart(timeline) {
+  var ctx = document.getElementById('def-severity-chart');
+  if (!ctx) return;
+  if (_defCharts.sev) { try { _defCharts.sev.destroy(); } catch(e){} }
+
+  if (!timeline.length) {
+    ctx.style.display = 'none';
+    var em = document.getElementById('def-sev-empty'); if (em) em.style.display = 'flex';
+    return;
+  }
+
+  var labels = timeline.map(function(t) {
+    var d = new Date(t.date); return (d.getMonth()+1)+'/'+d.getDate();
+  });
+
+  _defCharts.sev = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label:'Critical', data:timeline.map(function(t){return t.CRITICAL||0;}), backgroundColor:'#a80000', stack:'s' },
+        { label:'High',     data:timeline.map(function(t){return t.HIGH||0;}),     backgroundColor:'#d83b01', stack:'s' },
+        { label:'Medium',   data:timeline.map(function(t){return t.MEDIUM||0;}),   backgroundColor:'#ffb900', stack:'s' },
+        { label:'Low',      data:timeline.map(function(t){return t.LOW||0;}),      backgroundColor:'#499205', stack:'s' },
+        { label:'Info',     data:timeline.map(function(t){return t.INFO||0;}),     backgroundColor:'rgba(0,120,212,0.6)', stack:'s' }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        mode:'index', intersect:false,
+        backgroundColor:'#fff', titleColor:'#201f1e', bodyColor:'#605e5c',
+        borderColor:'#e1dfdd', borderWidth:1, padding:10
+      }},
+      scales:{
+        x:{ stacked:true, grid:{display:false}, border:{display:false},
+            ticks:{font:{size:10},color:'#605e5c',maxRotation:0,maxTicksLimit:10} },
+        y:{ stacked:true, grid:{color:'#f3f2f1'}, border:{display:false},
+            ticks:{font:{size:11},color:'#605e5c'}, beginAtZero:true }
+      }
+    }
+  });
+}
+
+function _renderCategoryChart(events, scans) {
+  var ctx = document.getElementById('def-category-chart');
+  if (!ctx) return;
+  if (_defCharts.cat) { try { _defCharts.cat.destroy(); } catch(e){} }
+
+  function catOf(text) {
+    var t = (text||'').toLowerCase();
+    if (/sql|inject|rce|command\s*exec/.test(t)) return 'SQL/Injection';
+    if (/xss|cross.site|csrf/.test(t)) return 'XSS/CSRF';
+    if (/ssl|tls|certif|https/.test(t)) return 'SSL/TLS';
+    if (/header|csp|hsts|x-frame|content.security/.test(t)) return 'HTTP Headers';
+    if (/wordpress|wp.plugin|cms|wp-admin/.test(t)) return 'CMS/WordPress';
+    if (/auth|login|password|credential|brute/.test(t)) return 'Authentication';
+    return 'Other';
+  }
+
+  var CATS   = ['SQL/Injection','XSS/CSRF','SSL/TLS','HTTP Headers','CMS/WordPress','Authentication','Other'];
+  var COLORS = ['#d83b01','#e3008c','#0078d4','#00b294','#881798','#ca5010','#a19f9d'];
+
+  var byDate = {};
+  events.forEach(function(e) {
+    var date = e.date || '';
+    var cat = catOf(e.event);
+    if (!byDate[date]) byDate[date] = {};
+    byDate[date][cat] = (byDate[date][cat]||0) + 1;
+  });
+
+  var dates = Object.keys(byDate).sort();
+  if (!dates.length) {
+    ctx.style.display = 'none';
+    var em = document.getElementById('def-cat-empty'); if (em) em.style.display = 'flex';
+    // Still build legend
+    var leg = document.getElementById('def-cat-legend');
+    if (leg) leg.innerHTML = CATS.map(function(c,i){ return '<div class="def-leg-item"><div class="def-leg-dot" style="background:'+COLORS[i]+'"></div>'+c+'</div>'; }).join('');
+    return;
+  }
+
+  var labels = dates.map(function(d){ var dt=new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
+  var datasets = CATS.map(function(cat, i) {
+    return {
+      label: cat,
+      data: dates.map(function(d){ return (byDate[d]||{})[cat]||0; }),
+      borderColor: COLORS[i],
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      tension: 0.4,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: COLORS[i],
+      pointBorderColor: '#fff',
+      pointBorderWidth: 1,
+    };
+  });
+
+  _defCharts.cat = new Chart(ctx, {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        mode:'index', intersect:false,
+        backgroundColor:'#fff', titleColor:'#201f1e', bodyColor:'#605e5c',
+        borderColor:'#e1dfdd', borderWidth:1, padding:10
+      }},
+      scales:{
+        x:{ grid:{display:false}, border:{display:false}, ticks:{font:{size:10},color:'#605e5c',maxRotation:0,maxTicksLimit:10} },
+        y:{ grid:{color:'#f3f2f1'}, border:{display:false}, ticks:{font:{size:11},color:'#605e5c'}, beginAtZero:true }
+      }
+    }
+  });
+
+  var leg = document.getElementById('def-cat-legend');
+  if (leg) leg.innerHTML = CATS.map(function(c,i){ return '<div class="def-leg-item"><div class="def-leg-dot" style="background:'+COLORS[i]+'"></div>'+c+'</div>'; }).join('');
+}
+
+function _renderAgentChart(scans) {
+  var ctx = document.getElementById('def-agent-chart');
+  if (!ctx) return;
+  if (_defCharts.agt) { try { _defCharts.agt.destroy(); } catch(e){} }
+
+  var AGENT_MAP = { apit:'API Testing', athn:'Authentication', info:'Intelligence', wstg:'WSTG Scanner', full:'Full Pentest', pentest:'Full Pentest' };
+  var AGENT_COLORS = ['#0078d4','#e3008c','#107c10','#ca5010','#8764b8','#038387','#605e5c'];
+
+  var byDate = {};
+  var agentSet = {};
+  scans.forEach(function(s) {
+    var raw = (s.created_at||'').replace('T',' ');
+    var date = raw.split(' ')[0];
+    var agent = AGENT_MAP[s.agent_type] || (s.agent_type||'Unknown');
+    agentSet[agent] = true;
+    if (!byDate[date]) byDate[date] = {};
+    byDate[date][agent] = (byDate[date][agent]||0) + 1;
+  });
+
+  var dates = Object.keys(byDate).sort();
+  if (!dates.length) {
+    ctx.style.display = 'none';
+    var em = document.getElementById('def-agent-empty'); if (em) em.style.display = 'flex';
+    return;
+  }
+
+  var agents = Object.keys(agentSet);
+  var labels = dates.map(function(d){ var dt=new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
+  var datasets = agents.map(function(agent,i) {
+    return {
+      label: agent,
+      data: dates.map(function(d){ return (byDate[d]||{})[agent]||0; }),
+      borderColor: AGENT_COLORS[i%AGENT_COLORS.length],
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      tension: 0.4,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: AGENT_COLORS[i%AGENT_COLORS.length],
+      pointBorderColor: '#fff',
+      pointBorderWidth: 1,
+    };
+  });
+
+  _defCharts.agt = new Chart(ctx, {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        mode:'index', intersect:false,
+        backgroundColor:'#fff', titleColor:'#201f1e', bodyColor:'#605e5c',
+        borderColor:'#e1dfdd', borderWidth:1, padding:10
+      }},
+      scales:{
+        x:{ grid:{display:false}, border:{display:false}, ticks:{font:{size:10},color:'#605e5c',maxRotation:0,maxTicksLimit:10} },
+        y:{ grid:{color:'#f3f2f1'}, border:{display:false}, ticks:{font:{size:11},color:'#605e5c'}, beginAtZero:true }
+      }
+    }
+  });
+
+  var leg = document.getElementById('def-agent-legend');
+  if (leg) leg.innerHTML = agents.map(function(a,i){ return '<div class="def-leg-item"><div class="def-leg-dot" style="background:'+AGENT_COLORS[i%AGENT_COLORS.length]+'"></div>'+a+'</div>'; }).join('');
+}
+
+function _renderMostImpacted(scans) {
+  var byTarget = {};
+  scans.forEach(function(s) {
+    var t = (s.target||'').replace(/^https?:\/\//,'').split('/')[0];
+    if (!t) return;
+    if (!byTarget[t]) byTarget[t] = { target:t, count:0, risk:'Low' };
+    byTarget[t].count++;
+    var out = (s.output||'').toLowerCase();
+    var curRisk = byTarget[t].risk;
+    if (/\bcritical\b/.test(out)) byTarget[t].risk = 'Critical';
+    else if (/\bhigh\b/.test(out) && curRisk !== 'Critical') byTarget[t].risk = 'High';
+    else if (/\bmedium\b/.test(out) && curRisk !== 'Critical' && curRisk !== 'High') byTarget[t].risk = 'Medium';
+  });
+
+  var sorted = Object.values(byTarget).sort(function(a,b){ return b.count-a.count; });
+  var half = Math.ceil(sorted.length/2);
+  var leftItems = sorted.slice(0, Math.max(half,5));
+  var rightItems = sorted.slice(0, Math.max(sorted.length,5));
+
+  function riskCls(r) {
+    if (r==='Critical') return 'def-risk-critical';
+    if (r==='High') return 'def-risk-high';
+    if (r==='Medium') return 'def-risk-medium';
+    return 'def-risk-low';
+  }
+
+  var emptyHtml = '<div style="padding:16px 14px;color:#a19f9d;font-size:12px;font-style:italic;">No scan data yet — run a scan first.</div>';
+
+  var lEl = document.getElementById('def-targets-left');
+  if (lEl) {
+    if (!leftItems.length) { lEl.innerHTML = emptyHtml; }
+    else lEl.innerHTML = leftItems.map(function(t) {
+      return '<div class="def-assets-row">' +
+        '<div class="def-assets-name"><span class="material-icons">language</span>' + esc(t.target) + '</div>' +
+        '<span class="def-assets-count">' + t.count + '</span></div>';
+    }).join('');
+  }
+
+  var rEl = document.getElementById('def-targets-right');
+  if (rEl) {
+    if (!rightItems.length) { rEl.innerHTML = emptyHtml; }
+    else rEl.innerHTML = rightItems.map(function(t) {
+      return '<div class="def-assets-row">' +
+        '<div class="def-assets-name"><span class="material-icons">dns</span>' + esc(t.target) + '</div>' +
+        '<span class="' + riskCls(t.risk) + '">' + t.risk + '</span></div>';
+    }).join('');
+  }
+}
+
+// Init on load
+window.addEventListener('load', function(){
+  loadDefDashboard();
 });
 
 // ── Setup Guide ───────────────────────────────────────────────────────────────
@@ -4626,6 +5189,47 @@ function renderSignalsTable() {
 }
 
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── WordPress Login Events ────────────────────────────────────────────────────
+function loadLoginEvents() {
+  var target = (document.getElementById('le-login-target')||{value:''}).value.trim();
+  var loading = document.getElementById('login-events-loading');
+  var errEl = document.getElementById('login-events-error');
+  var body = document.getElementById('login-events-body');
+  if (loading) loading.style.display = 'block';
+  if (errEl) errEl.style.display = 'none';
+  if (body) body.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#605e5c;font-size:12px;">Loading…</td></tr>';
+
+  var url = '/api/login-events' + (target ? '?target=' + encodeURIComponent(target) : '');
+  fetch(url).then(function(r){ return r.json(); }).then(function(d) {
+    if (loading) loading.style.display = 'none';
+    var events = d.events || [];
+    if (!events.length) {
+      body.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No WordPress login events found in scan history.<br>Run a WordPress site scan to capture login activity.</td></tr>';
+      return;
+    }
+    body.innerHTML = events.map(function(e) {
+      var statusColor = e.status === 'failed' ? '#a80000' : '#107c10';
+      var statusIcon = e.status === 'failed' ? '✗' : '✓';
+      var geo = e.country || '—';
+      var ipLink = e.ip && /^\d/.test(e.ip) ?
+        '<a href="https://www.ip-api.com/#' + escHtml(e.ip) + '" target="_blank" style="color:#0078d4;font-family:monospace;">' + escHtml(e.ip) + '</a>' :
+        escHtml(e.ip||'—');
+      return '<tr style="border-bottom:1px solid #f3f2f1;">' +
+        '<td style="padding:8px 12px;font-size:11px;color:#605e5c;white-space:nowrap;">' + escHtml(e.timestamp||e.scan_date||'—') + '</td>' +
+        '<td style="padding:8px 12px;font-weight:600;color:#201f1e;">' + escHtml(e.user||'—') + '</td>' +
+        '<td style="padding:8px 12px;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(e.event||'') + '">' + escHtml(e.event||'—') + '</td>' +
+        '<td style="padding:8px 12px;font-family:monospace;">' + ipLink + '</td>' +
+        '<td style="padding:8px 12px;font-size:12px;">' + escHtml(geo) + '</td>' +
+        '<td style="padding:8px 12px;font-weight:700;color:' + statusColor + ';">' + statusIcon + ' ' + (e.status||'—') + '</td>' +
+        '<td style="padding:8px 12px;font-size:11px;color:#605e5c;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(e.target||'—') + '</td>' +
+        '</tr>';
+    }).join('');
+  }).catch(function(err) {
+    if (loading) loading.style.display = 'none';
+    if (errEl) { errEl.textContent = 'Failed to load login events: ' + err.message; errEl.style.display = 'block'; }
+  });
+}
 
 // ── Log Explorer ──────────────────────────────────────────────────────────────
 var _leTimelineChart = null;

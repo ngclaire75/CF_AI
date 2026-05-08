@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -317,8 +318,7 @@ threading.Thread(target=_start_ws_loop, daemon=True).start()
 async def dashboard_page(request: Request) -> HTMLResponse:
     from dashboard.app import _build_template_context
     ctx = _build_template_context()
-    ctx["request"] = request
-    return templates.TemplateResponse("index.html", ctx)
+    return templates.TemplateResponse(request=request, name="index.html", context=ctx)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -481,6 +481,76 @@ async def api_stats() -> dict:
 @app.get("/api/scans/recent")
 async def api_scans_recent(limit: int = Query(50, ge=1, le=500)) -> list:
     return db.get_recent_scans(limit)
+
+
+@app.delete("/api/scans/clear", status_code=200)
+async def api_scans_clear() -> dict:
+    """Clear all scan history from the database."""
+    import sqlite3
+    from pathlib import Path as _Path
+    with sqlite3.connect(db.DB_PATH) as con:
+        con.execute("DELETE FROM scans")
+        con.commit()
+    return {"cleared": True}
+
+
+@app.get("/api/login-events")
+async def api_login_events(
+    target: str = Query(""),
+    limit: int = Query(200, ge=1, le=1000),
+) -> dict:
+    """Extract WordPress login events from scan outputs with geo enrichment."""
+    import re as _re
+    scans = db.get_recent_scans(500)
+    events: List[Dict[str, Any]] = []
+
+    # Patterns to extract login events from WP-LOG lines
+    # WP-LOG | timestamp | user | event | ip | severity
+    wp_log_re = _re.compile(
+        r'^WP-LOG\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*'
+        r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[^|\n]*?)\s*\|\s*(HIGH|MEDIUM|LOW|INFO)',
+        _re.I | _re.MULTILINE,
+    )
+    login_keywords = _re.compile(r'logged?\s*in|login|sign.in|authentication|session\s*start', _re.I)
+    failed_keywords = _re.compile(r'failed|invalid|incorrect|denied|blocked', _re.I)
+    ip_re = _re.compile(r'\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b')
+
+    for scan in scans:
+        if target and target not in (scan.get('target') or ''):
+            continue
+        output = scan.get('output') or ''
+        scan_target = scan.get('target', '')
+        scan_date = scan.get('created_at', '')
+
+        for m in wp_log_re.finditer(output):
+            ts    = m.group(1).strip()
+            user  = m.group(2).strip()
+            event = m.group(3).strip()
+            ip    = m.group(4).strip()
+            sev   = m.group(5).strip()
+
+            if not login_keywords.search(event):
+                continue
+            if user.lower() in {'system', 'cf_ai', 'cf_ai-mcp', 'cf_ai_mcp', 'scanner'}:
+                continue
+
+            status = 'failed' if failed_keywords.search(event) else 'success'
+            geo = _geoip(ip) if ip_re.match(ip) else ''
+
+            events.append({
+                'timestamp': ts,
+                'user': user,
+                'event': event[:80],
+                'ip': ip,
+                'country': geo,
+                'status': status,
+                'severity': sev,
+                'target': scan_target,
+                'scan_date': scan_date,
+            })
+
+    events = events[:limit]
+    return {'events': events, 'total': len(events)}
 
 
 @app.get("/api/scan/{scan_id}")
