@@ -1442,6 +1442,93 @@ def api_stream_signals():
                              'X-Accel-Buffering': 'no'})
 
 
+@app.route('/api/scans/<int:scan_id>', methods=['DELETE'])
+def api_delete_scan(scan_id):
+    deleted = db.delete_scan(scan_id)
+    if not deleted:
+        return jsonify({'error': 'not found'}), 404
+    return jsonify({'deleted': scan_id})
+
+
+@app.route('/api/scans/clear', methods=['DELETE'])
+def api_clear_scans():
+    n = db.clear_scans()
+    return jsonify({'cleared': n})
+
+
+@app.route('/api/incidents/<int:iid>', methods=['DELETE'])
+def api_incidents_delete(iid):
+    deleted = db.delete_incident(iid)
+    if not deleted:
+        return jsonify({'error': 'not found'}), 404
+    return jsonify({'deleted': iid})
+
+
+@app.route('/api/login-events')
+def api_login_events():
+    import re as _re
+    target = request.args.get('target', '')
+    limit  = int(request.args.get('limit', 200))
+    scans  = db.get_recent_scans(500)
+    events = []
+    wp_log_re = _re.compile(
+        r'^WP-LOG\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*'
+        r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[^|\n]*?)\s*\|\s*(HIGH|MEDIUM|LOW|INFO)',
+        _re.I | _re.MULTILINE,
+    )
+    login_kw  = _re.compile(r'logged?\s*in|login|sign.in|authentication|session\s*start', _re.I)
+    failed_kw = _re.compile(r'failed|invalid|incorrect|denied|blocked', _re.I)
+    ip_re     = _re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+    for scan in scans:
+        if target and target not in (scan.get('target') or ''):
+            continue
+        for m in wp_log_re.finditer(scan.get('output') or ''):
+            ts, user, event, ip, sev = m.group(1).strip(), m.group(2).strip(), m.group(3).strip(), m.group(4).strip(), m.group(5).strip()
+            if not login_kw.search(event):
+                continue
+            if user.lower() in {'system', 'cf_ai', 'cf_ai-mcp', 'cf_ai_mcp', 'scanner'}:
+                continue
+            events.append({
+                'timestamp': ts, 'user': user, 'event': event[:80], 'ip': ip,
+                'country': '', 'status': 'failed' if failed_kw.search(event) else 'success',
+                'severity': sev, 'target': scan.get('target', ''), 'scan_date': scan.get('created_at', ''),
+            })
+    return jsonify({'events': events[:limit], 'total': len(events)})
+
+
+@app.route('/api/vuln-intel/correlate')
+def api_vuln_correlate():
+    from dashboard import vuln_intel as _vi
+    target = request.args.get('target', '')
+    limit  = int(request.args.get('limit', 200))
+    scans  = db.get_recent_scans(limit)
+    if target:
+        scans = [s for s in scans if target.lower() in (s.get('target') or '').lower()]
+    return jsonify(_vi.correlate_scans(scans, max_cves=50))
+
+
+@app.route('/api/vuln-intel/kev')
+def api_vuln_kev():
+    from dashboard import vuln_intel as _vi
+    cve_param = request.args.get('cve', '')
+    if cve_param:
+        ids = [c.strip().upper() for c in cve_param.split(',') if c.strip()]
+        return jsonify({'results': _vi.kev_lookup(ids)})
+    stats   = _vi.kev_stats()
+    kev_map = _vi._load_kev()
+    return jsonify({'total': stats['total'], 'entries': [{'cve_id': k, **v} for k, v in list(kev_map.items())[:200]]})
+
+
+@app.route('/api/vuln-intel/epss')
+def api_vuln_epss():
+    from dashboard import vuln_intel as _vi
+    cves_param = request.args.get('cves', '')
+    if not cves_param:
+        return jsonify({'error': 'cves parameter required'}), 400
+    ids = [c.strip().upper() for c in cves_param.split(',') if c.strip()]
+    return jsonify({'results': _vi.epss_lookup(ids)})
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('CFAI_DASHBOARD_PORT', 8889))
     print(f'CF_AI Dashboard running on http://0.0.0.0:{port}')

@@ -172,6 +172,27 @@ def update_incident(incident_id: int, **kwargs) -> bool:
     return True
 
 
+def delete_scan(scan_id: int) -> bool:
+    with _connect() as con:
+        cur = con.execute('DELETE FROM scans WHERE id = ?', (scan_id,))
+        con.commit()
+        return cur.rowcount > 0
+
+
+def clear_scans() -> int:
+    with _connect() as con:
+        cur = con.execute('DELETE FROM scans')
+        con.commit()
+        return cur.rowcount
+
+
+def delete_incident(incident_id: int) -> bool:
+    with _connect() as con:
+        cur = con.execute('DELETE FROM incidents WHERE id = ?', (incident_id,))
+        con.commit()
+        return cur.rowcount > 0
+
+
 def get_incident_stats() -> dict:
     with _connect() as con:
         total    = con.execute('SELECT COUNT(*) FROM incidents').fetchone()[0]

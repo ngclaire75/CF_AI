@@ -1279,6 +1279,48 @@ tr.hidden-r { display: none; }
 .inc-action-btn.danger { color:#dc2626; border-color:#fca5a5; }
 .inc-action-btn.danger:hover { background:#fef2f2; }
 .inc-status-resolved { background:#dcfce7; color:#166534; }
+/* ── Incidents redesign ── */
+.inc-stats-row { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.inc-stat-card { flex:1; min-width:100px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 18px; text-align:center; }
+.inc-stat-card .inc-stat-num { font-size:28px; font-weight:700; line-height:1.1; }
+.inc-stat-card .inc-stat-lbl { font-size:11px; color:#8e8e93; margin-top:3px; text-transform:uppercase; letter-spacing:.04em; }
+.inc-stat-open   { border-top:3px solid #dc2626; }
+.inc-stat-inv    { border-top:3px solid #d97706; }
+.inc-stat-res    { border-top:3px solid #059669; }
+.inc-stat-total  { border-top:3px solid #6366f1; }
+.inc-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.inc-search { flex:1; min-width:180px; border:1px solid #e5e7eb; border-radius:8px; padding:6px 12px; font-size:13px; font-family:inherit; outline:none; }
+.inc-search:focus { border-color:#2563eb; }
+.inc-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+.inc-tbl thead th { text-align:left; padding:9px 12px; font-size:11px; font-weight:600; color:#8e8e93; border-bottom:2px solid #f3f4f6; text-transform:uppercase; letter-spacing:.04em; background:#fafafa; }
+.inc-tbl tbody tr { border-bottom:1px solid #f3f4f6; transition:background .12s; }
+.inc-tbl tbody tr:hover { background:#f9fafb; }
+.inc-tbl tbody tr.inc-expanded { background:#f0f4ff; }
+.inc-tbl td { padding:10px 12px; vertical-align:middle; }
+.inc-tbl td.inc-td-title { font-weight:600; color:#1d1d1f; max-width:280px; }
+.inc-tbl td.inc-td-title small { display:block; font-weight:400; color:#8e8e93; font-size:11px; margin-top:2px; }
+.inc-expand-row td { background:#f5f7ff; padding:12px 20px; }
+.inc-expand-body { display:flex; gap:20px; flex-wrap:wrap; }
+.inc-expand-field { flex:1; min-width:160px; }
+.inc-expand-field label { font-size:10px; font-weight:700; color:#8e8e93; text-transform:uppercase; display:block; margin-bottom:4px; }
+.inc-expand-field .inc-notes-input { width:100%; border:1px solid #e5e7eb; border-radius:6px; padding:5px 8px; font-size:12px; font-family:inherit; resize:vertical; min-height:50px; }
+.inc-expand-field .inc-notes-input:focus { outline:none; border-color:#2563eb; }
+.inc-sev-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:4px; letter-spacing:.03em; }
+.inc-sev-CRITICAL { background:#fde7e9; color:#a80000; }
+.inc-sev-HIGH     { background:#fce8e6; color:#c50f1f; }
+.inc-sev-MEDIUM   { background:#fef3c7; color:#92400e; }
+.inc-sev-LOW      { background:#dcfce7; color:#166534; }
+.inc-sev-INFO     { background:#eff6ff; color:#1e40af; }
+.inc-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:900; display:flex; align-items:center; justify-content:center; }
+.inc-modal { background:#fff; border-radius:16px; padding:28px 32px; width:min(560px,95vw); box-shadow:0 8px 40px rgba(0,0,0,.18); }
+.inc-modal-title { font-size:18px; font-weight:700; margin-bottom:20px; color:#1d1d1f; }
+.inc-field-row { display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+.inc-field { display:flex; flex-direction:column; flex:1; min-width:140px; }
+.inc-field label { font-size:11px; font-weight:600; color:#6b7280; margin-bottom:4px; text-transform:uppercase; }
+.inc-field input, .inc-field select, .inc-field textarea { border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px; font-size:13px; font-family:inherit; outline:none; }
+.inc-field input:focus, .inc-field select:focus, .inc-field textarea:focus { border-color:#2563eb; }
+.inc-field textarea { resize:vertical; min-height:64px; }
+.inc-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
 
 /* ── Unified Observability ── */
 .obs-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
@@ -2420,7 +2462,6 @@ Export Power BI
               </td>
               <td style="white-space:nowrap;">
                 <button class="btn btn-sm" onclick="openModal({{ t.id }})" style="margin-right:4px;">Report</button>
-                <button class="btn btn-logs btn-sm" onclick="openWpLogsModal('{{ t.target|e }}')">Plugin Logs</button>
                 <button class="btn btn-sm" onclick="openInsightsModal('{{ t.target|e }}')" style="background:#0f172a;color:#fff;border-color:#0f172a;">Insights</button>
               </td>
             </tr>
@@ -2676,43 +2717,128 @@ Export Power BI
 
   <!-- ══ INCIDENTS PAGE ════════════════════════════════════════════════════ -->
   <div id="page-incidents" class="page-section" style="display:none">
-  <!-- ── Incident Management ────────────────────────────────────────────────── -->
   <section class="section" id="inc-section">
     <div class="sec-head">
       <div>
         <div class="sec-title">Incident Management</div>
-        <div class="sec-desc">Track, triage, and resolve security incidents — trigger workflows from monitors, signals, or dashboards</div>
+        <div class="sec-desc">Track, triage, and resolve security incidents detected across all targets</div>
       </div>
-      <button class="btn btn-sm" onclick="toggleIncCreateForm()" style="background:#2563eb;color:#fff;border-color:#2563eb;border-radius:8px;padding:6px 16px;">+ New Incident</button>
+      <button class="btn btn-sm" onclick="openIncModal()" style="background:#2563eb;color:#fff;border-color:#2563eb;border-radius:8px;padding:6px 18px;font-weight:600;">+ New Incident</button>
     </div>
-    <!-- Create form -->
-    <div class="inc-create-form" id="inc-create-form">
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:#1d1d1f;">Create New Incident</div>
-      <div class="inc-create-row">
-        <input type="text" id="inc-title" placeholder="Incident title…" style="flex:2;min-width:200px;">
-        <select id="inc-severity" style="min-width:120px;">
-          <option value="HIGH">HIGH</option>
-          <option value="MEDIUM" selected>MEDIUM</option>
-          <option value="LOW">LOW</option>
-        </select>
-        <input type="text" id="inc-target" placeholder="Target domain" style="min-width:160px;">
+
+    <!-- Stats row -->
+    <div class="inc-stats-row">
+      <div class="inc-stat-card inc-stat-open">
+        <div class="inc-stat-num" style="color:#dc2626;" id="inc-stat-open">—</div>
+        <div class="inc-stat-lbl">Open</div>
       </div>
-      <div class="inc-create-row">
-        <input type="text" id="inc-desc" placeholder="Description / notes…" style="flex:1;">
-        <input type="text" id="inc-mitre" placeholder="MITRE tactic" style="min-width:160px;">
-        <button class="btn btn-sm" onclick="createIncident()" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;white-space:nowrap;">Create</button>
-        <button class="btn btn-sm" onclick="toggleIncCreateForm()" style="border-radius:8px;">Cancel</button>
+      <div class="inc-stat-card inc-stat-inv">
+        <div class="inc-stat-num" style="color:#d97706;" id="inc-stat-inv">—</div>
+        <div class="inc-stat-lbl">Investigating</div>
+      </div>
+      <div class="inc-stat-card inc-stat-res">
+        <div class="inc-stat-num" style="color:#059669;" id="inc-stat-res">—</div>
+        <div class="inc-stat-lbl">Resolved</div>
+      </div>
+      <div class="inc-stat-card inc-stat-total">
+        <div class="inc-stat-num" style="color:#6366f1;" id="inc-stat-total">—</div>
+        <div class="inc-stat-lbl">Total</div>
       </div>
     </div>
-    <!-- Filter tabs -->
-    <div class="inc-tabs">
-      <button class="inc-tab active" onclick="loadIncidents('all',this)">All</button>
-<button class="inc-tab" onclick="loadIncidents('investigating',this)">Investigating</button>
-      <button class="inc-tab" onclick="loadIncidents('resolved',this)">Resolved</button>
+
+    <!-- Toolbar: filter tabs + search -->
+    <div class="inc-toolbar">
+      <div class="inc-tabs" style="margin-bottom:0;">
+        <button class="inc-tab active" id="inc-tab-all"  onclick="loadIncidents('all',this)">All</button>
+        <button class="inc-tab" id="inc-tab-open"         onclick="loadIncidents('open',this)">Open</button>
+        <button class="inc-tab" id="inc-tab-investigating" onclick="loadIncidents('investigating',this)">Investigating</button>
+        <button class="inc-tab" id="inc-tab-resolved"     onclick="loadIncidents('resolved',this)">Resolved</button>
+        <button class="inc-tab" id="inc-tab-dismissed"    onclick="loadIncidents('dismissed',this)">Dismissed</button>
+      </div>
+      <input type="search" id="inc-search" class="inc-search" placeholder="Search incidents…" oninput="filterIncidentsTable()" style="max-width:240px;">
     </div>
-    <!-- Incidents list -->
-    <div id="inc-list"><em style="color:#9ca3af;font-size:13px;padding:16px;display:block;">Loading incidents…</em></div>
+
+    <!-- Table -->
+    <div style="overflow-x:auto;border:1px solid #f3f4f6;border-radius:12px;background:#fff;">
+      <table class="inc-tbl" id="inc-tbl">
+        <thead>
+          <tr>
+            <th style="width:38px;">#</th>
+            <th style="width:90px;">Severity</th>
+            <th>Title</th>
+            <th style="width:100px;">Status</th>
+            <th style="width:160px;">Target</th>
+            <th style="width:140px;">MITRE Tactic</th>
+            <th style="width:130px;">Created</th>
+            <th style="width:140px;text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="inc-tbl-body">
+          <tr><td colspan="8" style="padding:28px;text-align:center;color:#9ca3af;font-size:13px;">Loading incidents…</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
+
+  <!-- Create / Edit Incident Modal -->
+  <div class="inc-modal-overlay" id="inc-modal-overlay" style="display:none;" onclick="if(event.target===this)closeIncModal()">
+    <div class="inc-modal">
+      <div class="inc-modal-title" id="inc-modal-heading">New Incident</div>
+      <input type="hidden" id="inc-edit-id" value="">
+      <div class="inc-field-row">
+        <div class="inc-field" style="flex:2;">
+          <label>Title *</label>
+          <input type="text" id="inc-title" placeholder="Incident title…">
+        </div>
+        <div class="inc-field" style="flex:0 0 130px;">
+          <label>Severity</label>
+          <select id="inc-severity">
+            <option value="CRITICAL">CRITICAL</option>
+            <option value="HIGH">HIGH</option>
+            <option value="MEDIUM" selected>MEDIUM</option>
+            <option value="LOW">LOW</option>
+          </select>
+        </div>
+      </div>
+      <div class="inc-field-row">
+        <div class="inc-field">
+          <label>Target Domain</label>
+          <input type="text" id="inc-target" placeholder="e.g. example.com">
+        </div>
+        <div class="inc-field">
+          <label>Status</label>
+          <select id="inc-status-select">
+            <option value="open" selected>Open</option>
+            <option value="investigating">Investigating</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+        </div>
+      </div>
+      <div class="inc-field-row">
+        <div class="inc-field">
+          <label>MITRE Tactic</label>
+          <input type="text" id="inc-mitre" placeholder="e.g. Initial Access">
+        </div>
+        <div class="inc-field">
+          <label>MITRE Technique</label>
+          <input type="text" id="inc-mitre-tech" placeholder="e.g. T1190">
+        </div>
+      </div>
+      <div class="inc-field">
+        <label>Description</label>
+        <textarea id="inc-desc" placeholder="Describe the incident, findings, and affected assets…"></textarea>
+      </div>
+      <div class="inc-field" style="margin-top:10px;">
+        <label>Notes / Remediation Steps</label>
+        <textarea id="inc-notes" placeholder="Investigation notes, remediation steps…"></textarea>
+      </div>
+      <div class="inc-modal-actions">
+        <button class="btn btn-sm" onclick="closeIncModal()" style="border-radius:8px;">Cancel</button>
+        <button class="btn btn-sm" onclick="saveIncident()" style="background:#2563eb;color:#fff;border-color:#2563eb;border-radius:8px;padding:6px 20px;font-weight:600;">Save Incident</button>
+      </div>
+    </div>
+  </div>
 
   </div><!-- /page-incidents -->
 
@@ -4087,27 +4213,38 @@ function histRiskFilter(btn, risk) {
   histFilter();
 }
 
+function _refreshAllDashboard() {
+  // Reload every page that derives data from scan records
+  _buildHistoryKPIs();
+  _buildHistoryChart();
+  if (typeof loadMvdDashboard === 'function')   loadMvdDashboard();
+  if (typeof loadSignals === 'function')         loadSignals();
+  if (typeof loadMitreCoverage === 'function')   loadMitreCoverage();
+  if (typeof loadEventTimeline === 'function')   loadEventTimeline();
+  if (typeof loadWeaknesses === 'function')      loadWeaknesses();
+  if (typeof loadIncidents === 'function')       loadIncidents(_incStatus);
+  if (typeof loadUnifiedOverview === 'function') loadUnifiedOverview();
+}
+
 function deleteScan(id, btn) {
-  if (!confirm('Delete scan #' + id + '? This cannot be undone.')) return;
+  if (!confirm('Delete scan #' + id + '? This will also remove its events, signals, and MITRE hits from all pages.')) return;
   fetch('/api/scans/' + id, { method: 'DELETE' })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function() {
       var row = btn.closest('tr');
       if (row) row.remove();
-      _buildHistoryKPIs();
-      _buildHistoryChart();
+      _refreshAllDashboard();
     })
     .catch(function(e){ alert('Could not delete scan: ' + e.message); });
 }
 
 function clearAllScans() {
-  if (!confirm('Clear ALL scan history? This cannot be undone.')) return;
+  if (!confirm('Clear ALL scan history? Events, signals, and MITRE data will be removed from all pages.')) return;
   fetch('/api/scans/clear', { method: 'DELETE' })
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function() {
       document.querySelectorAll('#hist tbody tr.hist-row').forEach(function(r){ r.remove(); });
-      _buildHistoryKPIs();
-      _buildHistoryChart();
+      _refreshAllDashboard();
     })
     .catch(function(e){ alert('Could not clear scans: ' + e.message); });
 }
@@ -5774,60 +5911,30 @@ function showMitreTactic(tname, el) {
 // ── Incident Management ───────────────────────────────────────────────────────
 var _incStatus = 'all';
 
-function toggleIncCreateForm() {
-  var f = document.getElementById('inc-create-form');
-  f.classList.toggle('open');
-}
-
-function createIncident() {
-  var title = (document.getElementById('inc-title').value||'').trim();
-  if (!title) { alert('Please enter an incident title.'); return; }
-  fetch('/api/incidents', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      title:        title,
-      severity:     document.getElementById('inc-severity').value,
-      target:       document.getElementById('inc-target').value,
-      description:  document.getElementById('inc-desc').value,
-      mitre_tactic: document.getElementById('inc-mitre').value,
-    }),
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d){
-    if (d.created) {
-      document.getElementById('inc-title').value = '';
-      document.getElementById('inc-desc').value  = '';
-      document.getElementById('inc-target').value = '';
-      document.getElementById('inc-create-form').classList.remove('open');
-      loadIncidents(_incStatus);
-      loadUnifiedOverview();
-    }
-  });
-}
-
 function raiseIncidentFromRule(data) {
   fetch('/api/incidents', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
-      title: data.title || 'Security Incident',
-      severity: data.severity || 'MEDIUM',
-      target: data.target || '',
-      mitre_tactic: data.mitre_tactic || '',
+      title:           data.title || 'Security Incident',
+      severity:        data.severity || 'MEDIUM',
+      target:          data.target || '',
+      mitre_tactic:    data.mitre_tactic || '',
       mitre_technique: data.mitre_technique || '',
-      rule_id: data.rule_id || '',
+      rule_id:         data.rule_id || '',
     }),
   })
   .then(function(r){ return r.json(); })
   .then(function(d){
-    if (d.created) {
+    if (d.created || d.id) {
       sbNav('incidents', document.getElementById('sb-incidents'));
       loadIncidents('open');
       loadUnifiedOverview();
     }
   });
 }
+
+var _incAll = [];
 
 function loadIncidents(status, el) {
   _incStatus = status || 'all';
@@ -5839,46 +5946,95 @@ function loadIncidents(status, el) {
   fetch(url)
     .then(function(r){ return r.json(); })
     .then(function(d){
-      var stats = d.stats || {};
-      var el2 = document.getElementById('inc-cnt-open');
-      if (el2) el2.textContent = stats.open || '';
-      renderIncidents(d.incidents || []);
-    });
+      var s = d.stats || {};
+      _incAll = d.incidents || [];
+      var se = function(id, v){ var e=document.getElementById(id); if(e) e.textContent=v; };
+      se('inc-stat-open',  s.open  || 0);
+      se('inc-stat-inv',   s.investigating || 0);
+      se('inc-stat-res',   s.resolved || 0);
+      se('inc-stat-total', s.total || 0);
+      se('inc-cnt-open',   s.open  || '');
+      renderIncidents(_incAll);
+    })
+    .catch(function(){ });
+}
+
+function filterIncidentsTable() {
+  var q = (document.getElementById('inc-search').value || '').toLowerCase();
+  var filtered = q ? _incAll.filter(function(i){
+    return (i.title||'').toLowerCase().includes(q) ||
+           (i.target||'').toLowerCase().includes(q) ||
+           (i.description||'').toLowerCase().includes(q) ||
+           (i.mitre_tactic||'').toLowerCase().includes(q);
+  }) : _incAll;
+  renderIncidents(filtered);
 }
 
 function renderIncidents(incidents) {
-  var list = document.getElementById('inc-list');
+  var tbody = document.getElementById('inc-tbl-body');
   if (!incidents.length) {
-    list.innerHTML = '<div style="padding:24px;text-align:center;color:#9ca3af;font-size:13px;">No incidents' + (_incStatus !== 'all' ? ' with status "' + _incStatus + '"' : '') + '. Create one from a MITRE detection rule or manually.</div>';
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:28px;text-align:center;color:#9ca3af;font-size:13px;">No incidents' + (_incStatus !== 'all' ? ' with status "' + _incStatus + '"' : '') + '. Click <strong>+ New Incident</strong> to create one.</td></tr>';
     return;
   }
-  list.innerHTML = incidents.map(function(inc){
-    var stCls = 'inc-status-' + (inc.status||'open');
-    var sevCls = 'sig-badge-' + (inc.severity||'MEDIUM');
-    return '<div class="inc-card">' +
-      '<div class="inc-card-header">' +
-        '<div>' +
-          '<div class="inc-card-title">' + escHtml(inc.title) + '</div>' +
-          '<div class="inc-card-meta">' +
-            (inc.target ? '<span style="font-family:monospace;">' + escHtml(inc.target) + ' · </span>' : '') +
-            (inc.mitre_tactic ? '<span class="siem-rule-tactic-link">' + escHtml(inc.mitre_tactic) + ' · </span>' : '') +
-            '<span>' + (inc.created_at||'').slice(0,16) + '</span>' +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;">' +
-          '<span class="sig-badge ' + sevCls + '">' + (inc.severity||'MEDIUM') + '</span>' +
-          '<span class="inc-status-pill ' + stCls + '">' + (inc.status||'open') + '</span>' +
-        '</div>' +
-      '</div>' +
-      (inc.description ? '<div style="font-size:12px;color:#6b7280;margin-top:6px;">' + escHtml(inc.description) + '</div>' : '') +
-      (inc.mitre_technique ? '<div style="font-size:11px;color:#9ca3af;margin-top:4px;font-family:monospace;">' + escHtml(inc.mitre_technique) + ' · ' + (inc.rule_id||'') + '</div>' : '') +
-      '<div class="inc-actions">' +
-        (inc.status !== 'investigating' ? '<button class="inc-action-btn" onclick="updateIncident(' + inc.id + ',\'investigating\')">Investigate</button>' : '') +
-        (inc.status !== 'resolved' ? '<button class="inc-action-btn" onclick="updateIncident(' + inc.id + ',\'resolved\')" style="color:#059669;border-color:#a7f3d0;">Resolve</button>' : '') +
-        (inc.status !== 'dismissed' ? '<button class="inc-action-btn" onclick="updateIncident(' + inc.id + ',\'dismissed\')" style="color:#9ca3af;">Dismiss</button>' : '') +
-      '</div>' +
-    '</div>';
+  var SEV_COL = {CRITICAL:'#a80000',HIGH:'#c50f1f',MEDIUM:'#92400e',LOW:'#166534',INFO:'#1e40af'};
+  var ST_STYLE = {
+    open:          'background:#fee2e2;color:#dc2626;',
+    investigating: 'background:#fef3c7;color:#d97706;',
+    resolved:      'background:#d1fae5;color:#059669;',
+    dismissed:     'background:#f3f4f6;color:#9ca3af;',
+  };
+  tbody.innerHTML = incidents.map(function(inc){
+    var sev  = (inc.severity||'MEDIUM').toUpperCase();
+    var st   = (inc.status||'open').toLowerCase();
+    var stSt = ST_STYLE[st] || '';
+    var sevC = SEV_COL[sev] || '#374151';
+    var dt   = (inc.created_at||'').slice(0,16).replace('T',' ');
+    var desc = inc.description ? '<small>' + escHtml(inc.description.slice(0,60)) + (inc.description.length>60?'…':'') + '</small>' : '';
+    return '<tr id="inc-row-'+inc.id+'">' +
+      '<td style="color:#9ca3af;font-size:11px;">#'+inc.id+'</td>' +
+      '<td><span class="inc-sev-badge inc-sev-'+sev+'" style="color:'+sevC+';">'+sev+'</span></td>' +
+      '<td class="inc-td-title" style="cursor:pointer;" onclick="toggleIncExpand('+inc.id+')">'+escHtml(inc.title)+desc+'</td>' +
+      '<td><span class="inc-status-pill" style="'+stSt+'">'+st+'</span></td>' +
+      '<td style="font-family:monospace;font-size:11px;color:#374151;">'+(inc.target?escHtml(inc.target):'<span style="color:#d1d5db;">—</span>')+'</td>' +
+      '<td style="font-size:11px;color:#6b7280;">'+(inc.mitre_tactic?escHtml(inc.mitre_tactic):'<span style="color:#d1d5db;">—</span>')+'</td>' +
+      '<td style="font-size:11px;color:#8e8e93;white-space:nowrap;">'+dt+'</td>' +
+      '<td style="text-align:right;white-space:nowrap;">' +
+        '<button class="inc-action-btn" onclick="openIncModal('+inc.id+')" title="Edit" style="padding:3px 8px;">✏️</button> ' +
+        (st !== 'investigating' ? '<button class="inc-action-btn" onclick="updateIncident('+inc.id+',\'investigating\')" style="color:#d97706;border-color:#fde68a;">Investigate</button> ' : '') +
+        (st !== 'resolved'      ? '<button class="inc-action-btn" onclick="updateIncident('+inc.id+',\'resolved\')" style="color:#059669;border-color:#a7f3d0;">Resolve</button> ' : '') +
+        '<button class="inc-action-btn danger" onclick="deleteIncident('+inc.id+')" title="Delete">🗑</button>' +
+      '</td>' +
+    '</tr>' +
+    '<tr id="inc-expand-'+inc.id+'" class="inc-expand-row" style="display:none;"><td colspan="8">'+
+      '<div class="inc-expand-body">'+
+        '<div class="inc-expand-field" style="flex:2;">'+
+          '<label>Description</label>'+
+          '<div style="font-size:12px;color:#374151;">'+(inc.description ? escHtml(inc.description) : '<em style="color:#9ca3af;">No description.</em>')+'</div>'+
+        '</div>'+
+        (inc.mitre_technique ? '<div class="inc-expand-field"><label>Technique</label><div style="font-family:monospace;font-size:12px;">'+escHtml(inc.mitre_technique)+'</div></div>' : '') +
+        (inc.rule_id ? '<div class="inc-expand-field"><label>Rule</label><div style="font-family:monospace;font-size:12px;">'+escHtml(inc.rule_id)+'</div></div>' : '') +
+        '<div class="inc-expand-field" style="flex:2;">'+
+          '<label>Notes</label>'+
+          '<textarea class="inc-notes-input" id="inc-notes-'+inc.id+'" rows="2" onblur="saveNotes('+inc.id+')">'+(inc.notes?escHtml(inc.notes):'')+'</textarea>'+
+          '<div style="font-size:10px;color:#9ca3af;margin-top:3px;">Saved automatically when you click away.</div>'+
+        '</div>'+
+      '</div>'+
+    '</td></tr>';
   }).join('');
+}
+
+function toggleIncExpand(id) {
+  var row = document.getElementById('inc-expand-'+id);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+function saveNotes(id) {
+  var ta = document.getElementById('inc-notes-'+id);
+  if (!ta) return;
+  fetch('/api/incidents/'+id, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({notes: ta.value}),
+  }).catch(function(){});
 }
 
 function updateIncident(id, status) {
@@ -5888,6 +6044,78 @@ function updateIncident(id, status) {
     body: JSON.stringify({status: status}),
   })
   .then(function(){ loadIncidents(_incStatus); loadUnifiedOverview(); });
+}
+
+function deleteIncident(id) {
+  if (!confirm('Delete incident #'+id+'? This cannot be undone.')) return;
+  fetch('/api/incidents/'+id, { method:'DELETE' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(){ loadIncidents(_incStatus); loadUnifiedOverview(); })
+    .catch(function(e){ alert('Could not delete: '+e.message); });
+}
+
+function openIncModal(id) {
+  var overlay = document.getElementById('inc-modal-overlay');
+  var heading = document.getElementById('inc-modal-heading');
+  var editId  = document.getElementById('inc-edit-id');
+  // clear fields
+  ['inc-title','inc-target','inc-mitre','inc-mitre-tech','inc-desc','inc-notes'].forEach(function(f){
+    var e = document.getElementById(f); if(e) e.value='';
+  });
+  document.getElementById('inc-severity').value = 'MEDIUM';
+  document.getElementById('inc-status-select').value = 'open';
+  editId.value = '';
+  if (id) {
+    var inc = _incAll.find(function(i){ return i.id === id; });
+    if (inc) {
+      heading.textContent = 'Edit Incident #'+id;
+      editId.value = id;
+      document.getElementById('inc-title').value    = inc.title||'';
+      document.getElementById('inc-severity').value = inc.severity||'MEDIUM';
+      document.getElementById('inc-target').value   = inc.target||'';
+      document.getElementById('inc-status-select').value = inc.status||'open';
+      document.getElementById('inc-mitre').value    = inc.mitre_tactic||'';
+      document.getElementById('inc-mitre-tech').value = inc.mitre_technique||'';
+      document.getElementById('inc-desc').value     = inc.description||'';
+      document.getElementById('inc-notes').value    = inc.notes||'';
+    }
+  } else {
+    heading.textContent = 'New Incident';
+  }
+  overlay.style.display = 'flex';
+}
+
+function closeIncModal() {
+  document.getElementById('inc-modal-overlay').style.display = 'none';
+}
+
+function saveIncident() {
+  var title = (document.getElementById('inc-title').value||'').trim();
+  if (!title) { alert('Please enter a title.'); return; }
+  var editId = document.getElementById('inc-edit-id').value;
+  var payload = {
+    title:            title,
+    severity:         document.getElementById('inc-severity').value,
+    target:           document.getElementById('inc-target').value,
+    status:           document.getElementById('inc-status-select').value,
+    mitre_tactic:     document.getElementById('inc-mitre').value,
+    mitre_technique:  document.getElementById('inc-mitre-tech').value,
+    description:      document.getElementById('inc-desc').value,
+    notes:            document.getElementById('inc-notes').value,
+  };
+  var isEdit = !!editId;
+  fetch(isEdit ? '/api/incidents/'+editId : '/api/incidents', {
+    method: isEdit ? 'PATCH' : 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(){
+    closeIncModal();
+    loadIncidents(_incStatus);
+    loadUnifiedOverview();
+  })
+  .catch(function(e){ alert('Error: '+e.message); });
 }
 
 // ── Security Signals ──────────────────────────────────────────────────────────

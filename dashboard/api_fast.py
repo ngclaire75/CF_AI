@@ -622,6 +622,14 @@ async def api_incidents_update(iid: int, body: IncidentUpdate) -> dict:
     return {"updated": True}
 
 
+@app.delete("/api/incidents/{iid}", status_code=200)
+async def api_incidents_delete(iid: int) -> dict:
+    deleted = db.delete_incident(iid)
+    if not deleted:
+        raise HTTPException(404, "Incident not found")
+    return {"deleted": iid}
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Security Signals
 # ═══════════════════════════════════════════════════════════════════════════════
