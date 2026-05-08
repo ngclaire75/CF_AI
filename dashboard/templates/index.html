@@ -3775,6 +3775,10 @@ function _mvdRenderDonut(scans) {
   var ctx=document.getElementById('mvd-donut-chart');
   var legEl=document.getElementById('mvd-donut-leg');
   if (!ctx) return;
+  if (typeof Chart === 'undefined') {
+    if (legEl) legEl.innerHTML='<span style="color:#a19f9d;font-size:12px;">Chart library unavailable — check CDN connection.</span>';
+    return;
+  }
   if (_mvdCharts.donut) {try{_mvdCharts.donut.destroy();}catch(e){}}
   var C={Critical:0,High:0,Medium:0,Low:0,Info:0};
   var COLORS={Critical:'#a80000',High:'#d83b01',Medium:'#ffb900',Low:'#499205',Info:'rgba(0,120,212,0.7)'};
@@ -6764,52 +6768,53 @@ function _custRenderDrawer() {
   var activeList = document.getElementById('cust-active-list');
   var addList    = document.getElementById('cust-add-list');
   if (!activeList || !addList) return;
-
-  var active  = _DASH_PANELS.filter(function(p){ return !p.addable; });
-  var addable = _DASH_PANELS.filter(function(p){ return  p.addable; });
-
-  activeList.innerHTML = active.map(function(p) {
+  activeList.innerHTML = '';
+  addList.innerHTML = '';
+  for (var i = 0; i < _DASH_PANELS.length; i++) {
+    var p = _DASH_PANELS[i];
     var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e){}
-    var on = saved === null ? true : saved === '1';
-    return _custRow(p, on);
-  }).join('');
-
-  addList.innerHTML = addable.map(function(p) {
-    var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e){}
-    var on = saved === '1';
-    return _custRow(p, on);
-  }).join('');
+    var on = p.addable ? saved === '1' : (saved === null ? true : saved === '1');
+    var row = _custMakeRow(p, on);
+    if (p.addable) addList.appendChild(row);
+    else activeList.appendChild(row);
+  }
 }
 
-function _custRow(p, on) {
-  var bg  = on ? '#f0fdf4' : '#fafafa';
-  var col = on ? '#107c10' : '#605e5c';
-  var btnLabel = on ? '&#x2713; Added' : '+ Add';
-  var btnStyle = on
-    ? 'background:#dff6dd;color:#107c10;border:1px solid #a3d9a5;'
-    : 'background:#f3f2f1;color:#323130;border:1px solid #c8c6c4;';
-  return '<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #f3f2f1;" id="cust-row-' + p.id + '">' +
-    '<div style="flex:1;">' +
-      '<div style="font-size:13px;font-weight:600;color:#201f1e;">' + p.label + '</div>' +
-      '<div style="font-size:11px;color:#605e5c;margin-top:2px;line-height:1.4;">' + p.desc + '</div>' +
-    '</div>' +
-    '<button onclick="_custToggle(' + JSON.stringify(p.id) + ')" style="flex-shrink:0;padding:5px 12px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;' + btnStyle + '">' + btnLabel + '</button>' +
-  '</div>';
+function _custMakeRow(p, on) {
+  var wrap = document.createElement('div');
+  wrap.id = 'cust-row-' + p.id;
+  wrap.style.cssText = 'display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #f3f2f1;';
+
+  var info = document.createElement('div');
+  info.style.flex = '1';
+  info.innerHTML = '<div style="font-size:13px;font-weight:600;color:#201f1e;">' + p.label + '</div>' +
+                   '<div style="font-size:11px;color:#605e5c;margin-top:2px;line-height:1.4;">' + p.desc + '</div>';
+
+  var btn = document.createElement('button');
+  btn.style.cssText = 'flex-shrink:0;padding:5px 12px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;' +
+    (on ? 'background:#dff6dd;color:#107c10;border:1px solid #a3d9a5;' : 'background:#f3f2f1;color:#323130;border:1px solid #c8c6c4;');
+  btn.innerHTML = on ? (p.addable ? '&#x2713; Added' : '&#x2713; Visible') : (p.addable ? '+ Add' : '&#128065; Hide');
+  btn.setAttribute('data-pid', p.id);
+  btn.onclick = function() { _custToggle(this.getAttribute('data-pid')); };
+
+  wrap.appendChild(info);
+  wrap.appendChild(btn);
+  return wrap;
 }
 
 function _custToggle(id) {
   var panel = document.getElementById(id);
   var saved = null; try { saved = localStorage.getItem('dash_panel_' + id); } catch(e){}
   var p = null;
-  for (var i=0; i<_DASH_PANELS.length; i++) { if (_DASH_PANELS[i].id === id) { p = _DASH_PANELS[i]; break; } }
-  var isOn = p && !p.addable ? (saved === null ? true : saved === '1') : saved === '1';
+  for (var i = 0; i < _DASH_PANELS.length; i++) { if (_DASH_PANELS[i].id === id) { p = _DASH_PANELS[i]; break; } }
+  if (!p) return;
+  var isOn = p.addable ? saved === '1' : (saved === null ? true : saved === '1');
   var nowOn = !isOn;
   if (panel) panel.style.display = nowOn ? '' : 'none';
   try { localStorage.setItem('dash_panel_' + id, nowOn ? '1' : '0'); } catch(e){}
   if (nowOn) _dashPopulateAddon(id);
-  // Re-render just this row
-  var row = document.getElementById('cust-row-' + id);
-  if (row && p) row.outerHTML = _custRow(p, nowOn);
+  var oldRow = document.getElementById('cust-row-' + id);
+  if (oldRow && p) { var newRow = _custMakeRow(p, nowOn); oldRow.parentNode.replaceChild(newRow, oldRow); }
 }
 
 function _dashPopulateAddon(id) {
@@ -6849,7 +6854,8 @@ function _dashInitPanels() {
       panel.style.display = saved === '1' ? '' : 'none';
       if (saved === '1') _dashPopulateAddon(p.id);
     } else {
-      if (saved === '0') panel.style.display = 'none';
+      // Built-in panels default to visible; only hide if explicitly set to '0'
+      panel.style.display = saved === '0' ? 'none' : '';
     }
   });
 }
