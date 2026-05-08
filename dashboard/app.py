@@ -2086,27 +2086,25 @@ def api_logs_wp_mysql_direct():
 
 
 def _cf_request(path: str, cf_token: str, timeout: int = 20):
-    """Direct HTTPS request to Cloudflare API — bypasses ScraperAPI/cloudscraper."""
-    import json as _j
-    import urllib.request as _ur
-    import ssl as _ssl
-    url = f'https://api.cloudflare.com/client/v4{path}'
-    req = _ur.Request(url, headers={
-        'Authorization': f'Bearer {cf_token}',
-        'Content-Type':  'application/json',
-    })
-    ctx = _ssl.create_default_context()
+    """Direct GET to Cloudflare API — uses requests library, no proxy, no Content-Type on GET."""
+    url  = f'https://api.cloudflare.com/client/v4{path}'
+    hdrs = {'Authorization': f'Bearer {cf_token}'}
     try:
+        if _HAS_REQUESTS:
+            r = _requests.get(url, headers=hdrs, timeout=timeout, verify=True)
+            return r.status_code, r.text
+        # stdlib fallback
+        import urllib.request as _ur, ssl as _ssl
+        req = _ur.Request(url)
+        req.add_header('Authorization', f'Bearer {cf_token}')
+        ctx = _ssl.create_default_context()
         with _ur.urlopen(req, context=ctx, timeout=timeout) as r:
-            body = r.read().decode('utf-8', errors='replace')
-            return r.status, body
-    except _ur.HTTPError as e:
-        try:
-            body = e.read().decode('utf-8', errors='replace')
-        except Exception:
-            body = ''
-        return e.code, body
+            return r.status, r.read().decode('utf-8', errors='replace')
     except Exception as e:
+        if _HAS_REQUESTS:
+            import requests as _rq
+            if isinstance(e, _rq.HTTPError):
+                return e.response.status_code, e.response.text
         return 0, str(e)
 
 
