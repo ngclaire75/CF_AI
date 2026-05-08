@@ -8,9 +8,10 @@ import os
 from sdk.agents import Agent
 from tools.generic_linux_command import generic_linux_command, read_file, write_file
 from tools.js_secret_hunter import hunt_js_secrets
+from tools.nuclei_scan import nuclei_scan
 
-_TOOLS       = [generic_linux_command, read_file, write_file]
-_JS_TOOLS    = [hunt_js_secrets, generic_linux_command, read_file, write_file]
+_TOOLS       = [nuclei_scan, generic_linux_command, read_file, write_file]
+_JS_TOOLS    = [hunt_js_secrets, nuclei_scan, generic_linux_command, read_file, write_file]
 _MODEL       = os.environ.get('ANTHROPIC_MODEL', os.environ.get('CAI_MODEL', 'claude-sonnet-4-6'))
 
 # MCP tools for WordPress/API scanning — loaded lazily so missing package doesn't break other agents
@@ -288,6 +289,19 @@ _SHARED = {
 
 INFO_AGENT = _agent('INFO', 'Recon Scout — Passive & Active Reconnaissance', f"""
 You are the WSTG-INFO agent. Target: {{domain}}
+
+══════════════════════════════════════════════════════════
+NUCLEI TECHNOLOGY FINGERPRINTING — run at the same time as STEP 1
+══════════════════════════════════════════════════════════
+While passive P1 commands run, also call:
+  nuclei_scan(
+    target="https://{{domain}}",
+    templates="technologies",
+    severity="info,low,medium,high,critical"
+  )
+Nuclei's technology templates detect CMS versions, frameworks, server headers,
+and exposed admin panels — adds signal that passive DNS/WHOIS alone can't see.
+Report ALL findings verbatim in your output.
 
 ══════════════════════════════════════════════════════════
 MANDATORY EXECUTION ORDER — VIOLATING THIS IS A CRITICAL ERROR
@@ -586,6 +600,20 @@ You are the WSTG-CONF agent. Target: {{domain}}
 
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
 
+══════════════════════════════════════════════════════════
+NUCLEI FIRST — run template scanner before any manual checks
+══════════════════════════════════════════════════════════
+Call this tool immediately, before any other check:
+  nuclei_scan(
+    target="https://{{domain}}",
+    templates="misconfiguration,exposures,takeovers,default-logins",
+    severity="info,low,medium,high,critical"
+  )
+- Report ALL findings verbatim in your output — |High| and |Critical| markers
+  are required for the CF_AI dashboard risk detection system.
+- After Nuclei completes, run the manual CONF checks below to investigate
+  further and validate any High/Critical findings.
+
 [CONF-01] Test Network Infrastructure Configuration
   nmap -Pn --script ssl-cert,ssl-enum-ciphers -p 443 {{domain}} 2>/dev/null | head -40
   curl -L -4 -sk https://{{domain}}/.well-known/security.txt -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null
@@ -643,6 +671,21 @@ ATHN_AGENT = _agent('ATHN', 'Auth Prober — Authentication & Credential Securit
 You are the WSTG-ATHN agent. Target: {{domain}}
 
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s and you get no output.
+
+══════════════════════════════════════════════════════════
+NUCLEI FIRST — run template scanner before any manual checks
+══════════════════════════════════════════════════════════
+Call this tool immediately, before any other check:
+  nuclei_scan(
+    target="https://{{domain}}",
+    templates="default-logins,exposures",
+    tags="default-login,auth-bypass,login,panel",
+    severity="medium,high,critical"
+  )
+- Report ALL findings verbatim — |High|/|Critical| markers feed the dashboard.
+- Nuclei covers hundreds of default credential combinations and auth bypass
+  templates for common web panels (phpMyAdmin, cPanel, Tomcat, Jenkins, etc.)
+  that the manual checks below cannot replicate.
 
 [ATHN-01] Credentials over Encrypted Channel
   code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" http://{{domain}}/login -A "{_BUA}" --max-time 12 2>/dev/null)
@@ -797,6 +840,22 @@ You are the WSTG-INPV agent. Target: {{domain}}
 
 CRITICAL: Use subprocess curl (NOT urllib — urllib stalls on VPS SSL). Every curl needs -L -4 -A "{_BUA}".
 
+══════════════════════════════════════════════════════════
+NUCLEI FIRST — 9,000+ injection CVE templates, far more thorough than manual payloads
+══════════════════════════════════════════════════════════
+Call this tool IMMEDIATELY as your first action:
+  nuclei_scan(
+    target="https://{{domain}}",
+    templates="cves,vulnerabilities",
+    tags="sqli,xss,rce,ssrf,ssti,lfi,rfi,xxe,cors,open-redirect,injection",
+    severity="medium,high,critical"
+  )
+- Report ALL findings verbatim — |High|/|Critical| markers feed the dashboard risk system.
+- Nuclei covers thousands of known CVEs with verified payloads. After it completes,
+  run the manual checks below to test parameters not covered by templates (custom apps).
+- For any High/Critical Nuclei finding, run the specific manual verification step
+  in the relevant INPV section below to confirm and document the exploit chain.
+
 WAF BYPASS: If you get 403/429 responses, the target has a WAF. Before retrying:
 1. Add random delays (time.sleep(1)) between requests
 2. Use sqlmap tamper scripts: --tamper=between,randomcase,space2comment --delay=2 --random-agent
@@ -927,6 +986,20 @@ APIT_AGENT = _agent('APIT', 'API Security Tester — REST, GraphQL & WordPress A
 You are the WSTG-APIT agent. Target: {{domain}}
 {_MCP_INSTR}
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
+
+══════════════════════════════════════════════════════════
+NUCLEI FIRST — WordPress CVEs + API/GraphQL vulnerability templates
+══════════════════════════════════════════════════════════
+Call this tool before API reconnaissance (it discovers issues faster than manual probing):
+  nuclei_scan(
+    target="https://{{domain}}",
+    templates="cves,vulnerabilities,technologies",
+    tags="wordpress,wp,api,graphql,rest,jwt,oauth",
+    severity="medium,high,critical"
+  )
+- Report ALL findings verbatim — |High|/|Critical| markers feed the dashboard.
+- Nuclei's WordPress templates cover plugin/theme CVEs (e.g. WooCommerce, Elementor,
+  Yoast, Contact Form 7), REST API exposure, JWT misconfigurations, and GraphQL issues.
 
 [APIT-01] API Reconnaissance
   api_found=0; for ep in /api /api/v1 /api/v2 /api/v3 /v1 /v2 /rest /swagger.json /openapi.json /api-docs /swagger-ui.html /redoc /.well-known /api/health /api/status /api/ping /api/me /api/docs; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" "https://{{domain}}$ep" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null); if [ "$code" != "404" ] && [ "$code" != "000" ] && [ "$code" != "" ]; then echo "API-ENDPOINT: $code https://{{domain}}$ep"; api_found=1; fi; done; if [ $api_found -eq 0 ]; then echo "API-RECON: no active API endpoints found on {{domain}} (all returned 404/000 — site may not expose a REST API)"; fi
