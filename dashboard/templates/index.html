@@ -1645,31 +1645,24 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
 <!-- ══ CUSTOMIZE DRAWER ══════════════════════════════════════════════════════ -->
 <div id="customize-backdrop" onclick="toggleDashboardEdit()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998;"></div>
-<div id="customize-drawer" style="display:none;position:fixed;top:0;right:0;width:360px;height:100%;background:#fff;z-index:9999;box-shadow:-4px 0 24px rgba(0,0,0,.18);overflow-y:auto;flex-direction:column;">
-  <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #e1dfdd;background:#f3f2f1;">
+<div id="customize-drawer" style="display:none;position:fixed;top:0;right:0;width:360px;height:100%;background:#fff;z-index:9999;box-shadow:-4px 0 24px rgba(0,0,0,.18);overflow-y:auto;flex-direction:column;font-family:inherit;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #e1dfdd;background:#f3f2f1;flex-shrink:0;">
     <div>
       <div style="font-size:15px;font-weight:700;color:#201f1e;">Customize Dashboard</div>
-      <div style="font-size:11px;color:#605e5c;margin-top:2px;">Toggle panels or add new ones</div>
+      <div style="font-size:11px;color:#605e5c;margin-top:2px;">Show, hide, or add panels</div>
     </div>
-    <button onclick="toggleDashboardEdit()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#605e5c;line-height:1;padding:4px 8px;">&#x2715;</button>
+    <button onclick="toggleDashboardEdit()" style="background:none;border:none;cursor:pointer;font-size:22px;color:#605e5c;line-height:1;padding:4px 8px;">&times;</button>
   </div>
-
-  <!-- Active panels section -->
-  <div style="padding:16px 20px 8px;">
-    <div style="font-size:11px;font-weight:700;color:#201f1e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Active Panels</div>
-    <div id="cust-active-list"></div>
+  <div style="padding:14px 20px 4px;">
+    <div style="font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Active Panels</div>
+    <div id="cust-active-list" style="display:flex;flex-direction:column;gap:0;"></div>
   </div>
-
-  <div style="height:1px;background:#e1dfdd;margin:4px 0;"></div>
-
-  <!-- Add panels section -->
-  <div style="padding:12px 20px 8px;">
-    <div style="font-size:11px;font-weight:700;color:#201f1e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Add Panels</div>
-    <div id="cust-add-list"></div>
+  <div style="height:1px;background:#e1dfdd;margin:8px 0;"></div>
+  <div style="padding:4px 20px 16px;">
+    <div style="font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Add Panels</div>
+    <div id="cust-add-list" style="display:flex;flex-direction:column;gap:0;"></div>
   </div>
-
-  <div style="padding:16px 20px;">
+  <div style="padding:0 20px 20px;">
     <button onclick="toggleDashboardEdit()" style="width:100%;padding:10px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;">Done</button>
   </div>
 </div>
@@ -3292,7 +3285,6 @@ function _initDashPage() {
   if (pg) { pg.style.display='block'; pg.classList.add('active'); }
 }
 _initDashPage();
-_dashInitPanels();
 
 // ── MS Defender Style Dashboard ───────────────────────────────────────────────
 
@@ -3883,6 +3875,7 @@ function _mvdRenderRemediation(incidents, scans) {
 // Hide overlay immediately once DOM is ready, then load data asynchronously
 document.addEventListener('DOMContentLoaded', function(){
   _hideLoadingOverlay();
+  _dashInitPanels();
   loadDefDashboard();
 });
 
