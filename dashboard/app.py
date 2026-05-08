@@ -1182,6 +1182,187 @@ def api_security_signals():
     return jsonify({'signals': signals[:200], 'counts': counts})
 
 
+@app.route('/api/logs/wp-live', methods=['POST'])
+def api_logs_wp_live():
+    """Fetch real-time login activity from WordPress via REST API + WSAL/Simple History plugins."""
+    import base64 as _b64, json as _j, urllib.request as _req
+    data     = request.get_json(force=True, silent=True) or {}
+    url      = (data.get('url') or '').strip().rstrip('/')
+    wp_user  = (data.get('wp_user') or '').strip()
+    app_pass = (data.get('wp_app_pass') or '').strip()
+    limit    = min(int(data.get('limit') or 50), 200)
+    if not url:
+        return jsonify({'error': 'WordPress site URL required'}), 400
+    if not url.startswith('http'):
+        url = 'https://' + url
+    auth_header = None
+    if wp_user and app_pass:
+        auth_header = 'Basic ' + _b64.b64encode(f'{wp_user}:{app_pass}'.encode()).decode()
+
+    def _wp_get(path, timeout=12):
+        req = _req.Request(f'{url}{path}', headers={'User-Agent': 'CyberINK/2.0', 'Accept': 'application/json'})
+        if auth_header:
+            req.add_header('Authorization', auth_header)
+        try:
+            with _req.urlopen(req, timeout=timeout) as r:
+                return _j.loads(r.read().decode()), None
+        except Exception as e:
+            return None, str(e)
+
+    events, source, note = [], 'none', ''
+
+    # 1. WP Activity Log (WSAL) — richest source, provides per-event IP + user + action
+    for path in [f'/wp-json/wsal/v1/events?per_page={limit}&orderby=created_on&order=DESC',
+                 f'/wp-json/wsal/v1/events?per_page={limit}']:
+        wsal, _ = _wp_get(path)
+        if not wsal:
+            continue
+        items = wsal if isinstance(wsal, list) else wsal.get('events') or wsal.get('data') or []
+        for ev in items:
+            msg = str(ev.get('message') or ev.get('alert_message') or ev.get('type') or '')
+            if not msg:
+                continue
+            events.append({
+                'timestamp': str(ev.get('created_on') or ev.get('date') or ''),
+                'user':      str(ev.get('user_login') or ev.get('username') or ev.get('user') or '—'),
+                'event':     msg[:120],
+                'ip':        str(ev.get('client_ip') or ev.get('ip') or ''),
+                'severity':  'HIGH' if any(k in msg.lower() for k in ('fail', 'block', 'attack', 'brute', 'invalid')) else 'INFO',
+                'status':    'failed' if any(k in msg.lower() for k in ('fail', 'block', 'denied', 'invalid')) else 'success',
+                'source':    'wsal',
+            })
+        if events:
+            source = 'wsal'
+            break
+
+    # 2. Simple History plugin REST API
+    if not events:
+        sh, _ = _wp_get(f'/wp-json/simple-history/v1/events?per_page={limit}')
+        if sh and isinstance(sh, list):
+            for ev in sh:
+                msg = str(ev.get('message') or ev.get('text') or '')
+                if not any(k in msg.lower() for k in ('login', 'logged', 'sign', 'auth', 'fail', 'password')):
+                    continue
+                events.append({
+                    'timestamp': str(ev.get('date') or ''),
+                    'user':      str(ev.get('via') or ev.get('initiator') or ev.get('user') or '—'),
+                    'event':     msg[:120],
+                    'ip':        str(ev.get('ip') or ''),
+                    'severity':  'HIGH' if 'fail' in msg.lower() else 'INFO',
+                    'status':    'failed' if 'fail' in msg.lower() else 'success',
+                    'source':    'simple_history',
+                })
+            if events:
+                source = 'simple_history'
+
+    # 3. WP REST API authenticated — verify auth + pull current user info
+    if not events and auth_header:
+        me, _ = _wp_get('/wp-json/wp/v2/users/me?context=edit')
+        if me and me.get('id'):
+            source = 'wp_rest'
+            events.append({
+                'timestamp': '', 'ip': '',
+                'user':     me.get('slug') or me.get('name') or wp_user,
+                'event':    f"Authenticated session active — Role: {', '.join(me.get('roles', []))}",
+                'severity': 'INFO', 'status': 'success', 'source': 'wp_rest',
+            })
+            note = ('No login event plugin detected. Install "WP Activity Log" (free) on your '
+                    'WordPress site and enable its REST API to see real-time login events with IP addresses.')
+        else:
+            note = 'Authentication failed. Check username and Application Password (Dashboard → Users → Profile → Application Passwords).'
+
+    if not auth_header and not events:
+        root, _ = _wp_get('/wp-json/')
+        if root and root.get('name'):
+            note = ('WordPress REST API is reachable. Provide a username + Application Password to '
+                    'see live login data. Install "WP Activity Log" plugin for full event tracking.')
+        else:
+            note = 'Could not reach WordPress REST API. Check the URL.'
+
+    if not events and not note:
+        note = ('No login events found. Install "WP Activity Log" (WSAL) or "Simple History" plugin '
+                'on your WordPress site to expose real-time login events via REST API.')
+
+    return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
+
+
+@app.route('/api/logs/cpanel-live', methods=['POST'])
+def api_logs_cpanel_live():
+    """Fetch real-time session/login data from cPanel via UAPI."""
+    import base64 as _b64, json as _j, ssl as _ssl, urllib.request as _req
+    data     = request.get_json(force=True, silent=True) or {}
+    host     = (data.get('host') or '').strip().rstrip('/')
+    cp_user  = (data.get('cp_user') or '').strip()
+    cp_pass  = (data.get('cp_pass') or '').strip()
+    cp_token = (data.get('cp_token') or '').strip()
+    port     = int(data.get('port') or 2083)
+    limit    = min(int(data.get('limit') or 50), 200)
+
+    if not host or not cp_user:
+        return jsonify({'error': 'cPanel host and username required'}), 400
+    base = host if host.startswith('http') else f'https://{host}:{port}'
+    if cp_token:
+        auth_header = f'cpanel {cp_user}:{cp_token}'
+    elif cp_pass:
+        auth_header = 'Basic ' + _b64.b64encode(f'{cp_user}:{cp_pass}'.encode()).decode()
+    else:
+        return jsonify({'error': 'cPanel password or API token required'}), 400
+
+    ctx = _ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = _ssl.CERT_NONE
+
+    def _cp_get(path, timeout=12):
+        req = _req.Request(f'{base}{path}', headers={'Authorization': auth_header, 'Accept': 'application/json'})
+        try:
+            with _req.urlopen(req, timeout=timeout, context=ctx) as r:
+                return _j.loads(r.read().decode()), None
+        except Exception as e:
+            return None, str(e)
+
+    events, source, note = [], 'none', ''
+
+    # 1. Active session list via UAPI
+    sess, err = _cp_get('/execute/Session/list')
+    if sess and isinstance(sess, dict) and sess.get('data') is not None:
+        source = 'cpanel_session'
+        for s in (sess.get('data') or [])[:limit]:
+            events.append({
+                'timestamp': str(s.get('session_create') or s.get('last_update') or ''),
+                'user':      str(s.get('session_login') or s.get('user') or cp_user),
+                'event':     f"Active session — Type: {s.get('session_type','cPanel')} — Browser: {str(s.get('user_agent',''))[:40]}",
+                'ip':        str(s.get('remote_addr') or s.get('ip') or ''),
+                'severity':  'INFO', 'status': 'active', 'source': 'cpanel_session',
+            })
+
+    # 2. Last login IP
+    ll, _ = _cp_get('/execute/LastLogin/get_last_or_current_logged_in_ip')
+    if ll and isinstance(ll, dict) and ll.get('data'):
+        d2 = ll['data']
+        ip = str(d2.get('ip') or d2.get('last_login_ip') or '')
+        if ip:
+            events.append({
+                'timestamp': str(d2.get('unix_last_login') or ''),
+                'user': cp_user, 'ip': ip,
+                'event': 'Last recorded login IP',
+                'severity': 'INFO', 'status': 'success', 'source': 'cpanel_lastlogin',
+            })
+            source = source or 'cpanel_lastlogin'
+
+    # 3. Security policy — brute force blocked IPs
+    bf, _ = _cp_get('/execute/Security/get_password_strength_config')
+    if bf and isinstance(bf, dict) and bf.get('data'):
+        note = f"Password policy: min strength {bf['data'].get('min_strength', '?')}"
+
+    if not events:
+        if err:
+            note = f'Could not connect to cPanel UAPI: {err}. Verify host ({base}), port, and credentials.'
+        else:
+            note = 'Connected but no active sessions found. Try the API Token method for better access.'
+
+    return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
+
+
 @app.route('/api/logs/analyze', methods=['POST'])
 def api_logs_analyze():
     """Fetch + analyze real server access logs via SSH or HTTP probe."""
@@ -1527,6 +1708,61 @@ def api_vuln_epss():
         return jsonify({'error': 'cves parameter required'}), 400
     ids = [c.strip().upper() for c in cves_param.split(',') if c.strip()]
     return jsonify({'results': _vi.epss_lookup(ids)})
+
+
+@app.route('/api/export/powerbi')
+def api_export_powerbi():
+    from dashboard import vuln_intel as _vi
+    import time as _t, re as _re
+    limit        = int(request.args.get('limit', 500))
+    include_intel = request.args.get('include_intel', 'true').lower() != 'false'
+    scans = db.get_recent_scans(limit)
+    scan_rows = []
+    for s in scans:
+        out = s.get('output', '')
+        scan_rows.append({
+            'ScanId':      s.get('id'),
+            'Target':      s.get('target', ''),
+            'AgentType':   s.get('agent_type', ''),
+            'Model':       s.get('model', ''),
+            'Status':      s.get('status', ''),
+            'LatencyS':    s.get('latency_s', 0),
+            'ToolCount':   s.get('tool_count', 0),
+            'Date':        (s.get('created_at') or '')[:10],
+            'DateTime':    (s.get('created_at') or '').replace(' ', 'T'),
+            'HasCritical': bool(_re.search(r'CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:|CREDS_FOUND|SQL\s+ERROR:|SSTI\s+HIT|\|\s*Critical\s*\|', out, _re.I)),
+            'HasHigh':     bool(_re.search(r'REFLECTED\s+XSS:|FOUND_DB_USER:|APP_PASS_CREATED|WP-LOG.*HIGH|\|\s*High\s*\|', out, _re.I)),
+        })
+    cve_rows, kev_summary = [], {}
+    if include_intel:
+        intel = _vi.correlate_scans(scans, max_cves=100)
+        for row in intel.get('cves', []):
+            nvd = row.get('nvd') or {}
+            cve_rows.append({
+                'CveId':           row['cve_id'],
+                'InKEV':           row['in_kev'],
+                'EpssScore':       row.get('epss_score'),
+                'CvssScore':       nvd.get('cvss_score'),
+                'CvssSeverity':    nvd.get('severity', ''),
+                'Published':       nvd.get('published', ''),
+                'Description':     (nvd.get('description') or '')[:200],
+                'AffectedTargets': ', '.join(row.get('affected_targets', [])),
+            })
+        kev_summary = _vi.kev_stats()
+    return jsonify({
+        'schema_version': '1.0',
+        'exported_at':    _t.strftime('%Y-%m-%dT%H:%M:%SZ', _t.gmtime()),
+        'dataset_name':   'CyberINK Security Intelligence',
+        'tables': {
+            'scans':     scan_rows,
+            'cves':      cve_rows,
+            'kev_stats': [kev_summary] if kev_summary else [],
+        },
+        'powerbi_notes': (
+            'Import via Power BI Desktop: Home > Get Data > JSON. '
+            'Expand tables record, then load scans and cves tables.'
+        ),
+    })
 
 
 if __name__ == '__main__':
