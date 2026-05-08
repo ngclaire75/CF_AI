@@ -2085,6 +2085,103 @@ def api_logs_wp_mysql_direct():
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
+@app.route('/api/cloudflare/insights', methods=['POST'])
+def api_cloudflare_insights():
+    """Fetch Cloudflare Security Insights via real Cloudflare v4 API.
+
+    Endpoint: GET /client/v4/accounts/{account_id}/security_insights/issues
+    Auth:     Authorization: Bearer {api_token}
+    Docs:     https://developers.cloudflare.com/security-center/security-insights/
+    """
+    import json as _j
+    data       = request.get_json(force=True, silent=True) or {}
+    cf_token   = (data.get('cf_token') or os.environ.get('CF_API_TOKEN', '')).strip()
+    account_id = (data.get('account_id') or os.environ.get('CF_ACCOUNT_ID', '')).strip()
+    dismissed  = data.get('dismissed', False)
+    limit      = min(int(data.get('limit') or 100), 500)
+
+    if not cf_token:
+        return jsonify({'error': 'Cloudflare API token required — get one at dash.cloudflare.com/profile/api-tokens'}), 400
+    if not account_id:
+        return jsonify({'error': 'Cloudflare Account ID required — visible in the URL when logged into dash.cloudflare.com'}), 400
+
+    hdrs = {
+        'Authorization': f'Bearer {cf_token}',
+        'Content-Type':  'application/json',
+    }
+    params = f'?page=1&per_page={limit}'
+    if not dismissed:
+        params += '&dismissed=false'
+
+    cf_url = f'https://api.cloudflare.com/client/v4/accounts/{account_id}/security_insights/issues{params}'
+    code, body = _wp_request(cf_url, headers=hdrs, timeout=20)
+
+    if code == 401:
+        return jsonify({'error': 'Invalid API token — check permissions (needs Security Insights:Read)'}), 401
+    if code == 403:
+        return jsonify({'error': 'Forbidden — token lacks permission for this account or Security Insights:Read scope missing'}), 403
+    if code == 404:
+        return jsonify({'error': 'Account not found or Security Insights not available on this plan'}), 404
+    if code != 200:
+        return jsonify({'error': f'Cloudflare API returned HTTP {code}'}), 500
+
+    try:
+        resp = _j.loads(body)
+    except Exception:
+        return jsonify({'error': 'Invalid JSON response from Cloudflare API'}), 500
+
+    if not resp.get('success'):
+        errs = resp.get('errors') or []
+        msg  = errs[0].get('message') if errs else 'Unknown Cloudflare API error'
+        return jsonify({'error': msg}), 500
+
+    raw     = resp.get('result') or []
+    result_info = resp.get('result_info') or {}
+    insights = []
+    for item in raw:
+        insights.append({
+            'id':          item.get('id', ''),
+            'subject':     item.get('subject', ''),
+            'severity':    (item.get('severity') or item.get('issue_class', '')).lower(),
+            'description': item.get('description') or item.get('issue_type', ''),
+            'insight_type': item.get('issue_type') or item.get('type', ''),
+            'timestamp':   item.get('timestamp') or item.get('first_detected') or item.get('resolve_by') or '',
+            'dismissed':   item.get('dismissed', False),
+            'resolution':  item.get('resolution', ''),
+        })
+
+    return jsonify({
+        'insights': insights,
+        'total':    result_info.get('total_count', len(insights)),
+        'count':    len(insights),
+    })
+
+
+@app.route('/api/cloudflare/zones', methods=['POST'])
+def api_cloudflare_zones():
+    """List all Cloudflare zones (domains) for an account."""
+    import json as _j
+    data       = request.get_json(force=True, silent=True) or {}
+    cf_token   = (data.get('cf_token') or os.environ.get('CF_API_TOKEN', '')).strip()
+    account_id = (data.get('account_id') or os.environ.get('CF_ACCOUNT_ID', '')).strip()
+
+    if not cf_token or not account_id:
+        return jsonify({'error': 'cf_token and account_id required'}), 400
+
+    hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
+    url  = f'https://api.cloudflare.com/client/v4/zones?account.id={account_id}&per_page=50&status=active'
+    code, body = _wp_request(url, headers=hdrs, timeout=15)
+    if code != 200:
+        return jsonify({'error': f'Cloudflare API returned HTTP {code}'}), 500
+    try:
+        resp  = _j.loads(body)
+        zones = [{'id': z['id'], 'name': z['name'], 'status': z.get('status', '')}
+                 for z in (resp.get('result') or [])]
+        return jsonify({'zones': zones})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/logs/analyze', methods=['POST'])
 def api_logs_analyze():
     """Fetch + analyze real server access logs via SSH or HTTP probe."""
