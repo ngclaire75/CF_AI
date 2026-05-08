@@ -6,9 +6,8 @@
 <title>CyberINK Security Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" defer></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; scroll-behavior: smooth; }
@@ -50,7 +49,10 @@ code {
     overflow-y: auto;
     overflow-x: hidden;
     transition: width .22s ease, transform .22s ease;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
+.sidebar::-webkit-scrollbar { display: none; }
 .sidebar.collapsed { width: 64px; }
 .sidebar.collapsed .sb-label,
 .sidebar.collapsed .sb-nav-label,
@@ -84,7 +86,8 @@ code {
 }
 .sb-search-wrap input:focus { border-color: #2563eb; background-color: #fff; }
 
-.sb-nav { flex: 1; padding: 6px 0; overflow-y: auto; }
+.sb-nav { flex: 1; padding: 6px 0; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.sb-nav::-webkit-scrollbar { display: none; }
 .sb-nav-label {
     font-size: 10px; font-weight: 700; text-transform: uppercase;
     letter-spacing: .6px; color: #9ca3af;
@@ -3489,8 +3492,8 @@ var _spinnerWantHide = false;
 setTimeout(function() {
   _spinnerReady = true;
   if (_spinnerWantHide) _hideLoadingOverlay();
-}, 1500);
-setTimeout(_hideLoadingOverlay, 6000);
+}, 600);
+setTimeout(_hideLoadingOverlay, 3000);
 
 function _hideLoadingOverlay() {
   if (!_spinnerReady) { _spinnerWantHide = true; return; }
@@ -3821,8 +3824,8 @@ function _mvdRenderRemediation(incidents, scans) {
   }).join('');
 }
 
-// Init on load
-window.addEventListener('load', function(){
+// Init on DOMContentLoaded — do not wait for CDN resources to resolve
+document.addEventListener('DOMContentLoaded', function(){
   loadDefDashboard();
 });
 

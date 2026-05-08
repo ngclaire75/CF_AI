@@ -154,8 +154,22 @@ REAL-TIME API INTEGRATIONS (use these for accurate, target-specific intelligence
 - Datadog IP ranges (for allowlist/blocklist — no key):
     curl -s "https://ip-ranges.datadoghq.com/" | python3 -c "import sys,json; d=json.load(sys.stdin); print('webhooks:', d.get('webhooks',{{}}).get('prefixes_ipv4',[][:3]))"
 
-IMPORTANT: Always substitute real values before calling. Never skip API checks because a key is missing
-  — use the free (keyless) APIs first, then conditionally use keyed APIs when available.
+- WPScan vulnerability database (WordPress-specific CVEs — no key for basic use):
+    curl -s "https://wpscan.com/api/v3/wordpresses/<wp_version_no_dots>" | python3 -m json.tool | head -40
+    curl -s "https://wpscan.com/api/v3/plugins/<plugin_slug>" | python3 -m json.tool | head -40
+    (Uses WP_SCAN_API_TOKEN env var if set: -H "Authorization: Token token=$WP_SCAN_API_TOKEN")
+- Wordfence Live Traffic API (if plugin active on target — requires WP credentials):
+    Use wp_api_call to GET /wp-json/wordfence/v1/scan/status  or  /wp-json/wf/v1/summary
+- WordPress.org Plugin API (public, no key — checks if plugin has known vulns):
+    curl -s "https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&slug=<slug>" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Last updated:', d.get('last_updated')); print('Requires:', d.get('requires')); print('Tested up to:', d.get('tested'))"
+- Have I Been Pwned (breach data — no key for domain search):
+    curl -s -A "CyberINK-Scanner" "https://haveibeenpwned.com/api/v3/breacheddomain/<domain>" | python3 -m json.tool | head -20
+- SecurityHeaders.com grade (no key):
+    curl -s -I "https://securityheaders.com/?q=<domain>&followRedirects=on" | grep -i "x-grade"
+
+IMPORTANT: These are the ONLY data sources agents use. No model training, no self-learning,
+  no feedback loops — agents run inference only. Always use the APIs above for real findings.
+  Use free (keyless) APIs first, then conditionally use keyed APIs when available.
   When an API returns findings, cite them explicitly: "NVD CVE-2024-XXXXX: <description>"
 """
 
