@@ -1269,18 +1269,25 @@ def api_logs_wp_live():
             break
 
     # 2. Simple History plugin REST API
+    # Source: bonny/WordPress-Simple-History inc/class-wp-rest-events-controller.php
+    # Response fields: message, date_gmt, date_local, loglevel, initiator, initiator_data{user_login}, ip_addresses[]
     if not events:
         sh, _ = _wp_get(f'/wp-json/simple-history/v1/events?per_page={limit}')
         if sh and isinstance(sh, list):
             for ev in sh:
-                msg = str(ev.get('message') or ev.get('text') or '')
+                msg = str(ev.get('message') or '')
                 if not any(k in msg.lower() for k in ('login', 'logged', 'sign', 'auth', 'fail', 'password')):
                     continue
+                _idata = ev.get('initiator_data') or {}
+                _user  = (_idata.get('user_login') or _idata.get('user_email') or
+                          ev.get('initiator') or '—')
+                _ips   = ev.get('ip_addresses') or []
+                _ip    = str(_ips[0]) if _ips else ''
                 events.append({
-                    'timestamp': str(ev.get('date') or ''),
-                    'user':      str(ev.get('via') or ev.get('initiator') or ev.get('user') or '—'),
+                    'timestamp': str(ev.get('date_gmt') or ev.get('date_local') or ''),
+                    'user':      str(_user),
                     'event':     msg[:120],
-                    'ip':        str(ev.get('ip') or ''),
+                    'ip':        _ip,
                     'severity':  'HIGH' if 'fail' in msg.lower() else 'INFO',
                     'status':    'failed' if 'fail' in msg.lower() else 'success',
                     'source':    'simple_history',
