@@ -1924,9 +1924,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       <table class="mvd-evt-tbl">
         <thead>
           <tr>
-            <th style="white-space:nowrap;">Date</th>
-            <th>Event</th>
-            <th style="white-space:nowrap;">Originally impacted (%)</th>
+            <th style="white-space:nowrap;width:120px;">Date</th>
+            <th>Security Event</th>
+            <th style="white-space:nowrap;width:80px;">Severity</th>
           </tr>
         </thead>
         <tbody id="mvd-evt-tbody">
@@ -3690,6 +3690,8 @@ function _mvdRenderRecommendations(scans) {
       var t=line.trim();
       if(t.length<25||t.length>180) return;
       if(!/update|patch|fix|upgrade|configure|enable|disable|review|remove|install|harden|restrict|enforce/i.test(t)) return;
+      // Skip setup/system/package-install messages
+      if(/not installed|pip install|package.*install|install.*package|run:.*pip|run:.*python|modulenotfound|importerror|missing.*package|please install|run:.*install|no module named/i.test(t)) return;
       var key=t.slice(0,70).toLowerCase();
       if(!recMap[key]){recMap[key]={text:t.slice(0,90),sev:sev,sites:new Set(),impact:0};}
       recMap[key].sites.add(s.target);
@@ -3723,16 +3725,31 @@ function _mvdRenderEvents(scans) {
     tbody.innerHTML='<tr><td colspan="3" style="color:#a19f9d;font-style:italic;padding:12px 6px;">No scan events in the last 7 days.</td></tr>';
     return;
   }
+  function _evtLabel(s) {
+    var o=(s.output||'').toLowerCase();
+    var t=s.target||'site';
+    if (/\bcritical\b/.test(o))   return 'Critical vulnerability detected on '+t;
+    if (/sql.inject/i.test(o))    return 'SQL injection risk found on '+t;
+    if (/xss|cross.site/i.test(o))return 'Cross-site scripting risk on '+t;
+    if (/ssl|tls|certif/i.test(o)) return 'SSL/TLS issue on '+t;
+    if (/wp.admin|wordpress|wp-login/i.test(o)) return 'WordPress security scan on '+t;
+    if (/open.*port|port.*open/i.test(o)) return 'Open ports discovered on '+t;
+    if (/auth|login|password|brute/i.test(o)) return 'Authentication weakness on '+t;
+    if (/header|csp|hsts/i.test(o)) return 'Missing security headers on '+t;
+    if (/\bhigh\b/.test(o))       return 'High severity finding on '+t;
+    if (/\bmedium\b/.test(o))     return 'Medium severity finding on '+t;
+    return 'Security scan completed on '+t;
+  }
+  var sevCol={CRITICAL:'#a80000',HIGH:'#c50f1f',MEDIUM:'#986f0b',LOW:'#107c10'};
   tbody.innerHTML=recent.map(function(s){
-    var d=(s.created_at||'').replace('T',' ').slice(0,16);
+    var d=new Date(s.created_at||0).toLocaleDateString()+' '+new Date(s.created_at||0).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     var o=(s.output||'').toLowerCase();
     var sev=/\bcritical\b/.test(o)?'CRITICAL':/\bhigh\b/.test(o)?'HIGH':/\bmedium\b/.test(o)?'MEDIUM':'LOW';
-    var first=(s.output||'').split('\n').find(function(l){return l.trim().length>30;})||'Scan completed for '+s.target;
-    var pct=Math.round((s.tool_count||0)/Math.max(1,s.tool_count||1)*100);
+    var col=sevCol[sev];
     return '<tr>'+
-      '<td style="white-space:nowrap;color:#605e5c;font-size:11px;">'+d+'</td>'+
-      '<td><span style="font-size:11px;">'+escHtml(first.trim().slice(0,65))+(first.length>65?'…':'')+'</span></td>'+
-      '<td style="white-space:nowrap;font-size:11px;">'+escHtml((s.target||'').slice(0,22))+' ('+s.tool_count+' tools)</td>'+
+      '<td style="white-space:nowrap;color:#605e5c;font-size:11px;width:120px;">'+d+'</td>'+
+      '<td style="font-size:12px;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(_evtLabel(s))+'</td>'+
+      '<td style="white-space:nowrap;font-size:11px;font-weight:600;color:'+col+';width:80px;">'+sev+'</td>'+
     '</tr>';
   }).join('');
 }
