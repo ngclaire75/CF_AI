@@ -1489,14 +1489,6 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       <span class="sb-label">Scan History</span>
     </button>
 
-    <div class="sb-divider"></div>
-
-    <!-- Help -->
-    <div class="sb-nav-label">Setup</div>
-    <button class="sb-item" id="sb-setup" onclick="sbNav('setup',this)">
-      <span class="material-icons">settings</span>
-      <span class="sb-label">API &amp; Setup Guide</span>
-    </button>
 
   </nav>
 
@@ -2283,8 +2275,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <!-- Filter tabs -->
     <div class="inc-tabs">
       <button class="inc-tab active" onclick="loadIncidents('all',this)">All</button>
-      <button class="inc-tab" onclick="loadIncidents('open',this)">Open <span id="inc-cnt-open" style="background:#fee2e2;color:#dc2626;border-radius:8px;padding:1px 6px;font-size:10px;"></span></button>
-      <button class="inc-tab" onclick="loadIncidents('investigating',this)">Investigating</button>
+<button class="inc-tab" onclick="loadIncidents('investigating',this)">Investigating</button>
       <button class="inc-tab" onclick="loadIncidents('resolved',this)">Resolved</button>
     </div>
     <!-- Incidents list -->
@@ -2489,184 +2480,10 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
   </div><!-- /page-network -->
 
-  <!-- ══ API & SETUP GUIDE PAGE ════════════════════════════════════════════ -->
   <div id="page-setup" class="page-section" style="display:none">
   <section class="section">
-    <div class="sec-head">
-      <div>
-        <div class="sec-title">API &amp; Setup Guide</div>
-        <div class="sec-desc">Configure API keys, environment variables, and server deployment for full functionality</div>
-      </div>
-    </div>
+    <div class="sec-head"><div><div class="sec-title">Setup</div></div></div>
     <!-- API Keys -->
-    <div class="setup-grid">
-      <div class="setup-card setup-card-required">
-        <div class="setup-card-header">
-          <div class="setup-icon setup-icon-required">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-          </div>
-          <div>
-            <div class="setup-card-title">Anthropic API Key <span class="setup-req-badge">Required</span></div>
-            <div class="setup-card-sub">Powers all AI security agents</div>
-          </div>
-        </div>
-        <div class="setup-code-block">ANTHROPIC_API_KEY=sk-ant-api03-...</div>
-        <div class="setup-steps">
-          <div class="setup-step"><span class="setup-step-num">1</span> Visit <strong>console.anthropic.com</strong></div>
-          <div class="setup-step"><span class="setup-step-num">2</span> Create account → API Keys → Create Key</div>
-          <div class="setup-step"><span class="setup-step-num">3</span> Copy key starting with <code>sk-ant-</code></div>
-          <div class="setup-step"><span class="setup-step-num">4</span> Add to your <code>.env</code> file or environment</div>
-        </div>
-      </div>
-
-      <div class="setup-card">
-        <div class="setup-card-header">
-          <div class="setup-icon setup-icon-blue">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          </div>
-          <div>
-            <div class="setup-card-title">Shodan API Key <span class="setup-opt-badge">Recommended</span></div>
-            <div class="setup-card-sub">Internet-wide device intelligence</div>
-          </div>
-        </div>
-        <div class="setup-code-block">SHODAN_API_KEY=your_shodan_key</div>
-        <div class="setup-steps">
-          <div class="setup-step"><span class="setup-step-num">1</span> Register at <strong>account.shodan.io</strong></div>
-          <div class="setup-step"><span class="setup-step-num">2</span> Go to Account → API Key</div>
-          <div class="setup-step"><span class="setup-step-num">3</span> Used for: IP lookups, open ports, CVEs</div>
-          <div class="setup-step"><span class="setup-step-num">4</span> Free tier: 1 request/second</div>
-        </div>
-      </div>
-
-      <div class="setup-card">
-        <div class="setup-card-header">
-          <div class="setup-icon setup-icon-purple">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <div>
-            <div class="setup-card-title">VirusTotal API Key <span class="setup-opt-badge">Recommended</span></div>
-            <div class="setup-card-sub">URL and IP threat intelligence</div>
-          </div>
-        </div>
-        <div class="setup-code-block">VIRUSTOTAL_API_KEY=your_vt_key</div>
-        <div class="setup-steps">
-          <div class="setup-step"><span class="setup-step-num">1</span> Register at <strong>virustotal.com</strong></div>
-          <div class="setup-step"><span class="setup-step-num">2</span> Profile → API Key</div>
-          <div class="setup-step"><span class="setup-step-num">3</span> Used for: URL scanning, IP reputation</div>
-          <div class="setup-step"><span class="setup-step-num">4</span> Free: 4 lookups/minute</div>
-        </div>
-      </div>
-
-      <div class="setup-card">
-        <div class="setup-card-header">
-          <div class="setup-icon setup-icon-green">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          </div>
-          <div>
-            <div class="setup-card-title">NVD API Key <span class="setup-opt-badge">Optional</span></div>
-            <div class="setup-card-sub">CVE vulnerability database access</div>
-          </div>
-        </div>
-        <div class="setup-code-block">NVD_API_KEY=your_nvd_key</div>
-        <div class="setup-steps">
-          <div class="setup-step"><span class="setup-step-num">1</span> Request at <strong>nvd.nist.gov/developers</strong></div>
-          <div class="setup-step"><span class="setup-step-num">2</span> Without key: 5 req/30s; with key: 50 req/30s</div>
-          <div class="setup-step"><span class="setup-step-num">3</span> Used for CVE lookup in Recon Scout agent</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Environment Setup -->
-    <div class="setup-section-title">Environment Configuration</div>
-    <div class="setup-env-block">
-      <div class="setup-env-header">
-        <span>.env file (project root)</span>
-        <button class="btn btn-sm" onclick="copyEnvTemplate()" style="font-size:11px;padding:3px 10px;">Copy Template</button>
-      </div>
-      <pre class="setup-env-code" id="env-template">ANTHROPIC_API_KEY=sk-ant-api03-YOUR_KEY_HERE
-SHODAN_API_KEY=YOUR_SHODAN_KEY
-VIRUSTOTAL_API_KEY=YOUR_VT_KEY
-NVD_API_KEY=YOUR_NVD_KEY
-CFAI_DB_PATH=./data/cfai_scans.db
-FLASK_SECRET_KEY=change-this-to-a-random-string</pre>
-    </div>
-
-    <!-- Deployment -->
-    <div class="setup-section-title">Server Deployment (Ubuntu/Debian)</div>
-    <div class="setup-deploy-grid">
-      <div class="setup-deploy-card">
-        <div class="setup-deploy-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          Install Dependencies
-        </div>
-        <pre class="setup-cmd">sudo apt update && sudo apt install -y python3-pip nmap sshpass
-pip3 install flask anthropic python-dotenv requests</pre>
-      </div>
-      <div class="setup-deploy-card">
-        <div class="setup-deploy-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          Run Dashboard
-        </div>
-        <pre class="setup-cmd">cd /path/to/CF_AI
-python dashboard/app.py
-# Runs on http://localhost:5000</pre>
-      </div>
-      <div class="setup-deploy-card">
-        <div class="setup-deploy-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/><path d="M10 15l5-3-5-3v6z"/></svg>
-          systemd Service
-        </div>
-        <pre class="setup-cmd"># /etc/systemd/system/cfai.service
-[Unit]
-Description=CF_AI Dashboard
-[Service]
-ExecStart=/usr/bin/python3 /opt/CF_AI/dashboard/app.py
-EnvironmentFile=/opt/CF_AI/.env
-Restart=always
-[Install]
-WantedBy=multi-user.target</pre>
-      </div>
-      <div class="setup-deploy-card">
-        <div class="setup-deploy-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Nginx Reverse Proxy
-        </div>
-        <pre class="setup-cmd">server {
-  listen 80;
-  server_name your-domain.com;
-  location / {
-    proxy_pass http://127.0.0.1:5000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-  }
-}</pre>
-      </div>
-    </div>
-
-    <!-- Free APIs (no key needed) -->
-    <div class="setup-section-title">Integrated APIs (No Key Required)</div>
-    <div class="setup-free-grid">
-      <div class="setup-free-item">
-        <div class="setup-free-name">Mozilla Observatory</div>
-        <div class="setup-free-desc">HTTP security headers grading — used by Config Auditor &amp; Crypto Inspector agents</div>
-        <div class="setup-free-url">observatory.mozilla.org/api/v1</div>
-      </div>
-      <div class="setup-free-item">
-        <div class="setup-free-name">SSL Labs API</div>
-        <div class="setup-free-desc">TLS/SSL grade analysis — used by Crypto Inspector agent</div>
-        <div class="setup-free-url">api.ssllabs.com/api/v3</div>
-      </div>
-      <div class="setup-free-item">
-        <div class="setup-free-name">URLhaus</div>
-        <div class="setup-free-desc">Malware URL &amp; IP intelligence — used by Log Explorer threat enrichment</div>
-        <div class="setup-free-url">urlhaus-api.abuse.ch/v1</div>
-      </div>
-      <div class="setup-free-item">
-        <div class="setup-free-name">crt.sh</div>
-        <div class="setup-free-desc">Certificate Transparency log search — used by Recon Scout subdomain discovery</div>
-        <div class="setup-free-url">crt.sh/?q=%25.domain.com&amp;output=json</div>
-      </div>
-    </div>
   </section>
   </div><!-- /page-setup -->
 
@@ -2764,7 +2581,6 @@ var _PAGE_TITLES = {
   'priority':      'Priority Actions',
   'targets':       'Scan Results',
   'history':       'Scan History',
-  'setup':         'API & Setup Guide',
 };
 
 var _currentPage = 'dashboard';
