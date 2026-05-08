@@ -242,7 +242,45 @@ def _wp_cookie_auth(site_url: str, username: str, password: str) -> tuple[str | 
     nonce, ck = _try_scraper()
     if nonce is not None:
         return nonce, ck
-    return _try_direct()
+    nonce, ck = _try_direct()
+    if nonce is not None:
+        return nonce, ck
+
+    # ScraperAPI can't preserve session cookies (it's a scraper, not a session proxy).
+    # Fall back to XML-RPC to at least verify whether the credentials are correct.
+    if _wp_xmlrpc_verify(site_url, username, password):
+        return '__xmlrpc_verified__', ''  # credentials OK but no cookie session possible
+    return None, None
+
+
+def _wp_xmlrpc_verify(site_url: str, username: str, password: str) -> bool:
+    """Verify WordPress credentials via XML-RPC (accepts regular admin passwords)."""
+    if not _HAS_REQUESTS:
+        return False
+    import xml.sax.saxutils as _sax
+    payload = (
+        '<?xml version="1.0"?><methodCall>'
+        '<methodName>wp.getProfile</methodName><params>'
+        '<param><value><int>1</int></value></param>'
+        f'<param><value><string>{_sax.escape(username)}</string></value></param>'
+        f'<param><value><string>{_sax.escape(password)}</string></value></param>'
+        '</params></methodCall>'
+    ).encode()
+    xmlrpc_url = f'{site_url}/xmlrpc.php'
+    hdrs = {'Content-Type': 'text/xml', 'User-Agent': _BROWSER_UA}
+    try:
+        if _SCRAPER_API_KEY and _HAS_REQUESTS:
+            sa = (f'http://api.scraperapi.com/?api_key={_SCRAPER_API_KEY}'
+                  f'&url={_up_parse.quote(xmlrpc_url, safe="")}')
+            r = _requests.post(sa, data=payload, headers=hdrs, verify=False, timeout=25)
+        else:
+            r = _requests.post(xmlrpc_url, data=payload, headers=hdrs, verify=False, timeout=20)
+        return (r.status_code == 200
+                and '<fault>' not in r.text
+                and '<methodResponse>' in r.text
+                and 'user_login' in r.text)
+    except Exception:
+        return False
 
 
 app = Flask(__name__, template_folder='templates')
@@ -1540,7 +1578,12 @@ def api_logs_wp_live():
         else:
             # Basic Auth (Application Password) failed — try cookie auth with regular admin password
             ck_nonce, ck_hdr = _wp_cookie_auth(url, wp_user, app_pass)
-            if ck_nonce is not None:
+            if ck_nonce == '__xmlrpc_verified__':
+                # Credentials confirmed correct via XML-RPC — WordPress needs an Application Password for REST API
+                note = (f'Password verified. WordPress requires an Application Password for REST API access. '
+                        f'Create one in 30 seconds: {url}/wp-admin/profile.php '
+                        f'(scroll to "Application Passwords" → type any name → click Add → copy the password).')
+            elif ck_nonce is not None:
                 ck_hdrs = {'Cookie': ck_hdr}
                 if ck_nonce:
                     ck_hdrs['X-WP-Nonce'] = ck_nonce
@@ -1567,7 +1610,6 @@ def api_logs_wp_live():
                     if events:
                         source = 'simple_history'
                 if not events:
-                    # Verify cookie auth worked at all
                     me2, _ = _wp_get('/wp-json/wp/v2/users/me?context=edit', override_hdrs=ck_hdrs)
                     if me2 and me2.get('id'):
                         source = 'wp_rest'
@@ -1668,8 +1710,20 @@ def api_wp_install_plugin():
     code, resp = _do_install(basic_get, basic_post)
 
     if code == 401:
-        # Fallback: cookie auth — works with regular WordPress admin passwords
         ck_nonce, ck_hdr = _wp_cookie_auth(url, wp_user, app_pass)
+        if ck_nonce == '__xmlrpc_verified__':
+            return jsonify({
+                'ok': False,
+                'error': (
+                    'Password verified. WordPress requires an Application Password for remote '
+                    'plugin installation. Create one at: '
+                    f'{url}/wp-admin/profile.php '
+                    '(scroll to "Application Passwords" → type any name → click Add → '
+                    'paste the generated password into this field instead).'
+                ),
+                'code': 401,
+                'manual_url': f'{url}/wp-admin/plugin-install.php?s={slug}&tab=search&type=term',
+            }), 400
         if ck_nonce is not None:
             ck_get  = {'Cookie': ck_hdr}
             ck_post = {'Cookie': ck_hdr, 'Content-Type': 'application/json'}
