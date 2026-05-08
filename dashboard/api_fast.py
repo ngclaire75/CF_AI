@@ -663,8 +663,6 @@ _LOW_SIGNALS = re.compile(
     re.I,
 )
 
-import re
-
 @app.get("/api/security-signals")
 async def api_security_signals(days: int = Query(30, ge=1, le=365)) -> dict:
     scans = db.get_recent_scans(200)
