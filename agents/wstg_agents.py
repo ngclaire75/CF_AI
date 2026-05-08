@@ -11,7 +11,7 @@ from tools.js_secret_hunter import hunt_js_secrets
 
 _TOOLS       = [generic_linux_command, read_file, write_file]
 _JS_TOOLS    = [hunt_js_secrets, generic_linux_command, read_file, write_file]
-_MODEL       = os.environ.get('CAI_MODEL', 'gpt-4o')
+_MODEL       = os.environ.get('ANTHROPIC_MODEL', os.environ.get('CAI_MODEL', 'claude-sonnet-4-6'))
 
 # MCP tools for WordPress/API scanning — loaded lazily so missing package doesn't break other agents
 try:

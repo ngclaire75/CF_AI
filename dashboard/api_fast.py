@@ -261,6 +261,10 @@ def _run_scan_background(
         _push({"k": "done", "d": res})
 
     start = time.monotonic()
+    elapsed = 0.0
+    full_output = ""
+    tool_count = 0
+
     try:
         run_full_pentest(
             target=clean_url,
@@ -273,31 +277,32 @@ def _run_scan_background(
         )
     except InterruptedError:
         job["status"] = "aborted"
-        return
     except Exception as exc:
         job["error"] = str(exc)[:400]
         job["status"] = "error"
         _push({"k": "err", "d": str(exc)[:400]})
-        return
     finally:
         elapsed = round(time.monotonic() - start, 2)
         full_output = "".join(
             c["d"] for c in job["chunks"] if c.get("k") == "txt"
         )
         tool_count = sum(1 for c in job["chunks"] if c.get("k") == "tool")
+
+    # Only record scans that completed successfully with actual output
+    if job.get("status") not in ("error", "aborted") and full_output.strip():
+        job["status"] = "done"
         scan_id = db.save_scan(
             target=target,
             agent_type=agent_type,
             model=model,
-            status=job.get("status", "ok"),
+            status="ok",
             latency_s=elapsed,
             tool_count=tool_count,
             output=full_output,
         )
         job["scan_id"] = scan_id
-
-    if job.get("status") not in ("error", "aborted"):
-        job["status"] = "done"
+    elif job.get("status") not in ("error", "aborted"):
+        job["status"] = "done"  # completed but no output to log
 
 
 # Background asyncio event loop for WebSocket broadcasts from threads

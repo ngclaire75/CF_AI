@@ -1567,6 +1567,72 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 .ink-spin-ring{width:52px;height:52px;border:4px solid rgba(255,255,255,.15);border-top-color:#0078d4;border-radius:50%;animation:ink-spin .75s linear infinite;}
 @keyframes ink-spin{to{transform:rotate(360deg);}}
 .ink-spin-label{color:#fff;font-size:13px;font-family:'Segoe UI',sans-serif;letter-spacing:.5px;opacity:.85;}
+
+/* ═══ Weaknesses / new pages shared styles ══════════════════════════════════ */
+.mdef-page{padding:0;}
+.mdef-page-title{font-size:24px;font-weight:700;color:#201f1e;padding:20px 24px 10px;font-family:'Segoe UI',sans-serif;}
+.mdef-banner{background:#fff;border:1px solid #e1dfdd;padding:10px 20px;margin:0 0 1px;display:flex;align-items:stretch;gap:0;flex-wrap:wrap;}
+.mdef-kpi{display:flex;flex-direction:column;padding:6px 20px 6px 14px;border-left:3px solid;min-width:120px;}
+.mdef-kpi:first-child{padding-left:0;border-left:none;}
+.mdef-kpi-val{font-size:26px;font-weight:700;color:#201f1e;font-family:'Segoe UI',sans-serif;line-height:1;}
+.mdef-kpi-label{font-size:11px;color:#605e5c;margin-top:3px;}
+.mdef-kpi-blue{border-left-color:#0078d4;}.mdef-kpi-red{border-left-color:#a80000;}.mdef-kpi-amber{border-left-color:#986f0b;}.mdef-kpi-green{border-left-color:#107c10;}
+.mdef-toolbar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:#fff;border-bottom:1px solid #e1dfdd;}
+.mdef-toolbar-btn{height:28px;padding:0 12px;background:#fff;border:1px solid #c8c6c4;border-radius:2px;font-size:12px;cursor:pointer;font-family:'Segoe UI',sans-serif;color:#323130;}
+.mdef-toolbar-btn:hover{background:#eff6fc;border-color:#0078d4;color:#0078d4;}
+.mdef-toolbar-btn.primary{background:#0078d4;color:#fff;border-color:#0078d4;}
+.mdef-toolbar-btn.primary:hover{background:#106ebe;}
+.mdef-layout{display:grid;grid-template-columns:1fr 360px;min-height:500px;}
+.mdef-main{overflow-x:auto;}
+.mdef-detail-panel{background:#fff;border-left:1px solid #e1dfdd;display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 160px);position:sticky;top:0;}
+.mdef-detail-closed{display:none;}
+.mdef-detail-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e1dfdd;}
+.mdef-detail-title{font-size:15px;font-weight:700;color:#201f1e;font-family:'Segoe UI',sans-serif;}
+.mdef-detail-close{background:none;border:none;font-size:18px;cursor:pointer;color:#605e5c;padding:0 4px;line-height:1;}
+.mdef-detail-body{padding:16px;flex:1;overflow-y:auto;}
+.mdef-detail-tabs{display:flex;border-bottom:1px solid #e1dfdd;margin:-16px -16px 12px;padding:0 16px;}
+.mdef-detail-tab{padding:8px 12px;font-size:12px;font-weight:500;color:#605e5c;border:none;border-bottom:3px solid transparent;background:none;cursor:pointer;font-family:'Segoe UI',sans-serif;white-space:nowrap;}
+.mdef-detail-tab.active{color:#0078d4;border-bottom-color:#0078d4;}
+.mdef-detail-section{margin-bottom:14px;}
+.mdef-detail-section-title{font-size:12px;font-weight:600;color:#201f1e;margin-bottom:6px;}
+.mdef-detail-field{display:grid;grid-template-columns:140px 1fr;gap:4px;padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;}
+.mdef-detail-field-label{color:#605e5c;}
+.mdef-detail-field-val{color:#201f1e;font-weight:500;}
+.mdef-sev-bar{display:inline-flex;gap:2px;vertical-align:middle;margin-right:4px;}
+.mdef-sev-sq{width:10px;height:10px;display:inline-block;}
+.mdef-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.mdef-tbl thead tr{background:#f3f2f1;position:sticky;top:0;}
+.mdef-tbl th{padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;white-space:nowrap;}
+.mdef-tbl td{padding:7px 12px;border-bottom:1px solid #f3f2f1;color:#323130;vertical-align:middle;}
+.mdef-tbl tbody tr{cursor:pointer;}
+.mdef-tbl tbody tr:hover td{background:#eff6fc;}
+.mdef-tbl tbody tr.selected td{background:#deecf9;}
+.mdef-tbl-wrap{overflow-x:auto;}
+.mdef-empty{padding:32px;text-align:center;color:#a19f9d;font-size:12px;}
+.ss-ring-wrap{display:flex;align-items:center;gap:32px;padding:16px 0;}
+.ss-ring{width:120px;height:120px;position:relative;flex-shrink:0;}
+.ss-ring canvas{position:absolute;top:0;left:0;}
+.ss-ring-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.ss-ring-val{font-size:22px;font-weight:700;color:#201f1e;font-family:'Segoe UI',sans-serif;line-height:1;}
+.ss-ring-sub{font-size:10px;color:#605e5c;}
+.ss-cats{flex:1;display:flex;flex-direction:column;gap:8px;}
+.ss-cat-row{display:flex;align-items:center;gap:8px;font-size:12px;}
+.ss-cat-name{width:140px;color:#201f1e;flex-shrink:0;}
+.ss-cat-track{flex:1;height:8px;background:#e1dfdd;border-radius:0;}
+.ss-cat-bar{height:8px;background:#0078d4;border-radius:0;transition:width .7s;}
+.ss-cat-pts{width:60px;text-align:right;color:#605e5c;font-size:11px;flex-shrink:0;}
+.etl-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f3f2f1;}
+.etl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+.etl-meta{font-size:11px;color:#605e5c;white-space:nowrap;width:130px;flex-shrink:0;}
+.etl-body{flex:1;font-size:12px;color:#323130;}
+.etl-title{font-weight:600;margin-bottom:2px;}
+.etl-sev{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;text-transform:uppercase;margin-left:4px;}
+.dash-edit-bar{display:none;background:#fff;border:1px solid #e1dfdd;padding:8px 20px;margin-bottom:8px;align-items:center;gap:12px;flex-wrap:wrap;}
+.dash-edit-bar.visible{display:flex;}
+.dash-edit-bar-title{font-size:12px;font-weight:600;color:#201f1e;}
+.panel-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#323130;cursor:pointer;padding:3px 8px;border:1px solid #c8c6c4;border-radius:2px;user-select:none;}
+.panel-toggle input{margin:0;}
+.panel-toggle.off{opacity:.5;}
 </style>
 </head>
 <body>
@@ -1584,9 +1650,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
   <!-- Brand -->
   <div class="sb-brand">
-    <div class="sb-brand-logo">
-      <span class="material-icons">shield</span>
-    </div>
+    <div class="sb-brand-logo" style="background:#0078d4;color:#fff;font-size:13px;font-weight:800;letter-spacing:-.5px;font-family:'Segoe UI',sans-serif;">CI</div>
     <div class="sb-brand-text">CyberINK<span class="sb-brand-tag">Security Intelligence</span></div>
   </div>
 
@@ -1597,73 +1661,89 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
   <nav class="sb-nav">
 
-    <!-- Monitoring -->
-    <div class="sb-nav-label">Monitoring</div>
+    <div class="sb-nav-label">Overview</div>
     <button class="sb-item active" id="sb-dashboard" onclick="sbNav('dashboard',this)">
-      <span class="material-icons">dashboard</span>
       <span class="sb-label">Dashboard</span>
     </button>
-    <button class="sb-item" id="sb-observability" onclick="sbNav('observability',this)">
-      <span class="material-icons">analytics</span>
-      <span class="sb-label">Observability</span>
+    <button class="sb-item" id="sb-securescore" onclick="sbNav('securescore',this)">
+      <span class="sb-label">Secure score</span>
     </button>
-    <button class="sb-item" id="sb-signals" onclick="sbNav('signals',this)">
-      <span class="material-icons">notifications</span>
-      <span class="sb-label">Security Signals</span>
-      <span class="sb-badge" id="sb-badge-signals" style="display:none;"></span>
-    </button>
-    <button class="sb-item" id="sb-network" onclick="sbNav('network',this)">
-      <span class="material-icons">hub</span>
-      <span class="sb-label">Network Monitor</span>
+    <button class="sb-item" id="sb-threatanalytics" onclick="sbNav('threatanalytics',this)">
+      <span class="sb-label">Threat analytics</span>
     </button>
 
     <div class="sb-divider"></div>
 
-    <!-- Security -->
-    <div class="sb-nav-label">Security</div>
-    <button class="sb-item" id="sb-mitre" onclick="sbNav('mitre',this)">
-      <span class="material-icons">security</span>
-      <span class="sb-label">MITRE ATT&amp;CK</span>
-    </button>
+    <div class="sb-nav-label">Incidents &amp; alerts</div>
     <button class="sb-item" id="sb-incidents" onclick="sbNav('incidents',this)">
-      <span class="material-icons">warning</span>
       <span class="sb-label">Incidents</span>
       <span class="sb-badge" id="sb-badge-inc" style="display:none;"></span>
     </button>
-    <button class="sb-item" id="sb-logexplorer" onclick="sbNav('logexplorer',this)">
-      <span class="material-icons">article</span>
-      <span class="sb-label">Log Explorer</span>
+    <button class="sb-item" id="sb-signals" onclick="sbNav('signals',this)">
+      <span class="sb-label">Security signals</span>
+      <span class="sb-badge" id="sb-badge-signals" style="display:none;"></span>
     </button>
-    <button class="sb-item" id="sb-pluginlogs" onclick="sbNav('pluginlogs',this)">
-      <span class="material-icons">extension</span>
-      <span class="sb-label">Plugin Logs</span>
+    <button class="sb-item" id="sb-eventtimeline" onclick="sbNav('eventtimeline',this)">
+      <span class="sb-label">Event timeline</span>
+    </button>
+    <button class="sb-item" id="sb-mitre" onclick="sbNav('mitre',this)">
+      <span class="sb-label">MITRE ATT&amp;CK</span>
     </button>
 
     <div class="sb-divider"></div>
 
-    <!-- Scanning -->
-    <div class="sb-nav-label">Scanning</div>
-    <button class="sb-item" id="sb-scan" onclick="sbNav('scan',this)">
-      <span class="material-icons">radar</span>
-      <span class="sb-label">Connect &amp; Scan</span>
-    </button>
-    <button class="sb-item" id="sb-vulns" onclick="sbNav('vulns',this)">
-      <span class="material-icons">verified_user</span>
-      <span class="sb-label">Vulnerabilities</span>
-    </button>
+    <div class="sb-nav-label">Actions &amp; submissions</div>
     <button class="sb-item" id="sb-priority" onclick="sbNav('priority',this)">
-      <span class="material-icons">flag</span>
-      <span class="sb-label">Priority Actions</span>
+      <span class="sb-label">Priority actions</span>
     </button>
-    <button class="sb-item" id="sb-targets" onclick="sbNav('targets',this)">
-      <span class="material-icons">manage_search</span>
-      <span class="sb-label">Scan Results</span>
+    <button class="sb-item" id="sb-recommendations" onclick="sbNav('recommendations',this)">
+      <span class="sb-label">Recommendations</span>
     </button>
-    <button class="sb-item" id="sb-history" onclick="sbNav('history',this)">
-      <span class="material-icons">history</span>
-      <span class="sb-label">Scan History</span>
+    <button class="sb-item" id="sb-remediation" onclick="sbNav('remediation',this)">
+      <span class="sb-label">Remediation</span>
     </button>
 
+    <div class="sb-divider"></div>
+
+    <div class="sb-nav-label">Vulnerability management</div>
+    <button class="sb-item" id="sb-vulns" onclick="sbNav('vulns',this)">
+      <span class="sb-label">Overview</span>
+    </button>
+    <button class="sb-item" id="sb-weaknesses" onclick="sbNav('weaknesses',this)">
+      <span class="sb-label">Weaknesses</span>
+    </button>
+    <button class="sb-item" id="sb-inventories" onclick="sbNav('inventories',this)">
+      <span class="sb-label">Inventories</span>
+    </button>
+    <button class="sb-item" id="sb-targets" onclick="sbNav('targets',this)">
+      <span class="sb-label">Scan results</span>
+    </button>
+
+    <div class="sb-divider"></div>
+
+    <div class="sb-nav-label">Monitoring &amp; logs</div>
+    <button class="sb-item" id="sb-observability" onclick="sbNav('observability',this)">
+      <span class="sb-label">Observability</span>
+    </button>
+    <button class="sb-item" id="sb-logexplorer" onclick="sbNav('logexplorer',this)">
+      <span class="sb-label">Log explorer</span>
+    </button>
+    <button class="sb-item" id="sb-pluginlogs" onclick="sbNav('pluginlogs',this)">
+      <span class="sb-label">Plugin logs</span>
+    </button>
+    <button class="sb-item" id="sb-network" onclick="sbNav('network',this)">
+      <span class="sb-label">Network monitor</span>
+    </button>
+
+    <div class="sb-divider"></div>
+
+    <div class="sb-nav-label">Scanning</div>
+    <button class="sb-item" id="sb-scan" onclick="sbNav('scan',this)">
+      <span class="sb-label">Connect &amp; scan</span>
+    </button>
+    <button class="sb-item" id="sb-history" onclick="sbNav('history',this)">
+      <span class="sb-label">Security analytics</span>
+    </button>
 
   </nav>
 
@@ -1695,6 +1775,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
         <span class="dhb-item"><span class="dhb-val" id="ls-scans">—</span> scans</span>
         <span class="dhb-item"><span class="dhb-val" id="ls-incidents" style="color:#a80000;">—</span> open</span>
       </div>
+      <button class="btn-topbar" onclick="toggleDashboardEdit()" id="dash-edit-btn">Customize</button>
       <button class="btn-topbar primary" onclick="loadDefDashboard()">Refresh</button>
       <button class="btn-topbar" onclick="window.print()">Print</button>
     </div>
@@ -1708,8 +1789,8 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   <div id="page-dashboard" class="page-section">
 
   <!-- Filter bar -->
+  <div class="dash-edit-bar" id="dash-edit-bar"></div>
   <div class="mvd-filter-bar">
-    <span class="material-icons">filter_list</span>
     Filter by target groups &nbsp;|&nbsp; <strong id="mvd-filter-count">All targets</strong>
     &nbsp;
     <select id="def-days" onchange="loadDefDashboard()" style="height:24px;border:1px solid #c8c6c4;border-radius:2px;padding:0 20px 0 6px;font-size:11px;background:#fff;appearance:none;cursor:pointer;font-family:inherit;">
@@ -1748,7 +1829,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
     <!-- Panel 2: Threat Awareness + Recommendations -->
     <div class="mvd-card" style="border-left:1px solid #e1dfdd;">
-      <div class="mvd-card-section-title">Threat awareness <span class="material-icons" style="font-size:13px!important;vertical-align:middle;color:#a19f9d;" title="Based on active security findings across all scanned targets">info</span></div>
+      <div class="mvd-card-section-title">Threat awareness</div>
       <div class="mvd-card-h" id="mvd-threat-h">Loading threat data…</div>
       <p class="mvd-card-p" id="mvd-threat-p">Security findings detected across your scanned targets. Immediate action may be required for critical-severity issues.</p>
 
@@ -1976,7 +2057,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
         <button class="mvd-show-btn" onclick="loadThreatIntel()" id="ti-load-btn" style="font-size:12px;padding:4px 14px;">Load Intel</button>
         <a href="/api/export/powerbi" target="_blank"
            style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;background:#117aba;color:#fff;border-radius:2px;font-size:12px;font-family:inherit;text-decoration:none;white-space:nowrap;">
-          <span class="material-icons" style="font-size:14px!important;">download</span>Export Power BI
+Export Power BI
         </a>
       </div>
     </div>
@@ -2748,7 +2829,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
         <option value="">All targets</option>
       </select>
       <button class="pl-load-btn" onclick="runPluginLogsPage()">
-        <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">refresh</span>Load Logs
+Load Logs
       </button>
       <span id="pl-count" style="font-size:12px;color:#605e5c;margin-left:8px;"></span>
     </div>
@@ -2821,6 +2902,172 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   </div><!-- /page-setup -->
 
   </div><!-- /wrap -->
+
+  <!-- ══ WEAKNESSES PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-weaknesses" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">Weaknesses</div>
+    <div class="mdef-banner" id="wk-banner">
+      <div class="mdef-kpi mdef-kpi-blue"><div class="mdef-kpi-val" id="wk-total">—</div><div class="mdef-kpi-label">Vulnerabilities found</div></div>
+      <div class="mdef-kpi" style="border-left:3px solid #a80000;"><div class="mdef-kpi-val" id="wk-critical">—</div><div class="mdef-kpi-label">Critical</div></div>
+      <div class="mdef-kpi" style="border-left:3px solid #986f0b;"><div class="mdef-kpi-val" id="wk-exploitable">—</div><div class="mdef-kpi-label">Exploitable (EPSS &ge;20%)</div></div>
+      <div class="mdef-kpi" style="border-left:3px solid #107c10;"><div class="mdef-kpi-val" id="wk-kev-count">—</div><div class="mdef-kpi-label">In CISA KEV</div></div>
+    </div>
+    <div class="mdef-toolbar">
+      <button class="mdef-toolbar-btn primary" onclick="loadWeaknesses()">Refresh</button>
+      <a href="/api/export/powerbi" target="_blank" class="mdef-toolbar-btn">Export</a>
+      <input type="text" id="wk-filter" placeholder="Filter by CVE or software..." oninput="wkFilter()" style="height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 10px;font-size:12px;min-width:220px;font-family:inherit;outline:none;margin-left:auto;">
+    </div>
+    <div class="mdef-layout" id="wk-layout">
+      <div class="mdef-tbl-wrap">
+        <table class="mdef-tbl" id="wk-tbl">
+          <thead><tr>
+            <th style="width:24px;"><input type="checkbox" id="wk-chk-all" onchange="wkSelectAll(this)"></th>
+            <th>Name</th><th>Severity</th><th>CVSS</th><th>EPSS</th><th>Related Software</th><th>KEV</th><th>Published</th>
+          </tr></thead>
+          <tbody id="wk-tbody">
+            <tr><td colspan="8" class="mdef-empty">Click Refresh to load vulnerabilities from scan data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mdef-detail-panel mdef-detail-closed" id="wk-detail">
+        <div class="mdef-detail-header">
+          <div class="mdef-detail-title" id="wk-detail-cve">—</div>
+          <button class="mdef-detail-close" onclick="wkCloseDetail()">x</button>
+        </div>
+        <div style="display:flex;gap:8px;padding:8px 16px 0;border-bottom:1px solid #e1dfdd;">
+          <button class="mdef-toolbar-btn" style="font-size:11px;" onclick="window.open('https://nvd.nist.gov/vuln/detail/'+document.getElementById('wk-detail-cve').textContent.trim(),'_blank')">Open vulnerability page</button>
+        </div>
+        <div class="mdef-detail-body">
+          <div class="mdef-detail-tabs">
+            <button class="mdef-detail-tab active" onclick="wkDetailTab('details',this)">Vulnerability details</button>
+            <button class="mdef-detail-tab" onclick="wkDetailTab('intel',this)">Threat insights</button>
+          </div>
+          <div id="wk-detail-body-content"></div>
+        </div>
+      </div>
+    </div>
+    <div id="wk-loading" style="display:none;padding:20px 24px;font-size:12px;color:#605e5c;">Loading vulnerability data from NVD, CISA KEV, EPSS...</div>
+  </div>
+  </div><!-- /page-weaknesses -->
+
+  <!-- ══ RECOMMENDATIONS PAGE ══════════════════════════════════════════════ -->
+  <div id="page-recommendations" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">Recommendations</div>
+    <div class="mdef-toolbar">
+      <button class="mdef-toolbar-btn primary" onclick="loadRecommendations()">Refresh</button>
+      <input type="text" id="rec-filter" placeholder="Filter recommendations..." oninput="recFilter()" style="height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 10px;font-size:12px;min-width:220px;font-family:inherit;outline:none;margin-left:auto;">
+    </div>
+    <div class="mdef-tbl-wrap">
+      <table class="mdef-tbl" id="rec-tbl">
+        <thead><tr><th>Recommendation</th><th>Severity</th><th>Affected Sites</th><th>Category</th><th>Exposure Score Impact</th></tr></thead>
+        <tbody id="rec-tbody">
+          <tr><td colspan="5" class="mdef-empty">Click Refresh to load recommendations from scan data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div><!-- /page-recommendations -->
+
+  <!-- ══ REMEDIATION PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-remediation" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">Remediation</div>
+    <div class="mdef-toolbar">
+      <button class="mdef-toolbar-btn primary" onclick="loadRemediationPage()">Refresh</button>
+    </div>
+    <div class="mdef-tbl-wrap">
+      <table class="mdef-tbl" id="rem-tbl">
+        <thead><tr><th>Remediation activity</th><th>Related component</th><th>Status</th><th>Severity</th><th>Completion date</th></tr></thead>
+        <tbody id="rem-tbody">
+          <tr><td colspan="5" class="mdef-empty">Click Refresh to load remediation activities from incidents and scan findings.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div><!-- /page-remediation -->
+
+  <!-- ══ INVENTORIES PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-inventories" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">Inventories</div>
+    <div style="display:flex;gap:0;border-bottom:1px solid #e1dfdd;padding:0 20px;background:#fff;">
+      <button class="mdef-detail-tab active" onclick="invTab('software',this)" style="padding:10px 16px;">Software</button>
+      <button class="mdef-detail-tab" onclick="invTab('plugins',this)" style="padding:10px 16px;">Plugins</button>
+      <button class="mdef-detail-tab" onclick="invTab('targets',this)" style="padding:10px 16px;">Scanned sites</button>
+    </div>
+    <div class="mdef-toolbar">
+      <button class="mdef-toolbar-btn primary" onclick="loadInventories()">Refresh</button>
+      <input type="text" id="inv-filter" placeholder="Filter..." oninput="invFilter()" style="height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 10px;font-size:12px;min-width:200px;font-family:inherit;outline:none;margin-left:auto;">
+    </div>
+    <div class="mdef-tbl-wrap" id="inv-wrap">
+      <table class="mdef-tbl" id="inv-tbl">
+        <thead><tr><th>Name</th><th>Type</th><th>Version</th><th>Detected on</th><th>Risk</th></tr></thead>
+        <tbody id="inv-tbody"><tr><td colspan="5" class="mdef-empty">Click Refresh to enumerate software from scan outputs.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  </div><!-- /page-inventories -->
+
+  <!-- ══ EVENT TIMELINE PAGE ══════════════════════════════════════════════ -->
+  <div id="page-eventtimeline" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">Event timeline</div>
+    <div class="mdef-toolbar">
+      <button class="mdef-toolbar-btn primary" onclick="loadEventTimeline()">Refresh</button>
+      <select id="etl-range" onchange="loadEventTimeline()" style="height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="0">All time</option>
+      </select>
+    </div>
+    <div style="padding:16px 20px;" id="etl-list">
+      <div class="mdef-empty">Click Refresh to load security event timeline from scan history.</div>
+    </div>
+  </div>
+  </div><!-- /page-eventtimeline -->
+
+  <!-- ══ THREAT ANALYTICS PAGE ═════════════════════════════════════════════ -->
+  <div id="page-threatanalytics" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">Threat analytics</div>
+    <div class="mdef-toolbar">
+      <button class="mdef-toolbar-btn primary" onclick="loadThreatAnalytics()">Refresh</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px;" id="ta-grid">
+      <div class="mdef-empty" style="grid-column:1/-1;">Click Refresh to load threat analytics from scan findings and CISA KEV.</div>
+    </div>
+  </div>
+  </div><!-- /page-threatanalytics -->
+
+  <!-- ══ SECURE SCORE PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-securescore" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">Secure score</div>
+    <div class="mdef-toolbar">
+      <button class="mdef-toolbar-btn primary" onclick="loadSecureScore()">Refresh</button>
+    </div>
+    <div style="background:#fff;border:1px solid #e1dfdd;margin:0 0 12px;padding:20px 24px;" id="ss-overview">
+      <div style="font-size:13px;font-weight:600;color:#201f1e;margin-bottom:14px;">Organization secure score</div>
+      <div class="ss-ring-wrap">
+        <div class="ss-ring">
+          <canvas id="ss-ring-canvas" width="120" height="120"></canvas>
+          <div class="ss-ring-label"><div class="ss-ring-val" id="ss-ring-val">—</div><div class="ss-ring-sub">/ 100</div></div>
+        </div>
+        <div class="ss-cats" id="ss-cats">
+          <div style="color:#a19f9d;font-size:12px;">Click Refresh to calculate secure score from scan data.</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e1dfdd;padding:16px 24px;" id="ss-actions">
+      <div style="font-size:13px;font-weight:600;color:#201f1e;margin-bottom:10px;">Improvement actions</div>
+      <div id="ss-actions-list" style="color:#a19f9d;font-size:12px;">Run a scan to generate improvement actions.</div>
+    </div>
+  </div>
+  </div><!-- /page-securescore -->
+
   </div><!-- /page-content -->
 </div><!-- /main-shell -->
 
@@ -2915,6 +3162,13 @@ var _PAGE_TITLES = {
   'targets':       'Scan Results',
   'history':       'Security Analytics',
   'pluginlogs':    'Plugin Activity Logs',
+  'weaknesses':    'Weaknesses',
+  'recommendations':'Recommendations',
+  'remediation':   'Remediation',
+  'inventories':   'Inventories',
+  'eventtimeline': 'Event Timeline',
+  'threatanalytics':'Threat Analytics',
+  'securescore':   'Secure Score',
 };
 
 var _currentPage = 'dashboard';
@@ -2943,6 +3197,13 @@ function sbNav(section, el) {
   if (section === 'history')       loadHistoryPage();
   if (section === 'pluginlogs')    loadPluginLogsPage();
   if (section === 'vulns')         _tiAutoLoad();
+  if (section === 'weaknesses')    loadWeaknesses();
+  if (section === 'recommendations') loadRecommendations();
+  if (section === 'remediation')   loadRemediationPage();
+  if (section === 'inventories')   loadInventories();
+  if (section === 'eventtimeline') loadEventTimeline();
+  if (section === 'threatanalytics') loadThreatAnalytics();
+  if (section === 'securescore')   loadSecureScore();
 }
 
 function toggleSidebar() {
@@ -2967,6 +3228,7 @@ function _initDashPage() {
   if (pg) { pg.style.display='block'; pg.classList.add('active'); }
 }
 _initDashPage();
+_dashInitPanels();
 
 // ── MS Defender Style Dashboard ───────────────────────────────────────────────
 
@@ -3222,12 +3484,19 @@ if (typeof Chart !== 'undefined') {
 
 var _mvdCharts = {};
 
+var _spinnerReady = false;
+var _spinnerWantHide = false;
+setTimeout(function() {
+  _spinnerReady = true;
+  if (_spinnerWantHide) _hideLoadingOverlay();
+}, 1500);
+setTimeout(_hideLoadingOverlay, 6000);
+
 function _hideLoadingOverlay() {
+  if (!_spinnerReady) { _spinnerWantHide = true; return; }
   var el = document.getElementById('ink-loading-overlay');
   if (el) el.classList.add('hidden');
 }
-// Safety: hide after 4s max regardless
-setTimeout(_hideLoadingOverlay, 4000);
 
 function loadDefDashboard() {
   var days = parseInt((document.getElementById('def-days')||{}).value||'30');
@@ -3415,8 +3684,7 @@ function _mvdRenderEvents(scans) {
     var pct=Math.round((s.tool_count||0)/Math.max(1,s.tool_count||1)*100);
     return '<tr>'+
       '<td style="white-space:nowrap;color:#605e5c;font-size:11px;">'+d+'</td>'+
-      '<td><span class="material-icons" style="font-size:11px!important;vertical-align:middle;color:#605e5c;margin-right:3px;">security</span>'+
-        '<span style="font-size:11px;">'+escHtml(first.trim().slice(0,65))+(first.length>65?'…':'')+'</span></td>'+
+      '<td><span style="font-size:11px;">'+escHtml(first.trim().slice(0,65))+(first.length>65?'…':'')+'</span></td>'+
       '<td style="white-space:nowrap;font-size:11px;">'+escHtml((s.target||'').slice(0,22))+' ('+s.tool_count+' tools)</td>'+
     '</tr>';
   }).join('');
@@ -5959,6 +6227,485 @@ function _renderNetTraffic(traffic) {
       '<span class="net-rx">↓ ' + data.rx_mb + ' MB</span>' +
       '<span class="net-tx">↑ ' + data.tx_mb + ' MB</span></div>';
   }).join('');
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   WEAKNESSES PAGE
+   ═══════════════════════════════════════════════════════ */
+var _wkData = [];
+var _wkSelected = null;
+var _wkDetailTabName = 'details';
+
+function loadWeaknesses() {
+  var tbody = document.getElementById('wk-tbody');
+  var loadEl = document.getElementById('wk-loading');
+  if (loadEl) loadEl.style.display = 'block';
+  if (tbody) tbody.innerHTML = '';
+
+  fetch('/api/vuln-intel/correlate?limit=500')
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(d) {
+      if (loadEl) loadEl.style.display = 'none';
+      _wkData = d.cves || [];
+      var t = _wkData.length;
+      var crit = _wkData.filter(function(r){ return (r.nvd && r.nvd.severity || '').toUpperCase() === 'CRITICAL'; }).length;
+      var expl = _wkData.filter(function(r){ return (r.epss_score || 0) >= 0.2; }).length;
+      var kev  = _wkData.filter(function(r){ return r.in_kev; }).length;
+      var set = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+      set('wk-total', t); set('wk-critical', crit); set('wk-exploitable', expl); set('wk-kev-count', kev);
+      _wkRenderTable(_wkData);
+    })
+    .catch(function(e) {
+      if (loadEl) loadEl.style.display = 'none';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#a80000;">Error: ' + _esc(String(e)) + '</td></tr>';
+    });
+}
+
+function _sevBars(sev) {
+  sev = (sev || '').toUpperCase();
+  var colors = { CRITICAL: ['#a80000','#a80000','#a80000','#a80000'], HIGH: ['#c50f1f','#c50f1f','#c50f1f','#e1dfdd'], MEDIUM: ['#986f0b','#986f0b','#e1dfdd','#e1dfdd'], LOW: ['#107c10','#e1dfdd','#e1dfdd','#e1dfdd'] };
+  var c = colors[sev] || ['#e1dfdd','#e1dfdd','#e1dfdd','#e1dfdd'];
+  return '<span class="mdef-sev-bar">' + c.map(function(col){ return '<span class="mdef-sev-sq" style="background:'+col+';"></span>'; }).join('') + '</span><span style="font-size:11px;">' + (sev || '—') + '</span>';
+}
+
+function _wkRenderTable(data) {
+  var tbody = document.getElementById('wk-tbl') ? document.getElementById('wk-tbl').querySelector('tbody') : document.getElementById('wk-tbody');
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty">No CVEs found in scan outputs. Run an authenticated scan to detect vulnerabilities.</td></tr>'; return; }
+  tbody.innerHTML = data.map(function(row, idx) {
+    var nvd = row.nvd || {};
+    var cvss = nvd.cvss_score != null ? nvd.cvss_score.toFixed(1) : '—';
+    var epss = row.epss_score != null ? (row.epss_score * 100).toFixed(1) + '%' : '—';
+    var kev = row.in_kev ? '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:1px 6px;border-radius:2px;">KEV</span>' : '—';
+    var sw = nvd.description ? nvd.description.split(' ').slice(0,4).join(' ') + '…' : (row.kev && row.kev.product ? row.kev.product : '—');
+    return '<tr onclick="wkSelectRow(' + idx + ',this)" data-cve="' + _esc(row.cve_id) + '">' +
+      '<td><input type="checkbox" onclick="event.stopPropagation()"></td>' +
+      '<td style="font-weight:600;color:#0078d4;">' + _esc(row.cve_id) + '</td>' +
+      '<td>' + _sevBars(nvd.severity) + '</td>' +
+      '<td>' + cvss + '</td>' +
+      '<td>' + epss + '</td>' +
+      '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _esc(sw) + '</td>' +
+      '<td>' + kev + '</td>' +
+      '<td style="color:#605e5c;">' + (nvd.published || '—') + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function wkFilter() {
+  var q = (document.getElementById('wk-filter').value || '').toLowerCase();
+  var filtered = !q ? _wkData : _wkData.filter(function(r){
+    return r.cve_id.toLowerCase().indexOf(q) >= 0 ||
+           ((r.nvd && r.nvd.description) || '').toLowerCase().indexOf(q) >= 0 ||
+           ((r.kev && r.kev.product) || '').toLowerCase().indexOf(q) >= 0;
+  });
+  _wkRenderTable(filtered);
+}
+
+function wkSelectAll(chk) {
+  document.querySelectorAll('#wk-tbl tbody input[type=checkbox]').forEach(function(c){ c.checked = chk.checked; });
+}
+
+function wkSelectRow(idx, tr) {
+  _wkSelected = _wkData[idx];
+  document.querySelectorAll('#wk-tbl tbody tr').forEach(function(r){ r.classList.remove('selected'); });
+  tr.classList.add('selected');
+  var panel = document.getElementById('wk-detail');
+  if (panel) panel.classList.remove('mdef-detail-closed');
+  document.getElementById('wk-detail-cve').textContent = _wkSelected.cve_id;
+  wkDetailTab(_wkDetailTabName, null);
+}
+
+function wkCloseDetail() {
+  var panel = document.getElementById('wk-detail');
+  if (panel) panel.classList.add('mdef-detail-closed');
+  _wkSelected = null;
+}
+
+function wkDetailTab(name, btn) {
+  _wkDetailTabName = name;
+  document.querySelectorAll('.mdef-detail-tab').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  if (!_wkSelected) return;
+  var c = document.getElementById('wk-detail-body-content');
+  if (!c) return;
+  var row = _wkSelected;
+  var nvd = row.nvd || {};
+  var kev = row.kev || {};
+
+  if (name === 'details') {
+    c.innerHTML =
+      '<div class="mdef-detail-section">' +
+      '<div class="mdef-detail-section-title">Vulnerability description</div>' +
+      '<div style="font-size:12px;color:#323130;line-height:1.6;">' + _esc(nvd.description || kev.name || '—') + '</div>' +
+      '</div>' +
+      '<div class="mdef-detail-section">' +
+      '<div class="mdef-detail-section-title">Vulnerability details</div>' +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">Vulnerability name</span><span class="mdef-detail-field-val">' + _esc(row.cve_id) + '</span></div>' +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">Severity</span><span class="mdef-detail-field-val">' + _sevBars(nvd.severity) + '</span></div>' +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">CVSS</span><span class="mdef-detail-field-val">' + (nvd.cvss_score != null ? nvd.cvss_score.toFixed(1) : '—') + '</span></div>' +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">Published on</span><span class="mdef-detail-field-val">' + (nvd.published || '—') + '</span></div>' +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">EPSS score</span><span class="mdef-detail-field-val">' + (row.epss_score != null ? (row.epss_score * 100).toFixed(1) + '%' : '—') + '</span></div>' +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">Affected sites</span><span class="mdef-detail-field-val">' + _esc((row.affected_targets || []).join(', ') || '—') + '</span></div>' +
+      (kev.due_date ? '<div class="mdef-detail-field"><span class="mdef-detail-field-label">CISA KEV due date</span><span class="mdef-detail-field-val" style="color:#a80000;font-weight:700;">' + _esc(kev.due_date) + '</span></div>' : '') +
+      '</div>';
+  } else {
+    var edbLinks = (row.edb_ids || []).length
+      ? row.edb_ids.map(function(id){ return '<a href="https://www.exploit-db.com/exploits/'+id+'" target="_blank" style="color:#0078d4;">EDB-'+id+'</a>'; }).join(', ')
+      : '—';
+    c.innerHTML =
+      '<div class="mdef-detail-section">' +
+      '<div class="mdef-detail-section-title">Threat insights</div>' +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">In CISA KEV</span><span class="mdef-detail-field-val">' + (row.in_kev ? '<span style="color:#a80000;font-weight:700;">Yes — Known exploited</span>' : 'No') + '</span></div>' +
+      (kev.required_action ? '<div class="mdef-detail-field"><span class="mdef-detail-field-label">Required action</span><span class="mdef-detail-field-val">' + _esc(kev.required_action) + '</span></div>' : '') +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">Exploit-DB</span><span class="mdef-detail-field-val">' + edbLinks + '</span></div>' +
+      '<div class="mdef-detail-field"><span class="mdef-detail-field-label">EPSS probability</span><span class="mdef-detail-field-val">' + (row.epss_score != null ? (row.epss_score * 100).toFixed(2) + '%' : '—') + '</span></div>' +
+      '</div>';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RECOMMENDATIONS PAGE
+   ═══════════════════════════════════════════════════════ */
+var _recAllData = [];
+
+function loadRecommendations() {
+  var tbody = document.getElementById('rec-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading...</td></tr>';
+
+  fetch('/api/scans/recent?limit=500')
+    .then(function(r){ return r.json(); })
+    .then(function(scans) {
+      var recMap = {};
+      (scans || []).forEach(function(s) {
+        var output = s.output || '';
+        var lines = output.split('\n');
+        lines.forEach(function(line) {
+          var m = line.match(/(?:recommend|should|must|consider|ensure|update|patch|disable|enable|configure|fix|remove|add|install)\s+.{10,}/i);
+          if (m) {
+            var text = line.trim().replace(/^[#*\-]+\s*/, '').slice(0,120);
+            if (!recMap[text]) recMap[text] = { text: text, targets: [], risk: s.risk || 'INFO' };
+            if (recMap[text].targets.indexOf(s.target) === -1) recMap[text].targets.push(s.target);
+            var ranks = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1, INFO: 0 };
+            if ((ranks[s.risk] || 0) > (ranks[recMap[text].risk] || 0)) recMap[text].risk = s.risk;
+          }
+        });
+      });
+      _recAllData = Object.values(recMap).sort(function(a,b){ return (b.targets.length - a.targets.length); }).slice(0, 100);
+      _recRender(_recAllData);
+    })
+    .catch(function(e){ tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#a80000;">Error: ' + _esc(String(e)) + '</td></tr>'; });
+}
+
+function _recRender(data) {
+  var tbody = document.getElementById('rec-tbody');
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No recommendations found. Run a scan first.</td></tr>'; return; }
+  var cats = { ssl: 'SSL/TLS', auth: 'Authentication', header: 'HTTP Headers', plugin: 'Plugins', config: 'Configuration', update: 'Updates', access: 'Access Control' };
+  tbody.innerHTML = data.map(function(r) {
+    var cat = 'General';
+    for (var k in cats) { if (r.text.toLowerCase().indexOf(k) >= 0) { cat = cats[k]; break; } }
+    var impact = r.risk === 'CRITICAL' ? 30 : r.risk === 'HIGH' ? 20 : r.risk === 'MEDIUM' ? 10 : 5;
+    return '<tr>' +
+      '<td style="max-width:400px;">' + _esc(r.text) + '</td>' +
+      '<td>' + _sevBars(r.risk) + '</td>' +
+      '<td>' + r.targets.length + '</td>' +
+      '<td style="color:#605e5c;">' + cat + '</td>' +
+      '<td><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;height:6px;background:#e1dfdd;"><div style="width:' + impact + '%;height:6px;background:#0078d4;"></div></div><span style="font-size:10px;color:#605e5c;">+' + impact + '</span></div></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function recFilter() {
+  var q = (document.getElementById('rec-filter').value || '').toLowerCase();
+  _recRender(!q ? _recAllData : _recAllData.filter(function(r){ return r.text.toLowerCase().indexOf(q) >= 0; }));
+}
+
+/* ═══════════════════════════════════════════════════════
+   REMEDIATION PAGE
+   ═══════════════════════════════════════════════════════ */
+function loadRemediationPage() {
+  var tbody = document.getElementById('rem-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading...</td></tr>';
+
+  Promise.all([
+    fetch('/api/incidents').then(function(r){ return r.json(); }).catch(function(){ return {incidents:[]}; }),
+    fetch('/api/scans/recent?limit=100').then(function(r){ return r.json(); }).catch(function(){ return []; })
+  ]).then(function(res) {
+    var incidents = (res[0].incidents || []).filter(function(i){ return i.status !== 'resolved'; });
+    var scans = res[1] || [];
+    var rows = [];
+    incidents.forEach(function(i) {
+      rows.push({ title: i.title, component: i.target || '—', status: i.status, severity: i.severity, date: (i.created_at || '').slice(0,10) });
+    });
+    scans.filter(function(s){ return /\bhigh\b|\bcritical\b/i.test(s.output || ''); }).slice(0,10).forEach(function(s) {
+      rows.push({ title: 'Remediate high-severity findings on ' + s.target, component: s.target, status: 'pending', severity: s.risk || 'HIGH', date: (s.created_at || '').slice(0,10) });
+    });
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No open remediation activities. All incidents resolved.</td></tr>'; return; }
+    var statusLabel = { open: 'Open', investigating: 'In progress', resolved: 'Resolved', pending: 'Pending' };
+    tbody.innerHTML = rows.map(function(r) {
+      var stCls = r.status === 'resolved' ? 'color:#107c10;' : r.status === 'investigating' ? 'color:#986f0b;' : 'color:#a80000;';
+      return '<tr><td>' + _esc(r.title) + '</td><td style="color:#605e5c;">' + _esc(r.component) + '</td><td style="' + stCls + 'font-weight:600;">' + (statusLabel[r.status] || r.status) + '</td><td>' + _sevBars(r.severity) + '</td><td style="color:#605e5c;">' + r.date + '</td></tr>';
+    }).join('');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   INVENTORIES PAGE
+   ═══════════════════════════════════════════════════════ */
+var _invTab = 'software';
+var _invData = { software: [], plugins: [], targets: [] };
+
+function invTab(name, btn) {
+  _invTab = name;
+  document.querySelectorAll('#page-inventories .mdef-detail-tab').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  _invRender();
+}
+
+function loadInventories() {
+  var tbody = document.getElementById('inv-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading...</td></tr>';
+
+  fetch('/api/scans/recent?limit=500')
+    .then(function(r){ return r.json(); })
+    .then(function(scans) {
+      var sw = {}, pl = {}, tgt = {};
+      var swPat = [/(?:wordpress|wp)\s+([\d.]+)/gi, /php\s+([\d.]+)/gi, /apache\s+([\d.x]+)/gi, /nginx\s+([\d.x]+)/gi, /mysql\s+([\d.x]+)/gi, /openssl\s+([\d.x]+)/gi];
+      var plPat = /plugin[:\s]+([a-zA-Z0-9 _-]{3,40})\s+(?:v|version)?\s*([\d.]+)/gi;
+      (scans || []).forEach(function(s) {
+        var out = s.output || '';
+        swPat.forEach(function(pat) {
+          var m; pat.lastIndex = 0;
+          while ((m = pat.exec(out)) !== null) {
+            var name = pat.source.split('\\\\')[0].replace(/[^a-z]/gi,'');
+            var key = name + '@' + m[1];
+            if (!sw[key]) sw[key] = { name: name.charAt(0).toUpperCase() + name.slice(1), type: 'CMS/Server', version: m[1], targets: [], risk: s.risk || 'INFO' };
+            if (sw[key].targets.indexOf(s.target) === -1) sw[key].targets.push(s.target);
+          }
+        });
+        var pm; plPat.lastIndex = 0;
+        while ((pm = plPat.exec(out)) !== null) {
+          var key = pm[1].trim() + '@' + pm[2];
+          if (!pl[key]) pl[key] = { name: pm[1].trim(), type: 'Plugin', version: pm[2], targets: [], risk: s.risk || 'INFO' };
+          if (pl[key].targets.indexOf(s.target) === -1) pl[key].targets.push(s.target);
+        }
+        if (!tgt[s.target]) tgt[s.target] = { name: s.target, type: 'Website', version: (s.created_at||'').slice(0,10), targets: [s.target], risk: s.risk || 'INFO' };
+      });
+      _invData.software = Object.values(sw);
+      _invData.plugins  = Object.values(pl);
+      _invData.targets  = Object.values(tgt);
+      _invRender();
+    })
+    .catch(function(e){ tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#a80000;">Error: ' + _esc(String(e)) + '</td></tr>'; });
+}
+
+function _invRender() {
+  var tbody = document.getElementById('inv-tbody');
+  if (!tbody) return;
+  var data = _invData[_invTab] || [];
+  var q = (document.getElementById('inv-filter').value || '').toLowerCase();
+  if (q) data = data.filter(function(r){ return (r.name||'').toLowerCase().indexOf(q) >= 0 || (r.version||'').toLowerCase().indexOf(q) >= 0; });
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No ' + _invTab + ' detected. Run a scan first.</td></tr>'; return; }
+  tbody.innerHTML = data.map(function(r) {
+    return '<tr><td style="font-weight:500;">' + _esc(r.name) + '</td><td style="color:#605e5c;">' + _esc(r.type) + '</td><td style="font-family:monospace;font-size:11px;">' + _esc(r.version) + '</td><td style="color:#605e5c;">' + _esc((r.targets||[]).join(', ').slice(0,60)) + '</td><td>' + _sevBars(r.risk) + '</td></tr>';
+  }).join('');
+}
+
+function invFilter() { _invRender(); }
+
+/* ═══════════════════════════════════════════════════════
+   EVENT TIMELINE PAGE
+   ═══════════════════════════════════════════════════════ */
+function loadEventTimeline() {
+  var list = document.getElementById('etl-list');
+  if (!list) return;
+  list.innerHTML = '<div class="mdef-empty">Loading...</div>';
+  var days = parseInt((document.getElementById('etl-range') || {}).value || '30');
+
+  fetch('/api/scans/recent?limit=500')
+    .then(function(r){ return r.json(); })
+    .then(function(scans) {
+      var events = [];
+      var cutoff = days > 0 ? new Date(Date.now() - days * 86400000) : new Date(0);
+      (scans || []).forEach(function(s) {
+        var d = new Date((s.created_at || '').replace(' ','T') + 'Z');
+        if (d < cutoff) return;
+        var output = s.output || '';
+        var lines = output.split('\n').filter(function(l){
+          return /\b(critical|high|cve-|exploit|vuln|inject|xss|rce|leaked|exposed|misconfigur|admin|login|password|bypass|waf|403|error)\b/i.test(l) && l.trim().length > 20;
+        }).slice(0, 5);
+        lines.forEach(function(line) {
+          var sev = /\bcritical\b/i.test(line) ? 'CRITICAL' : /\bhigh\b|\bcve-/i.test(line) ? 'HIGH' : 'MEDIUM';
+          events.push({ date: d, target: s.target, text: line.trim().slice(0, 120), severity: sev });
+        });
+        events.push({ date: d, target: s.target, text: 'Scan completed — risk: ' + s.risk, severity: s.risk || 'INFO' });
+      });
+      events.sort(function(a,b){ return b.date - a.date; });
+      if (!events.length) { list.innerHTML = '<div class="mdef-empty">No events in the selected period.</div>'; return; }
+      var dotCols = { CRITICAL: '#a80000', HIGH: '#c50f1f', MEDIUM: '#986f0b', LOW: '#107c10', INFO: '#0078d4' };
+      list.innerHTML = events.slice(0, 100).map(function(ev) {
+        var ts = ev.date.toLocaleString(undefined, { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false });
+        return '<div class="etl-item">' +
+          '<div class="etl-dot" style="background:' + (dotCols[ev.severity] || '#605e5c') + ';"></div>' +
+          '<div class="etl-meta">' + _esc(ts) + '</div>' +
+          '<div class="etl-body"><div class="etl-title">' + _esc(ev.target) + '<span class="etl-sev" style="background:' + (dotCols[ev.severity] || '#605e5c') + '22;color:' + (dotCols[ev.severity] || '#605e5c') + ';">' + ev.severity + '</span></div><div style="color:#605e5c;">' + _esc(ev.text) + '</div></div>' +
+          '</div>';
+      }).join('');
+    })
+    .catch(function(e){ list.innerHTML = '<div class="mdef-empty" style="color:#a80000;">Error: ' + _esc(String(e)) + '</div>'; });
+}
+
+/* ═══════════════════════════════════════════════════════
+   THREAT ANALYTICS PAGE
+   ═══════════════════════════════════════════════════════ */
+function loadThreatAnalytics() {
+  var grid = document.getElementById('ta-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div style="grid-column:1/-1;" class="mdef-empty">Loading...</div>';
+
+  Promise.all([
+    fetch('/api/vuln-intel/correlate?limit=500').then(function(r){ return r.json(); }).catch(function(){ return {cves:[],kev_count:0,epss_high:0}; }),
+    fetch('/api/security-signals?days=30').then(function(r){ return r.json(); }).catch(function(){ return {events:[]}; }),
+    fetch('/api/vuln-intel/kev').then(function(r){ return r.json(); }).catch(function(){ return {total:0}; })
+  ]).then(function(res) {
+    var intel = res[0], signals = res[1], kevInfo = res[2];
+    var cves = intel.cves || [];
+    var events = signals.events || [];
+    var cards = [];
+
+    cards.push('<div style="background:#fff;border:1px solid #e1dfdd;padding:16px;">' +
+      '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">CISA Known Exploited Vulnerabilities</div>' +
+      '<div style="font-size:32px;font-weight:700;color:#a80000;font-family:\'Segoe UI\';">' + (intel.kev_count || 0) + '</div>' +
+      '<div style="font-size:11px;color:#605e5c;margin-top:4px;">CVEs from your scans are in the KEV catalogue (' + (kevInfo.total || 0) + ' total in KEV)</div>' +
+      '<div style="margin-top:12px;">' + cves.filter(function(r){ return r.in_kev; }).slice(0,5).map(function(r){ return '<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;"><span style="color:#0078d4;font-weight:600;">' + r.cve_id + '</span> — ' + _esc(((r.kev||{}).name||'').slice(0,60)) + '</div>'; }).join('') + '</div>' +
+      '</div>');
+
+    var epssHigh = cves.filter(function(r){ return (r.epss_score||0) >= 0.5; });
+    cards.push('<div style="background:#fff;border:1px solid #e1dfdd;padding:16px;">' +
+      '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">High EPSS Score CVEs (exploitation probability ≥50%)</div>' +
+      '<div style="font-size:32px;font-weight:700;color:#986f0b;font-family:\'Segoe UI\';">' + epssHigh.length + '</div>' +
+      '<div style="font-size:11px;color:#605e5c;margin-top:4px;">CVEs with high exploitation probability in the next 30 days</div>' +
+      '<div style="margin-top:12px;">' + epssHigh.slice(0,5).map(function(r){ return '<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;"><span style="color:#0078d4;">' + r.cve_id + '</span> — EPSS: ' + (r.epss_score*100).toFixed(1) + '%</div>'; }).join('') + '</div>' +
+      '</div>');
+
+    var sigCounts = {};
+    events.forEach(function(ev){ sigCounts[ev.rule_id||ev.title||'unknown'] = (sigCounts[ev.rule_id||ev.title||'unknown']||0)+1; });
+    var topSigs = Object.entries(sigCounts).sort(function(a,b){ return b[1]-a[1]; }).slice(0,5);
+    cards.push('<div style="background:#fff;border:1px solid #e1dfdd;padding:16px;">' +
+      '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">Top security signals (last 30 days)</div>' +
+      '<div style="font-size:32px;font-weight:700;color:#0078d4;font-family:\'Segoe UI\';">' + events.length + '</div>' +
+      '<div style="font-size:11px;color:#605e5c;margin-top:4px;">Total signals detected across all scans</div>' +
+      '<div style="margin-top:12px;">' + topSigs.map(function(e){ return '<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;display:flex;justify-content:space-between;"><span>' + _esc(String(e[0]).slice(0,50)) + '</span><strong>' + e[1] + '</strong></div>'; }).join('') + '</div>' +
+      '</div>');
+
+    var sevCounts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0 };
+    cves.forEach(function(r){ var s = ((r.nvd||{}).severity||'LOW').toUpperCase(); if (sevCounts[s] !== undefined) sevCounts[s]++; });
+    cards.push('<div style="background:#fff;border:1px solid #e1dfdd;padding:16px;">' +
+      '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">CVE severity breakdown</div>' +
+      '<div style="font-size:32px;font-weight:700;color:#201f1e;font-family:\'Segoe UI\';">' + cves.length + '</div>' +
+      '<div style="font-size:11px;color:#605e5c;margin-top:4px;">Total CVEs identified across all scans</div>' +
+      '<div style="margin-top:12px;">' +
+        Object.entries(sevCounts).map(function(e){ var cols={CRITICAL:\'#a80000\',HIGH:\'#c50f1f\',MEDIUM:\'#986f0b\',LOW:\'#107c10\'}; return \'<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;display:flex;justify-content:space-between;align-items:center;"><span style="color:\' + cols[e[0]] + \';font-weight:600;">\' + e[0] + \'</span><strong>\' + e[1] + \'</strong></div>\'; }).join(\'\') +
+      '</div></div>');
+
+    grid.innerHTML = cards.join('');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   SECURE SCORE PAGE
+   ═══════════════════════════════════════════════════════ */
+function loadSecureScore() {
+  var catsEl = document.getElementById('ss-cats');
+  var valEl  = document.getElementById('ss-ring-val');
+  var actEl  = document.getElementById('ss-actions-list');
+  if (!catsEl) return;
+  catsEl.innerHTML = '<div style="color:#a19f9d;font-size:12px;">Loading...</div>';
+
+  fetch('/api/scans/recent?limit=200')
+    .then(function(r){ return r.json(); })
+    .then(function(scans) {
+      scans = scans || [];
+      if (!scans.length) {
+        catsEl.innerHTML = '<div style="color:#a19f9d;font-size:12px;">No scans yet. Run a scan to calculate your secure score.</div>';
+        if (valEl) valEl.textContent = '—';
+        return;
+      }
+      var cats = [
+        { name: 'SSL / TLS',       good: /ssl.*a\+|ssl.*a\b|tls.*1\.[23]|certificate.*valid/i,    bad: /ssl.*error|ssl.*expired|ssl.*b|ssl.*c|tls.*1\.0|tls.*1\.1/i },
+        { name: 'HTTP Headers',    good: /content.security.policy|strict.transport|x.frame.options|x.content.type/i,  bad: /missing.*header|no.*csp|no.*hsts/i },
+        { name: 'Authentication',  good: /mfa|two.factor|strong.password|rate.limit/i,             bad: /weak.*password|no.*mfa|brute.force|default.*cred/i },
+        { name: 'CMS / Plugins',   good: /wordpress.*latest|plugins.*updated|no.*vuln/i,            bad: /outdated|vulnerable.*plugin|wp.*old|cve-/i },
+        { name: 'Access Control',  good: /403|access.*denied|proper.*auth/i,                       bad: /unauthenticated|unauthoriz|exposed.*admin|open.*redirect/i },
+        { name: 'Information Leak',good: /no.*disclosure|properly.*hidden/i,                        bad: /version.*disclosed|debug.*enabled|stack.*trace|exposed.*path/i },
+      ];
+      var scores = cats.map(function(cat) {
+        var goodHits = 0, badHits = 0;
+        scans.forEach(function(s) {
+          var o = s.output || '';
+          if (cat.good.test(o)) goodHits++;
+          if (cat.bad.test(o)) badHits++;
+        });
+        var raw = goodHits + badHits > 0 ? Math.max(0, Math.min(100, Math.round((goodHits / (goodHits + badHits)) * 100))) : 50;
+        return { name: cat.name, score: raw };
+      });
+      var total = Math.round(scores.reduce(function(sum, c){ return sum + c.score; }, 0) / scores.length);
+      if (valEl) valEl.textContent = total;
+      catsEl.innerHTML = scores.map(function(c) {
+        return '<div class="ss-cat-row"><span class="ss-cat-name">' + c.name + '</span><div class="ss-cat-track"><div class="ss-cat-bar" style="width:' + c.score + '%;background:' + (c.score >= 70 ? '#107c10' : c.score >= 40 ? '#986f0b' : '#a80000') + ';"></div></div><span class="ss-cat-pts">' + c.score + '/100</span></div>';
+      }).join('');
+      var canvas = document.getElementById('ss-ring-canvas');
+      if (canvas && window.Chart) {
+        if (window._ssRingChart) { window._ssRingChart.destroy(); }
+        window._ssRingChart = new Chart(canvas.getContext('2d'), {
+          type: 'doughnut',
+          data: { datasets: [{ data: [total, 100 - total], backgroundColor: [total >= 70 ? '#107c10' : total >= 40 ? '#986f0b' : '#a80000', '#e1dfdd'], borderWidth: 0 }] },
+          options: { responsive: false, cutout: '75%', plugins: { legend: { display: false } } }
+        });
+      }
+      var actions = scores.filter(function(c){ return c.score < 70; })
+        .map(function(c){ return 'Improve ' + c.name + ' controls (current score: ' + c.score + '/100)'; });
+      actEl.innerHTML = actions.length ? actions.map(function(a){ return '<div style="padding:6px 0;border-bottom:1px solid #f3f2f1;font-size:12px;">' + a + '</div>'; }).join('') : '<div style="font-size:12px;color:#107c10;">All categories are performing well.</div>';
+    })
+    .catch(function(e){ catsEl.innerHTML = '<div style="color:#a80000;font-size:12px;">Error: ' + _esc(String(e)) + '</div>'; });
+}
+
+/* ═══════════════════════════════════════════════════════
+   DASHBOARD PANEL EDIT MODE
+   ═══════════════════════════════════════════════════════ */
+var _DASH_PANELS = [
+  { id: 'mvd-grid', label: 'Exposure & Recommendations (top)' },
+  { id: 'mvd-grid-b', label: 'Events & Distribution (bottom)' },
+];
+var _dashEditOpen = false;
+
+function toggleDashboardEdit() {
+  _dashEditOpen = !_dashEditOpen;
+  var bar = document.getElementById('dash-edit-bar');
+  if (bar) bar.classList.toggle('visible', _dashEditOpen);
+}
+
+function _dashPanelToggle(id, checked) {
+  var panel = document.getElementById(id);
+  if (panel) panel.style.display = checked ? '' : 'none';
+  try { localStorage.setItem('dash_panel_' + id, checked ? '1' : '0'); } catch(e) {}
+}
+
+function _dashInitPanels() {
+  var bar = document.getElementById('dash-edit-bar');
+  if (!bar) return;
+  bar.innerHTML = '<span class="dash-edit-bar-title">Customize panels:</span>' +
+    _DASH_PANELS.map(function(p) {
+      var saved = null;
+      try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e) {}
+      var checked = saved === null ? true : saved === '1';
+      var panel = document.getElementById(p.id);
+      if (panel && !checked) panel.style.display = 'none';
+      return '<label class="panel-toggle ' + (checked ? '' : 'off') + '"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="this.closest(\'label\').classList.toggle(\'off\',!this.checked);_dashPanelToggle(\'' + p.id + '\',this.checked)"> ' + p.label + '</label>';
+    }).join('') +
+    '<button class="mdef-toolbar-btn" onclick="toggleDashboardEdit()" style="margin-left:auto;">Done</button>';
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
