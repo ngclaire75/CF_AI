@@ -1833,6 +1833,158 @@ def api_logs_cpanel_live():
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
+@app.route('/api/logs/wp-cpanel-db', methods=['POST'])
+def api_logs_wp_cpanel_db():
+    """Read WordPress Simple History events directly from the MySQL database via cPanel Fileman.
+
+    Real flow (no WordPress auth required):
+    1. Read wp-config.php via cPanel UAPI Fileman to get DB credentials
+    2. Upload a temp PHP script (random name) that queries Simple History tables
+    3. Fetch the script via ScraperAPI (bypasses VPS/Cloudflare blocks)
+    4. Delete the temp script immediately via cPanel UAPI
+    """
+    import base64 as _b64, json as _j, re as _re, random as _rand, string as _str
+    import ssl as _ssl2, urllib.request as _req2
+
+    data     = request.get_json(force=True, silent=True) or {}
+    site_url = (data.get('url') or '').strip().rstrip('/')
+    cp_host  = (data.get('cp_host') or '').strip().rstrip('/')
+    cp_user  = (data.get('cp_user') or '').strip()
+    cp_pass  = (data.get('cp_pass') or '').strip()
+    cp_token = (data.get('cp_token') or '').strip()
+    wp_dir   = (data.get('wp_dir') or 'public_html').strip().strip('/')
+    limit    = min(int(data.get('limit') or 50), 200)
+
+    if not cp_host or not cp_user or not (cp_pass or cp_token):
+        return jsonify({'error': 'cPanel host, username, and password or token required'}), 400
+    if not site_url:
+        return jsonify({'error': 'WordPress site URL required'}), 400
+    if not site_url.startswith('http'):
+        site_url = 'https://' + site_url
+
+    base = cp_host if cp_host.startswith('http') else f'https://{cp_host}:2083'
+    auth_hdr = (f'cpanel {cp_user}:{cp_token}' if cp_token
+                else 'Basic ' + _b64.b64encode(f'{cp_user}:{cp_pass}'.encode()).decode())
+
+    ctx = _ssl2.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = _ssl2.CERT_NONE
+
+    def _cp(path, method='GET', post_data=None):
+        url = f'{base}/execute/{path}'
+        hdr = {'Authorization': auth_hdr, 'Accept': 'application/json', 'User-Agent': _BROWSER_UA}
+        if post_data:
+            body = _up_parse.urlencode(post_data).encode()
+            req = _req2.Request(url, data=body, headers={**hdr, 'Content-Type': 'application/x-www-form-urlencoded'})
+        else:
+            req = _req2.Request(url, headers=hdr)
+        try:
+            with _req2.urlopen(req, timeout=15, context=ctx) as r:
+                return _j.loads(r.read().decode())
+        except Exception as e:
+            return {'_err': str(e)}
+
+    # ── Step 1: Read wp-config.php ────────────────────────────────────────────
+    cfg = _cp(f'Fileman/get_file_content?dir=%2F{_up_parse.quote(wp_dir)}&file=wp-config.php')
+    if cfg.get('_err') or not cfg.get('status'):
+        return jsonify({'error': f'Cannot read wp-config.php: {cfg.get("_err") or cfg.get("errors") or "check cPanel credentials and WordPress directory"}'}), 500
+
+    wp_config = (cfg.get('data') or {}).get('content', '')
+    if not wp_config:
+        return jsonify({'error': 'wp-config.php is empty or unreadable'}), 500
+
+    def _cfg(key):
+        m = _re.search(rf"define\s*\(\s*['\"]DB_{key}['\"]\s*,\s*['\"]([^'\"]*)['\"]", wp_config)
+        return m.group(1) if m else ''
+
+    db_host   = _cfg('HOST') or 'localhost'
+    db_name   = _cfg('NAME')
+    db_user   = _cfg('USER')
+    db_pass   = _cfg('PASSWORD')
+    pfx_m     = _re.search(r"\$table_prefix\s*=\s*['\"]([^'\"]+)['\"]", wp_config)
+    table_pfx = pfx_m.group(1) if pfx_m else 'wp_'
+
+    if not db_name or not db_user:
+        return jsonify({'error': 'Could not parse DB credentials from wp-config.php'}), 500
+
+    # ── Step 2: Build + upload temp PHP script ────────────────────────────────
+    script_name = 'cfai_' + ''.join(_rand.choices(_str.ascii_lowercase + _str.digits, k=14)) + '.php'
+    # Real Simple History DB schema:
+    # {prefix}simple_history: id, date, date_gmt, logger, level, message, initiator
+    # {prefix}simple_history_contexts: id, history_id, key_name, value
+    # Context keys: _user_login, _user_email, _server_remote_addr
+    php = (
+        "<?php error_reporting(0);\n"
+        "try {\n"
+        f"  $pdo = new PDO('mysql:host={db_host};dbname={db_name};charset=utf8','{db_user}','{db_pass}');\n"
+        "  $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);\n"
+        f"  $p = '{table_pfx}';\n"
+        "  $rows = $pdo->query(\n"
+        "    \"SELECT h.id, h.date, h.logger, h.level, h.message,\n"
+        "     COALESCE((SELECT value FROM {$p}simple_history_contexts\n"
+        "       WHERE history_id=h.id AND key_name='_user_login' LIMIT 1),'') AS user_login,\n"
+        "     COALESCE((SELECT value FROM {$p}simple_history_contexts\n"
+        "       WHERE history_id=h.id AND key_name='_server_remote_addr' LIMIT 1),'') AS ip\n"
+        f"    FROM {table_pfx}simple_history h ORDER BY h.id DESC LIMIT {limit}\"\n"
+        "  )->fetchAll(PDO::FETCH_ASSOC);\n"
+        "  header('Content-Type: application/json');\n"
+        "  echo json_encode(['ok'=>true,'source'=>'wp_db','events'=>$rows]);\n"
+        "} catch(Exception $e) {\n"
+        "  header('Content-Type: application/json');\n"
+        "  echo json_encode(['ok'=>false,'error'=>$e->getMessage()]);\n"
+        "}\n"
+    )
+
+    up = _cp('Fileman/save_file_content', method='POST', post_data={
+        'dir': f'/{wp_dir}', 'file': script_name, 'content': php,
+    })
+    if up.get('_err') or not up.get('status'):
+        return jsonify({'error': f'Cannot upload temp script via cPanel Fileman: {up.get("_err") or up.get("errors")}'}), 500
+
+    # ── Step 3: Fetch script output via ScraperAPI ────────────────────────────
+    script_url = f'{site_url}/{script_name}'
+    events, source, note = [], 'none', ''
+    try:
+        sc_code, sc_body = _wp_request(script_url, timeout=25)
+        if sc_code == 200:
+            result = _j.loads(sc_body)
+            if result.get('ok') and isinstance(result.get('events'), list):
+                for row in result['events']:
+                    msg = str(row.get('message') or row.get('logger') or '')
+                    if not msg:
+                        continue
+                    events.append({
+                        'timestamp': str(row.get('date') or ''),
+                        'user':      str(row.get('user_login') or '—'),
+                        'event':     msg[:120],
+                        'ip':        str(row.get('ip') or ''),
+                        'severity':  ('HIGH' if any(k in msg.lower()
+                                       for k in ('fail', 'block', 'attack', 'brute', 'invalid'))
+                                      else 'INFO'),
+                        'status':    ('failed' if any(k in msg.lower()
+                                       for k in ('fail', 'block', 'denied', 'invalid'))
+                                      else 'success'),
+                        'source':    'wp_db',
+                    })
+                source = 'wp_db'
+            elif result.get('error'):
+                note = f'Database error: {result["error"]}'
+        else:
+            note = f'Script returned HTTP {sc_code} — may be blocked or wp_dir is wrong'
+    except Exception as e:
+        note = f'Fetch error: {e}'
+    finally:
+        # ── Step 4: Delete temp script immediately ────────────────────────────
+        _cp('Fileman/unlink', method='POST', post_data={
+            'files': _j.dumps([{'dir': f'/{wp_dir}', 'file': script_name}])
+        })
+
+    if not events and not note:
+        note = 'No Simple History events found. Is the Simple History plugin installed and active?'
+
+    return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
+
+
 @app.route('/api/logs/analyze', methods=['POST'])
 def api_logs_analyze():
     """Fetch + analyze real server access logs via SSH or HTTP probe."""

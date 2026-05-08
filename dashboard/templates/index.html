@@ -2990,6 +2990,27 @@ Export Power BI
         <div id="le-wp-install-status" style="display:none;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;"></div>
         <div class="le-hint"><strong>Simple History</strong> has a free REST API — install it so agents can read login events directly. <strong>WP Activity Log (WSAL)</strong> gives a richer admin UI but its REST API requires the paid PRO version. Generate an Application Password at: <em>WP Admin → Users → Profile → Application Passwords</em>.</div>
       </div>
+
+      <!-- cPanel Database Access — no WordPress auth needed -->
+      <div style="border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px;margin-top:10px;background:#f9f9f9;">
+        <div style="font-weight:600;font-size:13px;color:#323130;margin-bottom:6px;cursor:pointer;" onclick="var s=document.getElementById('le-wp-cpanel-body');s.style.display=s.style.display==='none'?'block':'none';">
+          &#128197; cPanel Database Access <span style="font-size:11px;color:#605e5c;font-weight:400;">(no WordPress auth needed)</span>
+          <span style="float:right;color:#0078d4;font-size:11px;">click to expand &#9660;</span>
+        </div>
+        <div id="le-wp-cpanel-body" style="display:none;">
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+            <div><label class="le-cred-label">cPanel Host</label><input type="text" id="le-cpdb-host" class="le-cred-input" placeholder="srv123.host.com" style="width:180px;"></div>
+            <div><label class="le-cred-label">cPanel Username</label><input type="text" id="le-cpdb-user" class="le-cred-input" placeholder="cpanel_user"></div>
+            <div><label class="le-cred-label">cPanel Password</label><input type="password" id="le-cpdb-pass" class="le-cred-input" placeholder="password"></div>
+            <div><label class="le-cred-label">API Token (optional)</label><input type="text" id="le-cpdb-token" class="le-cred-input" placeholder="paste cPanel API token"></div>
+            <div><label class="le-cred-label">WP Directory</label><input type="text" id="le-cpdb-dir" class="le-cred-input" placeholder="public_html" value="public_html" style="width:130px;"></div>
+          </div>
+          <button class="btn btn-sm" onclick="runWpCpanelDb()" id="le-cpdb-btn" style="background:#8764b8;color:#fff;border-color:#8764b8;border-radius:8px;padding:7px 20px;">Fetch via Database</button>
+          <div id="le-cpdb-status" style="display:none;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;"></div>
+          <div class="le-hint" style="margin-top:8px;">Reads <code>wp-config.php</code> via cPanel Fileman, runs a temp PHP script to query Simple History tables directly, then deletes it. No WordPress credentials needed.</div>
+        </div>
+      </div>
+
       <div id="le-wp-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Fetching live WordPress events…</div>
       <div id="le-wp-note" style="display:none;padding:10px 14px;background:#fff4ce;border-radius:6px;color:#7a5c00;font-size:12px;margin-bottom:10px;"></div>
       <div id="le-wp-error" style="display:none;padding:12px 14px;background:#fde7e9;border-radius:6px;color:#a80000;font-size:12px;margin-bottom:10px;"></div>
@@ -6408,34 +6429,81 @@ function runWpLive() {
       document.getElementById('le-wp-note').textContent = d.note;
       document.getElementById('le-wp-note').style.display = 'block';
     }
-    var events = d.events || [];
-    var statsEl = document.getElementById('le-wp-stats');
-    statsEl.textContent = events.length + ' event(s) fetched' + (d.source && d.source !== 'none' ? ' via ' + d.source : '') + (d.total > events.length ? ' (showing ' + events.length + ' of ' + d.total + ')' : '');
-    statsEl.style.display = 'block';
-    var tbody = document.getElementById('le-wp-body');
-    if (!events.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No events found. ' + (d.note || 'Install WSAL or Simple History plugin for full login tracking.') + '</td></tr>';
-      return;
-    }
-    tbody.innerHTML = events.map(function(e){
-      var sevColor = e.severity === 'HIGH' ? '#a80000' : '#374151';
-      var statusIcon = e.status === 'failed' ? '<span style="color:#a80000;">✗</span>' : e.status === 'active' ? '<span style="color:#107c10;">●</span>' : '<span style="color:#107c10;">✓</span>';
-      var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#' + _esc(e.ip) + '" target="_blank" style="color:#0078d4;font-family:monospace;">' + _esc(e.ip) + '</a>' : _esc(e.ip||'—');
-      return '<tr style="border-bottom:1px solid #f3f2f1;">' +
-        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
-        '<td style="padding:7px 12px;font-weight:600;">' + _esc(e.user||'—') + '</td>' +
-        '<td style="padding:7px 12px;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(e.event||'') + '">' + _esc(e.event||'—') + '</td>' +
-        '<td style="padding:7px 12px;">' + ip + '</td>' +
-        '<td style="padding:7px 12px;color:' + sevColor + ';font-size:11px;font-weight:600;">' + _esc(e.severity||'—') + '</td>' +
-        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;">' + statusIcon + ' ' + _esc(e.source||'—') + '</td>' +
-        '</tr>';
-    }).join('');
+    renderWpEvents(d.events || [], d.source, d.note, d.total);
   })
   .catch(function(err){
     document.getElementById('le-wp-loading').style.display = 'none';
     document.getElementById('le-wp-btn').disabled = false;
     document.getElementById('le-wp-error').textContent = 'Error: ' + err.message;
     document.getElementById('le-wp-error').style.display = 'block';
+  });
+}
+
+function renderWpEvents(events, source, note, total) {
+  var statsEl = document.getElementById('le-wp-stats');
+  statsEl.textContent = events.length + ' event(s) fetched' +
+    (source && source !== 'none' ? ' via ' + source : '') +
+    (total > events.length ? ' (showing ' + events.length + ' of ' + total + ')' : '');
+  statsEl.style.display = 'block';
+  var tbody = document.getElementById('le-wp-body');
+  if (!events.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No events found. ' + (note || 'Install Simple History plugin for full login tracking.') + '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = events.map(function(e){
+    var sevColor = e.severity === 'HIGH' ? '#a80000' : '#374151';
+    var statusIcon = e.status === 'failed' ? '<span style="color:#a80000;">&#x2717;</span>' : e.status === 'active' ? '<span style="color:#107c10;">&#9679;</span>' : '<span style="color:#107c10;">&#x2713;</span>';
+    var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#' + _esc(e.ip) + '" target="_blank" style="color:#0078d4;font-family:monospace;">' + _esc(e.ip) + '</a>' : _esc(e.ip||'—');
+    return '<tr style="border-bottom:1px solid #f3f2f1;">' +
+      '<td style="padding:7px 12px;font-size:11px;color:#605e5c;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
+      '<td style="padding:7px 12px;font-weight:600;">' + _esc(e.user||'—') + '</td>' +
+      '<td style="padding:7px 12px;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(e.event||'') + '">' + _esc(e.event||'—') + '</td>' +
+      '<td style="padding:7px 12px;">' + ip + '</td>' +
+      '<td style="padding:7px 12px;color:' + sevColor + ';font-size:11px;font-weight:600;">' + _esc(e.severity||'—') + '</td>' +
+      '<td style="padding:7px 12px;font-size:11px;color:#605e5c;">' + statusIcon + ' ' + _esc(e.source||'—') + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function runWpCpanelDb() {
+  var url   = (document.getElementById('le-wp-url').value||'').trim();
+  var host  = (document.getElementById('le-cpdb-host').value||'').trim();
+  var user  = (document.getElementById('le-cpdb-user').value||'').trim();
+  var pass  = (document.getElementById('le-cpdb-pass').value||'').trim();
+  var token = (document.getElementById('le-cpdb-token').value||'').trim();
+  var dir   = (document.getElementById('le-cpdb-dir').value||'public_html').trim();
+  var limit = parseInt(document.getElementById('le-wp-limit').value||'50');
+  var stat  = document.getElementById('le-cpdb-status');
+  if (!url)  { alert('Enter the WordPress site URL above first.'); return; }
+  if (!host) { alert('Enter the cPanel host.'); return; }
+  if (!user) { alert('Enter the cPanel username.'); return; }
+  if (!pass && !token) { alert('Enter cPanel password or API token.'); return; }
+  var btn = document.getElementById('le-cpdb-btn');
+  btn.disabled = true; btn.textContent = 'Fetching…';
+  stat.style.display = 'none';
+  fetch('/api/logs/wp-cpanel-db', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({url:url, cp_host:host, cp_user:user, cp_pass:pass, cp_token:token, wp_dir:dir, limit:limit})
+  }).then(function(r){return r.json();}).then(function(d){
+    btn.disabled = false; btn.textContent = 'Fetch via Database';
+    if (d.error) {
+      stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fde7e9;color:#a80000;';
+      stat.textContent = d.error; return;
+    }
+    if (d.note) {
+      stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fff4ce;color:#7a5c00;';
+      stat.textContent = d.note;
+    }
+    if (d.events && d.events.length) {
+      stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#dff6dd;color:#107c10;';
+      stat.textContent = 'Loaded ' + d.events.length + ' events from database.';
+      renderWpEvents(d.events, d.source, d.note, d.total);
+    }
+  }).catch(function(e){
+    btn.disabled = false; btn.textContent = 'Fetch via Database';
+    stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fde7e9;color:#a80000;';
+    stat.textContent = 'Request failed: ' + e;
   });
 }
 
