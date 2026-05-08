@@ -759,19 +759,28 @@ def wp_security_scan(site_url: str) -> str:
         lines = ['--- Admin User Activity Log ---']
         log_entries: list[tuple[str, str, str, str]] = []
 
-        # Try all plugin API endpoints simultaneously.
-        # Sources verified against real plugin code on GitHub:
-        #  - WSAL (wsal/v1): wpwhitesecurity/wp-security-audit-log — PRO-only feature, no REST in free version
-        #  - iThemes/Solid Security (ithemes-security/v1/logs): wpcloudpanel/ithemes-security-pro
-        #    Namespace + rest_base from core/lib/rest/Logs_Controller.php
-        #  - Sucuri: uses admin-ajax.php + external Sucuri API, has NO WordPress REST endpoint
-        #  - WFLS: uses wp_ajax_wordfence_ls_* actions, has NO WordPress REST endpoint
+        # Try all plugin REST API endpoints simultaneously.
+        # Only endpoints verified to exist in the FREE versions are listed first.
+        #
+        # Simple History (free, has REST): bonny/WordPress-Simple-History
+        #   Namespace: simple-history/v1, route: /events
+        #   Source: inc/class-wp-rest-events-controller.php
+        #   Requires: authenticated (is_user_logged_in check), returns list of event objects
+        #
+        # WSAL PRO only (free version has NO REST API):
+        #   Melapress/wp-security-audit-log free — no register_rest_route anywhere
+        #   wsal/v1 endpoints only exist in the paid PRO extension
+        #
+        # iThemes Security / Solid Security PRO:
+        #   Source: wpcloudpanel/ithemes-security-pro core/lib/rest/Logs_Controller.php
+        #   namespace='ithemes-security/v1', rest_base='logs'
         all_eps = [
-            # WSAL PRO: wpwhitesecurity/wp-security-audit-log — premium REST endpoints
+            # ── Simple History (FREE + REST) — agents use this ────────────────
+            '/wp-json/simple-history/v1/events?per_page=50&orderby=date&order=DESC',
+            # ── WSAL PRO (paid) ───────────────────────────────────────────────
             '/wp-json/wsal/v1/reports/login-audit',
             '/wp-json/wsal/v1/query?per_page=50&order_by=created_on&order=DESC',
-            # iThemes Security / Solid Security: ithemes-security/v1 namespace, rest_base=logs
-            # Source: core/lib/rest/Logs_Controller.php — namespace='ithemes-security/v1', rest_base='logs'
+            # ── iThemes / Solid Security PRO ──────────────────────────────────
             '/wp-json/ithemes-security/v1/logs?per_page=50&orderby=created_at&order=desc',
         ]
         with ThreadPoolExecutor(max_workers=len(all_eps)) as ex:
@@ -800,16 +809,23 @@ def wp_security_scan(site_url: str) -> str:
                 _plugin = ep.split('/')[3]
                 lines.append(f'[INFO] Activity plugin data via {_plugin} — {len(_items)} event(s)')
                 for _ev in _items[:50]:
-                    # WSAL fields: user_login, created_on, ip, message
-                    # iThemes fields: user (int id), created_at (ISO8601), ip.raw, module+code for message
-                    _u   = (_ev.get('user_login') or _ev.get('username') or
+                    # Simple History fields (free REST): message, date_gmt, date_local,
+                    #   ip_addresses[] (array), initiator_data{user_login}
+                    # WSAL PRO fields: user_login, created_on, ip (scalar), message
+                    # iThemes fields: user (int id), created_at (ISO8601), ip{raw}, module+code
+                    _idata = _ev.get('initiator_data') or {}
+                    _u   = (_idata.get('user_login') or _idata.get('user_email') or
+                            _ev.get('user_login') or _ev.get('username') or
                             str(_ev.get('user', '')) or _ev.get('actor', '') or 'unknown')
-                    _ts  = (_ev.get('created_on') or _ev.get('created_at') or
-                            _ev.get('timestamp') or _ev.get('date') or scan_ts)
-                    _ip_val = _ev.get('ip') or _ev.get('client_ip') or _ev.get('remote_addr') or '-'
-                    if isinstance(_ip_val, dict):
-                        _ip_val = _ip_val.get('raw', '-')
-                    _ip  = str(_ip_val)
+                    _ts  = (_ev.get('date_gmt') or _ev.get('date_local') or
+                            _ev.get('created_on') or _ev.get('created_at') or
+                            _ev.get('timestamp') or scan_ts)
+                    _ip_raw = _ev.get('ip_addresses') or _ev.get('ip') or _ev.get('client_ip') or _ev.get('remote_addr') or '-'
+                    if isinstance(_ip_raw, list):
+                        _ip_raw = _ip_raw[0] if _ip_raw else '-'
+                    if isinstance(_ip_raw, dict):
+                        _ip_raw = _ip_raw.get('raw', '-')
+                    _ip  = str(_ip_raw)
                     _msg = (_ev.get('message') or _ev.get('event_type') or
                             (f'{_ev.get("module","")}/{_ev.get("code","")}' if _ev.get('module') else None) or
                             _ev.get('type', 'WordPress event'))
