@@ -1326,6 +1326,108 @@ def api_logs_wp_live():
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
+@app.route('/api/wp/install-plugin', methods=['POST'])
+def api_wp_install_plugin():
+    """Install and activate a WordPress plugin via WP REST API (WordPress 5.5+).
+
+    Uses POST /wp-json/wp/v2/plugins — a real WordPress core endpoint.
+    Requires admin credentials with manage_plugins capability.
+    """
+    import base64 as _b64, json as _j, urllib.request as _req, urllib.error as _uerr
+    data     = request.get_json(force=True, silent=True) or {}
+    url      = (data.get('url') or '').strip().rstrip('/')
+    wp_user  = (data.get('wp_user') or '').strip()
+    app_pass = (data.get('wp_app_pass') or '').strip()
+    slug     = (data.get('slug') or 'wp-security-audit-log').strip()
+
+    if not url or not wp_user or not app_pass:
+        return jsonify({'error': 'url, wp_user, and wp_app_pass are required'}), 400
+    if not url.startswith('http'):
+        url = 'https://' + url
+
+    auth = 'Basic ' + _b64.b64encode(f'{wp_user}:{app_pass}'.encode()).decode()
+
+    def _wp_post(path, body):
+        payload = _j.dumps(body).encode()
+        req = _req.Request(
+            f'{url}{path}',
+            data=payload,
+            headers={
+                'Authorization': auth,
+                'Content-Type':  'application/json',
+                'Accept':        'application/json',
+                'User-Agent':    'CyberINK/2.0',
+            },
+            method='POST',
+        )
+        try:
+            with _req.urlopen(req, timeout=60) as r:
+                return r.status, _j.loads(r.read().decode())
+        except _uerr.HTTPError as e:
+            try:
+                body_err = _j.loads(e.read().decode())
+            except Exception:
+                body_err = {}
+            return e.code, body_err
+        except Exception as exc:
+            return 0, {'message': str(exc)}
+
+    def _wp_get_plugin_status():
+        """Check if plugin is already installed (GET /wp-json/wp/v2/plugins/<file>)."""
+        req = _req.Request(
+            f'{url}/wp-json/wp/v2/plugins/{slug}/{slug}',
+            headers={'Authorization': auth, 'Accept': 'application/json', 'User-Agent': 'CyberINK/2.0'},
+        )
+        try:
+            with _req.urlopen(req, timeout=15) as r:
+                return _j.loads(r.read().decode())
+        except Exception:
+            return None
+
+    # Check if already installed
+    existing = _wp_get_plugin_status()
+    if existing and existing.get('plugin'):
+        if existing.get('status') == 'active':
+            return jsonify({'ok': True, 'status': 'already_active',
+                            'message': f'{existing.get("name", slug)} is already installed and active.'})
+        # Installed but inactive — activate it
+        activate_req = _req.Request(
+            f'{url}/wp-json/wp/v2/plugins/{slug}/{slug}',
+            data=_j.dumps({'status': 'active'}).encode(),
+            headers={
+                'Authorization': auth,
+                'Content-Type':  'application/json',
+                'Accept':        'application/json',
+                'User-Agent':    'CyberINK/2.0',
+            },
+            method='POST',
+        )
+        try:
+            with _req.urlopen(activate_req, timeout=20) as r:
+                resp = _j.loads(r.read().decode())
+                return jsonify({'ok': True, 'status': 'activated',
+                                'message': f'{resp.get("name", slug)} activated successfully.'})
+        except Exception as exc:
+            return jsonify({'ok': False, 'error': f'Activation failed: {exc}'}), 500
+
+    # Not installed — install + activate from WordPress.org
+    code, resp = _wp_post('/wp-json/wp/v2/plugins', {'slug': slug, 'status': 'active'})
+    if code in (200, 201) and resp.get('plugin'):
+        return jsonify({'ok': True, 'status': 'installed',
+                        'message': f'{resp.get("name", slug)} installed and activated successfully.',
+                        'version': resp.get('version', '')})
+
+    # Surface the real WP error message
+    wp_msg = resp.get('message') or resp.get('error') or f'HTTP {code}'
+    if code == 403:
+        wp_msg = 'Permission denied — your account needs the manage_plugins capability (administrator role).'
+    elif code == 401:
+        wp_msg = 'Authentication failed — check your Application Password.'
+    elif code == 0:
+        wp_msg = f'Could not connect: {wp_msg}'
+    return jsonify({'ok': False, 'error': wp_msg, 'code': code}), (400 if code >= 400 else 500)
+
+
 @app.route('/api/logs/cpanel-live', methods=['POST'])
 def api_logs_cpanel_live():
     """Fetch real-time session/login data from cPanel via UAPI."""

@@ -2981,10 +2981,12 @@ Export Power BI
         </div>
         <div class="le-cred-actions">
           <button class="btn btn-sm" onclick="runWpLive()" id="le-wp-btn" style="background:#0078d4;color:#fff;border-color:#0078d4;border-radius:8px;padding:7px 20px;">Fetch Live Events</button>
+          <button class="btn btn-sm" onclick="installWsal()" id="le-wp-install-btn" title="Installs &amp; activates WP Activity Log via WordPress REST API" style="background:#107c10;color:#fff;border-color:#107c10;border-radius:8px;padding:7px 20px;">Install WP Activity Log</button>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#605e5c;cursor:pointer;">
             <input type="checkbox" id="le-wp-autorefresh" onchange="toggleWpAutoRefresh()"> Auto-refresh every 30s
           </label>
         </div>
+        <div id="le-wp-install-status" style="display:none;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;"></div>
         <div class="le-hint">Fetches real login events via WordPress REST API. Requires <strong>WP Activity Log (WSAL)</strong> or <strong>Simple History</strong> plugin installed on your site for full activity tracking. Generate an Application Password at: <em>WordPress Admin → Users → Profile → Application Passwords</em>.</div>
       </div>
       <div id="le-wp-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Fetching live WordPress events…</div>
@@ -6441,6 +6443,52 @@ function toggleWpAutoRefresh() {
   if (document.getElementById('le-wp-autorefresh').checked) {
     _wpAutoRefreshTimer = setInterval(runWpLive, 30000);
   }
+}
+
+function installWsal() {
+  var url     = (document.getElementById('le-wp-url').value||'').trim();
+  var wpUser  = (document.getElementById('le-wp-user').value||'').trim();
+  var appPass = (document.getElementById('le-wp-apppass').value||'').trim();
+  if (!url)     { alert('Enter the WordPress site URL first.'); return; }
+  if (!wpUser)  { alert('Enter your WP Username first.'); return; }
+  if (!appPass) { alert('Enter your Application Password first.\nGenerate one at: WP Admin → Users → Profile → Application Passwords'); return; }
+
+  var btn    = document.getElementById('le-wp-install-btn');
+  var status = document.getElementById('le-wp-install-status');
+  btn.disabled = true;
+  btn.textContent = 'Installing…';
+  status.style.display = 'block';
+  status.style.background = '#fff4ce';
+  status.style.color = '#7a5c00';
+  status.textContent = 'Connecting to WordPress and installing WP Activity Log…';
+
+  fetch('/api/wp/install-plugin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: url, wp_user: wpUser, wp_app_pass: appPass, slug: 'wp-security-audit-log' }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.disabled = false;
+    btn.textContent = 'Install WP Activity Log';
+    if (d.ok) {
+      status.style.background = '#dff6dd';
+      status.style.color = '#107c10';
+      status.textContent = d.message + (d.version ? ' (v' + d.version + ')' : '') + ' — clicking Fetch Live Events will now show real login data.';
+      setTimeout(runWpLive, 1500);
+    } else {
+      status.style.background = '#fde7e9';
+      status.style.color = '#a80000';
+      status.textContent = 'Install failed: ' + (d.error || 'Unknown error');
+    }
+  })
+  .catch(function(err){
+    btn.disabled = false;
+    btn.textContent = 'Install WP Activity Log';
+    status.style.background = '#fde7e9';
+    status.style.color = '#a80000';
+    status.textContent = 'Error: ' + err.message;
+  });
 }
 
 // ── cPanel live sessions ───────────────────────────────────────────────────────
