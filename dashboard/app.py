@@ -2127,73 +2127,66 @@ def api_cloudflare_insights():
     if not account_id:
         return jsonify({'error': 'Cloudflare Account ID required — visible in the URL when logged into dash.cloudflare.com'}), 400
 
-    # Try endpoints in order — stop on first success
-    # dismissed param only on endpoints that support it
-    candidates = [
+    def _parse_cf_issues(resp_body_str):
+        """Parse CF security-center response body → list of raw issue dicts."""
+        try:
+            resp = _j.loads(resp_body_str)
+        except Exception:
+            return []
+        if not resp.get('success'):
+            return []
+        raw = resp.get('result') or []
+        if isinstance(raw, dict):
+            for _k in ('issues', 'insights', 'data', 'items'):
+                if isinstance(raw.get(_k), list):
+                    raw = raw[_k]
+                    break
+            else:
+                raw = [v for v in raw.values() if isinstance(v, list)]
+                raw = raw[0] if raw else []
+        if not isinstance(raw, list):
+            return []
+        out = []
+        for i in raw:
+            if isinstance(i, dict):
+                out.append(i)
+            elif isinstance(i, str) and i:
+                out.append({'description': i})
+        return out
+
+    # 1. Account-level insights
+    code, body = _cf_request(
         f'/accounts/{account_id}/security-center/insights?per_page={limit}',
-        f'/accounts/{account_id}/intel/attack-surface-report/issues?per_page={limit}',
-        f'/accounts/{account_id}/security-center/insights',
-        f'/accounts/{account_id}/intel/attack-surface-report/issues',
-    ]
-    code, body = 0, ''
-    for path in candidates:
-        code, body = _cf_request(path, cf_token, timeout=20)
-        if code == 200:
-            break
+        cf_token, timeout=20)
 
     if code in (401, 403):
-        return jsonify({'error': (
-            'Token authentication failed — make sure you created the token with '
-            '"Account Security Insights:Read" permission and the correct Account Resources. '
-            f'CF returned HTTP {code}.'
-        )}), code
-    if code != 200:
+        return jsonify({'error': f'Token auth failed (HTTP {code}) — check Security Insights:Read permission'}), code
+    if code not in (200,):
         try:
-            err_body = _j.loads(body)
-            errs = err_body.get('errors') or []
-            msg = errs[0].get('message', '') if errs else ''
+            msg = (_j.loads(body).get('errors') or [{}])[0].get('message', body[:200])
         except Exception:
-            msg = ''
-        if not msg:
-            msg = (body or '')[:300]
+            msg = body[:200]
         return jsonify({'error': f'Cloudflare API error (HTTP {code}): {msg}'}), 500
 
-    try:
-        resp = _j.loads(body)
-    except Exception:
-        return jsonify({'error': 'Invalid JSON response from Cloudflare API'}), 500
+    raw = _parse_cf_issues(body)
 
-    if not resp.get('success'):
-        errs = resp.get('errors') or []
-        msg  = errs[0].get('message') if errs else 'Unknown Cloudflare API error'
-        return jsonify({'error': msg}), 500
+    # 2. If account-level returned 0, fall back to per-zone queries
+    if not raw:
+        zones_code, zones_body = _cf_request(
+            f'/zones?account.id={account_id}&per_page=20', cf_token, timeout=15)
+        if zones_code == 200:
+            try:
+                zone_ids = [z['id'] for z in (_j.loads(zones_body).get('result') or [])]
+            except Exception:
+                zone_ids = []
+            for zid in zone_ids[:10]:
+                zc, zb = _cf_request(
+                    f'/zones/{zid}/security-center/insights?per_page={limit}',
+                    cf_token, timeout=15)
+                if zc == 200:
+                    raw.extend(_parse_cf_issues(zb))
 
-    result_info = resp.get('result_info') or {}
-
-    # result may be a list of dicts, a dict wrapper, or something unexpected
-    raw = resp.get('result') or []
-    if isinstance(raw, dict):
-        # Find the first list value (issues/insights key), ignore scalar values
-        for _k in ('issues', 'insights', 'data', 'items'):
-            if isinstance(raw.get(_k), list):
-                raw = raw[_k]
-                break
-        else:
-            raw = [v for v in raw.values() if isinstance(v, list)]
-            raw = raw[0] if raw else []
-    if not isinstance(raw, list):
-        raw = []
-
-    # Normalise all items to dicts; skip non-dict/non-str scalars
-    normalised = []
-    for i in raw:
-        if isinstance(i, dict):
-            normalised.append(i)
-        elif isinstance(i, str) and i:
-            normalised.append({'description': i})
-    raw = normalised
-
-    # Filter dismissed client-side
+    # Filter dismissed
     if not dismissed:
         raw = [i for i in raw if not i.get('dismissed', False)]
 
@@ -2213,10 +2206,9 @@ def api_cloudflare_insights():
         })
 
     return jsonify({
-        'insights':   insights,
-        'total':      result_info.get('total_count', len(insights)),
-        'count':      len(insights),
-        '_raw_sample': raw[:2] if not insights and raw else None,  # debug: show raw if no insights parsed
+        'insights': insights,
+        'total':    len(insights),
+        'count':    len(insights),
     })
 
 
