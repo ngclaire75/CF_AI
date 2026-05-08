@@ -51,9 +51,10 @@ except ImportError:
     _HAS_CLOUDSCRAPER = False
 
 # ── External scraping API keys (optional — unlocks Cloudflare JS challenges) ─
-_SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')   # scraperapi.com
-_ZENROWS_API_KEY = os.environ.get('ZENROWS_API_KEY', '')   # zenrows.com
-_SCRAPINGBEE_KEY = os.environ.get('SCRAPINGBEE_API_KEY', '')
+_SCRAPER_API_KEY  = os.environ.get('SCRAPER_API_KEY', '')   # scraperapi.com
+_ZENROWS_API_KEY  = os.environ.get('ZENROWS_API_KEY', '')   # zenrows.com
+_SCRAPINGBEE_KEY  = os.environ.get('SCRAPINGBEE_API_KEY', '')
+_WPSCAN_API_TOKEN = os.environ.get('WPSCAN_API_TOKEN', '')  # wpscan.com — free: 75 req/day
 
 
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -260,6 +261,60 @@ def _creds() -> tuple[str, str]:
     return user, pw
 
 
+def _wpscan_api(rtype: str, slug: str, installed_ver: str = '') -> list[str]:
+    """Query WPScan vulnerability database API for a plugin, theme, or WP core version.
+
+    rtype : 'plugins' | 'themes' | 'wordpresses'
+    slug  : plugin/theme slug or WP version string (e.g. '6.4.3')
+    Returns a list of formatted finding strings ready to include in output.
+    """
+    if not _WPSCAN_API_TOKEN:
+        return []
+    # WP core endpoint uses version without dots: 643 for 6.4.3
+    slug_key = slug.replace('.', '') if rtype == 'wordpresses' else slug
+    url = f'https://wpscan.com/api/v3/{rtype}/{slug_key}'
+    try:
+        req = urllib.request.Request(url, headers={
+            'User-Agent': _UA,
+            'Authorization': f'Token token={_WPSCAN_API_TOKEN}',
+        })
+        ctx = _ssl_ctx()
+        with urllib.request.urlopen(req, context=ctx, timeout=12) as r:
+            data = json.loads(r.read().decode())
+        entry = data.get(slug_key, data.get(slug, {}))
+        vulns = entry.get('vulnerabilities', [])
+        latest = entry.get('latest_version', '')
+    except Exception:
+        return []
+
+    lines: list[str] = []
+    for v in vulns:
+        fixed_in = v.get('fixed_in') or ''
+        title    = v.get('title', '?')
+        refs     = v.get('references', {})
+        cve_ids  = refs.get('cve', [])
+        cvss     = v.get('cvss', {})
+        score    = cvss.get('score', '') if isinstance(cvss, dict) else ''
+
+        # Only flag if installed version is older than fixed_in
+        if installed_ver and fixed_in:
+            try:
+                from packaging.version import Version
+                if Version(installed_ver) >= Version(fixed_in):
+                    continue  # already patched
+            except Exception:
+                pass  # packaging not installed — report anyway
+
+        sev = 'CRITICAL' if score and float(str(score)) >= 9 else 'HIGH'
+        cve_str = ' [' + ', '.join(f'CVE-{c}' for c in cve_ids) + ']' if cve_ids else ''
+        lines.append(f'[FINDING {sev}] WPSCAN_CVE{cve_str}: {title}')
+        if fixed_in:
+            lines.append(f'  Installed: {installed_ver or "unknown"}  Fixed in: {fixed_in}')
+        if latest and installed_ver and installed_ver != latest:
+            lines.append(f'  Latest available: {latest}')
+    return lines
+
+
 def _pretty_json(raw: str, max_lines: int = 120) -> str:
     try:
         parsed = json.loads(raw)
@@ -442,14 +497,26 @@ def wp_security_scan(site_url: str) -> str:
 
     def chk_version():
         lines = ['--- Version Exposure ---']
+        wp_ver = ''
         code_r, body_r, _ = _hreq('/readme.html')
         if code_r == 200 and 'WordPress' in body_r:
             m = re.search(r'Version\s+(\d+\.\d+[\.\d]*)', body_r)
-            ver = m.group(1) if m else 'unknown'
-            lines.append(f'[FINDING HIGH] README_HTML_EXPOSED: readme.html public — WP version {ver}')
+            wp_ver = m.group(1) if m else ''
+            lines.append(f'[FINDING HIGH] README_HTML_EXPOSED: readme.html public — WP version {wp_ver or "unknown"}')
             lines.append('  Fix: delete /readme.html or deny in .htaccess/Nginx')
         else:
             lines.append(f'readme.html: HTTP {code_r} ✓')
+        # Try generator tag if readme was hidden
+        if not wp_ver:
+            _, body_home, _ = _hreq('/')
+            m2 = re.search(r'generator.*?WordPress\s+([\d.]+)', body_home, re.I)
+            if m2:
+                wp_ver = m2.group(1)
+        # WPScan API — check core version for known CVEs
+        if wp_ver and _WPSCAN_API_TOKEN:
+            lines.append(f'[INFO] Checking WPScan API for WP {wp_ver} vulnerabilities...')
+            for vline in _wpscan_api('wordpresses', wp_ver, wp_ver):
+                lines.append('  ' + vline)
         code_l, _, hdrs_l = _hreq('/wp-login.php')
         svr = hdrs_l.get('X-Powered-By', '') or hdrs_l.get('Server', '')
         if svr:
@@ -514,7 +581,12 @@ def wp_security_scan(site_url: str) -> str:
                 inactive = [p for p in plugins if p.get('status') != 'active']
                 lines.append(f'Total: {len(active)} active, {len(inactive)} inactive')
                 for p in active:
-                    lines.append(f'  [ACTIVE]   {p.get("name","?")} v{p.get("version","?")} — {p.get("plugin","")}')
+                    slug = (p.get('plugin') or '').split('/')[0]
+                    ver  = p.get('version', '')
+                    lines.append(f'  [ACTIVE]   {p.get("name","?")} v{ver} — {p.get("plugin","")}')
+                    if slug and _WPSCAN_API_TOKEN:
+                        for vline in _wpscan_api('plugins', slug, ver):
+                            lines.append('    ' + vline)
                 for p in inactive:
                     lines.append(f'  [INACTIVE] {p.get("name","?")} v{p.get("version","?")} — consider deleting')
             elif isinstance(plugins, dict) and plugins.get('code'):
@@ -529,10 +601,15 @@ def wp_security_scan(site_url: str) -> str:
         try:
             themes = json.loads(body_t)
             if isinstance(themes, list) and themes:
-                t = themes[0]
+                t      = themes[0]
                 name   = t.get('name', {}); name   = name.get('rendered', name) if isinstance(name, dict) else str(name)
                 author = t.get('author', {}); author = author.get('rendered', author) if isinstance(author, dict) else str(author)
-                lines.append(f'Active theme: {name} v{t.get("version","?")} by {author}')
+                slug   = t.get('stylesheet', '') or t.get('template', '')
+                ver    = t.get('version', '')
+                lines.append(f'Active theme: {name} v{ver} by {author}')
+                if slug and _WPSCAN_API_TOKEN:
+                    for vline in _wpscan_api('themes', slug, ver):
+                        lines.append('  ' + vline)
             else:
                 lines.append(f'Themes: HTTP {code_t}')
         except Exception:
@@ -691,6 +768,9 @@ def wp_security_scan(site_url: str) -> str:
             '/wp-json/ithemes-security/v1/log?per_page=50',
             '/wp-json/sucuri/v1/auditlogs',
             '/wp-json/wfls/v1/summary',
+            '/wp-json/jetpack/v4/protect/status',
+            '/wp-json/jetpack/v4/scan',
+            '/wp-json/jetpack-protect/v1/status',
         ]
         with ThreadPoolExecutor(max_workers=len(all_eps)) as ex:
             futs = {ex.submit(_wp_rest, base, ep): ep for ep in all_eps}
@@ -726,7 +806,7 @@ def wp_security_scan(site_url: str) -> str:
                 pass
 
         # Fallback: try to install WSAL via WP-CLI if admin credentials available
-        if not log_entries and user and passwd:
+        if not log_entries and user and pw:
             _wpcli = (f'wp plugin install wp-security-audit-log --activate '
                       f'--url={base} 2>&1 | head -5')
             try:
@@ -795,12 +875,167 @@ def wp_security_scan(site_url: str) -> str:
             lines.append(f'WP-LOG | {_ts} | {_uname} | {_event_safe} | {_ip} | {_risk}')
         return lines
 
+    def chk_jetpack_protect():
+        lines = ['--- Jetpack Protect ---']
+        # Probe all known Jetpack Protect endpoints
+        eps = [
+            '/wp-json/jetpack/v4/protect/status',
+            '/wp-json/jetpack/v4/scan',
+            '/wp-json/jetpack-protect/v1/status',
+            '/wp-json/jetpack/v4/module/protect',
+        ]
+        found_any = False
+        for ep in eps:
+            code_jp, body_jp = _req(ep)
+            if code_jp != 200:
+                continue
+            try:
+                data_jp = json.loads(body_jp)
+            except Exception:
+                continue
+            found_any = True
+
+            # Jetpack Protect scan results
+            threats = (data_jp.get('threats') or
+                       data_jp.get('scan_result', {}).get('threats') or
+                       data_jp.get('results', {}).get('threats') or [])
+            if threats:
+                lines.append(f'[FINDING HIGH] JETPACK_PROTECT_THREATS: {len(threats)} threat(s) detected')
+                for t in threats[:10]:
+                    title = t.get('title') or t.get('name') or t.get('description', 'Unknown threat')
+                    fix   = t.get('fix', {})
+                    fix_v = fix.get('extensionStatus') or fix.get('release') or ''
+                    ext   = t.get('extension', {})
+                    slug_t = ext.get('slug', '')
+                    ver_t  = ext.get('version', '')
+                    loc    = t.get('fileName') or t.get('file', '')
+                    sev_t  = t.get('severity', 'high').upper()
+                    lines.append(f'  [{sev_t}] {title}')
+                    if slug_t:
+                        lines.append(f'    Plugin/Theme: {slug_t} v{ver_t}')
+                    if fix_v:
+                        lines.append(f'    Fix: update to {fix_v}')
+                    if loc:
+                        lines.append(f'    Location: {loc}')
+                    lines.append(f'  WP-LOG | {scan_ts} | jetpack-protect | {title} | - | HIGH')
+            else:
+                status_msg = data_jp.get('status') or data_jp.get('state', '')
+                lines.append(f'Jetpack Protect: active, no threats detected ✓ (status: {status_msg})')
+
+            # Plugin vulnerabilities from Jetpack Protect database (uses WPScan data)
+            checks_jp = (data_jp.get('checked') or
+                         data_jp.get('num_threats') or
+                         data_jp.get('plugins', {}) or {})
+            if isinstance(checks_jp, dict):
+                for pslug, pinfo in checks_jp.items():
+                    p_vulns = pinfo.get('vulnerabilities', []) if isinstance(pinfo, dict) else []
+                    if p_vulns:
+                        lines.append(f'[FINDING HIGH] JP_PLUGIN_VULN: {pslug} — {len(p_vulns)} vulnerability(ies)')
+            break  # stop at first successful endpoint
+
+        if not found_any:
+            lines.append('[INFO] Jetpack Protect not active or REST endpoints not accessible')
+            lines.append('  Install free plugin: wordpress.org/plugins/jetpack-protect')
+            lines.append('  It uses the same WPScan vulnerability database to scan your plugins/themes')
+        return lines
+
+    def chk_wpscan_cli():
+        lines = ['--- WPScan CLI ---']
+        wpscan_bin = shutil.which('wpscan')
+        if not wpscan_bin:
+            lines.append('[INFO] wpscan CLI not installed — install: gem install wpscan  or  apt-get install wpscan')
+            if _WPSCAN_API_TOKEN:
+                lines.append('[INFO] WPScan API token found — plugin/theme CVE checks running via API in other sections')
+            else:
+                lines.append('[INFO] Set WPSCAN_API_TOKEN env var to enable vulnerability lookups (free at wpscan.com/register)')
+            return lines
+
+        cmd = [wpscan_bin, '--url', base, '--format', 'json', '--no-banner',
+               '--enumerate', 'ap,at,tt,u,cb,dbe',
+               '--plugins-detection', 'aggressive',
+               '--request-timeout', '15', '--connect-timeout', '8',
+               '--random-user-agent']
+        if _WPSCAN_API_TOKEN:
+            cmd += ['--api-token', _WPSCAN_API_TOKEN]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+            raw = result.stdout.strip()
+            if not raw:
+                lines.append('[WPSCAN] No output — site may be blocking the scanner or wpscan errored')
+                if result.stderr:
+                    lines.append(f'  stderr: {result.stderr[:300]}')
+                return lines
+
+            data = json.loads(raw)
+
+            # WordPress core version
+            wp_ver = data.get('version', {})
+            if wp_ver:
+                ver_num = wp_ver.get('number', '?')
+                status  = wp_ver.get('status', '')
+                vulns_c = wp_ver.get('vulnerabilities', [])
+                outdated = ' [OUTDATED]' if status == 'outdated' else ''
+                lines.append(f'WordPress core: {ver_num}{outdated}')
+                for v in vulns_c[:5]:
+                    refs = v.get('references', {})
+                    cves = ', '.join(f'CVE-{c}' for c in refs.get('cve', []))
+                    lines.append(f'  [FINDING HIGH] WP_CORE_CVE: {v.get("title","?")} — fixed in {v.get("fixed_in","?")} {cves}')
+
+            # Plugins
+            for slug, pdata in (data.get('plugins') or {}).items():
+                ver_p   = (pdata.get('version') or {}).get('number', '?')
+                vulns_p = pdata.get('vulnerabilities', [])
+                status_p = (pdata.get('version') or {}).get('status', '')
+                outdated_p = ' [OUTDATED]' if status_p == 'outdated' else ''
+                if vulns_p:
+                    lines.append(f'[FINDING HIGH] VULNERABLE_PLUGIN: {slug} v{ver_p}{outdated_p} — {len(vulns_p)} vulnerability(ies)')
+                    for v in vulns_p[:5]:
+                        refs = v.get('references', {})
+                        cves = ', '.join(f'CVE-{c}' for c in refs.get('cve', []))
+                        fixed = v.get('fixed_in', 'no fix yet')
+                        lines.append(f'  {v.get("title","?")} — fixed in {fixed} {cves}')
+                        lines.append(f'  WP-LOG | {scan_ts} | wpscan | Vulnerable plugin: {slug} v{ver_p} — {v.get("title","?")} | - | HIGH')
+
+            # Themes
+            for slug, tdata in (data.get('themes') or {}).items():
+                ver_t   = (tdata.get('version') or {}).get('number', '?')
+                vulns_t = tdata.get('vulnerabilities', [])
+                if vulns_t:
+                    lines.append(f'[FINDING HIGH] VULNERABLE_THEME: {slug} v{ver_t} — {len(vulns_t)} vulnerability(ies)')
+                    for v in vulns_t[:3]:
+                        refs = v.get('references', {})
+                        cves = ', '.join(f'CVE-{c}' for c in refs.get('cve', []))
+                        lines.append(f'  {v.get("title","?")} — fixed in {v.get("fixed_in","no fix yet")} {cves}')
+
+            # Users found by wpscan
+            users_found = list((data.get('users') or {}).keys())
+            if users_found:
+                lines.append(f'[FINDING MEDIUM] WPSCAN_USERS_FOUND: {", ".join(users_found[:10])}')
+
+            # Config backups / DB exports
+            for cb in (data.get('config_backups') or []):
+                lines.append(f'[FINDING CRITICAL] CONFIG_BACKUP: {cb}')
+            for dbe in (data.get('db_exports') or []):
+                lines.append(f'[FINDING CRITICAL] DB_EXPORT: {dbe}')
+
+            if not _WPSCAN_API_TOKEN:
+                lines.append('[INFO] No WPSCAN_API_TOKEN — vulnerability data not included. Get free token at wpscan.com/register')
+
+        except json.JSONDecodeError:
+            lines.append(f'[WPSCAN] Non-JSON output: {result.stdout[:400]}')
+        except subprocess.TimeoutExpired:
+            lines.append('[WPSCAN] Scan timed out after 3 minutes')
+        except Exception as exc:
+            lines.append(f'[WPSCAN] Error: {exc}')
+        return lines
+
     # ── Run all checks in parallel ────────────────────────────────────────────
     checks = [
         chk_site_info, chk_version, chk_users, chk_plugins, chk_themes,
         chk_settings, chk_xmlrpc, chk_debug_log, chk_sensitive_files,
         chk_headers, chk_admin_access, chk_login_page, chk_rest_auth,
-        chk_activity_log,
+        chk_activity_log, chk_jetpack_protect, chk_wpscan_cli,
     ]
 
     with ThreadPoolExecutor(max_workers=len(checks)) as pool:
