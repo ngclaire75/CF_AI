@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CF_AI Security Intelligence</title>
+<title>CyberINK Security Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -771,7 +771,7 @@ tr.hidden-r { display: none; }
 }
 .cred-toggle-btn:hover { border-color:#6366f1; color:#6366f1; }
 .cred-toggle-btn.active { border-color:#6366f1; color:#6366f1; background:#f5f3ff; }
-.cred-panel { border:1px solid #e5e7eb; border-radius:8px; margin-bottom:14px; overflow:hidden; }
+.cred-panel { overflow:hidden; margin-bottom:14px; }
 .cred-panel-inner { padding:16px 18px; background:#fafafa; }
 .cred-label { font-size:11px; color:#6b7280; display:block; margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
 .cred-select { background:#fff; border:1px solid #e5e7eb; border-radius:5px; padding:7px 10px; font-size:13px; color:#111827; outline:none; }
@@ -851,6 +851,17 @@ tr.hidden-r { display: none; }
     .btn, .filter-bar, .modal-bg { display: none !important; }
     .card { box-shadow: none; }
     .scroll-panel, .scroll-panel-lg { max-height: none; overflow: visible; }
+    body { overflow: visible !important; }
+    .main-shell { overflow: visible !important; height: auto !important; margin-left: 0 !important; }
+    .sidebar { display: none !important; }
+    .topbar { display: none !important; }
+    .page-content { overflow: visible !important; padding: 12px !important; }
+    .page-section { display: block !important; }
+    #page-dashboard { display: block !important; }
+    .mvd-card, .mvd-card-b { overflow: visible !important; page-break-inside: avoid; }
+    .mvd-grid, .mvd-grid-b { overflow: visible !important; grid-template-columns: 1fr 1fr 1fr !important; }
+    .mvd-filter-bar { display: none; }
+    canvas { max-width: 100% !important; }
 }
 
 /* ── Gridstack widget dashboard ── */
@@ -1332,36 +1343,40 @@ tr.hidden-r { display: none; }
    MICROSOFT DEFENDER STYLE REDESIGN
    ════════════════════════════════════════════════════════════ */
 body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif!important;}
-.sidebar{background:#faf9f8!important;border-right:1px solid #e1dfdd!important;width:220px!important;min-width:220px!important;}
+.sidebar{background:#2e2c2b!important;border-right:1px solid #3b3a39!important;width:220px!important;min-width:220px!important;}
 .main-shell{margin-left:220px!important;}
 .main-shell.expanded{margin-left:48px!important;}
 .sidebar.collapsed{width:48px!important;}
-.sb-brand{border-bottom-color:#e1dfdd!important;padding:10px 12px!important;background:transparent!important;}
-.sb-brand-logo{background:linear-gradient(135deg,#0078d4,#2b88d8)!important;border-radius:4px!important;width:28px!important;height:28px!important;}
-.sb-brand-logo .material-icons{font-size:16px!important;color:#fff!important;}
-.sb-brand-text{font-size:13px!important;font-weight:600!important;color:#201f1e!important;}
-.sb-brand-tag{color:#605e5c!important;font-size:10px!important;}
-.sb-nav-label{font-size:10px!important;color:#a19f9d!important;padding:8px 12px 3px!important;letter-spacing:.3px!important;}
-.sb-item{color:#323130!important;font-size:13px!important;font-weight:400!important;padding:5px 8px 5px 10px!important;border-radius:0!important;margin:0!important;width:100%!important;border-left:3px solid transparent!important;transition:background .1s!important;gap:8px!important;}
-.sb-item:hover{background:rgba(0,0,0,.04)!important;color:#201f1e!important;}
-.sb-item.active{background:rgba(0,120,212,.08)!important;color:#0078d4!important;font-weight:600!important;border-left-color:#0078d4!important;}
-.sb-item .material-icons{font-size:16px!important;color:inherit!important;flex-shrink:0;}
-.sb-item svg{stroke:#605e5c!important;width:15px!important;height:15px!important;}
+.sb-brand{border-bottom:1px solid #3b3a39!important;padding:10px 12px!important;background:#1b1a19!important;}
+.sb-brand-logo{background:none!important;border-radius:0!important;width:28px!important;height:28px!important;display:flex!important;align-items:center!important;justify-content:center!important;}
+.sb-brand-logo .material-icons{font-size:20px!important;color:#0078d4!important;}
+.sb-brand-text{font-size:13px!important;font-weight:600!important;color:#fff!important;}
+.sb-brand-tag{color:#797673!important;font-size:10px!important;}
+.sb-nav-label{font-size:10px!important;color:#797673!important;padding:8px 12px 3px!important;letter-spacing:.3px!important;}
+.sb-item{color:#c8c6c4!important;font-size:13px!important;font-weight:400!important;padding:5px 8px 5px 10px!important;border-radius:0!important;margin:0!important;width:100%!important;border-left:3px solid transparent!important;transition:background .1s!important;gap:8px!important;}
+.sb-item:hover{background:rgba(255,255,255,.06)!important;color:#fff!important;}
+.sb-item.active{background:rgba(0,120,212,.18)!important;color:#fff!important;font-weight:600!important;border-left-color:#0078d4!important;}
+.sb-item .material-icons{font-size:16px!important;color:#797673!important;flex-shrink:0;}
+.sb-item.active .material-icons{color:#0078d4!important;}
+.sb-item svg{stroke:#797673!important;width:15px!important;height:15px!important;}
 .sb-item.active svg{stroke:#0078d4!important;}
-.sb-divider{background:#e1dfdd!important;margin:3px 0!important;}
-.sb-footer{border-top-color:#e1dfdd!important;color:#a19f9d!important;font-size:11px!important;}
-.sb-badge{background:#fde7e9!important;color:#a80000!important;}
-.sb-search-wrap input{background:#fff!important;border-color:#c8c6c4!important;color:#323130!important;border-radius:2px!important;}
+.sb-divider{background:#3b3a39!important;margin:3px 0!important;}
+.sb-footer{border-top:1px solid #3b3a39!important;color:#797673!important;font-size:11px!important;background:#2e2c2b!important;}
+.sb-badge{background:rgba(168,0,0,.3)!important;color:#f1707b!important;}
+.sb-search-wrap input{background:#3b3a39!important;border-color:#504e4c!important;color:#c8c6c4!important;border-radius:2px!important;}
+.sb-search-wrap input::placeholder{color:#797673!important;}
 .sb-search-wrap input:focus{border-color:#0078d4!important;}
-.topbar{background:#fff!important;border-bottom:1px solid #e1dfdd!important;box-shadow:none!important;height:48px!important;min-height:48px!important;padding:0 20px!important;}
-.topbar-title{font-size:14px!important;font-weight:600!important;color:#201f1e!important;}
-.btn-topbar{border-radius:2px!important;font-size:12px!important;height:28px!important;padding:0 10px!important;gap:4px!important;color:#323130!important;border-color:#c8c6c4!important;background:#fff!important;}
-.btn-topbar:hover{background:#f3f2f1!important;}
+.topbar{background:#1b1a19!important;border-bottom:1px solid #3b3a39!important;box-shadow:none!important;height:48px!important;min-height:48px!important;padding:0 20px!important;}
+.topbar-title{font-size:14px!important;font-weight:600!important;color:#fff!important;}
+.btn-topbar{border-radius:2px!important;font-size:12px!important;height:28px!important;padding:0 10px!important;gap:4px!important;color:#c8c6c4!important;border-color:#504e4c!important;background:transparent!important;}
+.btn-topbar:hover{background:rgba(255,255,255,.08)!important;color:#fff!important;}
 .btn-topbar.primary{background:#0078d4!important;color:#fff!important;border-color:#0078d4!important;}
 .btn-topbar.primary:hover{background:#106ebe!important;}
-.live-stats-bar{background:#f3f2f1!important;border-color:#e1dfdd!important;border-radius:2px!important;font-size:11px!important;}
+.live-stats-bar{background:#3b3a39!important;border-color:#504e4c!important;border-radius:2px!important;font-size:11px!important;color:#c8c6c4!important;}
 .live-dot{width:6px!important;height:6px!important;background:#107c10!important;}
-.page-content{background:#f5f5f5!important;padding:20px 24px!important;}
+.page-content{background:#f5f5f5!important;padding:0!important;}
+.wrap{padding:0!important;max-width:none!important;}
+.page-section:not(#page-dashboard){padding:20px 24px;}
 /* Defender Dashboard */
 .def-container{padding-bottom:40px;}
 .def-breadcrumb{font-size:12px;color:#605e5c;margin-bottom:6px;}
@@ -1402,9 +1417,165 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 .def-assets-count{font-weight:700;color:#0078d4;font-size:13px;}
 .def-risk-critical{color:#a80000;font-weight:600;}.def-risk-high{color:#d83b01;font-weight:600;}.def-risk-medium{color:#986f0b;font-weight:600;}.def-risk-low{color:#107c10;font-weight:600;}
 .def-empty-chart{display:flex;align-items:center;justify-content:center;height:100%;color:#a19f9d;font-size:12px;font-style:italic;text-align:center;padding:20px;}
+
+/* ═══ MVD DASHBOARD LAYOUT ════════════════════════════════════════════════════ */
+#page-dashboard{background:#f5f5f5;}
+.mvd-filter-bar{display:flex;align-items:center;justify-content:flex-end;padding:6px 20px;background:#fff;border-bottom:1px solid #e1dfdd;font-size:11px;color:#605e5c;}
+.mvd-filter-bar .material-icons{font-size:14px!important;vertical-align:middle;margin-right:4px;color:#605e5c;}
+.mvd-page-title{font-size:22px;font-weight:700;color:#201f1e;padding:16px 20px 12px;font-family:'Segoe UI',sans-serif;background:#fff;border-bottom:1px solid #e1dfdd;}
+/* 3-col top grid */
+.mvd-grid{display:grid;grid-template-columns:minmax(0,280px) 1fr minmax(0,280px);background:#fff;}
+.mvd-card{background:#fff;border:1px solid #e1dfdd;border-top:none;padding:16px 18px;display:flex;flex-direction:column;min-width:0;overflow:visible;border-right:none;}
+.mvd-card:last-child{border-right:1px solid #e1dfdd;}
+/* 3-col bottom grid */
+.mvd-grid-b{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);background:#fff;border-top:1px solid #e1dfdd;}
+.mvd-card-b{background:#fff;border:1px solid #e1dfdd;border-top:none;padding:16px 18px;display:flex;flex-direction:column;min-width:0;overflow:visible;border-right:none;}
+.mvd-card-b:last-child{border-right:1px solid #e1dfdd;}
+/* Card internals */
+.mvd-card-section-title{font-size:11px;font-weight:400;color:#605e5c;padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid #f0eeec;}
+.mvd-card-h{font-size:21px;font-weight:700;color:#201f1e;margin:0 0 6px;font-family:'Segoe UI',sans-serif;}
+.mvd-card-p{font-size:11px;color:#605e5c;line-height:1.45;margin-bottom:12px;}
+/* Gauge */
+.mvd-gauge-wrap{position:relative;width:200px;height:106px;margin:4px auto 0;flex-shrink:0;}
+.mvd-gauge-label{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:24px;font-weight:700;color:#201f1e;font-family:'Segoe UI',sans-serif;pointer-events:none;}
+.mvd-gauge-leg{display:flex;gap:10px;justify-content:center;font-size:10px;color:#605e5c;margin:18px 0 6px;flex-wrap:wrap;}
+.mvd-gauge-leg-item{display:flex;align-items:center;gap:3px;}
+.mvd-gauge-leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+/* Sparklines */
+.mvd-spark-title{font-size:11px;color:#605e5c;margin:10px 0 3px;text-align:center;}
+.mvd-spark-wrap{position:relative;}
+/* Threat KPIs */
+.mvd-threat-kpis{display:flex;gap:0;margin:12px 0;border:1px solid #e1dfdd;}
+.mvd-threat-kpi{flex:1;padding:8px 10px;border-left:3px solid #e1dfdd;border-right:1px solid #e1dfdd;}
+.mvd-threat-kpi:first-child{border-left-color:#0078d4;}
+.mvd-threat-kpi:nth-child(2){border-left-color:#797673;}
+.mvd-threat-kpi:nth-child(3){border-left-color:#986f0b;}
+.mvd-threat-kpi:last-child{border-left-color:#c8a200;border-right:none;}
+.mvd-threat-kpi-label{font-size:10px;color:#605e5c;margin-bottom:2px;}
+.mvd-threat-kpi-val{font-size:18px;font-weight:700;color:#201f1e;font-family:'Segoe UI',sans-serif;}
+/* Recommendations table */
+.mvd-rec-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:6px;}
+.mvd-rec-tbl th{text-align:left;padding:5px 6px;color:#605e5c;font-weight:600;border-bottom:1px solid #e1dfdd;white-space:nowrap;}
+.mvd-rec-tbl td{padding:6px 6px;border-bottom:1px solid #f3f2f1;color:#323130;vertical-align:middle;}
+.mvd-rec-tbl tr:hover td{background:#faf9f8;}
+.mvd-rec-name{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;}
+.mvd-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;text-transform:uppercase;white-space:nowrap;}
+.mvd-badge-CRITICAL,.mvd-badge-critical{background:#fde7e9;color:#a80000;}
+.mvd-badge-HIGH,.mvd-badge-high{background:#fddfdb;color:#c50f1f;}
+.mvd-badge-MEDIUM,.mvd-badge-medium{background:#fff4ce;color:#986f0b;}
+.mvd-badge-LOW,.mvd-badge-low{background:#dff6dd;color:#107c10;}
+.mvd-badge-INFO,.mvd-badge-info{background:#e8f4fd;color:#0078d4;}
+.mvd-sev-icon{display:inline-flex;align-items:center;gap:3px;}
+.mvd-btn-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.mvd-show-btn{background:#0078d4;color:#fff;border:none;border-radius:2px;padding:5px 16px;font-size:12px;cursor:pointer;font-family:'Segoe UI',sans-serif;}
+.mvd-show-btn.outline{background:#fff;color:#323130;border:1px solid #c8c6c4;}
+.mvd-show-btn:hover{opacity:.9;}
+/* Secure score */
+.mvd-score-h{font-size:21px;font-weight:700;color:#201f1e;margin:2px 0 4px;font-family:'Segoe UI',sans-serif;}
+.mvd-pts-row{font-size:11px;color:#605e5c;margin-bottom:12px;}
+.mvd-prog-list{display:flex;flex-direction:column;gap:9px;margin-bottom:10px;}
+.mvd-prog-row{display:flex;align-items:center;gap:8px;}
+.mvd-prog-name{font-size:12px;color:#201f1e;width:100px;flex-shrink:0;}
+.mvd-prog-track{flex:1;height:6px;background:#e1dfdd;border-radius:0;position:relative;}
+.mvd-prog-bar{height:6px;background:#0078d4;border-radius:0;transition:width .7s ease;}
+.mvd-prog-num{font-size:11px;color:#605e5c;width:62px;text-align:right;flex-shrink:0;white-space:nowrap;}
+.mvd-improve-btn{background:#0078d4;color:#fff;border:none;border-radius:2px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:'Segoe UI',sans-serif;margin-top:auto;align-self:flex-start;white-space:nowrap;}
+/* Events table */
+.mvd-sec-subtitle{font-size:12px;font-weight:600;color:#201f1e;margin:14px 0 6px;padding-top:12px;border-top:1px solid #f0eeec;}
+.mvd-evt-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.mvd-evt-tbl th{text-align:left;padding:4px 6px;color:#605e5c;font-weight:600;border-bottom:1px solid #e1dfdd;}
+.mvd-evt-tbl td{padding:5px 6px;border-bottom:1px solid #f3f2f1;color:#323130;vertical-align:top;}
+.mvd-evt-tbl tr:hover td{background:#faf9f8;}
+/* Donut */
+.mvd-donut-wrap{flex:1;min-height:160px;position:relative;}
+.mvd-donut-leg{display:flex;flex-direction:column;gap:6px;font-size:11px;color:#605e5c;margin-top:8px;}
+.mvd-donut-leg-item{display:flex;align-items:center;justify-content:space-between;}
+.mvd-donut-leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:6px;}
+/* Remediation */
+.mvd-rem-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.mvd-rem-tbl th{text-align:left;padding:4px 6px;color:#605e5c;font-weight:600;border-bottom:1px solid #e1dfdd;}
+.mvd-rem-tbl td{padding:5px 6px;border-bottom:1px solid #f3f2f1;color:#323130;}
+.mvd-rem-tbl tr:hover td{background:#faf9f8;}
+
+/* ═══ CF Security Analytics — History Page ═════════════════════════════════ */
+.csa-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#fff;border-bottom:1px solid #e1dfdd;}
+.csa-title{font-size:20px;font-weight:700;color:#201f1e;font-family:'Segoe UI',sans-serif;}
+.csa-actions{display:flex;align-items:center;gap:10px;}
+.csa-timesel{height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 24px 0 8px;font-size:12px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23605e5c' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") calc(100%25 - 6px) center no-repeat;appearance:none;cursor:pointer;font-family:inherit;outline:none;}
+.csa-btn-clear{height:28px;padding:0 14px;background:#fff;border:1px solid #c8c6c4;border-radius:2px;font-size:12px;cursor:pointer;font-family:inherit;color:#323130;}
+.csa-btn-clear:hover{background:#fde7e9;border-color:#a80000;color:#a80000;}
+.csa-tabs{display:flex;background:#fff;border-bottom:1px solid #e1dfdd;padding:0 20px;}
+.csa-tab{padding:10px 16px;font-size:13px;font-weight:500;color:#605e5c;border:none;border-bottom:3px solid transparent;background:none;cursor:pointer;font-family:inherit;transition:color .1s,border-color .1s;margin-bottom:-1px;}
+.csa-tab:hover{color:#201f1e;}
+.csa-tab.active{color:#0078d4;border-bottom-color:#0078d4;font-weight:600;}
+.csa-layout{display:grid;grid-template-columns:1fr 260px;gap:0;align-items:start;}
+.csa-main{padding:16px 20px;background:#f5f5f5;min-width:0;}
+.csa-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.csa-kpi{background:#fff;border:1px solid #e1dfdd;padding:12px 14px;}
+.csa-kpi-label{font-size:11px;color:#605e5c;margin-bottom:4px;}
+.csa-kpi-val{font-size:22px;font-weight:700;color:#201f1e;font-family:'Segoe UI',sans-serif;line-height:1.1;}
+.csa-kpi-sub{font-size:10px;color:#a19f9d;margin-top:2px;}
+.csa-chart-wrap{background:#fff;border:1px solid #e1dfdd;padding:14px 16px;margin-bottom:14px;}
+.csa-chart-title{font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;}
+.csa-chart-canvas{position:relative;height:140px;}
+.csa-chart-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:#605e5c;}
+.csa-leg{display:flex;align-items:center;gap:4px;}
+.csa-leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.csa-table-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;}
+.csa-table-title{font-size:12px;font-weight:600;color:#201f1e;}
+.csa-table-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.csa-table-filters input{height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 10px;font-size:12px;min-width:180px;font-family:inherit;outline:none;}
+.csa-table-filters input:focus{border-color:#0078d4;}
+.csa-table-wrap{background:#fff;border:1px solid #e1dfdd;overflow-x:auto;}
+.csa-table-wrap table{width:100%;border-collapse:collapse;font-size:12px;}
+.csa-table-wrap thead tr{background:#f3f2f1;}
+.csa-table-wrap th{padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;border-bottom:1px solid #e1dfdd;}
+.csa-table-wrap td{padding:7px 12px;border-bottom:1px solid #f3f2f1;color:#323130;vertical-align:middle;}
+.csa-table-wrap tr:hover td{background:#faf9f8;}
+.csa-det-btn{font-size:11px;padding:3px 8px;background:#fff;border:1px solid #c8c6c4;border-radius:2px;cursor:pointer;font-family:inherit;color:#0078d4;}
+.csa-det-btn:hover{background:#eff6fc;}
+.csa-del-btn{font-size:11px;padding:3px 8px;background:#fff;border:1px solid #c8c6c4;border-radius:2px;cursor:pointer;font-family:inherit;color:#a80000;margin-left:4px;}
+.csa-del-btn:hover{background:#fde7e9;border-color:#a80000;}
+.csa-sidebar{background:#f5f5f5;border-left:1px solid #e1dfdd;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;}
+.csa-score-card{background:#fff;border:1px solid #e1dfdd;padding:16px;}
+.csa-score-title{font-size:10px;color:#605e5c;margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px;font-weight:700;}
+.csa-score-val{font-size:40px;font-weight:700;color:#a80000;font-family:'Segoe UI',sans-serif;line-height:1;}
+.csa-score-sub{font-size:11px;color:#605e5c;margin-top:4px;margin-bottom:12px;}
+.csa-score-donut{height:120px;position:relative;}
+.csa-stats-card{background:#fff;border:1px solid #e1dfdd;padding:14px 16px;}
+.csa-stats-title{font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;}
+.csa-stat-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f3f2f1;font-size:12px;}
+.csa-stat-row:last-child{border-bottom:none;}
+.csa-stat-label{color:#605e5c;}
+.csa-stat-val{font-weight:600;color:#201f1e;}
+/* Plugin Logs Page */
+.pl-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;padding:14px 16px;background:#fff;border:1px solid #e1dfdd;}
+.pl-target-sel{height:32px;border:1px solid #c8c6c4;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;outline:none;min-width:220px;}
+.pl-target-sel:focus{border-color:#0078d4;}
+.pl-load-btn{height:32px;padding:0 16px;background:#0078d4;color:#fff;border:none;border-radius:2px;font-size:12px;cursor:pointer;font-family:inherit;}
+.pl-load-btn:hover{background:#106ebe;}
+.pl-table-wrap{background:#fff;border:1px solid #e1dfdd;overflow-x:auto;}
+.pl-table-wrap table{width:100%;border-collapse:collapse;font-size:12px;}
+.pl-table-wrap thead tr{background:#f3f2f1;}
+.pl-table-wrap th{padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;white-space:nowrap;}
+.pl-table-wrap td{padding:7px 12px;border-bottom:1px solid #f3f2f1;color:#323130;vertical-align:middle;}
+.pl-table-wrap tr:hover td{background:#faf9f8;}
+
+/* ── Page loading spinner ── */
+#ink-loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,15,15,.72);z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;backdrop-filter:blur(2px);}
+#ink-loading-overlay.hidden{display:none;}
+.ink-spin-ring{width:52px;height:52px;border:4px solid rgba(255,255,255,.15);border-top-color:#0078d4;border-radius:50%;animation:ink-spin .75s linear infinite;}
+@keyframes ink-spin{to{transform:rotate(360deg);}}
+.ink-spin-label{color:#fff;font-size:13px;font-family:'Segoe UI',sans-serif;letter-spacing:.5px;opacity:.85;}
 </style>
 </head>
 <body>
+
+<!-- Loading overlay -->
+<div id="ink-loading-overlay">
+  <div class="ink-spin-ring"></div>
+  <div class="ink-spin-label">Loading CyberINK…</div>
+</div>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
      SIDEBAR
@@ -1416,7 +1587,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <div class="sb-brand-logo">
       <span class="material-icons">shield</span>
     </div>
-    <div class="sb-brand-text">CF_AI<span class="sb-brand-tag">Security Intelligence</span></div>
+    <div class="sb-brand-text">CyberINK<span class="sb-brand-tag">Security Intelligence</span></div>
   </div>
 
   <!-- Search -->
@@ -1463,6 +1634,10 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       <span class="material-icons">article</span>
       <span class="sb-label">Log Explorer</span>
     </button>
+    <button class="sb-item" id="sb-pluginlogs" onclick="sbNav('pluginlogs',this)">
+      <span class="material-icons">extension</span>
+      <span class="sb-label">Plugin Logs</span>
+    </button>
 
     <div class="sb-divider"></div>
 
@@ -1495,7 +1670,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   <!-- Sidebar footer -->
   <div class="sb-footer">
     <div class="sb-footer-row">
-      <span>CF_AI v2.1</span>
+      <span>CyberINK v2.1</span>
       <span class="sb-version">Open Source</span>
     </div>
     <div style="margin-top:4px;font-size:10px;color:#c0c4cc;">Updated: <strong id="ts">—</strong></div>
@@ -1529,164 +1704,174 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   <div class="page-content" id="page-content">
   <div class="wrap">
 
-  <!-- ══ DASHBOARD PAGE — MICROSOFT DEFENDER STYLE ══════════════════════════ -->
+  <!-- ══ DASHBOARD — MICROSOFT DEFENDER VULNERABILITY MANAGEMENT STYLE ════════ -->
   <div id="page-dashboard" class="page-section">
-  <div class="def-container">
 
-    <!-- Breadcrumb -->
-    <div class="def-breadcrumb"><a href="#">Reports</a> &rsaquo; CF_AI Security Dashboard</div>
+  <!-- Filter bar -->
+  <div class="mvd-filter-bar">
+    <span class="material-icons">filter_list</span>
+    Filter by target groups &nbsp;|&nbsp; <strong id="mvd-filter-count">All targets</strong>
+    &nbsp;
+    <select id="def-days" onchange="loadDefDashboard()" style="height:24px;border:1px solid #c8c6c4;border-radius:2px;padding:0 20px 0 6px;font-size:11px;background:#fff;appearance:none;cursor:pointer;font-family:inherit;">
+      <option value="7">Last 7 days</option>
+      <option value="30" selected>Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+  </div>
 
-    <!-- Page title -->
-    <div class="def-page-title">CF_AI Security Intelligence Dashboard</div>
+  <!-- Page title -->
+  <div class="mvd-page-title">CyberINK Security Vulnerability Management dashboard</div>
 
-    <!-- Time range -->
-    <div class="def-timerange-wrap">
-      <span class="def-timerange-label">Showing results for</span>
-      <select class="def-timerange-sel" id="def-days" onchange="loadDefDashboard()">
-        <option value="7">Last 7 days</option>
-        <option value="30" selected>Last 30 days</option>
-        <option value="90">Last 90 days</option>
-        <option value="365">Last year</option>
-      </select>
-    </div>
+  <!-- ── ROW 1: 3-column grid ── -->
+  <div class="mvd-grid">
 
-    <!-- Summary banner -->
-    <div class="def-banner">
-      <div class="def-banner-headline" id="def-headline">Loading security summary…</div>
-      <div class="def-banner-kpi def-kpi-blue">
-        <span class="def-banner-kpi-label">Scans conducted</span>
-        <span class="def-banner-kpi-val" id="def-kpi-total">—</span>
+    <!-- Panel 1: Exposure Score -->
+    <div class="mvd-card">
+      <div class="mvd-card-section-title">Organization exposure score</div>
+      <div class="mvd-card-h">Exposure score</div>
+      <p class="mvd-card-p">This score reflects the current security posture associated with your scanned targets. The score is potentially impacted by active high-severity findings.</p>
+      <div class="mvd-gauge-wrap">
+        <canvas id="mvd-gauge-chart"></canvas>
+        <div class="mvd-gauge-label" id="mvd-gauge-label">—/100</div>
       </div>
-      <div class="def-banner-kpi def-kpi-green">
-        <span class="def-banner-kpi-label">Issues found</span>
-        <span class="def-banner-kpi-val" id="def-kpi-issues">—</span>
+      <div class="mvd-gauge-leg">
+        <div class="mvd-gauge-leg-item"><div class="mvd-gauge-leg-dot" style="background:#d08010"></div>Low 0-29</div>
+        <div class="mvd-gauge-leg-item"><div class="mvd-gauge-leg-dot" style="background:#e05a00"></div>Medium 30-69</div>
+        <div class="mvd-gauge-leg-item"><div class="mvd-gauge-leg-dot" style="background:#a80000"></div>High 70-100</div>
       </div>
-      <div class="def-banner-kpi def-kpi-teal">
-        <span class="def-banner-kpi-label">Resolved</span>
-        <span class="def-banner-kpi-val" id="def-kpi-resolved">—</span>
-      </div>
-      <div class="def-banner-kpi def-kpi-pink">
-        <span class="def-banner-kpi-label">Open incidents</span>
-        <span class="def-banner-kpi-val" id="def-kpi-open">—</span>
-      </div>
-    </div>
-
-    <!-- Section 1: Average scan duration by severity (grouped bar) -->
-    <div class="def-section">
-      <div class="def-section-head">
-        <span class="def-section-title">
-          Average scan duration by severity
-          <span class="material-icons info-ic" title="Average latency and tool calls, grouped by highest severity found in each scan">info</span>
-        </span>
-      </div>
-      <div class="def-section-body">
-        <div class="def-grouped-layout">
-          <div>
-            <div class="def-group-desc"><span style="color:#0078d4;font-weight:600;">&#9632;</span> Scan latency (seconds)</div>
-            <div class="def-group-label">The average time each scan took, grouped by the highest severity finding detected.</div>
-            <br>
-            <div class="def-group-desc"><span style="color:#e3008c;font-weight:600;">&#9632;</span> Tool calls</div>
-            <div class="def-group-label">Average number of security tool invocations made during scans at each severity level.</div>
-          </div>
-          <div class="def-chart-wrap" style="height:220px;">
-            <canvas id="def-avg-bar-chart"></canvas>
-            <div class="def-empty-chart" id="def-avg-empty" style="display:none;">No scan data yet — run a scan to populate this chart.</div>
-          </div>
-        </div>
-        <div class="def-legend">
-          <div class="def-leg-item"><div class="def-leg-dot" style="background:#0078d4"></div>Scan latency (s)</div>
-          <div class="def-leg-item"><div class="def-leg-dot" style="background:#e3008c"></div>Tool calls</div>
-        </div>
+      <div class="mvd-spark-title">Exposure score over time</div>
+      <div class="mvd-spark-wrap" style="height:65px;"><canvas id="mvd-score-spark"></canvas></div>
+      <div style="margin-top:12px;">
+        <button class="mvd-improve-btn" onclick="sbNav('priority',document.getElementById('sb-priority'))">Improve score</button>
       </div>
     </div>
 
-    <!-- Section 2: Security findings by severity over time (stacked bar) -->
-    <div class="def-section">
-      <div class="def-section-head">
-        <span class="def-section-title">
-          Security findings by severity
-          <span class="material-icons info-ic" title="Daily count of security findings, stacked by severity level">info</span>
-        </span>
-        <button class="def-view-btn" onclick="sbNav('vulns', document.getElementById('sb-vulns'))">View all findings</button>
+    <!-- Panel 2: Threat Awareness + Recommendations -->
+    <div class="mvd-card" style="border-left:1px solid #e1dfdd;">
+      <div class="mvd-card-section-title">Threat awareness <span class="material-icons" style="font-size:13px!important;vertical-align:middle;color:#a19f9d;" title="Based on active security findings across all scanned targets">info</span></div>
+      <div class="mvd-card-h" id="mvd-threat-h">Loading threat data…</div>
+      <p class="mvd-card-p" id="mvd-threat-p">Security findings detected across your scanned targets. Immediate action may be required for critical-severity issues.</p>
+
+      <!-- KPI row -->
+      <div class="mvd-threat-kpis" id="mvd-threat-kpis">
+        <div class="mvd-threat-kpi">
+          <div class="mvd-threat-kpi-label">Sites scanned</div>
+          <div class="mvd-threat-kpi-val" id="mvd-kpi-scanned">—</div>
+        </div>
+        <div class="mvd-threat-kpi">
+          <div class="mvd-threat-kpi-label">Not yet scanned</div>
+          <div class="mvd-threat-kpi-val" id="mvd-kpi-not-scanned">0</div>
+        </div>
+        <div class="mvd-threat-kpi">
+          <div class="mvd-threat-kpi-label">Critical findings</div>
+          <div class="mvd-threat-kpi-val" id="mvd-kpi-critical">—</div>
+        </div>
+        <div class="mvd-threat-kpi">
+          <div class="mvd-threat-kpi-label">Open incidents</div>
+          <div class="mvd-threat-kpi-val" id="mvd-kpi-incidents">—</div>
+        </div>
       </div>
-      <div class="def-section-body">
-        <div class="def-chart-wrap" style="height:200px;">
-          <canvas id="def-severity-chart"></canvas>
-          <div class="def-empty-chart" id="def-sev-empty" style="display:none;">No findings data yet — run scans to populate this chart.</div>
-        </div>
-        <div class="def-legend">
-          <div class="def-leg-item"><div class="def-leg-dot" style="background:#a80000"></div>Critical</div>
-          <div class="def-leg-item"><div class="def-leg-dot" style="background:#d83b01"></div>High severity</div>
-          <div class="def-leg-item"><div class="def-leg-dot" style="background:#ffb900"></div>Medium severity</div>
-          <div class="def-leg-item"><div class="def-leg-dot" style="background:#499205"></div>Low severity</div>
-          <div class="def-leg-item"><div class="def-leg-dot" style="background:#0078d4"></div>Informational</div>
-        </div>
+      <div class="mvd-btn-row" style="margin-bottom:14px;">
+        <button class="mvd-show-btn" onclick="sbNav('vulns',document.getElementById('sb-vulns'))">View vulnerability details</button>
+      </div>
+
+      <!-- Top Recommendations -->
+      <div class="mvd-card-section-title" style="margin-top:4px;">Top security recommendations</div>
+      <table class="mvd-rec-tbl">
+        <thead>
+          <tr>
+            <th>Recommendation</th>
+            <th>Affected sites</th>
+            <th>Threats</th>
+            <th>Impact ▼</th>
+          </tr>
+        </thead>
+        <tbody id="mvd-rec-tbody">
+          <tr><td colspan="4" style="color:#a19f9d;font-style:italic;padding:14px 6px;">Loading recommendations…</td></tr>
+        </tbody>
+      </table>
+      <div class="mvd-btn-row">
+        <button class="mvd-show-btn" onclick="sbNav('priority',document.getElementById('sb-priority'))">Show more</button>
+        <button class="mvd-show-btn outline" onclick="sbNav('vulns',document.getElementById('sb-vulns'))">Show exceptions</button>
       </div>
     </div>
 
-    <!-- Section 3: Findings by category (multi-line smooth) -->
-    <div class="def-section">
-      <div class="def-section-head">
-        <span class="def-section-title">
-          Findings by category
-          <span class="material-icons info-ic" title="Security finding counts grouped by vulnerability category over time">info</span>
-        </span>
-        <button class="def-view-btn" onclick="sbNav('mitre', document.getElementById('sb-mitre'))">View selected findings</button>
+    <!-- Panel 3: Secure Score -->
+    <div class="mvd-card" style="border-left:1px solid #e1dfdd;border-right:1px solid #e1dfdd;">
+      <div class="mvd-card-section-title">CyberINK Security Score for Sites</div>
+      <div class="mvd-score-h">Your score for sites: <span id="mvd-sec-pct">—</span>%</div>
+      <p class="mvd-card-p">This score reflects the collective security configuration across SSL/TLS, HTTP Headers, Authentication, and CMS Security. It is potentially impacted by active exceptions.</p>
+      <div class="mvd-pts-row" id="mvd-pts-text">— / 100 points achieved</div>
+      <div class="mvd-prog-list" id="mvd-prog-list">
+        <div class="mvd-prog-row"><span class="mvd-prog-name">SSL / TLS</span><div class="mvd-prog-track"><div class="mvd-prog-bar" id="pb-ssl" style="width:0%"></div></div><span class="mvd-prog-num" id="pn-ssl">— / 25</span></div>
+        <div class="mvd-prog-row"><span class="mvd-prog-name">HTTP Headers</span><div class="mvd-prog-track"><div class="mvd-prog-bar" id="pb-hdr" style="width:0%"></div></div><span class="mvd-prog-num" id="pn-hdr">— / 25</span></div>
+        <div class="mvd-prog-row"><span class="mvd-prog-name">Authentication</span><div class="mvd-prog-track"><div class="mvd-prog-bar" id="pb-auth" style="width:0%"></div></div><span class="mvd-prog-num" id="pn-auth">— / 25</span></div>
+        <div class="mvd-prog-row"><span class="mvd-prog-name">CMS Security</span><div class="mvd-prog-track"><div class="mvd-prog-bar" id="pb-cms" style="width:0%"></div></div><span class="mvd-prog-num" id="pn-cms">— / 25</span></div>
       </div>
-      <div class="def-section-body">
-        <div class="def-chart-wrap" style="height:220px;">
-          <canvas id="def-category-chart"></canvas>
-          <div class="def-empty-chart" id="def-cat-empty" style="display:none;">No category data yet — run more scans to see trends.</div>
-        </div>
-        <div class="def-legend" id="def-cat-legend"></div>
+      <div class="mvd-spark-title">Score for sites over time</div>
+      <div class="mvd-spark-wrap" style="height:55px;"><canvas id="mvd-score-spark2"></canvas></div>
+      <div style="margin-top:12px;">
+        <button class="mvd-improve-btn" onclick="sbNav('scan',document.getElementById('sb-scan'))">Improve score</button>
+      </div>
+    </div>
+  </div><!-- /mvd-grid -->
+
+  <!-- ── ROW 2: 3-col bottom grid ── -->
+  <div class="mvd-grid-b">
+
+    <!-- Panel 4: Top Events -->
+    <div class="mvd-card-b">
+      <div class="mvd-card-section-title">Top events (7 days)</div>
+      <table class="mvd-evt-tbl">
+        <thead>
+          <tr>
+            <th style="white-space:nowrap;">Date (UTC)</th>
+            <th>Event</th>
+            <th style="white-space:nowrap;">Originally impacted (%)</th>
+          </tr>
+        </thead>
+        <tbody id="mvd-evt-tbody">
+          <tr><td colspan="3" style="color:#a19f9d;font-style:italic;padding:14px 6px;">Loading events…</td></tr>
+        </tbody>
+      </table>
+      <div class="mvd-btn-row">
+        <button class="mvd-show-btn" onclick="sbNav('history',document.getElementById('sb-history'))">Show more</button>
       </div>
     </div>
 
-    <!-- Section 4: Findings by scan agent (multi-line smooth) -->
-    <div class="def-section">
-      <div class="def-section-head">
-        <span class="def-section-title">
-          Findings by scan agent
-          <span class="material-icons info-ic" title="Scan counts per AI security agent over time">info</span>
-        </span>
-        <button class="def-view-btn" onclick="sbNav('history', document.getElementById('sb-history'))">View selected scans</button>
-      </div>
-      <div class="def-section-body">
-        <div class="def-chart-wrap" style="height:220px;">
-          <canvas id="def-agent-chart"></canvas>
-          <div class="def-empty-chart" id="def-agent-empty" style="display:none;">No agent data yet — run scans with different agents.</div>
-        </div>
-        <div class="def-legend" id="def-agent-legend"></div>
-      </div>
+    <!-- Panel 5: Exposure Distribution -->
+    <div class="mvd-card-b" style="border-left:1px solid #e1dfdd;">
+      <div class="mvd-card-section-title">Site exposure distribution</div>
+      <div class="mvd-card-h">Exposure distribution</div>
+      <p class="mvd-card-p">Exposed sites are easy targets for security attacks. Ensure all sites receive security updates and have critical issues resolved.</p>
+      <div class="mvd-donut-wrap"><canvas id="mvd-donut-chart"></canvas></div>
+      <div class="mvd-donut-leg" id="mvd-donut-leg"></div>
     </div>
 
-    <!-- Section 5: Most impacted targets -->
-    <div class="def-section">
-      <div class="def-section-head">
-        <span class="def-section-title">
-          Most impacted targets
-          <span class="material-icons info-ic" title="Targets with the highest security finding counts across all scans">info</span>
-        </span>
-      </div>
-      <div class="def-assets-grid">
-        <div class="def-assets-col">
-          <div class="def-assets-head">
-            <span>Target / Domain</span>
-            <span>Scans</span>
-          </div>
-          <div id="def-targets-left"></div>
-        </div>
-        <div class="def-assets-col">
-          <div class="def-assets-head">
-            <span>Target</span>
-            <span>Risk level</span>
-          </div>
-          <div id="def-targets-right"></div>
-        </div>
+    <!-- Panel 6: Remediation Activities -->
+    <div class="mvd-card-b" style="border-left:1px solid #e1dfdd;border-right:1px solid #e1dfdd;">
+      <div class="mvd-card-section-title">Top remediation activities</div>
+      <div class="mvd-card-h">Remediation activities</div>
+      <p class="mvd-card-p">This table lists top activities that were generated from security recommendations. Track progress and confirm that remediation actions are completed.</p>
+      <table class="mvd-rem-tbl">
+        <thead>
+          <tr>
+            <th>Activity</th>
+            <th>Target</th>
+            <th>Status</th>
+            <th>Due</th>
+          </tr>
+        </thead>
+        <tbody id="mvd-rem-tbody">
+          <tr><td colspan="4" style="color:#a19f9d;font-style:italic;padding:14px 6px;">No remediation activities — resolve scan findings to generate tasks.</td></tr>
+        </tbody>
+      </table>
+      <div class="mvd-btn-row">
+        <button class="mvd-show-btn" onclick="sbNav('incidents',document.getElementById('sb-incidents'))">View all activities</button>
       </div>
     </div>
+  </div><!-- /mvd-grid-b -->
 
-  </div><!-- /def-container -->
   </div><!-- /page-dashboard -->
 
   <!-- ══ ALL OTHER SECTIONS (each is an independent SPA page) ════════════════ -->
@@ -1777,6 +1962,67 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       {% if not severity_summary.by_target %}
       <div style="color:#9ca3af;font-size:13px;padding:20px;">No scan data yet. Run a scan via Connect Your Website to populate this section.</div>
       {% endif %}
+    </div>
+  </section>
+
+  <!-- ── Threat Intelligence Section ─────────────────────────────────────── -->
+  <section class="section" id="ti-section" style="margin-top:0;padding-top:0;">
+    <div class="sec-head" style="background:#fff;border:1px solid #e1dfdd;padding:12px 16px;margin-bottom:0;">
+      <div>
+        <div class="sec-title" style="font-size:14px;">Threat Intelligence — CVE Enrichment</div>
+        <div class="sec-desc">CVEs found in scan outputs enriched with NIST NVD · CISA KEV · EPSS · Exploit-DB</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="mvd-show-btn" onclick="loadThreatIntel()" id="ti-load-btn" style="font-size:12px;padding:4px 14px;">Load Intel</button>
+        <a href="/api/export/powerbi" target="_blank"
+           style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;background:#117aba;color:#fff;border-radius:2px;font-size:12px;font-family:inherit;text-decoration:none;white-space:nowrap;">
+          <span class="material-icons" style="font-size:14px!important;">download</span>Export Power BI
+        </a>
+      </div>
+    </div>
+
+    <!-- KPI row -->
+    <div id="ti-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:#fff;border:1px solid #e1dfdd;border-top:none;">
+      <div style="padding:12px 16px;border-right:1px solid #e1dfdd;">
+        <div style="font-size:10px;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">CVEs Found</div>
+        <div id="ti-total-cves" style="font-size:22px;font-weight:700;color:#201f1e;font-family:'Segoe UI',sans-serif;">—</div>
+      </div>
+      <div style="padding:12px 16px;border-right:1px solid #e1dfdd;">
+        <div style="font-size:10px;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">In CISA KEV</div>
+        <div id="ti-kev-count" style="font-size:22px;font-weight:700;color:#a80000;font-family:'Segoe UI',sans-serif;">—</div>
+      </div>
+      <div style="padding:12px 16px;border-right:1px solid #e1dfdd;">
+        <div style="font-size:10px;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">EPSS &ge;50%</div>
+        <div id="ti-epss-high" style="font-size:22px;font-weight:700;color:#986f0b;font-family:'Segoe UI',sans-serif;">—</div>
+      </div>
+      <div style="padding:12px 16px;">
+        <div style="font-size:10px;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">CISA KEV Total</div>
+        <div id="ti-kev-total" style="font-size:22px;font-weight:700;color:#0078d4;font-family:'Segoe UI',sans-serif;">—</div>
+      </div>
+    </div>
+
+    <!-- CVE table -->
+    <div id="ti-table-wrap" style="background:#fff;border:1px solid #e1dfdd;border-top:none;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#f3f2f1;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;white-space:nowrap;">CVE ID</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;">CVSS</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;">EPSS</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;">KEV</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;">Exploit-DB</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;">Description</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e1dfdd;">Affected Targets</th>
+          </tr>
+        </thead>
+        <tbody id="ti-tbody">
+          <tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Click "Load Intel" to analyse scan outputs for CVEs and enrich with threat intelligence sources.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="ti-loading" style="display:none;padding:16px 12px;background:#fff;border:1px solid #e1dfdd;border-top:none;font-size:12px;color:#605e5c;">
+      <span class="ink-spin-ring" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px;"></span>
+      Fetching CVE data from NIST NVD, CISA KEV, EPSS…
     </div>
   </section>
 
@@ -2056,76 +2302,124 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
   <!-- ══ SCAN HISTORY PAGE ══════════════════════════════════════════════════ -->
   <div id="page-history" class="page-section" style="display:none">
-  <!-- Scan History -->
-  <section class="section">
-    <div class="sec-head">
-      <div>
-        <div class="sec-title">Complete Scan History</div>
-        <div class="sec-desc">All security scans, most recent first. Use the filters to narrow results.</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div class="filter-bar">
-          <button class="filt active" onclick="doFilter(this,'all')">All</button>
-          <button class="filt" onclick="doFilter(this,'HIGH')">High</button>
-          <button class="filt" onclick="doFilter(this,'MEDIUM')">Medium</button>
-          <button class="filt" onclick="doFilter(this,'LOW')">Low</button>
-          <button class="filt" onclick="doFilter(this,'INFO')">Info</button>
-        </div>
-        <div class="domain-filter-wrap" style="margin-left:4px;">
-          <input type="text" id="histDomainFilter" placeholder="Filter by domain..." oninput="filterHistDomain(this.value)">
-          <button onclick="clearHistFilter()" id="histFilterClear" style="display:none;" title="Clear filter">&#215;</button>
-        </div>
-      </div>
+
+  <!-- CF Security Analytics style header -->
+  <div class="csa-header">
+    <div class="csa-title">Security Analytics</div>
+    <div class="csa-actions">
+      <button class="csa-btn-clear" onclick="clearAllScans()">&#128465; Clear All Records</button>
     </div>
-    <div class="card">
-      {% if scans %}
-      <div class="scroll-panel-lg">
+  </div>
+
+  <!-- Tabs -->
+  <div class="csa-tabs">
+    <button class="csa-tab active" id="csa-tab-all" onclick="csaTab('all',this)">All scans</button>
+    <button class="csa-tab" id="csa-tab-attack" onclick="csaTab('attack',this)">Attack detection</button>
+    <button class="csa-tab" id="csa-tab-risk" onclick="csaTab('risk',this)">Risk distribution</button>
+  </div>
+
+  <!-- Main layout: left + right sidebar -->
+  <div class="csa-layout">
+
+    <!-- Left main content -->
+    <div class="csa-main">
+
+      <!-- KPI row -->
+      <div class="csa-kpi-row" id="csa-kpis">
+        <div class="csa-kpi"><div class="csa-kpi-label">Total Scans</div><div class="csa-kpi-val">—</div><div class="csa-kpi-sub">All time</div></div>
+        <div class="csa-kpi"><div class="csa-kpi-label">High / Critical</div><div class="csa-kpi-val" style="color:#a80000;">—</div><div class="csa-kpi-sub">Flagged risk</div></div>
+        <div class="csa-kpi"><div class="csa-kpi-label">Medium Risk</div><div class="csa-kpi-val" style="color:#986f0b;">—</div><div class="csa-kpi-sub">Needs attention</div></div>
+        <div class="csa-kpi"><div class="csa-kpi-label">Success Rate</div><div class="csa-kpi-val" style="color:#107c10;">—</div><div class="csa-kpi-sub">Scans completed</div></div>
+      </div>
+
+      <!-- Scan timeline chart -->
+      <div class="csa-chart-wrap">
+        <div class="csa-chart-title" id="csa-chart-title">Scans over time</div>
+        <div class="csa-chart-canvas"><canvas id="csa-chart"></canvas></div>
+        <div class="csa-chart-legend">
+          <span class="csa-leg"><span class="csa-leg-dot" style="background:#dc2626"></span>High Risk</span>
+          <span class="csa-leg"><span class="csa-leg-dot" style="background:#f59e0b"></span>Medium</span>
+          <span class="csa-leg"><span class="csa-leg-dot" style="background:#3b82f6"></span>Low / Info</span>
+        </div>
+      </div>
+
+      <!-- Sampled records table -->
+      <div class="csa-table-header">
+        <div class="csa-table-title">Sampled scan records</div>
+        <div class="csa-table-filters">
+          <input type="text" id="hist-domain-filter" placeholder="Filter by domain..." oninput="histFilter()">
+          <div class="filter-bar" style="margin:0;">
+            <button class="filt active" onclick="histRiskFilter(this,'all')">All</button>
+            <button class="filt" onclick="histRiskFilter(this,'HIGH')">High</button>
+            <button class="filt" onclick="histRiskFilter(this,'MEDIUM')">Medium</button>
+            <button class="filt" onclick="histRiskFilter(this,'LOW')">Low</button>
+            <button class="filt" onclick="histRiskFilter(this,'INFO')">Info</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="csa-table-wrap">
+        {% if scans %}
         <table id="hist">
           <thead>
             <tr>
               <th style="width:38px;">#</th>
               <th>Target</th>
               <th>Scan Type</th>
-              <th style="width:130px;">Model</th>
-              <th style="width:80px;">Duration</th>
-              <th style="width:66px;">Tools</th>
               <th style="width:80px;">Risk</th>
-              <th style="width:70px;">Status</th>
-              <th style="width:148px;">Date (UTC)</th>
-              <th style="width:70px;"></th>
+              <th style="width:66px;">Status</th>
+              <th style="width:160px;">Date (Local)</th>
+              <th style="width:100px;"></th>
             </tr>
           </thead>
           <tbody>
           {% for s in scans %}
-            <tr data-risk="{{ s.risk }}" data-target="{{ s.target|lower }}">
+            <tr data-risk="{{ s.risk }}" data-target="{{ s.target|lower }}" class="hist-row">
               <td class="td-mono">{{ s.id }}</td>
               <td class="td-target" title="{{ s.target }}">{{ s.target }}</td>
               <td>{{ s.agent_label }}</td>
-              <td class="td-light">{{ s.model }}</td>
-              <td class="td-dim">{{ s.latency_s }}s</td>
-              <td class="td-light">{{ s.tool_count }}</td>
               <td><span class="badge badge-{{ s.risk }}">{{ s.risk }}</span></td>
               <td>
                 {% if s.status == 'ok' %}<span class="st-ok">OK</span>
                 {% elif s.status == 'interrupted' %}<span class="st-int">Stopped</span>
                 {% else %}<span class="st-err">Error</span>{% endif %}
               </td>
-              <td class="td-dim">{{ s.display_date }}</td>
-              <td><button class="btn btn-sm" onclick="openDetailsModal({{ s.id }})">Details</button></td>
+              <td class="td-dim utc-ts" data-utc="{{ s.display_date }}">{{ s.display_date }}</td>
+              <td style="white-space:nowrap;">
+                <button class="csa-det-btn" onclick="openDetailsModal({{ s.id }})">Details</button>
+                <button class="csa-del-btn" onclick="deleteScan({{ s.id }}, this)">Delete</button>
+              </td>
             </tr>
           {% endfor %}
           </tbody>
         </table>
+        {% else %}
+        <div style="padding:32px;text-align:center;color:#a19f9d;font-size:13px;">
+          <strong>No scans recorded yet.</strong><br>
+          Run a scan from <em>Connect &amp; Scan</em> to see results here.
+        </div>
+        {% endif %}
       </div>
-      {% else %}
-      <div class="empty">
-        <strong>No scans recorded yet.</strong>
-        Scans appear here automatically after running the agent.
-      </div>
-      {% endif %}
-    </div>
-  </section>
 
+    </div><!-- /csa-main -->
+
+    <!-- Right sidebar panel -->
+    <div class="csa-sidebar">
+      <div class="csa-score-card">
+        <div class="csa-score-title">Attack score</div>
+        <div class="csa-score-val" id="csa-attack-score">—</div>
+        <div class="csa-score-sub">Based on scan findings</div>
+        <div class="csa-score-donut"><canvas id="csa-donut"></canvas></div>
+      </div>
+      <div class="csa-stats-card">
+        <div class="csa-stats-title">Summary statistics</div>
+        <div id="csa-quick-stats">
+          <div class="csa-stat-row"><span class="csa-stat-label">Loading...</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /csa-layout -->
 
   </div><!-- /page-history -->
 
@@ -2439,6 +2733,45 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
   </div><!-- /page-logexplorer -->
 
+  <!-- ══ PLUGIN LOGS PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-pluginlogs" class="page-section" style="display:none">
+  <section class="section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Plugin Activity Logs</div>
+        <div class="sec-desc">WordPress plugin and user activity captured from authenticated scans (WP-LOG entries from scan history)</div>
+      </div>
+    </div>
+    <div class="pl-controls">
+      <label style="font-size:12px;color:#605e5c;font-weight:600;white-space:nowrap;">Target site</label>
+      <select id="pl-target-sel" class="pl-target-sel">
+        <option value="">All targets</option>
+      </select>
+      <button class="pl-load-btn" onclick="runPluginLogsPage()">
+        <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;">refresh</span>Load Logs
+      </button>
+      <span id="pl-count" style="font-size:12px;color:#605e5c;margin-left:8px;"></span>
+    </div>
+    <div class="pl-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp (Local)</th>
+            <th>Username</th>
+            <th>Event</th>
+            <th>IP Address</th>
+            <th>Severity</th>
+            <th>Target</th>
+          </tr>
+        </thead>
+        <tbody id="pl-tbody">
+          <tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Select a target and click "Load Logs" to view WordPress plugin activity.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  </div><!-- /page-pluginlogs -->
+
   <!-- ══ NETWORK MONITOR PAGE ══════════════════════════════════════════════ -->
   <div id="page-network" class="page-section" style="display:none">
   <!-- ── Network Monitor ───────────────────────────────────────────────────── -->
@@ -2580,7 +2913,8 @@ var _PAGE_TITLES = {
   'vulns':         'Vulnerability Overview',
   'priority':      'Priority Actions',
   'targets':       'Scan Results',
-  'history':       'Scan History',
+  'history':       'Security Analytics',
+  'pluginlogs':    'Plugin Activity Logs',
 };
 
 var _currentPage = 'dashboard';
@@ -2606,6 +2940,9 @@ function sbNav(section, el) {
   if (section === 'signals')       loadSignals();
   if (section === 'mitre')         loadMitreCoverage();
   if (section === 'incidents')     loadIncidents();
+  if (section === 'history')       loadHistoryPage();
+  if (section === 'pluginlogs')    loadPluginLogsPage();
+  if (section === 'vulns')         _tiAutoLoad();
 }
 
 function toggleSidebar() {
@@ -2876,341 +3213,344 @@ function _loadWidgetData() {
   }
 }
 
-// ── Defender Dashboard: Chart defaults (Segoe UI, MS style) ──────────────────
+// ── MS Defender Style Dashboard ─────────────────────────────────────────────
 if (typeof Chart !== 'undefined') {
   Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
   Chart.defaults.font.size = 11;
   Chart.defaults.color = '#605e5c';
 }
 
-var _defCharts = {};
+var _mvdCharts = {};
+
+function _hideLoadingOverlay() {
+  var el = document.getElementById('ink-loading-overlay');
+  if (el) el.classList.add('hidden');
+}
+// Safety: hide after 4s max regardless
+setTimeout(_hideLoadingOverlay, 4000);
 
 function loadDefDashboard() {
-  var days = parseInt((document.getElementById('def-days') || {}).value || '30');
+  var days = parseInt((document.getElementById('def-days')||{}).value||'30');
   Promise.all([
-    fetch('/api/stats').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
-    fetch('/api/incidents').then(function(r){ return r.json(); }).catch(function(){ return {incidents:[], stats:{}}; }),
-    fetch('/api/security-signals?days=' + days).then(function(r){ return r.json(); }).catch(function(){ return {events:[], timeline:[], counts:{}}; }),
-    fetch('/api/scans/recent?limit=500').then(function(r){ return r.json(); }).catch(function(){ return []; }),
-  ]).then(function(results) {
-    var stats = results[0], incidents = results[1], signals = results[2], scans = results[3];
-    _renderDefBanner(stats, incidents.stats || {});
-    _renderAvgDurationChart(scans);
-    _renderSeverityTimelineChart(signals.timeline || []);
-    _renderCategoryChart(signals.events || [], scans);
-    _renderAgentChart(scans);
-    _renderMostImpacted(scans);
+    fetch('/api/stats').then(function(r){return r.json();}).catch(function(){return {};}),
+    fetch('/api/incidents').then(function(r){return r.json();}).catch(function(){return {incidents:[],stats:{}};}),
+    fetch('/api/scans/recent?limit=500').then(function(r){return r.json();}).catch(function(){return [];}),
+    fetch('/api/security-signals?days='+days).then(function(r){return r.json();}).catch(function(){return {events:[],timeline:[]};}),
+  ]).then(function(res) {
+    var stats=res[0], incData=res[1], scans=res[2], signals=res[3];
+    _mvdRenderKPIs(stats, incData.stats||{}, scans);
+    _mvdRenderThreatHeader(scans);
+    _mvdRenderGauge(scans);
+    _mvdRenderRecommendations(scans);
+    _mvdRenderEvents(scans);
+    _mvdRenderSecScore(scans);
+    _mvdRenderDonut(scans);
+    _mvdRenderSparklines(scans);
+    _mvdRenderRemediation(incData.incidents||[], scans);
+    _hideLoadingOverlay();
   });
 }
 
-function _renderDefBanner(stats, incStats) {
-  var success = parseFloat(stats.success_rate || 0);
-  var headline;
-  if (stats.total_scans === 0 || stats.total_scans === undefined) {
-    headline = 'No scans recorded yet — connect a target and run your first scan.';
-  } else if (success >= 90) {
-    headline = Math.round(success) + '% of your scans completed successfully';
-  } else if (success >= 70) {
-    headline = Math.round(success) + '% scans passed — review failed scans for issues';
-  } else {
-    headline = 'Security attention required — ' + Math.round(100 - success) + '% of scans encountered issues';
-  }
-  var el = document.getElementById('def-headline');
-  if (el) el.textContent = headline;
-  var t = document.getElementById('def-kpi-total'); if (t) t.textContent = stats.total_scans || 0;
-  var i = document.getElementById('def-kpi-issues'); if (i) i.textContent = incStats.total || 0;
-  var r = document.getElementById('def-kpi-resolved'); if (r) r.textContent = incStats.resolved || 0;
-  var o = document.getElementById('def-kpi-open'); if (o) o.textContent = incStats.open || 0;
+function _mvdCalcScore(scans) {
+  if (!scans || !scans.length) return 0;
+  var total = 0;
+  scans.forEach(function(s) {
+    var o=(s.output||'').toLowerCase();
+    if(/\bcritical\b/.test(o)) total+=25;
+    else if(/\bhigh\b/.test(o)) total+=15;
+    else if(/\bmedium\b/.test(o)) total+=5;
+    else if(/\blow\b/.test(o)) total+=2;
+  });
+  return Math.max(0, Math.min(100, Math.round(100 - total/scans.length)));
 }
 
-function _renderAvgDurationChart(scans) {
-  var ctx = document.getElementById('def-avg-bar-chart');
-  if (!ctx) return;
-  if (_defCharts.avg) { try { _defCharts.avg.destroy(); } catch(e){} }
+function _mvdRenderKPIs(stats, incStats, scans) {
+  var critCount = scans.filter(function(s){return /\bcritical\b/i.test(s.output||'');}).length;
+  var el;
+  el=document.getElementById('mvd-kpi-scanned');    if(el) el.textContent=stats.unique_targets||'0';
+  el=document.getElementById('mvd-kpi-critical');   if(el) el.textContent=critCount;
+  el=document.getElementById('mvd-kpi-incidents');  if(el) el.textContent=incStats.open||'0';
+  el=document.getElementById('mvd-filter-count');   if(el) el.textContent=(stats.unique_targets||0)+' target(s)';
+}
 
+function _mvdRenderThreatHeader(scans) {
+  var h=document.getElementById('mvd-threat-h'), p=document.getElementById('mvd-threat-p');
   if (!scans.length) {
-    ctx.style.display = 'none';
-    var em = document.getElementById('def-avg-empty'); if (em) em.style.display = 'flex';
+    if(h) h.textContent='No scan data available';
+    if(p) p.textContent='Run a scan on a target to begin generating security findings and threat awareness data.';
     return;
   }
-
-  // Group by severity level found in output
-  var groups = { Critical:[], High:[], Medium:[], Low:[], Informational:[] };
-  scans.forEach(function(s) {
-    var out = (s.output||'').toLowerCase();
-    var sev = /\bcritical\b/.test(out) ? 'Critical' :
-              /\bhigh\b/.test(out) ? 'High' :
-              /\bmedium\b/.test(out) ? 'Medium' :
-              /\blow\b/.test(out) ? 'Low' : 'Informational';
-    groups[sev].push(s);
-  });
-
-  function avg(arr, key) {
-    return arr.length ? Math.round(arr.reduce(function(a,s){ return a+(parseFloat(s[key])||0); },0)/arr.length*10)/10 : 0;
+  var critCnt = scans.filter(function(s){return /\bcritical\b/i.test(s.output||'');}).length;
+  var highCnt = scans.filter(function(s){return /\bhigh\b/i.test(s.output||'');}).length;
+  if (critCnt > 0) {
+    if(h) h.textContent = critCnt+' site(s) with critical-severity findings';
+    if(p) p.innerHTML = 'Critical vulnerabilities detected across your scanned targets. Sites with these findings may be exposed to <strong>remote code execution, data exfiltration, or full compromise</strong>. Immediate remediation is recommended.';
+  } else if (highCnt > 0) {
+    if(h) h.textContent = highCnt+' site(s) with high-severity findings';
+    if(p) p.textContent = 'High-severity security issues found. These may expose your targets to significant risk if left unaddressed. Review recommendations and apply patches.';
+  } else {
+    if(h) h.textContent = scans.length+' scans completed — low risk';
+    if(p) p.textContent = 'Your scanned targets show low to medium severity findings. Continue monitoring and apply recommended configurations.';
   }
-
-  var labels = ['All', 'Critical', 'High', 'Medium', 'Low', 'Informational'];
-  var grpArr = [scans, groups.Critical, groups.High, groups.Medium, groups.Low, groups.Informational];
-  var latData = grpArr.map(function(g){ return avg(g,'latency_s'); });
-  var toolData = grpArr.map(function(g){ return avg(g,'tool_count'); });
-
-  _defCharts.avg = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label:'Scan latency (s)', data:latData, backgroundColor:'rgba(0,120,212,0.80)', borderColor:'#0078d4', borderWidth:0, borderRadius:3, barPercentage:0.38, categoryPercentage:0.7 },
-        { label:'Tool calls',       data:toolData, backgroundColor:'rgba(227,0,140,0.80)', borderColor:'#e3008c', borderWidth:0, borderRadius:3, barPercentage:0.38, categoryPercentage:0.7 }
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{
-        mode:'index', intersect:false,
-        backgroundColor:'#fff', titleColor:'#201f1e', bodyColor:'#605e5c',
-        borderColor:'#e1dfdd', borderWidth:1, padding:10,
-        titleFont:{size:12,weight:'600'}, bodyFont:{size:11}
-      }},
-      scales:{
-        x:{ grid:{display:false}, border:{display:false}, ticks:{font:{size:11},color:'#605e5c'} },
-        y:{ grid:{color:'#f3f2f1',lineWidth:1}, border:{display:false},
-            ticks:{font:{size:11},color:'#605e5c'}, beginAtZero:true }
-      }
-    }
-  });
 }
 
-function _renderSeverityTimelineChart(timeline) {
-  var ctx = document.getElementById('def-severity-chart');
+function _mvdRenderGauge(scans) {
+  var ctx = document.getElementById('mvd-gauge-chart');
+  var lbl = document.getElementById('mvd-gauge-label');
   if (!ctx) return;
-  if (_defCharts.sev) { try { _defCharts.sev.destroy(); } catch(e){} }
+  var score = _mvdCalcScore(scans);
+  if (lbl) lbl.textContent = score+'/100';
 
-  if (!timeline.length) {
-    ctx.style.display = 'none';
-    var em = document.getElementById('def-sev-empty'); if (em) em.style.display = 'flex';
-    return;
+  // Three-zone background + score arc using D3
+  var w=200, h=110, cx=w/2, cy=h-8, r=82, rIn=58;
+  // Remove old SVG if any
+  var existing = ctx.parentNode.querySelector('svg.mvd-gauge-svg');
+  if (existing) existing.remove();
+
+  var zones=[
+    {start:180,end:127,color:'#d08010'},  // Low 0-29
+    {start:127,end:55,color:'#e05a00'},   // Medium 30-69
+    {start:55,end:0,color:'#a80000'},     // High 70-100
+  ];
+
+  function polarToXY(angleDeg,rad){
+    var a=(angleDeg)*Math.PI/180;
+    return {x:cx+rad*Math.cos(Math.PI-a), y:cy-rad*Math.sin(a)};
+  }
+  function arcPath(startDeg,endDeg,outerR,innerR){
+    var s1=polarToXY(startDeg,outerR), e1=polarToXY(endDeg,outerR);
+    var s2=polarToXY(endDeg,innerR),   e2=polarToXY(startDeg,innerR);
+    var largeArc = (startDeg-endDeg)>180?1:0;
+    return 'M'+s1.x+','+s1.y+' A'+outerR+','+outerR+' 0 '+largeArc+',0 '+e1.x+','+e1.y+
+           ' L'+s2.x+','+s2.y+' A'+innerR+','+innerR+' 0 '+largeArc+',1 '+e2.x+','+e2.y+' Z';
   }
 
-  var labels = timeline.map(function(t) {
-    var d = new Date(t.date); return (d.getMonth()+1)+'/'+d.getDate();
+  var svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width',w); svg.setAttribute('height',h);
+  svg.setAttribute('class','mvd-gauge-svg');
+  svg.style.cssText='position:absolute;top:0;left:0;pointer-events:none;';
+
+  // Draw zone arcs
+  zones.forEach(function(z){
+    var p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',arcPath(z.start,z.end,r,rIn));
+    p.setAttribute('fill',z.color);
+    p.setAttribute('opacity','0.25');
+    svg.appendChild(p);
   });
 
-  _defCharts.sev = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label:'Critical', data:timeline.map(function(t){return t.CRITICAL||0;}), backgroundColor:'#a80000', stack:'s' },
-        { label:'High',     data:timeline.map(function(t){return t.HIGH||0;}),     backgroundColor:'#d83b01', stack:'s' },
-        { label:'Medium',   data:timeline.map(function(t){return t.MEDIUM||0;}),   backgroundColor:'#ffb900', stack:'s' },
-        { label:'Low',      data:timeline.map(function(t){return t.LOW||0;}),      backgroundColor:'#499205', stack:'s' },
-        { label:'Info',     data:timeline.map(function(t){return t.INFO||0;}),     backgroundColor:'rgba(0,120,212,0.6)', stack:'s' }
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{
-        mode:'index', intersect:false,
-        backgroundColor:'#fff', titleColor:'#201f1e', bodyColor:'#605e5c',
-        borderColor:'#e1dfdd', borderWidth:1, padding:10
-      }},
-      scales:{
-        x:{ stacked:true, grid:{display:false}, border:{display:false},
-            ticks:{font:{size:10},color:'#605e5c',maxRotation:0,maxTicksLimit:10} },
-        y:{ stacked:true, grid:{color:'#f3f2f1'}, border:{display:false},
-            ticks:{font:{size:11},color:'#605e5c'}, beginAtZero:true }
-      }
-    }
-  });
+  // Draw score arc (score 0=left(180deg), 100=right(0deg))
+  var scoreAngle = 180 - (score/100)*180;
+  if (score > 0) {
+    var sp=document.createElementNS('http://www.w3.org/2000/svg','path');
+    var scoreColor = score<30?'#d08010':score<70?'#e05a00':'#a80000';
+    sp.setAttribute('d',arcPath(180,scoreAngle,r,rIn));
+    sp.setAttribute('fill',scoreColor);
+    svg.appendChild(sp);
+  }
+
+  // Gray remainder arc
+  if (score < 100) {
+    var gp=document.createElementNS('http://www.w3.org/2000/svg','path');
+    gp.setAttribute('d',arcPath(scoreAngle,0,r,rIn));
+    gp.setAttribute('fill','#e8e6e3');
+    svg.appendChild(gp);
+  }
+
+  ctx.parentNode.appendChild(svg);
+  ctx.style.display='none'; // hide canvas, use SVG
 }
 
-function _renderCategoryChart(events, scans) {
-  var ctx = document.getElementById('def-category-chart');
-  if (!ctx) return;
-  if (_defCharts.cat) { try { _defCharts.cat.destroy(); } catch(e){} }
-
-  function catOf(text) {
-    var t = (text||'').toLowerCase();
-    if (/sql|inject|rce|command\s*exec/.test(t)) return 'SQL/Injection';
-    if (/xss|cross.site|csrf/.test(t)) return 'XSS/CSRF';
-    if (/ssl|tls|certif|https/.test(t)) return 'SSL/TLS';
-    if (/header|csp|hsts|x-frame|content.security/.test(t)) return 'HTTP Headers';
-    if (/wordpress|wp.plugin|cms|wp-admin/.test(t)) return 'CMS/WordPress';
-    if (/auth|login|password|credential|brute/.test(t)) return 'Authentication';
-    return 'Other';
-  }
-
-  var CATS   = ['SQL/Injection','XSS/CSRF','SSL/TLS','HTTP Headers','CMS/WordPress','Authentication','Other'];
-  var COLORS = ['#d83b01','#e3008c','#0078d4','#00b294','#881798','#ca5010','#a19f9d'];
-
-  var byDate = {};
-  events.forEach(function(e) {
-    var date = e.date || '';
-    var cat = catOf(e.event);
-    if (!byDate[date]) byDate[date] = {};
-    byDate[date][cat] = (byDate[date][cat]||0) + 1;
-  });
-
-  var dates = Object.keys(byDate).sort();
-  if (!dates.length) {
-    ctx.style.display = 'none';
-    var em = document.getElementById('def-cat-empty'); if (em) em.style.display = 'flex';
-    // Still build legend
-    var leg = document.getElementById('def-cat-legend');
-    if (leg) leg.innerHTML = CATS.map(function(c,i){ return '<div class="def-leg-item"><div class="def-leg-dot" style="background:'+COLORS[i]+'"></div>'+c+'</div>'; }).join('');
-    return;
-  }
-
-  var labels = dates.map(function(d){ var dt=new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
-  var datasets = CATS.map(function(cat, i) {
-    return {
-      label: cat,
-      data: dates.map(function(d){ return (byDate[d]||{})[cat]||0; }),
-      borderColor: COLORS[i],
-      backgroundColor: 'transparent',
-      borderWidth: 2,
-      tension: 0.4,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      pointBackgroundColor: COLORS[i],
-      pointBorderColor: '#fff',
-      pointBorderWidth: 1,
-    };
-  });
-
-  _defCharts.cat = new Chart(ctx, {
-    type: 'line',
-    data: { labels: labels, datasets: datasets },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{
-        mode:'index', intersect:false,
-        backgroundColor:'#fff', titleColor:'#201f1e', bodyColor:'#605e5c',
-        borderColor:'#e1dfdd', borderWidth:1, padding:10
-      }},
-      scales:{
-        x:{ grid:{display:false}, border:{display:false}, ticks:{font:{size:10},color:'#605e5c',maxRotation:0,maxTicksLimit:10} },
-        y:{ grid:{color:'#f3f2f1'}, border:{display:false}, ticks:{font:{size:11},color:'#605e5c'}, beginAtZero:true }
-      }
-    }
-  });
-
-  var leg = document.getElementById('def-cat-legend');
-  if (leg) leg.innerHTML = CATS.map(function(c,i){ return '<div class="def-leg-item"><div class="def-leg-dot" style="background:'+COLORS[i]+'"></div>'+c+'</div>'; }).join('');
-}
-
-function _renderAgentChart(scans) {
-  var ctx = document.getElementById('def-agent-chart');
-  if (!ctx) return;
-  if (_defCharts.agt) { try { _defCharts.agt.destroy(); } catch(e){} }
-
-  var AGENT_MAP = { apit:'API Testing', athn:'Authentication', info:'Intelligence', wstg:'WSTG Scanner', full:'Full Pentest', pentest:'Full Pentest' };
-  var AGENT_COLORS = ['#0078d4','#e3008c','#107c10','#ca5010','#8764b8','#038387','#605e5c'];
-
-  var byDate = {};
-  var agentSet = {};
+function _mvdRenderRecommendations(scans) {
+  var tbody = document.getElementById('mvd-rec-tbody');
+  if (!tbody) return;
+  var recMap = {};
+  var sevOrder = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,INFO:4};
   scans.forEach(function(s) {
-    var raw = (s.created_at||'').replace('T',' ');
-    var date = raw.split(' ')[0];
-    var agent = AGENT_MAP[s.agent_type] || (s.agent_type||'Unknown');
-    agentSet[agent] = true;
-    if (!byDate[date]) byDate[date] = {};
-    byDate[date][agent] = (byDate[date][agent]||0) + 1;
+    var o=(s.output||'').toLowerCase();
+    var sev=/\bcritical\b/.test(o)?'CRITICAL':/\bhigh\b/.test(o)?'HIGH':/\bmedium\b/.test(o)?'MEDIUM':/\blow\b/.test(o)?'LOW':'INFO';
+    var lines=(s.output||'').split('\n');
+    lines.forEach(function(line){
+      var t=line.trim();
+      if(t.length<25||t.length>180) return;
+      if(!/update|patch|fix|upgrade|configure|enable|disable|review|remove|install|harden|restrict|enforce/i.test(t)) return;
+      var key=t.slice(0,70).toLowerCase();
+      if(!recMap[key]){recMap[key]={text:t.slice(0,90),sev:sev,sites:new Set(),impact:0};}
+      recMap[key].sites.add(s.target);
+      recMap[key].impact += (sev==='CRITICAL'?5:sev==='HIGH'?3:sev==='MEDIUM'?2:1);
+    });
   });
-
-  var dates = Object.keys(byDate).sort();
-  if (!dates.length) {
-    ctx.style.display = 'none';
-    var em = document.getElementById('def-agent-empty'); if (em) em.style.display = 'flex';
+  var recs=Object.values(recMap).sort(function(a,b){
+    return (sevOrder[a.sev]-sevOrder[b.sev]) || (b.impact-a.impact);
+  }).slice(0,6);
+  if (!recs.length) {
+    tbody.innerHTML='<tr><td colspan="4" style="color:#a19f9d;font-style:italic;padding:14px 6px;">'+(scans.length?'No actionable recommendations found — run more scans.':'No scan data — connect a target and run a scan.')+'</td></tr>';
     return;
   }
-
-  var agents = Object.keys(agentSet);
-  var labels = dates.map(function(d){ var dt=new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
-  var datasets = agents.map(function(agent,i) {
-    return {
-      label: agent,
-      data: dates.map(function(d){ return (byDate[d]||{})[agent]||0; }),
-      borderColor: AGENT_COLORS[i%AGENT_COLORS.length],
-      backgroundColor: 'transparent',
-      borderWidth: 2,
-      tension: 0.4,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      pointBackgroundColor: AGENT_COLORS[i%AGENT_COLORS.length],
-      pointBorderColor: '#fff',
-      pointBorderWidth: 1,
-    };
-  });
-
-  _defCharts.agt = new Chart(ctx, {
-    type: 'line',
-    data: { labels: labels, datasets: datasets },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{
-        mode:'index', intersect:false,
-        backgroundColor:'#fff', titleColor:'#201f1e', bodyColor:'#605e5c',
-        borderColor:'#e1dfdd', borderWidth:1, padding:10
-      }},
-      scales:{
-        x:{ grid:{display:false}, border:{display:false}, ticks:{font:{size:10},color:'#605e5c',maxRotation:0,maxTicksLimit:10} },
-        y:{ grid:{color:'#f3f2f1'}, border:{display:false}, ticks:{font:{size:11},color:'#605e5c'}, beginAtZero:true }
-      }
-    }
-  });
-
-  var leg = document.getElementById('def-agent-legend');
-  if (leg) leg.innerHTML = agents.map(function(a,i){ return '<div class="def-leg-item"><div class="def-leg-dot" style="background:'+AGENT_COLORS[i%AGENT_COLORS.length]+'"></div>'+a+'</div>'; }).join('');
+  tbody.innerHTML=recs.map(function(r){
+    var icons='<span title="Threats" style="color:#797673;font-size:12px;">&#9888;</span> <span title="Active" style="color:#797673;font-size:11px;">&#9679;</span>';
+    return '<tr>'+
+      '<td><span class="mvd-rec-name" title="'+escHtml(r.text)+'">'+escHtml(r.text)+'</span></td>'+
+      '<td style="text-align:center;">'+r.sites.size+'</td>'+
+      '<td>'+icons+'</td>'+
+      '<td><span style="color:#d83b01;">▼</span> '+r.impact.toFixed(2)+'</td>'+
+    '</tr>';
+  }).join('');
 }
 
-function _renderMostImpacted(scans) {
-  var byTarget = {};
-  scans.forEach(function(s) {
-    var t = (s.target||'').replace(/^https?:\/\//,'').split('/')[0];
-    if (!t) return;
-    if (!byTarget[t]) byTarget[t] = { target:t, count:0, risk:'Low' };
-    byTarget[t].count++;
-    var out = (s.output||'').toLowerCase();
-    var curRisk = byTarget[t].risk;
-    if (/\bcritical\b/.test(out)) byTarget[t].risk = 'Critical';
-    else if (/\bhigh\b/.test(out) && curRisk !== 'Critical') byTarget[t].risk = 'High';
-    else if (/\bmedium\b/.test(out) && curRisk !== 'Critical' && curRisk !== 'High') byTarget[t].risk = 'Medium';
-  });
-
-  var sorted = Object.values(byTarget).sort(function(a,b){ return b.count-a.count; });
-  var half = Math.ceil(sorted.length/2);
-  var leftItems = sorted.slice(0, Math.max(half,5));
-  var rightItems = sorted.slice(0, Math.max(sorted.length,5));
-
-  function riskCls(r) {
-    if (r==='Critical') return 'def-risk-critical';
-    if (r==='High') return 'def-risk-high';
-    if (r==='Medium') return 'def-risk-medium';
-    return 'def-risk-low';
+function _mvdRenderEvents(scans) {
+  var tbody=document.getElementById('mvd-evt-tbody');
+  if (!tbody) return;
+  var cutoff=new Date(Date.now()-7*24*60*60*1000);
+  var recent=scans.filter(function(s){return new Date(s.created_at||0)>=cutoff;}).slice(0,6);
+  if (!recent.length) {
+    tbody.innerHTML='<tr><td colspan="3" style="color:#a19f9d;font-style:italic;padding:12px 6px;">No scan events in the last 7 days.</td></tr>';
+    return;
   }
+  tbody.innerHTML=recent.map(function(s){
+    var d=(s.created_at||'').replace('T',' ').slice(0,16);
+    var o=(s.output||'').toLowerCase();
+    var sev=/\bcritical\b/.test(o)?'CRITICAL':/\bhigh\b/.test(o)?'HIGH':/\bmedium\b/.test(o)?'MEDIUM':'LOW';
+    var first=(s.output||'').split('\n').find(function(l){return l.trim().length>30;})||'Scan completed for '+s.target;
+    var pct=Math.round((s.tool_count||0)/Math.max(1,s.tool_count||1)*100);
+    return '<tr>'+
+      '<td style="white-space:nowrap;color:#605e5c;font-size:11px;">'+d+'</td>'+
+      '<td><span class="material-icons" style="font-size:11px!important;vertical-align:middle;color:#605e5c;margin-right:3px;">security</span>'+
+        '<span style="font-size:11px;">'+escHtml(first.trim().slice(0,65))+(first.length>65?'…':'')+'</span></td>'+
+      '<td style="white-space:nowrap;font-size:11px;">'+escHtml((s.target||'').slice(0,22))+' ('+s.tool_count+' tools)</td>'+
+    '</tr>';
+  }).join('');
+}
 
-  var emptyHtml = '<div style="padding:16px 14px;color:#a19f9d;font-size:12px;font-style:italic;">No scan data yet — run a scan first.</div>';
+function _mvdRenderSecScore(scans) {
+  var CATS=[
+    {name:'SSL / TLS',      pat:/ssl|tls|certif|https/i,                       id:'ssl',  max:25},
+    {name:'HTTP Headers',   pat:/header|csp|hsts|x-frame|content.security/i,   id:'hdr',  max:25},
+    {name:'Authentication', pat:/auth|login|password|credential|brute/i,        id:'auth', max:25},
+    {name:'CMS Security',   pat:/wordpress|wp.plugin|cms|wp-admin|plugin/i,     id:'cms',  max:25},
+  ];
+  var pctEl=document.getElementById('mvd-sec-pct'),ptsEl=document.getElementById('mvd-pts-text');
+  if (!scans.length) {
+    if(pctEl) pctEl.textContent='—';
+    if(ptsEl) ptsEl.textContent='— / 100 points achieved';
+    return;
+  }
+  var total=0;
+  CATS.forEach(function(cat){
+    var issueCount=scans.filter(function(s){return cat.pat.test(s.output||'');}).length;
+    var pts=Math.round(cat.max*(1-Math.min(1,issueCount/scans.length)*0.7));
+    total+=pts;
+    var bar=document.getElementById('pb-'+cat.id),num=document.getElementById('pn-'+cat.id);
+    if(bar) bar.style.width=Math.round(pts/cat.max*100)+'%';
+    if(num) num.textContent=pts+' / '+cat.max;
+  });
+  if(pctEl) pctEl.textContent=total;
+  if(ptsEl) ptsEl.textContent=total+' / 100 points achieved';
+}
 
-  var lEl = document.getElementById('def-targets-left');
-  if (lEl) {
-    if (!leftItems.length) { lEl.innerHTML = emptyHtml; }
-    else lEl.innerHTML = leftItems.map(function(t) {
-      return '<div class="def-assets-row">' +
-        '<div class="def-assets-name"><span class="material-icons">language</span>' + esc(t.target) + '</div>' +
-        '<span class="def-assets-count">' + t.count + '</span></div>';
+function _mvdRenderDonut(scans) {
+  var ctx=document.getElementById('mvd-donut-chart');
+  var legEl=document.getElementById('mvd-donut-leg');
+  if (!ctx) return;
+  if (_mvdCharts.donut) {try{_mvdCharts.donut.destroy();}catch(e){}}
+  var C={Critical:0,High:0,Medium:0,Low:0,Info:0};
+  var COLORS={Critical:'#a80000',High:'#d83b01',Medium:'#ffb900',Low:'#499205',Info:'rgba(0,120,212,0.7)'};
+  scans.forEach(function(s){
+    var o=(s.output||'').toLowerCase();
+    if(/\bcritical\b/.test(o)) C.Critical++;
+    else if(/\bhigh\b/.test(o)) C.High++;
+    else if(/\bmedium\b/.test(o)) C.Medium++;
+    else if(/\blow\b/.test(o)) C.Low++;
+    else C.Info++;
+  });
+  var items=Object.entries(C).filter(function(x){return x[1]>0;});
+  if (!items.length) {
+    _mvdCharts.donut=new Chart(ctx,{type:'doughnut',data:{datasets:[{data:[1],backgroundColor:['#e8e6e3'],borderWidth:0}]},options:{cutout:'65%',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+    if(legEl) legEl.innerHTML='<span style="color:#a19f9d;font-style:italic;">No scan data yet</span>';
+    return;
+  }
+  var total=items.reduce(function(a,x){return a+x[1];},0);
+  _mvdCharts.donut=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:items.map(function(x){return x[0];}),datasets:[{data:items.map(function(x){return x[1];}),backgroundColor:items.map(function(x){return COLORS[x[0]];}),borderWidth:2,borderColor:'#fff',hoverOffset:4}]},
+    options:{cutout:'60%',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',titleColor:'#201f1e',bodyColor:'#605e5c',borderColor:'#e1dfdd',borderWidth:1,padding:10,callbacks:{label:function(c){return c.label+': '+c.raw+' site(s) ('+Math.round(c.raw/total*100)+'%)';}}}}}
+  });
+  if(legEl) legEl.innerHTML=items.map(function(x){
+    return '<div class="mvd-donut-leg-item"><div style="display:flex;align-items:center;gap:5px;"><div class="mvd-donut-leg-dot" style="background:'+COLORS[x[0]]+'"></div>'+x[0]+'</div><strong>'+x[1]+'</strong></div>';
+  }).join('');
+}
+
+function _mvdRenderSparklines(scans) {
+  var byDate={};
+  scans.forEach(function(s){
+    var d=(s.created_at||'').split('T')[0].replace(' ','').slice(0,10);
+    if(!d) return;
+    if(!byDate[d]) byDate[d]=[];
+    byDate[d].push(s);
+  });
+  var dates=Object.keys(byDate).sort().slice(-20);
+  if (!dates.length) return;
+  var labels=dates.map(function(d){var dt=new Date(d);return (dt.getMonth()+1)+'/'+(dt.getDate());});
+  var s1=dates.map(function(d){return _mvdCalcScore(byDate[d]);});
+  var s2=dates.map(function(d){
+    var arr=byDate[d];
+    return Math.round(arr.filter(function(s){return !/\bcritical\b|\bhigh\b/i.test(s.output||'');}).length/arr.length*100);
+  });
+  var sparkOpts={
+    responsive:true,maintainAspectRatio:false,
+    layout:{padding:{top:8,bottom:0,left:0,right:4}},
+    plugins:{legend:{display:false},tooltip:{enabled:false}},
+    elements:{point:{radius:3,hoverRadius:4},line:{tension:0.4,borderWidth:1.5}},
+    scales:{x:{display:true,ticks:{font:{size:9},color:'#a19f9d',maxTicksLimit:5},grid:{display:false},border:{display:false}},y:{display:true,beginAtZero:false,min:0,max:100,ticks:{font:{size:9},color:'#a19f9d',maxTicksLimit:3},grid:{color:'#f3f2f1'},border:{display:false}}},
+    animation:{duration:400},
+    clip:false
+  };
+  ['mvd-score-spark','mvd-score-spark2'].forEach(function(id,idx){
+    var c=document.getElementById(id);
+    if(!c) return;
+    var key='spark'+idx;
+    if(_mvdCharts[key]){try{_mvdCharts[key].destroy();}catch(e){}}
+    _mvdCharts[key]=new Chart(c,{
+      type:'line',
+      data:{labels:labels,datasets:[{data:idx===0?s1:s2,borderColor:'#c8a200',backgroundColor:'rgba(200,162,0,0.08)',fill:true,pointBackgroundColor:'#c8a200',pointBorderColor:'#fff',pointBorderWidth:1}]},
+      options:sparkOpts
+    });
+  });
+}
+
+function _mvdRenderRemediation(incidents, scans) {
+  var tbody=document.getElementById('mvd-rem-tbody');
+  if (!tbody) return;
+  // Build from open incidents
+  var openInc=incidents.filter(function(i){return i.status==='open'||i.status==='investigating';}).slice(0,6);
+  if (!openInc.length) {
+    // Fall back to top severity scans as suggested tasks
+    var topScans=scans.filter(function(s){return /\bcritical\b|\bhigh\b/i.test(s.output||'');}).slice(0,4);
+    if (!topScans.length) {
+      tbody.innerHTML='<tr><td colspan="4" style="color:#a19f9d;font-style:italic;padding:14px 6px;">No remediation activities — resolve scan findings to generate tasks.</td></tr>';
+      return;
+    }
+    tbody.innerHTML=topScans.map(function(s){
+      var d=(s.created_at||'').slice(0,10);
+      var sev=/\bcritical\b/i.test(s.output||'')?'CRITICAL':'HIGH';
+      return '<tr>'+
+        '<td><span class="mvd-badge mvd-badge-'+sev+'">'+sev+'</span> Address findings for '+escHtml((s.target||'').slice(0,25))+'</td>'+
+        '<td style="font-size:10px;color:#605e5c;">'+escHtml((s.target||'').slice(0,20))+'</td>'+
+        '<td><span style="color:#986f0b;font-size:10px;font-weight:600;">PENDING</span></td>'+
+        '<td style="font-size:10px;color:#605e5c;">'+d+'</td>'+
+      '</tr>';
     }).join('');
+    return;
   }
-
-  var rEl = document.getElementById('def-targets-right');
-  if (rEl) {
-    if (!rightItems.length) { rEl.innerHTML = emptyHtml; }
-    else rEl.innerHTML = rightItems.map(function(t) {
-      return '<div class="def-assets-row">' +
-        '<div class="def-assets-name"><span class="material-icons">dns</span>' + esc(t.target) + '</div>' +
-        '<span class="' + riskCls(t.risk) + '">' + t.risk + '</span></div>';
-    }).join('');
-  }
+  tbody.innerHTML=openInc.map(function(i){
+    var stColor=i.status==='investigating'?'#986f0b':'#dc2626';
+    return '<tr>'+
+      '<td style="font-size:11px;">'+escHtml((i.title||'').slice(0,50))+'</td>'+
+      '<td style="font-size:10px;color:#605e5c;">'+escHtml((i.target||'—').slice(0,20))+'</td>'+
+      '<td><span style="color:'+stColor+';font-size:10px;font-weight:600;text-transform:uppercase;">'+i.status+'</span></td>'+
+      '<td style="font-size:10px;color:#605e5c;">'+(i.updated_at||i.created_at||'').slice(0,10)+'</td>'+
+    '</tr>';
+  }).join('');
 }
 
 // Init on load
@@ -3218,7 +3558,6 @@ window.addEventListener('load', function(){
   loadDefDashboard();
 });
 
-// ── Setup Guide ───────────────────────────────────────────────────────────────
 function copyEnvTemplate() {
   var el = document.getElementById('env-template');
   if (el) {
@@ -3232,6 +3571,279 @@ function copyEnvTemplate() {
 }
 
 
+
+
+/* ═══════════════════════════════════════════════════════
+   SECURITY ANALYTICS — History page JS
+   ═══════════════════════════════════════════════════════ */
+var _histRiskFilter = 'all';
+
+function _esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _utcToLocal(utcStr) {
+  if (!utcStr) return utcStr;
+  try {
+    var d = new Date(utcStr.replace(' ','T') + 'Z');
+    return d.toLocaleString(undefined, {
+      year:'numeric', month:'short', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', hour12:false
+    });
+  } catch(e) { return utcStr; }
+}
+
+function loadHistoryPage() {
+  // Convert UTC timestamps to local device timezone
+  document.querySelectorAll('.utc-ts').forEach(function(el) {
+    var utc = el.getAttribute('data-utc');
+    if (utc) el.textContent = _utcToLocal(utc);
+  });
+  _buildHistoryKPIs();
+  _buildHistoryChart();
+}
+
+function _buildHistoryKPIs() {
+  var rows = document.querySelectorAll('#hist tbody tr.hist-row');
+  var total = rows.length, high = 0, med = 0, ok = 0;
+  rows.forEach(function(r) {
+    var risk = r.getAttribute('data-risk') || '';
+    if (risk === 'HIGH' || risk === 'CRITICAL') high++;
+    else if (risk === 'MEDIUM') med++;
+    if (r.querySelector('.st-ok')) ok++;
+  });
+  var rate = total > 0 ? Math.round(ok / total * 100) : 0;
+  var kpiEl = document.getElementById('csa-kpis');
+  if (kpiEl) {
+    kpiEl.innerHTML =
+      '<div class="csa-kpi"><div class="csa-kpi-label">Total Scans</div><div class="csa-kpi-val">'+total+'</div><div class="csa-kpi-sub">Recorded</div></div>' +
+      '<div class="csa-kpi"><div class="csa-kpi-label">High / Critical</div><div class="csa-kpi-val" style="color:#a80000;">'+high+'</div><div class="csa-kpi-sub">Flagged risk</div></div>' +
+      '<div class="csa-kpi"><div class="csa-kpi-label">Medium Risk</div><div class="csa-kpi-val" style="color:#986f0b;">'+med+'</div><div class="csa-kpi-sub">Needs attention</div></div>' +
+      '<div class="csa-kpi"><div class="csa-kpi-label">Success Rate</div><div class="csa-kpi-val" style="color:#107c10;">'+rate+'%</div><div class="csa-kpi-sub">Completed</div></div>';
+  }
+  // Attack score
+  var score = high > 0 ? Math.min(99, high * 12 + med * 4) : (med > 0 ? med * 4 : 0);
+  var scoreEl = document.getElementById('csa-attack-score');
+  if (scoreEl) {
+    scoreEl.textContent = score;
+    scoreEl.style.color = score >= 60 ? '#a80000' : score >= 25 ? '#986f0b' : '#107c10';
+  }
+  // Quick stats
+  var targets = new Set();
+  rows.forEach(function(r){ targets.add(r.getAttribute('data-target')); });
+  var qs = document.getElementById('csa-quick-stats');
+  if (qs) {
+    qs.innerHTML =
+      '<div class="csa-stat-row"><span class="csa-stat-label">Unique targets</span><span class="csa-stat-val">'+targets.size+'</span></div>' +
+      '<div class="csa-stat-row"><span class="csa-stat-label">High risk scans</span><span class="csa-stat-val" style="color:#a80000;">'+high+'</span></div>' +
+      '<div class="csa-stat-row"><span class="csa-stat-label">Medium risk scans</span><span class="csa-stat-val" style="color:#986f0b;">'+med+'</span></div>' +
+      '<div class="csa-stat-row"><span class="csa-stat-label">Success rate</span><span class="csa-stat-val" style="color:#107c10;">'+rate+'%</span></div>';
+  }
+  // Donut chart
+  var low = Math.max(0, total - high - med);
+  var ctx = document.getElementById('csa-donut');
+  if (ctx) {
+    if (window._csaDonut) { window._csaDonut.destroy(); window._csaDonut = null; }
+    window._csaDonut = new Chart(ctx.getContext('2d'), {
+      type: 'doughnut',
+      data: { labels:['High/Critical','Medium','Low/Info'], datasets:[{ data:[high,med,low], backgroundColor:['#a80000','#986f0b','#107c10'], borderWidth:0 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:'70%' }
+    });
+  }
+}
+
+function _buildHistoryChart() {
+  var rows = document.querySelectorAll('#hist tbody tr.hist-row');
+  var byDate = {};
+  rows.forEach(function(r) {
+    var el = r.querySelector('.utc-ts');
+    var raw = el ? el.getAttribute('data-utc') : null;
+    if (!raw) return;
+    var d = raw.substring(0, 10);
+    if (!byDate[d]) byDate[d] = {high:0, med:0, low:0};
+    var risk = r.getAttribute('data-risk') || 'INFO';
+    if (risk === 'HIGH' || risk === 'CRITICAL') byDate[d].high++;
+    else if (risk === 'MEDIUM') byDate[d].med++;
+    else byDate[d].low++;
+  });
+  var dates = Object.keys(byDate).sort();
+  var ctx = document.getElementById('csa-chart');
+  if (!ctx) return;
+  if (window._csaChart) { window._csaChart.destroy(); window._csaChart = null; }
+  if (!dates.length) return;
+  window._csaChart = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        { label:'High Risk', data: dates.map(function(d){return byDate[d].high;}), borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,.15)', tension:.35, fill:true, pointRadius:3, borderWidth:2 },
+        { label:'Medium', data: dates.map(function(d){return byDate[d].med;}), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.1)', tension:.35, fill:true, pointRadius:3, borderWidth:2 },
+        { label:'Low/Info', data: dates.map(function(d){return byDate[d].low;}), borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.1)', tension:.35, fill:true, pointRadius:3, borderWidth:2 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ color:'#f3f2f1' }, ticks:{ font:{ size:10 } } },
+        y:{ grid:{ color:'#f3f2f1' }, ticks:{ font:{ size:10 }, stepSize:1 }, beginAtZero:true }
+      }
+    }
+  });
+}
+
+function csaTab(name, btn) {
+  document.querySelectorAll('.csa-tab').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  var rows = document.querySelectorAll('#hist tbody tr.hist-row');
+  rows.forEach(function(r) {
+    var risk = r.getAttribute('data-risk') || '';
+    var show = true;
+    if (name === 'attack') show = (risk === 'HIGH' || risk === 'CRITICAL');
+    else if (name === 'risk') show = (risk === 'MEDIUM' || risk === 'HIGH' || risk === 'CRITICAL');
+    r.style.display = show ? '' : 'none';
+  });
+  var titles = { all:'Scans over time', attack:'Attack detections over time', risk:'Risk findings over time' };
+  var titleEl = document.getElementById('csa-chart-title');
+  if (titleEl) titleEl.textContent = titles[name] || 'Scans over time';
+}
+
+function histFilter() {
+  var v = (document.getElementById('hist-domain-filter').value || '').toLowerCase().trim();
+  document.querySelectorAll('#hist tbody tr.hist-row').forEach(function(r) {
+    var t = r.getAttribute('data-target') || '';
+    var riskOk = _histRiskFilter === 'all' || r.getAttribute('data-risk') === _histRiskFilter;
+    var domainOk = !v || t.indexOf(v) >= 0;
+    r.style.display = (riskOk && domainOk) ? '' : 'none';
+  });
+}
+
+function histRiskFilter(btn, risk) {
+  document.querySelectorAll('.csa-table-filters .filt').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  _histRiskFilter = risk;
+  histFilter();
+}
+
+function deleteScan(id, btn) {
+  if (!confirm('Delete scan #' + id + '? This cannot be undone.')) return;
+  fetch('/api/scans/' + id, { method: 'DELETE' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function() {
+      var row = btn.closest('tr');
+      if (row) row.remove();
+      _buildHistoryKPIs();
+      _buildHistoryChart();
+    })
+    .catch(function(e){ alert('Could not delete scan: ' + e.message); });
+}
+
+function clearAllScans() {
+  if (!confirm('Clear ALL scan history? This cannot be undone.')) return;
+  fetch('/api/scans/clear', { method: 'DELETE' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function() {
+      document.querySelectorAll('#hist tbody tr.hist-row').forEach(function(r){ r.remove(); });
+      _buildHistoryKPIs();
+      _buildHistoryChart();
+    })
+    .catch(function(e){ alert('Could not clear scans: ' + e.message); });
+}
+
+/* ═══════════════════════════════════════════════════════
+   PLUGIN LOGS PAGE JS
+   ═══════════════════════════════════════════════════════ */
+function loadPluginLogsPage() {
+  // Populate target selector from scan history
+  var sel = document.getElementById('pl-target-sel');
+  if (!sel) return;
+  fetch('/api/scans/recent?limit=500')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var scans = d.scans || d || [];
+      var targets = [];
+      var seen = {};
+      scans.forEach(function(s) { if (s.target && !seen[s.target]) { seen[s.target] = 1; targets.push(s.target); } });
+      targets.sort();
+      sel.innerHTML = '<option value="">All targets</option>' +
+        targets.map(function(t){ return '<option value="'+_esc(t)+'">'+_esc(t)+'</option>'; }).join('');
+    })
+    .catch(function(){});
+}
+
+function runPluginLogsPage() {
+  var target = (document.getElementById('pl-target-sel') || {}).value || '';
+  var tbody = document.getElementById('pl-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#605e5c;">Loading...</td></tr>';
+  document.getElementById('pl-count').textContent = '';
+
+  function _fetchLogs(t, cb) {
+    fetch('/api/target/' + encodeURIComponent(t) + '/wp-logs')
+      .then(function(r){ return r.json(); })
+      .then(function(d){ cb(null, d.logs || []); })
+      .catch(function(e){ cb(e, []); });
+  }
+
+  if (target) {
+    _fetchLogs(target, function(err, logs) {
+      if (err) { tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a80000;">Error loading logs.</td></tr>'; return; }
+      logs.forEach(function(l){ l._target = target; });
+      _renderPluginLogs(logs);
+    });
+  } else {
+    // Load all targets
+    fetch('/api/scans/recent?limit=500')
+      .then(function(r){ return r.json(); })
+      .then(function(d) {
+        var scans = d.scans || d || [];
+        var targets = [];
+        var seen = {};
+        scans.forEach(function(s){ if (s.target && !seen[s.target]) { seen[s.target]=1; targets.push(s.target); } });
+        if (!targets.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a19f9d;font-style:italic;">No targets found. Run a WordPress scan first.</td></tr>';
+          return;
+        }
+        var allLogs = [], done = 0;
+        targets.forEach(function(t) {
+          _fetchLogs(t, function(err, logs) {
+            logs.forEach(function(l){ l._target = t; allLogs.push(l); });
+            done++;
+            if (done === targets.length) _renderPluginLogs(allLogs);
+          });
+        });
+      })
+      .catch(function(){ tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a80000;">Failed to load target list.</td></tr>'; });
+  }
+}
+
+function _renderPluginLogs(logs) {
+  var tbody = document.getElementById('pl-tbody');
+  var countEl = document.getElementById('pl-count');
+  if (!tbody) return;
+  if (!logs.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No WP-LOG entries found. Run a WordPress scan using the "apit" agent with WordPress credentials to capture plugin activity.</td></tr>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+  // Sort newest first
+  logs.sort(function(a,b){ return (b.timestamp||'').localeCompare(a.timestamp||''); });
+  if (countEl) countEl.textContent = logs.length + ' entries';
+  var html = logs.map(function(l) {
+    var sev = l.severity || 'INFO';
+    var sevStyle = sev === 'HIGH' ? 'color:#a80000;font-weight:600;' : sev === 'MEDIUM' ? 'color:#986f0b;font-weight:500;' : 'color:#107c10;';
+    var ts = _utcToLocal(l.timestamp || '');
+    return '<tr>' +
+      '<td style="white-space:nowrap;font-family:monospace;font-size:11px;">' + _esc(ts) + '</td>' +
+      '<td>' + _esc(l.user || '—') + '</td>' +
+      '<td>' + _esc(l.event || '—') + '</td>' +
+      '<td style="font-family:monospace;font-size:11px;">' + _esc(l.ip || '—') + '</td>' +
+      '<td style="' + sevStyle + '">' + _esc(sev) + '</td>' +
+      '<td style="color:#605e5c;font-size:11px;">' + _esc(l._target || l.target || '—') + '</td>' +
+      '</tr>';
+  }).join('');
+  tbody.innerHTML = html;
+}
 
 /* ── Risk + domain filter (scan history) ── */
 var _histRisk   = 'all';
@@ -5347,6 +5959,89 @@ function _renderNetTraffic(traffic) {
       '<span class="net-rx">↓ ' + data.rx_mb + ' MB</span>' +
       '<span class="net-tx">↑ ' + data.tx_mb + ' MB</span></div>';
   }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THREAT INTELLIGENCE — CVE Enrichment (NVD · CISA KEV · EPSS · EDB)
+   ═══════════════════════════════════════════════════════════════════════ */
+var _tiLoaded = false;
+
+function _tiAutoLoad() {
+  if (!_tiLoaded) loadThreatIntel();
+}
+
+function loadThreatIntel() {
+  var tbody   = document.getElementById('ti-tbody');
+  var loadEl  = document.getElementById('ti-loading');
+  var wrapEl  = document.getElementById('ti-table-wrap');
+  if (!tbody) return;
+  if (loadEl) loadEl.style.display = 'block';
+  if (wrapEl) wrapEl.style.display = 'none';
+
+  fetch('/api/vuln-intel/correlate?limit=500')
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(d) {
+      _tiLoaded = true;
+      if (loadEl) loadEl.style.display = 'none';
+      if (wrapEl) wrapEl.style.display = '';
+
+      var el;
+      el = document.getElementById('ti-total-cves'); if (el) el.textContent = d.total_cves || 0;
+      el = document.getElementById('ti-kev-count');  if (el) el.textContent = d.kev_count  || 0;
+      el = document.getElementById('ti-epss-high');  if (el) el.textContent = d.epss_high  || 0;
+
+      // Fetch KEV total
+      fetch('/api/vuln-intel/kev')
+        .then(function(r){ return r.json(); })
+        .then(function(kev) {
+          el = document.getElementById('ti-kev-total');
+          if (el) el.textContent = kev.total || '—';
+        }).catch(function(){});
+
+      var cves = d.cves || [];
+      if (!cves.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No CVE IDs found in scan outputs. Run an authenticated scan to detect vulnerability references.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = cves.map(function(row) {
+        var nvd  = row.nvd  || {};
+        var kev  = row.kev  || {};
+        var cvss = nvd.cvss_score != null ? nvd.cvss_score.toFixed(1) : '—';
+        var sevCls = '';
+        if (nvd.severity) {
+          var s = (nvd.severity||'').toUpperCase();
+          sevCls = s === 'CRITICAL' ? 'color:#a80000;font-weight:700;' : s === 'HIGH' ? 'color:#c50f1f;font-weight:600;' : s === 'MEDIUM' ? 'color:#986f0b;' : 'color:#107c10;';
+        }
+        var epss = row.epss_score != null ? (row.epss_score * 100).toFixed(1) + '%' : '—';
+        var epssStyle = row.epss_score >= 0.5 ? 'color:#a80000;font-weight:600;' : row.epss_score >= 0.2 ? 'color:#986f0b;' : '';
+        var kevBadge = row.in_kev
+          ? '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:2px;" title="' + _esc(kev.due_date ? 'Due: ' + kev.due_date : 'Known exploited') + '">&#9888; KEV</span>'
+          : '<span style="color:#a19f9d;font-size:10px;">—</span>';
+        var edbLinks = row.edb_ids && row.edb_ids.length
+          ? row.edb_ids.map(function(id){ return '<a href="https://www.exploit-db.com/exploits/' + id + '" target="_blank" style="color:#0078d4;font-size:11px;">EDB-' + id + '</a>'; }).join(' ')
+          : (row.edb_url ? '<a href="' + _esc(row.edb_url) + '" target="_blank" style="color:#0078d4;font-size:11px;">Search</a>' : '<span style="color:#a19f9d;font-size:10px;">—</span>');
+        var desc = nvd.description
+          ? '<span title="' + _esc(nvd.description) + '" style="cursor:help;">' + _esc((nvd.description||'').slice(0,80)) + (nvd.description.length > 80 ? '…' : '') + '</span>'
+          : (kev.name ? _esc(kev.name.slice(0,80)) : '<span style="color:#a19f9d;">—</span>');
+        var targets = (row.affected_targets || []).map(function(t){ return '<span style="background:#eff6fc;color:#0078d4;font-size:10px;padding:1px 5px;border-radius:2px;margin:1px;display:inline-block;">' + _esc(t) + '</span>'; }).join('');
+
+        return '<tr>' +
+          '<td style="white-space:nowrap;"><a href="https://nvd.nist.gov/vuln/detail/' + _esc(row.cve_id) + '" target="_blank" style="color:#0078d4;font-weight:600;">' + _esc(row.cve_id) + '</a></td>' +
+          '<td style="white-space:nowrap;' + sevCls + '">' + cvss + (nvd.severity ? ' <small style="font-size:9px;">'+nvd.severity+'</small>' : '') + '</td>' +
+          '<td style="white-space:nowrap;' + epssStyle + '">' + epss + '</td>' +
+          '<td>' + kevBadge + '</td>' +
+          '<td>' + edbLinks + '</td>' +
+          '<td style="max-width:260px;">' + desc + '</td>' +
+          '<td style="max-width:200px;">' + (targets || '<span style="color:#a19f9d;">—</span>') + '</td>' +
+          '</tr>';
+      }).join('');
+    })
+    .catch(function(e) {
+      if (loadEl) loadEl.style.display = 'none';
+      if (wrapEl) wrapEl.style.display = '';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#a80000;font-size:12px;">Error loading threat intelligence: ' + _esc(String(e)) + '</td></tr>';
+    });
 }
 </script>
 </body>

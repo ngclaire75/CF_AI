@@ -561,6 +561,18 @@ async def api_scan(scan_id: int) -> dict:
     return row
 
 
+@app.delete("/api/scans/{scan_id}", status_code=200)
+async def api_delete_scan(scan_id: int) -> dict:
+    """Delete a single scan record by ID."""
+    import sqlite3
+    with sqlite3.connect(db.DB_PATH) as con:
+        cur = con.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+        con.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(404, "Scan not found")
+    return {"deleted": scan_id}
+
+
 @app.post("/api/scan", status_code=201)
 async def api_save_scan(body: ScanSaveRequest) -> dict:
     sid = db.save_scan(
@@ -882,6 +894,157 @@ async def api_monitor_latency(target: str = Query(...)) -> dict:
             ms = round((time.monotonic() - t0) * 1000)
             results.append({"path": path, "status": 0, "ms": ms, "error": str(exc)[:80]})
     return {"target": domain, "probes": results}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Vulnerability Intelligence  (NIST NVD · CISA KEV · EPSS · Exploit-DB)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from dashboard import vuln_intel as _vi
+
+
+@app.get("/api/vuln-intel/cve/{cve_id}")
+async def api_nvd_cve(cve_id: str) -> dict:
+    """Look up a single CVE in NIST NVD v2."""
+    if not re.fullmatch(r"CVE-\d{4}-\d{4,7}", cve_id.upper()):
+        raise HTTPException(400, "Invalid CVE ID format (expected CVE-YYYY-NNNNN)")
+    return _vi.nvd_lookup(cve_id.upper())
+
+
+@app.get("/api/vuln-intel/kev")
+async def api_kev_list(cve: str = Query("")) -> dict:
+    """
+    Return CISA KEV data.
+    ?cve=CVE-XXXX,CVE-YYYY  — look up specific IDs.
+    No param                 — return stats + full list.
+    """
+    if cve:
+        ids = [c.strip().upper() for c in cve.split(",") if c.strip()]
+        return {"results": _vi.kev_lookup(ids)}
+    stats = _vi.kev_stats()
+    # Return full list (small enough, ~1000 entries)
+    kev_map = _vi._load_kev()
+    return {
+        "total":   stats["total"],
+        "entries": [{"cve_id": k, **v} for k, v in list(kev_map.items())[:200]],
+    }
+
+
+@app.get("/api/vuln-intel/epss")
+async def api_epss(cves: str = Query(..., description="Comma-separated CVE IDs")) -> dict:
+    """Return EPSS exploitation probability scores from FIRST.org."""
+    ids = [c.strip().upper() for c in cves.split(",") if c.strip()]
+    if not ids:
+        raise HTTPException(400, "cves parameter required")
+    return {"results": _vi.epss_lookup(ids)}
+
+
+@app.get("/api/vuln-intel/correlate")
+async def api_vuln_correlate(
+    target: str = Query("", description="Optional target filter"),
+    limit: int = Query(200, ge=1, le=500),
+) -> dict:
+    """
+    Extract CVEs from scan outputs, enrich with NVD + KEV + EPSS + Exploit-DB,
+    and return prioritised threat intelligence report.
+    """
+    scans = db.get_recent_scans(limit)
+    if target:
+        scans = [s for s in scans if target.lower() in (s.get("target") or "").lower()]
+    result = _vi.correlate_scans(scans, max_cves=50)
+    return result
+
+
+@app.get("/api/vuln-intel/scan/{scan_id}")
+async def api_vuln_for_scan(scan_id: int) -> dict:
+    """Return CVE intel for a single scan record."""
+    row = db.get_scan(scan_id)
+    if not row:
+        raise HTTPException(404, "Scan not found")
+    cves = _vi.extract_cves(row.get("output", ""))
+    enriched = _vi.correlate(cves[:20])
+    return {"scan_id": scan_id, "target": row.get("target"), "cves": enriched}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PowerBI / Data export
+# Exports scan + CVE intel as a structured JSON payload suitable for
+# ingestion into Power BI via its REST API (Push Dataset) or as a flat
+# JSON file that Power BI Desktop can import via "Get Data → JSON".
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/export/powerbi")
+async def api_export_powerbi(
+    limit: int = Query(500, ge=1, le=2000),
+    include_intel: bool = Query(True),
+) -> dict:
+    """
+    Export scan history + vulnerability intel in Power BI-compatible format.
+
+    Schema follows Power BI Push Dataset conventions:
+      tables:
+        - scans   : scan records
+        - cves    : enriched CVE intelligence
+        - kev     : CISA KEV summary
+
+    Import into Power BI Desktop via:
+      Home → Get Data → JSON → paste the download URL
+    """
+    scans = db.get_recent_scans(limit)
+    scan_rows = []
+    for s in scans:
+        scan_rows.append({
+            "ScanId":      s.get("id"),
+            "Target":      s.get("target", ""),
+            "AgentType":   s.get("agent_type", ""),
+            "Model":       s.get("model", ""),
+            "Status":      s.get("status", ""),
+            "Risk":        s.get("risk", "INFO"),
+            "LatencyS":    s.get("latency_s", 0),
+            "ToolCount":   s.get("tool_count", 0),
+            "Date":        (s.get("created_at") or "")[:10],
+            "DateTime":    (s.get("created_at") or "").replace(" ", "T"),
+            "HasCritical": bool(re.search(r"\bcritical\b", s.get("output", ""), re.I)),
+            "HasHigh":     bool(re.search(r"\bhigh\b", s.get("output", ""), re.I)),
+        })
+
+    cve_rows: list[dict] = []
+    kev_summary: dict = {}
+    if include_intel:
+        intel = _vi.correlate_scans(scans, max_cves=100)
+        for row in intel.get("cves", []):
+            nvd = row.get("nvd") or {}
+            cve_rows.append({
+                "CveId":          row["cve_id"],
+                "InKEV":          row["in_kev"],
+                "EpssScore":      row.get("epss_score"),
+                "EpssPercentile": row.get("epss_pct"),
+                "CvssScore":      nvd.get("cvss_score"),
+                "CvssSeverity":   nvd.get("severity", ""),
+                "Published":      nvd.get("published", ""),
+                "Description":    nvd.get("description", "")[:200],
+                "AffectedTargets": ", ".join(row.get("affected_targets", [])),
+                "ExploitDbUrl":   row.get("edb_url", ""),
+                "KevProduct":     (row.get("kev") or {}).get("product", ""),
+                "KevDueDate":     (row.get("kev") or {}).get("due_date", ""),
+            })
+        kev_summary = _vi.kev_stats()
+
+    return {
+        "schema_version": "1.0",
+        "exported_at":    time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "dataset_name":   "CyberINK Security Intelligence",
+        "tables": {
+            "scans": scan_rows,
+            "cves":  cve_rows,
+            "kev_stats": [kev_summary] if kev_summary else [],
+        },
+        "powerbi_notes": (
+            "Import via Power BI Desktop: Home > Get Data > JSON. "
+            "Expand 'tables' record, then load scans and cves tables separately. "
+            "Relate on Target / AffectedTargets fields."
+        ),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
