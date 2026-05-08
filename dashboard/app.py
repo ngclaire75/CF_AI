@@ -2155,8 +2155,14 @@ def api_cloudflare_insights():
         rs = _cf_json(f'/zones/{zid}/rulesets/phases/http_request_firewall_custom/entrypoint')
         if rs:
             rules = (rs.get('result') or {}).get('rules') or []
-            skip_rules = [r for r in rules if isinstance(r, dict) and r.get('action') == 'skip']
+            skip_rules  = [r for r in rules if isinstance(r, dict) and r.get('action') == 'skip']
+            total_rules = len(rules)
+            skip_pct    = round(len(skip_rules) / total_rules * 100) if total_rules else 0
             if skip_rules:
+                skip_names = ', '.join(
+                    r.get('description') or r.get('ref') or r.get('id', '')[:8]
+                    for r in skip_rules[:5]
+                )
                 insights.append({
                     'id': f'skip-rules-{zid}',
                     'subject': zname,
@@ -2165,7 +2171,11 @@ def api_cloudflare_insights():
                     'insight_type': 'Configuration suggestion',
                     'timestamp': now_ts,
                     'dismissed': False,
-                    'resolution': f'{len(skip_rules)} WAF rule(s) use the skip action, bypassing security checks. Review and remove unnecessary skip rules.',
+                    'resolution': (
+                        f'Risk: Excessive skip rules enlarge your attack surface by bypassing Cloudflare security mitigations.\n'
+                        f'Detection: {len(skip_rules)} of {total_rules} WAF rule(s) ({skip_pct}%) use the "skip" action. Rules: {skip_names}.\n'
+                        f'Recommended actions: Review and remove unnecessary "skip" rules in Security → WAF → Custom rules.'
+                    ),
                 })
 
         # ── AI Labyrinth — check via zone rulesets (works on all plans) ──────

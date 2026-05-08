@@ -6669,7 +6669,7 @@ function runCfInsights() {
       var sc     = sevColors[sev] || {bg:'#8a8886', fg:'#fff'};
       var badge  = '<span style="background:' + sc.bg + ';color:' + sc.fg + ';padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;">' + (issue.severity||'—') + '</span>';
       var ts     = issue.timestamp ? new Date(issue.timestamp).toLocaleString() : '—';
-      var detail = issue.resolution ? '<span style="color:#605e5c;">' + escHtml(issue.resolution) + '</span>' : '—';
+      var detail = issue.resolution ? '<span style="color:#605e5c;white-space:pre-line;">' + escHtml(issue.resolution) + '</span>' : '—';
       var subj   = issue.subject ? escHtml(issue.subject) : '—';
       var desc   = issue.description ? escHtml(issue.description) : '—';
       var itype  = issue.insight_type ? escHtml(issue.insight_type) : '—';
