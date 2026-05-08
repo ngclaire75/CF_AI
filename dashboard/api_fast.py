@@ -478,6 +478,11 @@ async def api_scan_abort(job_id: str) -> dict:
 # Scan data endpoints
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@app.get("/api/ws-available", include_in_schema=False)
+async def api_ws_available():
+    return {"ws": True}
+
+
 @app.get("/api/stats")
 async def api_stats() -> dict:
     return db.get_stats()

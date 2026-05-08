@@ -2948,6 +2948,7 @@ Export Power BI
       <button class="le-tab active" id="le-tab-btn-ssh" onclick="leTab('ssh',this)">SSH / Access Logs</button>
       <button class="le-tab" id="le-tab-btn-wp" onclick="leTab('wp',this)">WordPress Admin</button>
       <button class="le-tab" id="le-tab-btn-cpanel" onclick="leTab('cpanel',this)">cPanel</button>
+      <button class="le-tab" id="le-tab-btn-hostinger" onclick="leTab('hostinger',this)">Hostinger / MySQL</button>
       <button class="le-tab" id="le-tab-btn-history" onclick="leTab('history',this)">Scan History Logs</button>
       <button class="le-tab" id="le-tab-btn-cf" onclick="leTab('cf',this)">Cloudflare</button>
     </div>
@@ -3014,30 +3015,7 @@ Export Power BI
         </div>
       </div>
 
-      <!-- Hostinger / Direct MySQL -->
-      <div style="border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px;margin-top:10px;background:#f9f9f9;">
-        <div style="font-weight:600;font-size:13px;color:#323130;margin-bottom:6px;cursor:pointer;" onclick="var s=document.getElementById('le-wp-mysql-body');s.style.display=s.style.display==='none'?'block':'none';">
-          Hostinger / Direct MySQL <span style="font-size:11px;color:#605e5c;font-weight:400;">(no WordPress auth — reads DB directly)</span>
-          <span style="float:right;color:#0078d4;font-size:11px;">click to expand &#9660;</span>
-        </div>
-        <div id="le-wp-mysql-body" style="display:none;">
-          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-            <div><label class="le-cred-label">DB Host</label><input type="text" id="le-mysql-host" class="le-cred-input" placeholder="srv1234.hstgr.io" style="width:180px;"></div>
-            <div><label class="le-cred-label">DB Port</label><input type="number" id="le-mysql-port" class="le-cred-input" value="3306" style="width:70px;"></div>
-            <div><label class="le-cred-label">DB Name</label><input type="text" id="le-mysql-name" class="le-cred-input" placeholder="u123456_wp"></div>
-            <div><label class="le-cred-label">DB Username</label><input type="text" id="le-mysql-user" class="le-cred-input" placeholder="u123456_user"></div>
-            <div><label class="le-cred-label">DB Password</label><input type="password" id="le-mysql-pass" class="le-cred-input" placeholder="database password"></div>
-            <div><label class="le-cred-label">Table Prefix</label><input type="text" id="le-mysql-prefix" class="le-cred-input" value="wp_" style="width:80px;"></div>
-          </div>
-          <button class="btn btn-sm" onclick="runWpMysql()" id="le-mysql-btn" style="background:#0078d4;color:#fff;border-color:#0078d4;border-radius:8px;padding:7px 20px;">Fetch via MySQL</button>
-          <div id="le-mysql-status" style="display:none;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;"></div>
-          <div class="le-hint" style="margin-top:8px;">
-            Get credentials from <strong>Hostinger hPanel → Databases → MySQL Databases</strong>.
-            Enable remote access: <strong>hPanel → Databases → Remote MySQL → add <code>114.5.244.37</code></strong>.
-            Works with any host that supports Remote MySQL.
-          </div>
-        </div>
-      </div>
+      <div class="le-hint" style="margin-top:8px;">For Hostinger or direct MySQL access, use the <strong>Hostinger / MySQL</strong> tab.</div>
 
       <div id="le-wp-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Fetching live WordPress events…</div>
       <div id="le-wp-note" style="display:none;padding:10px 14px;background:#fff4ce;border-radius:6px;color:#7a5c00;font-size:12px;margin-bottom:10px;"></div>
@@ -3094,6 +3072,47 @@ Export Power BI
           </tr></thead>
           <tbody id="le-cp-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Enter your cPanel host and credentials, then click Fetch Active Sessions.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Hostinger / Direct MySQL tab ── -->
+    <div id="le-pane-hostinger" class="le-tab-pane" style="display:none;">
+      <div class="le-cred-form">
+        <div class="le-cred-row">
+          <div><label class="le-cred-label">DB Host</label><input type="text" id="le-hostinger-host" class="le-cred-input" placeholder="srv1234.hstgr.io" style="width:200px;" autocomplete="off"></div>
+          <div><label class="le-cred-label">DB Port</label><input type="number" id="le-hostinger-port" class="le-cred-input" value="3306" style="width:70px;"></div>
+          <div><label class="le-cred-label">DB Name</label><input type="text" id="le-hostinger-name" class="le-cred-input" placeholder="u123456_wp" autocomplete="off"></div>
+          <div><label class="le-cred-label">DB Username</label><input type="text" id="le-hostinger-user" class="le-cred-input" placeholder="u123456_user" autocomplete="off"></div>
+          <div><label class="le-cred-label">DB Password</label><input type="password" id="le-hostinger-pass" class="le-cred-input" placeholder="database password" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Table Prefix</label><input type="text" id="le-hostinger-prefix" class="le-cred-input" value="wp_" style="width:80px;"></div>
+          <div><label class="le-cred-label">Events to fetch</label><input type="number" id="le-hostinger-limit" class="le-cred-input" value="50" min="10" max="200" style="width:80px;"></div>
+        </div>
+        <div class="le-cred-actions">
+          <button class="btn btn-sm" onclick="runHostingerMysql()" id="le-hostinger-btn" style="background:#0078d4;color:#fff;border-color:#0078d4;border-radius:8px;padding:7px 20px;">Fetch via MySQL</button>
+        </div>
+        <div class="le-hint">
+          Get credentials from <strong>Hostinger hPanel → Databases → MySQL Databases</strong>.<br>
+          Enable remote access: <strong>hPanel → Databases → Remote MySQL → add your VPS IP</strong>.<br>
+          Works with any host that supports Remote MySQL. Reads <strong>Simple History</strong> tables directly — no WordPress auth needed.
+        </div>
+      </div>
+      <div id="le-hostinger-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Connecting to MySQL…</div>
+      <div id="le-hostinger-status" style="display:none;padding:10px 14px;border-radius:6px;font-size:12px;margin-bottom:10px;"></div>
+      <div id="le-hostinger-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#605e5c;"></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-hostinger-table">
+          <thead><tr style="background:#f3f2f1;border-bottom:1px solid #e1dfdd;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Event</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">IP Address</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Severity</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Source</th>
+          </tr></thead>
+          <tbody id="le-hostinger-body">
+            <tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Enter your Hostinger MySQL credentials, then click Fetch via MySQL.</td></tr>
           </tbody>
         </table>
       </div>
@@ -3477,44 +3496,53 @@ Load Logs
 // ── /ws/live — real-time stats via FastAPI WebSocket ─────────────────────────
 (function initLiveWs() {
   if (!window.WebSocket) return;
-  var _wsRetries = 0;
-  var _wsMaxRetries = 5;
-  function connect() {
-    if (_wsRetries >= _wsMaxRetries) return; // stop trying after 5 fails
-    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    var ws;
-    try { ws = new WebSocket(proto + '//' + location.host + '/ws/live'); }
-    catch(e) { return; }
-    var bar = document.getElementById('live-stats-bar');
+  // Probe the WS endpoint first so Flask (which has no /ws/live) never logs a
+  // console error. We hit /api/health (always present) to check reachability,
+  // then attempt the upgrade only when the server is FastAPI.
+  fetch('/api/ws-available', { method: 'HEAD' })
+    .then(function(r) { if (r.ok) startWs(); })
+    .catch(function() {});
 
-    ws.onopen = function() {
-      _wsRetries = 0;
-      if (bar) bar.style.display = 'flex';
-    };
+  function startWs() {
+    var _wsRetries = 0;
+    var _wsMaxRetries = 3;
+    function connect() {
+      if (_wsRetries >= _wsMaxRetries) return;
+      var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var ws;
+      try { ws = new WebSocket(proto + '//' + location.host + '/ws/live'); }
+      catch(e) { return; }
+      var bar = document.getElementById('live-stats-bar');
 
-    ws.onmessage = function(evt) {
-      try {
-        var d = JSON.parse(evt.data);
-        var el;
-        el = document.getElementById('ls-scans');
-        if (el) el.textContent = d.total_scans !== undefined ? d.total_scans : el.textContent;
-        el = document.getElementById('ls-incidents');
-        if (el) el.textContent = d.open_incidents !== undefined ? d.open_incidents : el.textContent;
-        var incBadge = document.getElementById('sb-badge-inc');
-        if (incBadge && d.open_incidents > 0) {
-          incBadge.textContent = d.open_incidents;
-          incBadge.style.display = '';
-        }
-      } catch(e) {}
-    };
+      ws.onopen = function() {
+        _wsRetries = 0;
+        if (bar) bar.style.display = 'flex';
+      };
 
-    ws.onerror = ws.onclose = function() {
-      if (bar) bar.style.display = 'none';
-      _wsRetries++;
-      if (_wsRetries < _wsMaxRetries) setTimeout(connect, 30000);
-    };
+      ws.onmessage = function(evt) {
+        try {
+          var d = JSON.parse(evt.data);
+          var el;
+          el = document.getElementById('ls-scans');
+          if (el) el.textContent = d.total_scans !== undefined ? d.total_scans : el.textContent;
+          el = document.getElementById('ls-incidents');
+          if (el) el.textContent = d.open_incidents !== undefined ? d.open_incidents : el.textContent;
+          var incBadge = document.getElementById('sb-badge-inc');
+          if (incBadge && d.open_incidents > 0) {
+            incBadge.textContent = d.open_incidents;
+            incBadge.style.display = '';
+          }
+        } catch(e) {}
+      };
+
+      ws.onerror = ws.onclose = function() {
+        if (bar) bar.style.display = 'none';
+        _wsRetries++;
+        if (_wsRetries < _wsMaxRetries) setTimeout(connect, 30000);
+      };
+    }
+    connect();
   }
-  connect();
 })();
 
 // ── SPA Sidebar Navigation ────────────────────────────────────────────────────
@@ -6545,6 +6573,74 @@ function runWpMysql() {
     btn.disabled = false; btn.textContent = 'Fetch via MySQL';
     stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fde7e9;color:#a80000;';
     stat.textContent = 'Request failed: ' + e;
+  });
+}
+
+function runHostingerMysql() {
+  var host   = (document.getElementById('le-hostinger-host').value||'').trim();
+  var port   = (document.getElementById('le-hostinger-port').value||'3306').trim();
+  var name   = (document.getElementById('le-hostinger-name').value||'').trim();
+  var user   = (document.getElementById('le-hostinger-user').value||'').trim();
+  var pass   = (document.getElementById('le-hostinger-pass').value||'').trim();
+  var prefix = (document.getElementById('le-hostinger-prefix').value||'wp_').trim();
+  var limit  = parseInt(document.getElementById('le-hostinger-limit').value||'50')||50;
+  var stat   = document.getElementById('le-hostinger-status');
+  var loading = document.getElementById('le-hostinger-loading');
+  var stats   = document.getElementById('le-hostinger-stats');
+  var tbody   = document.getElementById('le-hostinger-body');
+  if (!host) { alert('Enter the DB Host.'); return; }
+  if (!name) { alert('Enter the DB Name.'); return; }
+  if (!user) { alert('Enter the DB Username.'); return; }
+  var btn = document.getElementById('le-hostinger-btn');
+  btn.disabled = true; btn.textContent = 'Connecting…';
+  loading.style.display = 'block';
+  stat.style.display = 'none';
+  stats.style.display = 'none';
+  tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;">Connecting…</td></tr>';
+  fetch('/api/logs/wp-mysql-direct', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({db_host:host, db_port:parseInt(port), db_name:name, db_user:user, db_pass:pass, table_prefix:prefix, limit:limit})
+  }).then(function(r){return r.json();}).then(function(d){
+    btn.disabled = false; btn.textContent = 'Fetch via MySQL';
+    loading.style.display = 'none';
+    if (d.error) {
+      stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fde7e9;color:#a80000;';
+      stat.textContent = d.error;
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a80000;font-size:12px;">' + _esc(d.error) + '</td></tr>';
+      return;
+    }
+    if (d.note && !(d.events||[]).length) {
+      stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fff4ce;color:#7a5c00;';
+      stat.textContent = d.note;
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#7a5c00;font-size:12px;">' + _esc(d.note) + '</td></tr>';
+      return;
+    }
+    var events = d.events || [];
+    stats.textContent = events.length + ' event(s) loaded from MySQL' + (d.total > events.length ? ' (showing ' + events.length + ' of ' + d.total + ')' : '');
+    stats.style.display = 'block';
+    if (!events.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No Simple History events found. Install the Simple History plugin on WordPress and re-fetch.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = events.map(function(e){
+      var sevColor = e.severity === 'HIGH' ? '#a80000' : '#374151';
+      var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#' + _esc(e.ip) + '" target="_blank" style="color:#0078d4;font-family:monospace;">' + _esc(e.ip) + '</a>' : _esc(e.ip||'—');
+      return '<tr style="border-bottom:1px solid #f3f2f1;">' +
+        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-weight:600;">' + _esc(e.user||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(e.event||'') + '">' + _esc(e.event||'—') + '</td>' +
+        '<td style="padding:7px 12px;">' + ip + '</td>' +
+        '<td style="padding:7px 12px;color:' + sevColor + ';font-size:11px;font-weight:600;">' + _esc(e.severity||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;">' + _esc(e.source||'—') + '</td>' +
+        '</tr>';
+    }).join('');
+  }).catch(function(e){
+    btn.disabled = false; btn.textContent = 'Fetch via MySQL';
+    loading.style.display = 'none';
+    stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#fde7e9;color:#a80000;';
+    stat.textContent = 'Request failed: ' + e;
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a80000;font-size:12px;">Connection error.</td></tr>';
   });
 }
 
