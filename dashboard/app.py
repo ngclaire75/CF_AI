@@ -832,51 +832,38 @@ def enrich(scan: dict) -> dict:
 
 @app.route('/')
 def index():
+    ctx = _build_template_context()
+    return render_template('index.html', **ctx)
+
+
+def _build_template_context() -> dict:
+    """Build the full template context dict — shared with FastAPI."""
     scans   = [enrich(s) for s in db.get_scans()]
     targets = [enrich(t) for t in db.get_targets()]
     stats   = db.get_stats()
 
     _prio = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2, 'INFO': 3}
     all_recs = []
-    # Deduplicate per-target so that each website shows its own unique findings,
-    # but the same finding can appear for multiple different websites.
     seen_per_target: dict[str, set] = {}
-
     for s in scans:
         tgt = s['target']
         seen = seen_per_target.setdefault(tgt, set())
-        # Primary: structured remediation templates (have exact fix code)
         for rem in s['remediations']:
-            k = rem['id']  # stable id like 'missing-x-frame-options'
+            k = rem['id']
             if k not in seen:
                 seen.add(k)
-                all_recs.append({
-                    'target':    tgt,
-                    'risk':      rem['severity'],
-                    'text':      rem['title'],
-                    'agent':     s['agent_label'],
-                    'date':      s['display_date'][:10],
-                    'scan_id':   s['id'],
-                    'has_fixes': True,
-                })
-        # Secondary: free-text extracted recommendations — risk scored per-item
+                all_recs.append({'target': tgt, 'risk': rem['severity'], 'text': rem['title'],
+                                 'agent': s['agent_label'], 'date': s['display_date'][:10],
+                                 'scan_id': s['id'], 'has_fixes': True})
         for r in s['recs']:
             k = r[:60].lower()
             if k not in seen:
                 seen.add(k)
-                all_recs.append({
-                    'target':    tgt,
-                    'risk':      rec_risk(r),   # per-recommendation, not scan-wide
-                    'text':      r,
-                    'agent':     s['agent_label'],
-                    'date':      s['display_date'][:10],
-                    'scan_id':   s['id'],
-                    'has_fixes': False,
-                })
-
+                all_recs.append({'target': tgt, 'risk': rec_risk(r), 'text': r,
+                                 'agent': s['agent_label'], 'date': s['display_date'][:10],
+                                 'scan_id': s['id'], 'has_fixes': False})
     all_recs.sort(key=lambda x: (_prio.get(x['risk'], 3), x['target']))
 
-    # ── Severity distribution per target (for overview charts) ────────────────
     from collections import defaultdict as _dd
     _tgt_sev: dict = _dd(lambda: {'HIGH': 0, 'MEDIUM': 0, 'LOW': 0, 'INFO': 0})
     for s in scans:
@@ -894,13 +881,8 @@ def index():
             reverse=True,
         )[:12],
     }
-
-    return render_template('index.html',
-                           scans=scans,
-                           targets=targets,
-                           stats=stats,
-                           all_recs=all_recs[:40],
-                           severity_summary=severity_summary)
+    return dict(scans=scans, targets=targets, stats=stats,
+                all_recs=all_recs[:40], severity_summary=severity_summary)
 
 
 @app.route('/api/scan/<int:scan_id>')
@@ -1430,6 +1412,34 @@ def api_unified_overview():
         'recent_high_signals': recent_signals[:10],
         'incident_stats':   db.get_incident_stats(),
     })
+
+
+@app.route('/api/stream/signals')
+def api_stream_signals():
+    """SSE endpoint — pushes a JSON signal-stats event every 15 s."""
+    from flask import Response, stream_with_context
+
+    def _event_stream():
+        while True:
+            try:
+                stats = db.get_stats()
+                inc   = db.get_incident_stats()
+                recent = db.get_recent_scans(5)
+                payload = _json.dumps({
+                    'total_scans': stats['total_scans'],
+                    'open_incidents': inc['open'],
+                    'latest_target': recent[0]['target'] if recent else '',
+                    'latest_status': recent[0]['status'] if recent else '',
+                })
+                yield f'data: {payload}\n\n'
+            except Exception:
+                yield 'data: {}\n\n'
+            _time.sleep(15)
+
+    return Response(stream_with_context(_event_stream()),
+                    mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache',
+                             'X-Accel-Buffering': 'no'})
 
 
 if __name__ == '__main__':

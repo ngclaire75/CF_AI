@@ -3,49 +3,181 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CF_AI Security Intelligence Dashboard</title>
+<title>CF_AI Security Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.all.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+html { height: 100%; scroll-behavior: smooth; }
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display',
                  'Helvetica Neue', Arial, sans-serif;
     font-size: 14px;
-    background: #f5f5f7;
-    color: #1d1d1f;
+    background: #f5f6fa;
+    color: #1a1d23;
     line-height: 1.55;
-    min-height: 100vh;
+    height: 100%;
+    display: flex;
+    overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 a { color: #2563eb; text-decoration: none; }
 a:hover { text-decoration: underline; }
 code {
-    font-family: Arial, Helvetica, sans-serif;
-    background: #f3f4f6;
-    padding: 1px 5px;
-    border-radius: 3px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    background: #f1f2f6;
+    padding: 1px 6px;
+    border-radius: 4px;
     font-size: 12px;
 }
-.wrap { max-width: 1320px; margin: 0 auto; padding: 0 24px; }
 
-/* ── Header ── */
-.site-header {
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
+.sidebar {
+    width: 240px;
+    min-width: 240px;
+    height: 100vh;
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
     background: #ffffff;
-    border-bottom: 2px solid #e5e7eb;
-    padding: 12px 0;
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    border-right: 1px solid #eaecf0;
+    display: flex;
+    flex-direction: column;
+    z-index: 300;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: width .22s ease, transform .22s ease;
 }
-.header-inner {
-    display: grid;
-    grid-template-columns: 300px 1fr auto;
-    align-items: center;
-    gap: 20px;
+.sidebar.collapsed { width: 64px; }
+.sidebar.collapsed .sb-label,
+.sidebar.collapsed .sb-nav-label,
+.sidebar.collapsed .sb-brand-text,
+.sidebar.collapsed .sb-search { display: none; }
+.sidebar.collapsed .sb-item { justify-content: center; padding: 8px 0; }
+.sidebar.collapsed .sb-item svg { margin-right: 0; }
+
+.sb-brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid #eaecf0;
+    flex-shrink: 0;
 }
+.sb-brand-logo {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg,#2563eb,#7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.sb-brand-logo svg { width: 18px; height: 18px; stroke: #fff; fill: none; }
+.sb-brand-text { font-size: 15px; font-weight: 700; color: #1a1d23; letter-spacing: -.3px; }
+.sb-brand-tag { font-size: 10px; color: #8e8e93; font-weight: 500; display: block; line-height: 1; margin-top: 1px; }
+
+.sb-search-wrap { padding: 10px 12px; }
+.sb-search-wrap input {
+    width: 100%; border: 1px solid #eaecf0; border-radius: 8px;
+    padding: 6px 10px 6px 30px; font-size: 12px; color: #374151;
+    background: #f7f8fa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 9px center no-repeat;
+    font-family: inherit; outline: none; transition: border-color .15s;
+}
+.sb-search-wrap input:focus { border-color: #2563eb; background-color: #fff; }
+
+.sb-nav { flex: 1; padding: 6px 0; overflow-y: auto; }
+.sb-nav-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .6px; color: #9ca3af;
+    padding: 10px 16px 4px;
+}
+.sb-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; margin: 1px 8px;
+    border-radius: 8px; font-size: 13px; font-weight: 500;
+    color: #4b5563; cursor: pointer; text-decoration: none;
+    transition: background .12s, color .12s;
+    white-space: nowrap; overflow: hidden;
+    border: none; background: none; width: calc(100% - 16px);
+    text-align: left; font-family: inherit;
+}
+.sb-item:hover { background: #f5f6fa; color: #1a1d23; text-decoration: none; }
+.sb-item.active { background: #eff6ff; color: #2563eb; font-weight: 600; }
+.sb-item.active svg { stroke: #2563eb; }
+.sb-item svg { width: 16px; height: 16px; stroke: #6b7280; fill: none; stroke-width: 2; flex-shrink: 0; }
+.sb-badge { margin-left: auto; font-size: 10px; font-weight: 700; background: #fee2e2; color: #dc2626; border-radius: 10px; padding: 1px 6px; }
+.sb-badge-yellow { background: #fef9c3; color: #ca8a04; }
+
+.sb-divider { height: 1px; background: #eaecf0; margin: 8px 12px; }
+
+.sb-footer {
+    border-top: 1px solid #eaecf0; padding: 12px 14px;
+    font-size: 11px; color: #9ca3af; flex-shrink: 0;
+}
+.sb-footer-row { display: flex; align-items: center; justify-content: space-between; }
+.sb-version { font-size: 10px; font-weight: 500; background: #f3f4f6; color: #6b7280; border-radius: 4px; padding: 1px 6px; }
+
+/* ── Main shell (right of sidebar) ── */
+.main-shell {
+    margin-left: 240px;
+    flex: 1;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    transition: margin-left .22s ease;
+}
+.main-shell.expanded { margin-left: 64px; }
+
+/* ── Topbar ── */
+.topbar {
+    height: 56px; min-height: 56px;
+    background: #ffffff;
+    border-bottom: 1px solid #eaecf0;
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    position: sticky; top: 0; z-index: 200;
+    box-shadow: 0 1px 0 rgba(0,0,0,.04);
+    flex-shrink: 0;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-title { font-size: 15px; font-weight: 700; color: #1a1d23; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.live-stats-bar { display:flex; align-items:center; gap:10px; font-size:12px; background:#f9fafb; border:1px solid #eaecf0; border-radius:8px; padding:4px 12px; }
+.topbar-meta { font-size: 12px; color: #9ca3af; }
+.btn-topbar {
+    height: 32px; padding: 0 14px; border-radius: 8px;
+    border: 1px solid #eaecf0; background: #fff;
+    font-size: 12px; font-weight: 500; color: #374151;
+    cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; gap: 6px;
+    transition: background .12s, border-color .12s;
+}
+.btn-topbar:hover { background: #f5f6fa; border-color: #d1d5db; }
+.btn-topbar.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+.btn-topbar.primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.btn-topbar svg { width: 14px; height: 14px; stroke: currentColor; fill: none; }
+.sb-toggle {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid #eaecf0; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background .12s;
+}
+.sb-toggle:hover { background: #f5f6fa; }
+.sb-toggle svg { width: 16px; height: 16px; stroke: #6b7280; fill: none; }
+
+/* ── Breadcrumb / page nav ── */
+.page-crumb { font-size: 12px; color: #9ca3af; display: flex; align-items: center; gap: 6px; }
+.page-crumb span { color: #374151; font-weight: 500; }
+
+/* ── Page content area ── */
+.page-content { flex: 1; padding: 24px 28px; overflow-y: auto; }
+.wrap { max-width: none; margin: 0; padding: 0; }
+
+/* ── Header-related (legacy, now inside topbar) ── */
+.site-header { display: none; }
+.header-inner { display: none; }
 
 /* ── Agent guide (left column) ── */
 .agent-guide {
@@ -122,40 +254,42 @@ code {
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 
 /* ── Main ── */
-.main { padding: 28px 0 64px; }
+.main { padding: 0; }
 
 /* ── Section ── */
-.section { margin-bottom: 30px; }
-.sec-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
-.sec-title { font-size: 15px; font-weight: bold; color: #111827; }
-.sec-desc  { font-size: 12px; color: #6b7280; margin-top: 3px; }
+.section { margin-bottom: 28px; }
+.sec-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+.sec-title { font-size: 16px; font-weight: 700; color: #1a1d23; letter-spacing: -.2px; }
+.sec-desc  { font-size: 12px; color: #8e8e93; margin-top: 2px; }
 .sec-count { font-size: 12px; color: #9ca3af; white-space: nowrap; }
 
 /* ── Stat cards ── */
 .stats-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 30px;
+    gap: 14px;
+    margin-bottom: 24px;
 }
 .stat-card {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 20px 22px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #eaecf0;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    transition: box-shadow .15s;
 }
-.stat-lbl  { font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-.stat-val  { font-size: 34px; font-weight: bold; color: #111827; margin-top: 5px; line-height: 1.1; }
-.stat-val small { font-size: 15px; color: #9ca3af; font-weight: normal; }
+.stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.stat-lbl  { font-size: 11px; font-weight: 600; color: #8e8e93; text-transform: uppercase; letter-spacing: .5px; }
+.stat-val  { font-size: 32px; font-weight: 700; color: #1a1d23; margin-top: 6px; line-height: 1.1; letter-spacing: -.5px; }
+.stat-val small { font-size: 14px; color: #9ca3af; font-weight: 400; }
 .stat-hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 
 /* ── Card ── */
 .card {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #eaecf0;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
     overflow: hidden;
 }
 
@@ -720,6 +854,93 @@ tr.hidden-r { display: none; }
     .scroll-panel, .scroll-panel-lg { max-height: none; overflow: visible; }
 }
 
+/* ── Gridstack widget dashboard ── */
+.dashboard-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+}
+.dashboard-title { font-size: 20px; font-weight: 700; color: #1a1d23; letter-spacing: -.3px; }
+.dashboard-actions { display: flex; gap: 8px; align-items: center; }
+.dash-btn {
+    height: 34px; padding: 0 16px; border-radius: 8px;
+    border: 1px solid #eaecf0; background: #fff; font-size: 13px;
+    font-weight: 500; color: #374151; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; gap: 6px; transition: all .12s;
+}
+.dash-btn:hover { background: #f5f6fa; }
+.dash-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.dash-btn.danger { border-color: #fecaca; color: #dc2626; }
+.dash-btn.danger:hover { background: #fef2f2; }
+
+/* Widget dropdown */
+.widget-add-wrap { position: relative; }
+.widget-add-menu {
+    display: none; position: absolute; right: 0; top: 38px; z-index: 500;
+    background: #fff; border: 1px solid #eaecf0; border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12); width: 240px; overflow: hidden;
+}
+.widget-add-menu.open { display: block; }
+.widget-menu-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    font-size: 13px; cursor: pointer; color: #374151;
+    transition: background .1s; border-bottom: 1px solid #f5f6fa;
+}
+.widget-menu-item:last-child { border-bottom: none; }
+.widget-menu-item:hover { background: #f5f6fa; }
+.widget-menu-item svg { width: 16px; height: 16px; stroke: #6b7280; fill: none; flex-shrink: 0; }
+.widget-menu-item.added { color: #9ca3af; pointer-events: none; }
+.widget-menu-item.added svg { stroke: #10b981; }
+
+/* Gridstack item styling */
+.grid-stack { background: transparent !important; }
+.grid-stack-item-content {
+    background: #fff; border: 1px solid #eaecf0; border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    overflow: hidden; height: 100%; display: flex; flex-direction: column;
+    transition: box-shadow .15s;
+}
+.grid-stack-item-content:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.grid-stack.edit-mode .grid-stack-item-content {
+    border: 2px dashed #93c5fd !important; cursor: move;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.1) !important;
+}
+.widget-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px 10px; border-bottom: 1px solid #f5f6fa; flex-shrink: 0;
+}
+.widget-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #8e8e93; }
+.widget-actions { display: flex; gap: 4px; }
+.widget-btn {
+    width: 24px; height: 24px; border-radius: 6px; border: none;
+    background: transparent; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; color: #9ca3af;
+    font-family: inherit; transition: background .1s;
+}
+.widget-btn:hover { background: #f5f6fa; color: #374151; }
+.widget-remove-btn { display: none; }
+.edit-mode .widget-remove-btn { display: flex; }
+.widget-body { flex: 1; padding: 12px 16px; overflow: hidden; min-height: 0; }
+.widget-body.no-pad { padding: 0; }
+.widget-body canvas { max-height: 100% !important; }
+
+/* Widget-specific */
+.w-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; height: 100%; }
+.w-stat-box { background: #f9fafb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; justify-content: center; }
+.w-stat-val { font-size: 28px; font-weight: 700; color: #1a1d23; line-height: 1; letter-spacing: -.5px; }
+.w-stat-lbl { font-size: 11px; color: #8e8e93; margin-top: 3px; font-weight: 500; }
+.w-list { list-style: none; }
+.w-list-item { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f5f6fa; font-size: 13px; }
+.w-list-item:last-child { border-bottom: none; }
+.w-list-target { font-family: 'SF Mono', monospace; font-size: 11px; color: #374151; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.w-rank { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.w-rank-1 { background: #fef3c7; color: #d97706; }
+.w-rank-2 { background: #fee2e2; color: #dc2626; }
+.w-rank-3 { background: #f3e8ff; color: #7c3aed; }
+.w-rank-n { background: #f5f6fa; color: #9ca3af; }
+
+/* Edit mode drag handle */
+.grid-stack.edit-mode .grid-stack-item { cursor: move; }
+
 /* ── Security Signals ── */
 .signals-layout { display:grid; grid-template-columns:200px 1fr; gap:16px; align-items:start; }
 .signals-sidebar { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; }
@@ -805,6 +1026,250 @@ tr.hidden-r { display: none; }
 .sec-title { font-size:16px; font-weight:700; color:#1d1d1f; margin-bottom:2px; }
 .sec-desc  { font-size:12px; color:#8e8e93; }
 
+/* ── Page section visibility ── */
+.page-section { display: none; }
+.page-section.active { display: block; }
+
+/* ── Dashboard toolbar ── */
+.dashboard-toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.dashboard-title { font-size:18px; font-weight:700; color:#1a1d23; letter-spacing:-.3px; }
+
+/* ── Widget add menu ── */
+.widget-add-wrap { position:relative; }
+.widget-add-menu {
+  display:none; position:absolute; top:calc(100% + 6px); right:0; z-index:500;
+  background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.12); min-width:220px; padding:6px 0; overflow:hidden;
+}
+.widget-add-menu.open { display:block; }
+.widget-menu-item {
+  display:flex; align-items:center; gap:10px; padding:9px 16px;
+  font-size:13px; font-weight:500; color:#374151; cursor:pointer;
+}
+.widget-menu-item:hover { background:#f5f6fa; }
+.widget-menu-item svg { width:15px; height:15px; stroke:#6b7280; fill:none; stroke-width:2; flex-shrink:0; }
+
+/* ── Setup Guide ── */
+.setup-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin-bottom:24px; }
+.setup-card {
+  background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:20px;
+  box-shadow:0 1px 4px rgba(0,0,0,.05);
+}
+.setup-card-required { border-color:#2563eb; box-shadow:0 0 0 1px #93c5fd,0 2px 8px rgba(37,99,235,.08); }
+.setup-card-header { display:flex; align-items:flex-start; gap:14px; margin-bottom:14px; }
+.setup-icon {
+  width:40px; height:40px; border-radius:10px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.setup-icon svg { width:20px; height:20px; }
+.setup-icon-required { background:#eff6ff; }
+.setup-icon-required svg { stroke:#2563eb; }
+.setup-icon-blue { background:#e0f2fe; }
+.setup-icon-blue svg { stroke:#0284c7; }
+.setup-icon-purple { background:#f3e8ff; }
+.setup-icon-purple svg { stroke:#7c3aed; }
+.setup-icon-green { background:#dcfce7; }
+.setup-icon-green svg { stroke:#16a34a; }
+.setup-card-title { font-size:14px; font-weight:700; color:#1a1d23; margin-bottom:2px; }
+.setup-card-sub { font-size:12px; color:#8e8e93; }
+.setup-req-badge { display:inline-block; background:#2563eb; color:#fff; border-radius:6px; padding:1px 7px; font-size:10px; font-weight:700; margin-left:6px; }
+.setup-opt-badge { display:inline-block; background:#f3f4f6; color:#6b7280; border-radius:6px; padding:1px 7px; font-size:10px; font-weight:600; margin-left:6px; }
+.setup-code-block {
+  background:#f8faff; border:1px solid #dbeafe; border-radius:8px; padding:8px 12px;
+  font-family:'SF Mono','Fira Code',monospace; font-size:12px; color:#2563eb;
+  margin-bottom:12px; word-break:break-all;
+}
+.setup-steps { display:flex; flex-direction:column; gap:6px; }
+.setup-step { display:flex; align-items:flex-start; gap:10px; font-size:12px; color:#4b5563; line-height:1.5; }
+.setup-step-num {
+  width:20px; height:20px; border-radius:50%; background:#f3f4f6;
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:700; color:#6b7280; flex-shrink:0; margin-top:1px;
+}
+.setup-section-title { font-size:14px; font-weight:700; color:#1a1d23; margin:24px 0 12px; padding-bottom:8px; border-bottom:1px solid #f3f4f6; }
+.setup-env-block { background:#1e293b; border-radius:12px; overflow:hidden; margin-bottom:24px; }
+.setup-env-header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#0f172a; font-size:12px; color:#94a3b8; }
+.setup-env-code { padding:16px; font-family:'SF Mono','Fira Code',monospace; font-size:12px; color:#e2e8f0; line-height:1.8; margin:0; white-space:pre; overflow-x:auto; }
+.setup-deploy-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-bottom:24px; }
+.setup-deploy-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+.setup-deploy-title { display:flex; align-items:center; padding:10px 16px 8px; font-size:12px; font-weight:700; color:#374151; background:#f9fafb; border-bottom:1px solid #f3f4f6; }
+.setup-cmd { padding:12px 16px; font-family:'SF Mono','Fira Code',monospace; font-size:11px; color:#1e293b; line-height:1.7; margin:0; white-space:pre-wrap; word-break:break-word; background:#fff; }
+.setup-free-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; }
+.setup-free-item { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:14px; }
+.setup-free-name { font-size:13px; font-weight:700; color:#1a1d23; margin-bottom:4px; }
+.setup-free-desc { font-size:12px; color:#6b7280; margin-bottom:6px; line-height:1.5; }
+.setup-free-url { font-family:'SF Mono',monospace; font-size:11px; color:#2563eb; word-break:break-all; }
+
+/* ── Datadog APM-style enhanced stat cards ── */
+.stat-card { position:relative; overflow:hidden; }
+.stat-card::before { content:''; position:absolute; inset:0; opacity:0; transition:opacity .2s; background:linear-gradient(135deg,rgba(37,99,235,.03),rgba(124,58,237,.03)); }
+.stat-card:hover::before { opacity:1; }
+.stat-trend { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; margin-top:6px; }
+.trend-up   { color:#10b981; }
+.trend-down { color:#ef4444; }
+.trend-neutral { color:#9ca3af; }
+.stat-sparkline { position:absolute; bottom:0; right:0; opacity:.15; pointer-events:none; }
+
+/* ── APM Service topology panel ── */
+.apm-service-row { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid #f9fafb; }
+.apm-service-row:last-child { border-bottom:none; }
+.apm-service-name { font-weight:600; font-size:13px; color:#1a1d23; flex:1; }
+.apm-service-lat { font-size:12px; font-family:monospace; }
+.apm-service-status { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.apm-ok  { background:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.15); }
+.apm-warn { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.15); }
+.apm-err { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.15); }
+
+/* ── Metric header (Datadog-style section headers) ── */
+.metric-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 0 14px; border-bottom:1px solid #f3f4f6; margin-bottom:20px;
+}
+.metric-header-left { display:flex; align-items:center; gap:12px; }
+.metric-header-icon {
+  width:36px; height:36px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.metric-header-icon svg { width:18px; height:18px; }
+.metric-header-title { font-size:15px; font-weight:700; color:#1a1d23; }
+.metric-header-sub { font-size:12px; color:#8e8e93; margin-top:1px; }
+.metric-header-actions { display:flex; gap:8px; align-items:center; }
+
+/* ── Live indicator (pulsing dot) ── */
+.live-dot {
+  width:8px; height:8px; border-radius:50%; background:#10b981;
+  box-shadow:0 0 0 0 rgba(16,185,129,.4);
+  animation:pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%   { box-shadow:0 0 0 0 rgba(16,185,129,.4); }
+  70%  { box-shadow:0 0 0 6px rgba(16,185,129,0); }
+  100% { box-shadow:0 0 0 0 rgba(16,185,129,0); }
+}
+.live-badge { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#10b981; }
+
+/* ── Timeline loading skeleton ── */
+@keyframes shimmer { from{background-position:200% 0;} to{background-position:-200% 0;} }
+.skeleton {
+  background:linear-gradient(90deg, #f3f4f6 25%, #e9eaec 50%, #f3f4f6 75%);
+  background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:4px;
+}
+
+/* ── Enhanced section header (page-level) ── */
+.page-header {
+  display:flex; align-items:flex-start; justify-content:space-between;
+  margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid #f3f4f6;
+  flex-wrap:wrap; gap:12px;
+}
+.page-header-left {}
+.page-header-title { font-size:20px; font-weight:800; color:#1a1d23; letter-spacing:-.3px; line-height:1.2; }
+.page-header-sub { font-size:13px; color:#8e8e93; margin-top:4px; }
+.page-header-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+/* ── Data health bar (top of page) ── */
+.data-health-bar { display:flex; align-items:center; gap:16px; background:#fff; border:1px solid #eaecf0; border-radius:10px; padding:8px 16px; margin-bottom:16px; }
+.dhb-item { display:flex; align-items:center; gap:6px; font-size:12px; color:#6b7280; }
+.dhb-val { font-weight:700; color:#1a1d23; }
+.dhb-sep { width:1px; height:16px; background:#eaecf0; }
+
+/* ── Severity heatmap row ── */
+.sev-heatmap { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+.sev-heatmap-cell {
+  aspect-ratio:1; border-radius:3px; transition:transform .1s;
+  display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:#fff;
+}
+.sev-heatmap-cell:hover { transform:scale(1.2); z-index:1; }
+
+/* ── Signals timeline/table enhancements ── */
+.signals-table-wrap { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+.signals-toolbar { display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f3f4f6; }
+.signals-toolbar input { flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:6px 10px 6px 30px; font-size:12px; outline:none; font-family:inherit; background:#f9fafb url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 9px center no-repeat; }
+.signals-toolbar input:focus { border-color:#2563eb; background-color:#fff; }
+.signals-count-badge { font-size:12px; font-weight:600; color:#6b7280; white-space:nowrap; }
+.sig-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:.3px; }
+.sig-badge-CRITICAL { background:#fef2f2; color:#7f1d1d; border:1px solid #fca5a5; }
+.sig-badge-HIGH { background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
+.sig-badge-MEDIUM { background:#fffbeb; color:#78350f; border:1px solid #fcd34d; }
+.sig-badge-LOW { background:#f0fdf4; color:#14532d; border:1px solid #86efac; }
+.sig-badge-INFO { background:#f0f9ff; color:#0c4a6e; border:1px solid #7dd3fc; }
+
+/* ── Log Explorer enhancements ── */
+.log-form { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px; padding:14px 18px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; }
+.log-form input { border:1px solid #e5e7eb; border-radius:8px; padding:7px 10px; font-size:13px; font-family:inherit; outline:none; }
+.log-form input:focus { border-color:#2563eb; }
+.log-timeline-wrap { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+.log-timeline-wrap h5 { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#8e8e93; margin-bottom:10px; }
+.latency-row { display:flex; flex-wrap:wrap; gap:8px; }
+.latency-chip { display:inline-flex; align-items:center; gap:6px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:5px 12px; font-size:12px; }
+.log-explorer-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-bottom:14px; }
+.log-stat-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px; }
+.log-stat-card h5 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#8e8e93; margin-bottom:10px; }
+.log-bar-row { display:flex; align-items:center; gap:6px; padding:3px 0; }
+.log-bar-fill { height:6px; border-radius:3px; min-width:4px; flex-shrink:0; }
+.log-kv-row { display:flex; align-items:center; justify-content:space-between; padding:4px 0; border-bottom:1px solid #f9fafb; font-size:12px; }
+.log-kv-row:last-child { border-bottom:none; }
+.log-kv-key { font-family:monospace; color:#374151; }
+.log-kv-val { font-weight:700; color:#1a1d23; }
+.pattern-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; }
+.pattern-card h5 { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#8e8e93; margin-bottom:10px; }
+.pattern-item { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid #f9fafb; }
+.pattern-item:last-child { border-bottom:none; }
+.pattern-type { font-size:13px; font-weight:600; }
+
+/* ── Connect form enhancements ── */
+.connect-form { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+.connect-form > div > label { display:block; font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
+.url-input, .agent-select {
+  border:1px solid #e5e7eb; border-radius:8px; padding:8px 12px;
+  font-size:13px; font-family:inherit; outline:none; width:100%;
+}
+.url-input:focus, .agent-select:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+.btn-connect {
+  background:#2563eb; border:none; border-radius:8px; padding:9px 20px;
+  font-size:13px; font-weight:600; color:#fff; cursor:pointer; font-family:inherit;
+  transition:background .15s; white-space:nowrap;
+}
+.btn-connect:hover { background:#1d4ed8; }
+.cred-toggle-btn {
+  background:none; border:1px dashed #d1d5db; border-radius:8px; padding:7px 14px;
+  font-size:12px; font-weight:500; color:#6b7280; cursor:pointer; font-family:inherit;
+  transition:border-color .15s, color .15s;
+}
+.cred-toggle-btn:hover { border-color:#9ca3af; color:#374151; }
+.cred-panel { overflow:hidden; }
+.cred-panel-inner { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:16px; margin-bottom:10px; }
+.cred-label { font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; display:block; margin-bottom:4px; }
+.cred-input, .cred-select {
+  border:1px solid #e5e7eb; border-radius:7px; padding:7px 10px;
+  font-size:13px; font-family:inherit; outline:none; width:100%;
+}
+.cred-input:focus, .cred-select:focus { border-color:#2563eb; }
+.cred-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.cred-row > div { flex:1; min-width:140px; }
+.cred-hint { font-size:11px; color:#6b7280; background:#fff; border:1px solid #e5e7eb; border-radius:6px; padding:7px 10px; line-height:1.5; }
+.cred-group { margin-bottom:6px; }
+.cred-notice { font-size:11px; color:#d97706; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:7px 10px; margin-top:8px; }
+.connect-status { font-size:13px; color:#6b7280; padding:8px 0; }
+.live-output { background:#0f172a; border-radius:10px; padding:14px 16px; font-family:'SF Mono','Fira Code',monospace; font-size:11.5px; color:#94a3b8; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; display:none; margin-bottom:10px; line-height:1.7; }
+.connect-done-bar { display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:12px 16px; flex-wrap:wrap; gap:10px; align-items:center; }
+.cdb-title { font-weight:700; font-size:13px; color:#166534; }
+.cdb-meta { font-size:12px; color:#4ade80; margin-top:2px; }
+.connect-done-bar a, .connect-done-bar button { font-size:12px; font-weight:600; border-radius:7px; padding:5px 12px; text-decoration:none; }
+.fix-panel.active { display:block; }
+.fix-code-copy { position:absolute; top:8px; right:8px; }
+
+/* ── WP logs modal table improvements ── */
+
+/* ── Incident card improvements ── */
+.inc-card { transition:box-shadow .15s; }
+.inc-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); }
+.inc-actions { display:flex; gap:6px; margin-top:10px; }
+.inc-action-btn { border:1px solid #e5e7eb; background:#fff; border-radius:7px; padding:4px 12px; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; color:#374151; }
+.inc-action-btn:hover { background:#f5f6fa; }
+.inc-action-btn.danger { color:#dc2626; border-color:#fca5a5; }
+.inc-action-btn.danger:hover { background:#fef2f2; }
+.inc-status-resolved { background:#dcfce7; color:#166534; }
+
 /* ── Unified Observability ── */
 .obs-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
 .obs-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
@@ -867,61 +1332,185 @@ tr.hidden-r { display: none; }
 </head>
 <body>
 
-<!-- ── Header ─────────────────────────────────────────────────────────────── -->
-<header class="site-header">
-  <div class="wrap">
-    <div class="header-inner">
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
 
-      <!-- Left: Agent guide (3 rows) -->
-      <div class="agent-guide">
-        <div class="guide-label">What each agent does</div>
-        <!-- Row 1: Discovery -->
-        <div class="guide-row">
-          <span class="agent-pill">info<span class="tip">Recon Scout — maps open ports, DNS, SSL, and server software.</span></span>
-          <span class="agent-pill">conf<span class="tip">Config Auditor — checks exposed configs, admin panels, and insecure settings.</span></span>
-          <span class="agent-pill">js<span class="tip">JS Intelligence Agent — finds leaked API keys and secrets in JavaScript.</span></span>
-          <span class="agent-pill">idnt<span class="tip">Identity Mapper — tests user registration, enumeration, and role definitions.</span></span>
+  <!-- Brand -->
+  <div class="sb-brand">
+    <div class="sb-brand-logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div class="sb-brand-text">CF_AI<span class="sb-brand-tag">Security Intelligence</span></div>
+  </div>
+
+  <!-- Search -->
+  <div class="sb-search-wrap">
+    <input type="text" placeholder="Search sections…" id="sb-search-input" oninput="sbSearch(this.value)">
+  </div>
+
+  <nav class="sb-nav">
+
+    <!-- Monitoring -->
+    <div class="sb-nav-label">Monitoring</div>
+    <button class="sb-item active" id="sb-dashboard" onclick="sbNav('dashboard',this)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span class="sb-label">Dashboard</span>
+    </button>
+    <button class="sb-item" id="sb-observability" onclick="sbNav('observability',this)">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span class="sb-label">Observability</span>
+    </button>
+    <button class="sb-item" id="sb-signals" onclick="sbNav('signals',this)">
+      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="sb-label">Security Signals</span>
+      <span class="sb-badge" id="sb-badge-signals" style="display:none;"></span>
+    </button>
+    <button class="sb-item" id="sb-network" onclick="sbNav('network',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="16"/><circle cx="5" cy="19" r="3"/><line x1="5" y1="16" x2="12" y2="16"/><circle cx="19" cy="19" r="3"/><line x1="19" y1="16" x2="12" y2="16"/></svg>
+      <span class="sb-label">Network Monitor</span>
+    </button>
+
+    <div class="sb-divider"></div>
+
+    <!-- Security -->
+    <div class="sb-nav-label">Security</div>
+    <button class="sb-item" id="sb-mitre" onclick="sbNav('mitre',this)">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span class="sb-label">MITRE ATT&amp;CK</span>
+    </button>
+    <button class="sb-item" id="sb-incidents" onclick="sbNav('incidents',this)">
+      <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span class="sb-label">Incidents</span>
+      <span class="sb-badge" id="sb-badge-inc" style="display:none;"></span>
+    </button>
+    <button class="sb-item" id="sb-logexplorer" onclick="sbNav('logexplorer',this)">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <span class="sb-label">Log Explorer</span>
+    </button>
+
+    <div class="sb-divider"></div>
+
+    <!-- Scanning -->
+    <div class="sb-nav-label">Scanning</div>
+    <button class="sb-item" id="sb-scan" onclick="sbNav('scan',this)">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span class="sb-label">Connect &amp; Scan</span>
+    </button>
+    <button class="sb-item" id="sb-vulns" onclick="sbNav('vulns',this)">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span class="sb-label">Vulnerabilities</span>
+    </button>
+    <button class="sb-item" id="sb-priority" onclick="sbNav('priority',this)">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span class="sb-label">Priority Actions</span>
+    </button>
+    <button class="sb-item" id="sb-targets" onclick="sbNav('targets',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span class="sb-label">Scan Results</span>
+    </button>
+    <button class="sb-item" id="sb-history" onclick="sbNav('history',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="sb-label">Scan History</span>
+    </button>
+
+    <div class="sb-divider"></div>
+
+    <!-- Help -->
+    <div class="sb-nav-label">Setup</div>
+    <button class="sb-item" id="sb-setup" onclick="sbNav('setup',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span class="sb-label">API &amp; Setup Guide</span>
+    </button>
+
+  </nav>
+
+  <!-- Sidebar footer -->
+  <div class="sb-footer">
+    <div class="sb-footer-row">
+      <span>CF_AI v2.1</span>
+      <span class="sb-version">Open Source</span>
+    </div>
+    <div style="margin-top:4px;font-size:10px;color:#c0c4cc;">Updated: <strong id="ts">—</strong></div>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MAIN SHELL
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="main-shell" id="main-shell">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title" id="topbar-title">Dashboard</span>
+    </div>
+    <div class="topbar-right">
+      <div id="topbar-dashboard-actions" style="display:flex;gap:8px;">
+        <button class="btn-topbar" id="dash-edit-btn" onclick="toggleDashEdit()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit Dashboard
+        </button>
+        <div class="widget-add-wrap" id="widget-add-wrap" style="display:none;">
+          <button class="btn-topbar active" onclick="toggleWidgetMenu()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Widget
+          </button>
+          <div class="widget-add-menu" id="widget-add-menu">
+            <div class="widget-menu-item" onclick="addWidget('stats')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Summary Stats</div>
+            <div class="widget-menu-item" onclick="addWidget('vuln_chart')"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Vulnerability Chart</div>
+            <div class="widget-menu-item" onclick="addWidget('top_targets')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Top Vulnerable Targets</div>
+            <div class="widget-menu-item" onclick="addWidget('priority_actions')"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>Priority Actions</div>
+            <div class="widget-menu-item" onclick="addWidget('signal_timeline')"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Signal Timeline</div>
+            <div class="widget-menu-item" onclick="addWidget('mitre_summary')"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>MITRE Coverage</div>
+            <div class="widget-menu-item" onclick="addWidget('incident_status')"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Incident Status</div>
+            <div class="widget-menu-item" onclick="addWidget('recent_scans')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Recent Scans</div>
+            <div class="widget-menu-item" onclick="addWidget('agent_guide')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Agent Reference</div>
+          </div>
         </div>
-        <!-- Row 2: Access testing -->
-        <div class="guide-row">
-          <span class="agent-pill">athn<span class="tip">Auth Prober — tests login forms for brute-force gaps and weak credentials.</span></span>
-          <span class="agent-pill">athz<span class="tip">Access Control Tester — checks for IDOR, privilege escalation, and path bypasses.</span></span>
-          <span class="agent-pill">sess<span class="tip">Session Analyst — audits cookie security, token handling, and CSRF protections.</span></span>
-          <span class="agent-pill">inpv<span class="tip">Injection Hunter — tests SQLi, XSS, SSTI, and command injection.</span></span>
-          <span class="agent-pill">cryp<span class="tip">Crypto Inspector — checks TLS strength, cipher choices, and certificate validity.</span></span>
-        </div>
-        <!-- Row 3: Specialised + Workflow -->
-        <div class="guide-row">
-          <span class="agent-pill">clnt<span class="tip">Client-Side Analyst — tests DOM-based XSS, CORS, and browser-facing vulnerabilities.</span></span>
-          <span class="agent-pill">apit<span class="tip">API Security Tester — audits REST, GraphQL, and WordPress API endpoints.</span></span>
-          <span class="agent-pill" style="background:#fef3c7;border-color:#fbbf24;">assoc<span class="tip">Security Association Agent — correlates CVEs with discovered services via NVD API.</span></span>
-          <span class="agent-pill" style="background:#fef3c7;border-color:#fbbf24;">triage<span class="tip">Threat Triage Agent — scores findings by real-world exploitability.</span></span>
-          <span class="agent-pill" style="background:#fef3c7;border-color:#fbbf24;">report<span class="tip">Security Insights Report Agent — compiles executive-ready 30/60/90-day roadmap.</span></span>
-          <span class="agent-pill">pentest<span class="tip">Runs all 11 WSTG agents + workflow layer for a complete security assessment.</span></span>
-        </div>
+        <button class="btn-topbar" id="dash-done-btn" onclick="saveDashLayout()" style="display:none;background:#10b981;color:#fff;border-color:#10b981;">✓ Done</button>
+        <button class="btn-topbar dash-btn danger" id="dash-reset-btn" onclick="resetDashLayout()" style="display:none;">Reset</button>
       </div>
-
-      <!-- Centre: Brand -->
-      <div>
-        <div class="brand-title">CF_AI Security Intelligence Dashboard</div>
-        <div class="brand-sub">Automated security analysis and vulnerability reporting</div>
+      <!-- Live stats (populated by /ws/live) -->
+      <div class="live-stats-bar" id="live-stats-bar" style="display:none;">
+        <span class="live-badge"><span class="live-dot"></span>Live</span>
+        <span class="dhb-sep"></span>
+        <span class="dhb-item"><span class="dhb-val" id="ls-scans">—</span> scans</span>
+        <span class="dhb-sep"></span>
+        <span class="dhb-item"><span class="dhb-val" id="ls-incidents" style="color:#ef4444;">—</span> open</span>
       </div>
-
-      <!-- Right: Controls -->
-      <div class="header-right">
-        <span class="meta-label">Updated: <strong id="ts">--</strong></span>
-        <button class="btn" onclick="location.reload()">Refresh</button>
-        <button class="btn" onclick="window.print()">Print</button>
-      </div>
-
+      <button class="btn-topbar primary" onclick="location.reload()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Refresh
+      </button>
+      <button class="btn-topbar" onclick="window.print()">Print</button>
     </div>
   </div>
-</header>
 
-<!-- ── Main ───────────────────────────────────────────────────────────────── -->
-<main class="main">
-<div class="wrap">
+  <!-- Page content -->
+  <div class="page-content" id="page-content">
+  <div class="wrap">
 
+  <!-- ══ DASHBOARD PAGE ══════════════════════════════════════════════════════ -->
+  <div id="page-dashboard" class="page-section">
+    <div class="dashboard-toolbar">
+      <div>
+        <div class="dashboard-title">Security Dashboard</div>
+        <div style="font-size:12px;color:#8e8e93;margin-top:2px;">Customizable overview — drag and resize widgets</div>
+      </div>
+    </div>
+    <!-- Gridstack widget grid -->
+    <div class="grid-stack" id="dash-grid"></div>
+  </div>
+
+  <!-- ══ ALL OTHER SECTIONS (each is an independent SPA page) ════════════════ -->
+
+  <!-- ══ VULNERABILITIES PAGE ══════════════════════════════════════════════ -->
+  <div id="page-vulns" class="page-section" style="display:none">
   <!-- Stats -->
   <div class="stats-row">
     <div class="stat-card">
@@ -1009,6 +1598,10 @@ tr.hidden-r { display: none; }
     </div>
   </section>
 
+  </div><!-- /page-vulns -->
+
+  <!-- ══ PRIORITY ACTIONS PAGE ═════════════════════════════════════════════ -->
+  <div id="page-priority" class="page-section" style="display:none">
   <!-- Priority Actions -->
   <section class="section">
     <div class="sec-head">
@@ -1066,6 +1659,10 @@ tr.hidden-r { display: none; }
     </div>
   </section>
 
+  </div><!-- /page-priority -->
+
+  <!-- ══ CONNECT & SCAN PAGE ════════════════════════════════════════════════ -->
+  <div id="page-scan" class="page-section" style="display:none">
   <!-- Connect Your Website -->
   <section class="section" id="connect-section">
     <div class="sec-head">
@@ -1203,6 +1800,10 @@ tr.hidden-r { display: none; }
     </div>
   </section>
 
+  </div><!-- /page-scan -->
+
+  <!-- ══ SCAN RESULTS PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-targets" class="page-section" style="display:none">
   <!-- Target Overview -->
   <section class="section">
     <div class="sec-head">
@@ -1269,6 +1870,10 @@ tr.hidden-r { display: none; }
     </div>
   </section>
 
+  </div><!-- /page-targets -->
+
+  <!-- ══ SCAN HISTORY PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-history" class="page-section" style="display:none">
   <!-- Scan History -->
   <section class="section">
     <div class="sec-head">
@@ -1340,6 +1945,10 @@ tr.hidden-r { display: none; }
   </section>
 
 
+  </div><!-- /page-history -->
+
+  <!-- ══ OBSERVABILITY PAGE ════════════════════════════════════════════════ -->
+  <div id="page-observability" class="page-section" style="display:none">
   <!-- ── Unified Observability Dashboard ──────────────────────────────────── -->
   <section class="section" id="obs-section">
     <div class="sec-head">
@@ -1395,8 +2004,8 @@ tr.hidden-r { display: none; }
     <!-- Signals tab (reuses security-signals data) -->
     <div class="obs-tab-panel" id="obs-panel-signals">
       <div id="obs-signals-embed" style="color:#9ca3af;font-size:13px;padding:20px;text-align:center;">
-        Click "Refresh" then switch to the Security Signals section below for the full feed.
-        <br><br><button class="btn btn-sm" onclick="document.getElementById('signals-section').scrollIntoView({behavior:'smooth'})">Go to Security Signals ↓</button>
+        Click "Refresh" then navigate to the Security Signals page for the full live feed.
+        <br><br><button class="btn btn-sm" onclick="sbNav('signals',document.getElementById('sb-signals'))">Open Security Signals →</button>
       </div>
     </div>
 
@@ -1412,12 +2021,16 @@ tr.hidden-r { display: none; }
     <!-- Incidents tab (quick view) -->
     <div class="obs-tab-panel" id="obs-panel-incidents">
       <div style="text-align:right;margin-bottom:10px;">
-        <button class="btn btn-sm" onclick="document.getElementById('inc-section').scrollIntoView({behavior:'smooth'})" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;">Open Incident Manager ↓</button>
+        <button class="btn btn-sm" onclick="sbNav('incidents',document.getElementById('sb-incidents'))" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;">Open Incident Manager →</button>
       </div>
       <div id="obs-incidents-preview"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
     </div>
   </section>
 
+  </div><!-- /page-observability -->
+
+  <!-- ══ MITRE ATT&CK PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-mitre" class="page-section" style="display:none">
   <!-- ── Cloud SIEM — MITRE ATT&CK Coverage ────────────────────────────────── -->
   <section class="section" id="siem-section">
     <div class="sec-head">
@@ -1445,6 +2058,10 @@ tr.hidden-r { display: none; }
     </div>
   </section>
 
+  </div><!-- /page-mitre -->
+
+  <!-- ══ INCIDENTS PAGE ════════════════════════════════════════════════════ -->
+  <div id="page-incidents" class="page-section" style="display:none">
   <!-- ── Incident Management ────────────────────────────────────────────────── -->
   <section class="section" id="inc-section">
     <div class="sec-head">
@@ -1484,6 +2101,10 @@ tr.hidden-r { display: none; }
     <div id="inc-list"><em style="color:#9ca3af;font-size:13px;padding:16px;display:block;">Loading incidents…</em></div>
   </section>
 
+  </div><!-- /page-incidents -->
+
+  <!-- ══ SECURITY SIGNALS PAGE ════════════════════════════════════════════ -->
+  <div id="page-signals" class="page-section" style="display:none">
   <!-- ── Security Signals ──────────────────────────────────────────────────── -->
   <section class="section" id="signals-section">
     <div class="sec-head">
@@ -1555,6 +2176,10 @@ tr.hidden-r { display: none; }
     </div>
   </section>
 
+  </div><!-- /page-signals -->
+
+  <!-- ══ LOG EXPLORER PAGE ═════════════════════════════════════════════════ -->
+  <div id="page-logexplorer" class="page-section" style="display:none">
   <!-- ── Log Explorer ──────────────────────────────────────────────────────── -->
   <section class="section" id="log-explorer-section">
     <div class="sec-head">
@@ -1597,6 +2222,10 @@ tr.hidden-r { display: none; }
     <div id="le-error" style="display:none;padding:16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;"></div>
   </section>
 
+  </div><!-- /page-logexplorer -->
+
+  <!-- ══ NETWORK MONITOR PAGE ══════════════════════════════════════════════ -->
+  <div id="page-network" class="page-section" style="display:none">
   <!-- ── Network Monitor ───────────────────────────────────────────────────── -->
   <section class="section" id="net-monitor-section">
     <div class="sec-head">
@@ -1615,8 +2244,8 @@ tr.hidden-r { display: none; }
     <div id="nm-results" style="display:none;">
       <div class="net-grid">
         <div id="net-map-container">
-          <canvas id="net-map-canvas"></canvas>
-          <div id="net-map-empty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:13px;">No services discovered.</div>
+          <svg id="net-map-svg" style="width:100%;height:380px;"></svg>
+          <div id="net-map-empty" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:#9ca3af;font-size:13px;">No services discovered.</div>
         </div>
         <div class="net-sidebar">
           <div class="net-services-card">
@@ -1634,15 +2263,192 @@ tr.hidden-r { display: none; }
     <div id="nm-error" style="display:none;padding:16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;"></div>
   </section>
 
-</div>
-</main>
+  </div><!-- /page-network -->
 
-<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
-<footer class="site-footer">
-  <div class="wrap">
-    CF_AI Security Intelligence Dashboard &mdash; Auto-refreshes every 60 seconds &mdash; Data retained locally on the server
-  </div>
-</footer>
+  <!-- ══ API & SETUP GUIDE PAGE ════════════════════════════════════════════ -->
+  <div id="page-setup" class="page-section" style="display:none">
+  <section class="section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">API &amp; Setup Guide</div>
+        <div class="sec-desc">Configure API keys, environment variables, and server deployment for full functionality</div>
+      </div>
+    </div>
+    <!-- API Keys -->
+    <div class="setup-grid">
+      <div class="setup-card setup-card-required">
+        <div class="setup-card-header">
+          <div class="setup-icon setup-icon-required">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          </div>
+          <div>
+            <div class="setup-card-title">Anthropic API Key <span class="setup-req-badge">Required</span></div>
+            <div class="setup-card-sub">Powers all AI security agents</div>
+          </div>
+        </div>
+        <div class="setup-code-block">ANTHROPIC_API_KEY=sk-ant-api03-...</div>
+        <div class="setup-steps">
+          <div class="setup-step"><span class="setup-step-num">1</span> Visit <strong>console.anthropic.com</strong></div>
+          <div class="setup-step"><span class="setup-step-num">2</span> Create account → API Keys → Create Key</div>
+          <div class="setup-step"><span class="setup-step-num">3</span> Copy key starting with <code>sk-ant-</code></div>
+          <div class="setup-step"><span class="setup-step-num">4</span> Add to your <code>.env</code> file or environment</div>
+        </div>
+      </div>
+
+      <div class="setup-card">
+        <div class="setup-card-header">
+          <div class="setup-icon setup-icon-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <div>
+            <div class="setup-card-title">Shodan API Key <span class="setup-opt-badge">Recommended</span></div>
+            <div class="setup-card-sub">Internet-wide device intelligence</div>
+          </div>
+        </div>
+        <div class="setup-code-block">SHODAN_API_KEY=your_shodan_key</div>
+        <div class="setup-steps">
+          <div class="setup-step"><span class="setup-step-num">1</span> Register at <strong>account.shodan.io</strong></div>
+          <div class="setup-step"><span class="setup-step-num">2</span> Go to Account → API Key</div>
+          <div class="setup-step"><span class="setup-step-num">3</span> Used for: IP lookups, open ports, CVEs</div>
+          <div class="setup-step"><span class="setup-step-num">4</span> Free tier: 1 request/second</div>
+        </div>
+      </div>
+
+      <div class="setup-card">
+        <div class="setup-card-header">
+          <div class="setup-icon setup-icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <div class="setup-card-title">VirusTotal API Key <span class="setup-opt-badge">Recommended</span></div>
+            <div class="setup-card-sub">URL and IP threat intelligence</div>
+          </div>
+        </div>
+        <div class="setup-code-block">VIRUSTOTAL_API_KEY=your_vt_key</div>
+        <div class="setup-steps">
+          <div class="setup-step"><span class="setup-step-num">1</span> Register at <strong>virustotal.com</strong></div>
+          <div class="setup-step"><span class="setup-step-num">2</span> Profile → API Key</div>
+          <div class="setup-step"><span class="setup-step-num">3</span> Used for: URL scanning, IP reputation</div>
+          <div class="setup-step"><span class="setup-step-num">4</span> Free: 4 lookups/minute</div>
+        </div>
+      </div>
+
+      <div class="setup-card">
+        <div class="setup-card-header">
+          <div class="setup-icon setup-icon-green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div>
+            <div class="setup-card-title">NVD API Key <span class="setup-opt-badge">Optional</span></div>
+            <div class="setup-card-sub">CVE vulnerability database access</div>
+          </div>
+        </div>
+        <div class="setup-code-block">NVD_API_KEY=your_nvd_key</div>
+        <div class="setup-steps">
+          <div class="setup-step"><span class="setup-step-num">1</span> Request at <strong>nvd.nist.gov/developers</strong></div>
+          <div class="setup-step"><span class="setup-step-num">2</span> Without key: 5 req/30s; with key: 50 req/30s</div>
+          <div class="setup-step"><span class="setup-step-num">3</span> Used for CVE lookup in Recon Scout agent</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Environment Setup -->
+    <div class="setup-section-title">Environment Configuration</div>
+    <div class="setup-env-block">
+      <div class="setup-env-header">
+        <span>.env file (project root)</span>
+        <button class="btn btn-sm" onclick="copyEnvTemplate()" style="font-size:11px;padding:3px 10px;">Copy Template</button>
+      </div>
+      <pre class="setup-env-code" id="env-template">ANTHROPIC_API_KEY=sk-ant-api03-YOUR_KEY_HERE
+SHODAN_API_KEY=YOUR_SHODAN_KEY
+VIRUSTOTAL_API_KEY=YOUR_VT_KEY
+NVD_API_KEY=YOUR_NVD_KEY
+CFAI_DB_PATH=./data/cfai_scans.db
+FLASK_SECRET_KEY=change-this-to-a-random-string</pre>
+    </div>
+
+    <!-- Deployment -->
+    <div class="setup-section-title">Server Deployment (Ubuntu/Debian)</div>
+    <div class="setup-deploy-grid">
+      <div class="setup-deploy-card">
+        <div class="setup-deploy-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Install Dependencies
+        </div>
+        <pre class="setup-cmd">sudo apt update && sudo apt install -y python3-pip nmap sshpass
+pip3 install flask anthropic python-dotenv requests</pre>
+      </div>
+      <div class="setup-deploy-card">
+        <div class="setup-deploy-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Run Dashboard
+        </div>
+        <pre class="setup-cmd">cd /path/to/CF_AI
+python dashboard/app.py
+# Runs on http://localhost:5000</pre>
+      </div>
+      <div class="setup-deploy-card">
+        <div class="setup-deploy-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/><path d="M10 15l5-3-5-3v6z"/></svg>
+          systemd Service
+        </div>
+        <pre class="setup-cmd"># /etc/systemd/system/cfai.service
+[Unit]
+Description=CF_AI Dashboard
+[Service]
+ExecStart=/usr/bin/python3 /opt/CF_AI/dashboard/app.py
+EnvironmentFile=/opt/CF_AI/.env
+Restart=always
+[Install]
+WantedBy=multi-user.target</pre>
+      </div>
+      <div class="setup-deploy-card">
+        <div class="setup-deploy-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;margin-right:6px;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Nginx Reverse Proxy
+        </div>
+        <pre class="setup-cmd">server {
+  listen 80;
+  server_name your-domain.com;
+  location / {
+    proxy_pass http://127.0.0.1:5000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+}</pre>
+      </div>
+    </div>
+
+    <!-- Free APIs (no key needed) -->
+    <div class="setup-section-title">Integrated APIs (No Key Required)</div>
+    <div class="setup-free-grid">
+      <div class="setup-free-item">
+        <div class="setup-free-name">Mozilla Observatory</div>
+        <div class="setup-free-desc">HTTP security headers grading — used by Config Auditor &amp; Crypto Inspector agents</div>
+        <div class="setup-free-url">observatory.mozilla.org/api/v1</div>
+      </div>
+      <div class="setup-free-item">
+        <div class="setup-free-name">SSL Labs API</div>
+        <div class="setup-free-desc">TLS/SSL grade analysis — used by Crypto Inspector agent</div>
+        <div class="setup-free-url">api.ssllabs.com/api/v3</div>
+      </div>
+      <div class="setup-free-item">
+        <div class="setup-free-name">URLhaus</div>
+        <div class="setup-free-desc">Malware URL &amp; IP intelligence — used by Log Explorer threat enrichment</div>
+        <div class="setup-free-url">urlhaus-api.abuse.ch/v1</div>
+      </div>
+      <div class="setup-free-item">
+        <div class="setup-free-name">crt.sh</div>
+        <div class="setup-free-desc">Certificate Transparency log search — used by Recon Scout subdomain discovery</div>
+        <div class="setup-free-url">crt.sh/?q=%25.domain.com&amp;output=json</div>
+      </div>
+    </div>
+  </section>
+  </div><!-- /page-setup -->
+
+  </div><!-- /wrap -->
+  </div><!-- /page-content -->
+</div><!-- /main-shell -->
 
 <!-- ── Report Modal ────────────────────────────────────────────────────────── -->
 <!-- ── Security Insights modal ── -->
@@ -1684,6 +2490,367 @@ tr.hidden-r { display: none; }
     d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+
     ' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+' UTC';
 })();
+
+// ── /ws/live — real-time stats via FastAPI WebSocket ─────────────────────────
+(function initLiveWs() {
+  if (!window.WebSocket) return;
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var ws = new WebSocket(proto + '//' + location.host + '/ws/live');
+  var bar = document.getElementById('live-stats-bar');
+
+  ws.onopen = function() {
+    if (bar) bar.style.display = 'flex';
+  };
+
+  ws.onmessage = function(evt) {
+    try {
+      var d = JSON.parse(evt.data);
+      var el;
+      el = document.getElementById('ls-scans');
+      if (el) el.textContent = d.total_scans !== undefined ? d.total_scans : el.textContent;
+      el = document.getElementById('ls-incidents');
+      if (el) el.textContent = d.open_incidents !== undefined ? d.open_incidents : el.textContent;
+      // Also update sidebar badge
+      var incBadge = document.getElementById('sb-badge-inc');
+      if (incBadge && d.open_incidents > 0) {
+        incBadge.textContent = d.open_incidents;
+        incBadge.style.display = '';
+      }
+    } catch(e) {}
+  };
+
+  ws.onerror = ws.onclose = function() {
+    if (bar) bar.style.display = 'none';
+    // Retry after 30 s
+    setTimeout(initLiveWs, 30000);
+  };
+})();
+
+// ── SPA Sidebar Navigation ────────────────────────────────────────────────────
+var _PAGE_TITLES = {
+  'dashboard':     'Security Dashboard',
+  'observability': 'Unified Observability',
+  'signals':       'Security Signals',
+  'network':       'Network Monitor',
+  'mitre':         'MITRE ATT&CK / Cloud SIEM',
+  'incidents':     'Incident Management',
+  'logexplorer':   'Log Explorer',
+  'scan':          'Connect & Scan',
+  'vulns':         'Vulnerability Overview',
+  'priority':      'Priority Actions',
+  'targets':       'Scan Results',
+  'history':       'Scan History',
+  'setup':         'API & Setup Guide',
+};
+
+var _currentPage = 'dashboard';
+
+function sbNav(section, el) {
+  // Hide all pages
+  document.querySelectorAll('.page-section').forEach(function(p){ p.style.display='none'; p.classList.remove('active'); });
+  // Show target page
+  var pg = document.getElementById('page-' + section);
+  if (pg) { pg.style.display='block'; pg.classList.add('active'); }
+  // Update sidebar active state
+  document.querySelectorAll('.sb-item').forEach(function(b){ b.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  // Update topbar title
+  document.getElementById('topbar-title').textContent = _PAGE_TITLES[section] || section;
+  // Show/hide dashboard edit buttons
+  var dashActions = document.getElementById('topbar-dashboard-actions');
+  if (dashActions) dashActions.style.display = section === 'dashboard' ? 'flex' : 'none';
+  _currentPage = section;
+
+  // Lazy-load data for relevant pages
+  if (section === 'observability') loadUnifiedOverview();
+  if (section === 'signals')       loadSignals();
+  if (section === 'mitre')         loadMitreCoverage();
+  if (section === 'incidents')     loadIncidents();
+}
+
+function toggleSidebar() {
+  var sb = document.getElementById('sidebar');
+  var ms = document.getElementById('main-shell');
+  sb.classList.toggle('collapsed');
+  ms.classList.toggle('expanded');
+}
+
+function sbSearch(q) {
+  q = (q||'').toLowerCase().trim();
+  document.querySelectorAll('.sb-item').forEach(function(item){
+    var label = (item.querySelector('.sb-label')||item).textContent.toLowerCase();
+    item.style.display = (!q || label.indexOf(q) !== -1) ? '' : 'none';
+  });
+  document.querySelectorAll('.sb-nav-label, .sb-divider').forEach(function(el){ el.style.display = q ? 'none' : ''; });
+}
+
+// ── Dashboard page init ───────────────────────────────────────────────────────
+function _initDashPage() {
+  var pg = document.getElementById('page-dashboard');
+  if (pg) { pg.style.display='block'; pg.classList.add('active'); }
+}
+_initDashPage();
+
+// ── Gridstack Widget Dashboard ────────────────────────────────────────────────
+var _grid = null;
+var _dashEditMode = false;
+var _signalChartInst = null;
+
+var _DEFAULT_WIDGETS = [
+  { id:'stats',          x:0, y:0, w:12, h:3 },
+  { id:'vuln_chart',     x:0, y:3, w:5,  h:5 },
+  { id:'top_targets',    x:5, y:3, w:4,  h:5 },
+  { id:'signal_timeline',x:9, y:3, w:3,  h:5 },
+  { id:'mitre_summary',  x:0, y:8, w:4,  h:4 },
+  { id:'incident_status',x:4, y:8, w:4,  h:4 },
+  { id:'recent_scans',   x:8, y:8, w:4,  h:4 },
+];
+
+function initDashGrid() {
+  _grid = GridStack.init({
+    column: 12, cellHeight: 60, margin: 8,
+    disableDrag: true, disableResize: true,
+    float: false, animate: true,
+  }, '#dash-grid');
+
+  var savedLayout = null;
+  try { savedLayout = JSON.parse(localStorage.getItem('cfai_dash_layout') || 'null'); } catch(e) {}
+  var widgets = savedLayout || _DEFAULT_WIDGETS;
+  widgets.forEach(function(w){ _addWidgetToGrid(w.id, w.x, w.y, w.w, w.h); });
+  _loadWidgetData();
+}
+
+function _addWidgetToGrid(widgetId, x, y, w, h) {
+  var content = _buildWidget(widgetId);
+  if (!content) return;
+  _grid.addWidget({
+    x: x||0, y: y||0, w: w||4, h: h||3,
+    id: 'widget-' + widgetId,
+    content: content
+  });
+}
+
+function toggleDashEdit() {
+  _dashEditMode = !_dashEditMode;
+  var grid = document.getElementById('dash-grid');
+  var btn = document.getElementById('dash-edit-btn');
+  var doneBtn = document.getElementById('dash-done-btn');
+  var resetBtn = document.getElementById('dash-reset-btn');
+  var addWrap = document.getElementById('widget-add-wrap');
+
+  if (_dashEditMode) {
+    _grid.setStatic(false);
+    grid.classList.add('edit-mode');
+    btn.style.display = 'none';
+    doneBtn.style.display = 'flex';
+    resetBtn.style.display = 'flex';
+    addWrap.style.display = 'flex';
+    document.querySelectorAll('.widget-remove-btn').forEach(function(b){ b.style.display='flex'; });
+  } else {
+    _grid.setStatic(true);
+    grid.classList.remove('edit-mode');
+    btn.style.display = 'flex';
+    doneBtn.style.display = 'none';
+    resetBtn.style.display = 'none';
+    addWrap.style.display = 'none';
+    document.querySelectorAll('.widget-remove-btn').forEach(function(b){ b.style.display='none'; });
+    closeWidgetMenu();
+  }
+}
+
+function saveDashLayout() {
+  var items = _grid.engine.nodes.map(function(n){
+    return { id: (n.id||'').replace('widget-',''), x:n.x, y:n.y, w:n.w, h:n.h };
+  });
+  localStorage.setItem('cfai_dash_layout', JSON.stringify(items));
+  toggleDashEdit();
+}
+
+function resetDashLayout() {
+  localStorage.removeItem('cfai_dash_layout');
+  _grid.removeAll();
+  _DEFAULT_WIDGETS.forEach(function(w){ _addWidgetToGrid(w.id, w.x, w.y, w.w, w.h); });
+  _loadWidgetData();
+  toggleDashEdit();
+}
+
+function addWidget(widgetId) {
+  _addWidgetToGrid(widgetId, 0, 0, 4, 4);
+  _loadWidgetData();
+  closeWidgetMenu();
+}
+
+function removeWidget(el) {
+  var item = el.closest('.grid-stack-item');
+  if (item) _grid.removeWidget(item);
+}
+
+function toggleWidgetMenu() {
+  document.getElementById('widget-add-menu').classList.toggle('open');
+}
+function closeWidgetMenu() {
+  var m = document.getElementById('widget-add-menu');
+  if (m) m.classList.remove('open');
+}
+document.addEventListener('click', function(e){
+  if (!e.target.closest('.widget-add-wrap')) closeWidgetMenu();
+});
+
+function _buildWidget(id) {
+  var removeBtn = '<button class="widget-btn widget-remove-btn" onclick="removeWidget(this)" title="Remove" style="color:#ef4444;display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+  var refreshBtn = '<button class="widget-btn" onclick="_loadWidgetData()" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>';
+
+  var bodies = {
+    stats: '<div class="widget-body"><div class="w-stat-grid" id="w-stats"></div></div>',
+    vuln_chart: '<div class="widget-body no-pad" style="padding:12px 16px;"><canvas id="w-vuln-chart" height="160"></canvas></div>',
+    top_targets: '<div class="widget-body no-pad" style="padding:8px 0;"><ul class="w-list" id="w-top-targets"></ul></div>',
+    priority_actions: '<div class="widget-body no-pad" style="padding:8px 0;max-height:200px;overflow-y:auto;"><ul class="w-list" id="w-priority"></ul></div>',
+    signal_timeline: '<div class="widget-body no-pad" style="padding:12px 16px;"><canvas id="w-signal-chart" height="120"></canvas></div>',
+    mitre_summary: '<div class="widget-body"><div id="w-mitre-summary"></div></div>',
+    incident_status: '<div class="widget-body"><div class="w-stat-grid" id="w-inc-stats"></div></div>',
+    recent_scans: '<div class="widget-body no-pad" style="padding:8px 0;max-height:220px;overflow-y:auto;"><ul class="w-list" id="w-recent-scans"></ul></div>',
+    agent_guide: '<div class="widget-body" style="font-size:12px;overflow-y:auto;"><div id="w-agent-guide"></div></div>',
+  };
+  var titles = {
+    stats:'Summary Stats', vuln_chart:'Vulnerability Severity', top_targets:'Top Targets by Risk',
+    priority_actions:'Priority Actions', signal_timeline:'Signal Timeline',
+    mitre_summary:'MITRE ATT&CK Coverage', incident_status:'Incident Status',
+    recent_scans:'Recent Scans', agent_guide:'AI Agent Reference',
+  };
+  if (!bodies[id]) return null;
+  return '<div class="grid-stack-item-content"><div class="widget-header"><span class="widget-title">' +
+    (titles[id]||id) + '</span><div class="widget-actions">' + refreshBtn + removeBtn + '</div></div>' +
+    bodies[id] + '</div>';
+}
+
+var _wVulnChart = null, _wSigChart = null;
+
+function _loadWidgetData() {
+  // Stats
+  var ws = document.getElementById('w-stats');
+  if (ws) {
+    var s = {{ stats | tojson }};
+    ws.innerHTML =
+      '<div class="w-stat-box"><div class="w-stat-val">' + (s.total_scans||0) + '</div><div class="w-stat-lbl">Total Scans</div></div>' +
+      '<div class="w-stat-box"><div class="w-stat-val">' + (s.unique_targets||0) + '</div><div class="w-stat-lbl">Targets</div></div>' +
+      '<div class="w-stat-box"><div class="w-stat-val" style="color:#10b981;">' + (s.success_rate||0) + '<span style="font-size:14px;">%</span></div><div class="w-stat-lbl">Success Rate</div></div>' +
+      '<div class="w-stat-box"><div class="w-stat-val">' + (s.avg_latency||0) + '<span style="font-size:14px;">s</span></div><div class="w-stat-lbl">Avg Duration</div></div>';
+  }
+
+  // Vuln chart (from server-side data)
+  var vc = document.getElementById('w-vuln-chart');
+  if (vc) {
+    if (_wVulnChart) { _wVulnChart.destroy(); }
+    var sev = {{ severity_summary.total | tojson }};
+    _wVulnChart = new Chart(vc.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: ['HIGH','MEDIUM','LOW','INFO'],
+        datasets: [{ data: [sev.HIGH||0, sev.MEDIUM||0, sev.LOW||0, sev.INFO||0],
+          backgroundColor: ['#ef4444','#f59e0b','#22c55e','#60a5fa'],
+          borderRadius: 4, borderSkipped: false }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{ x:{grid:{display:false}}, y:{grid:{color:'#f3f4f6'},beginAtZero:true} } }
+    });
+  }
+
+  // Top targets
+  var tt = document.getElementById('w-top-targets');
+  if (tt) {
+    var targets = {{ targets | tojson }};
+    var rankCls = ['w-rank-1','w-rank-2','w-rank-3','w-rank-n'];
+    if (!targets.length) { tt.innerHTML = '<li style="padding:16px;color:#9ca3af;font-size:12px;">No targets yet.</li>'; }
+    else tt.innerHTML = targets.slice(0,5).map(function(t,i){
+      return '<li class="w-list-item" style="padding:6px 16px;">' +
+        '<span class="w-rank ' + (rankCls[Math.min(i,3)]) + '">' + (i+1) + '</span>' +
+        '<span class="w-list-target">' + esc(t.target) + '</span>' +
+        '<span class="badge badge-' + t.risk + '">' + t.risk + '</span></li>';
+    }).join('');
+  }
+
+  // Recent scans
+  var rs = document.getElementById('w-recent-scans');
+  if (rs) {
+    var scans = {{ scans | tojson }};
+    if (!scans.length) { rs.innerHTML = '<li style="padding:16px;color:#9ca3af;font-size:12px;">No scans yet.</li>'; }
+    else rs.innerHTML = scans.slice(0,6).map(function(s){
+      return '<li class="w-list-item" style="padding:6px 16px;">' +
+        '<span class="w-list-target">' + esc(s.target) + '</span>' +
+        '<span class="badge badge-' + s.risk + '">' + s.risk + '</span></li>';
+    }).join('');
+  }
+
+  // Signal timeline
+  var sc = document.getElementById('w-signal-chart');
+  if (sc) {
+    fetch('/api/security-signals').then(function(r){ return r.json(); }).then(function(d){
+      if (_wSigChart) { _wSigChart.destroy(); }
+      var tl = d.timeline || [];
+      _wSigChart = new Chart(sc.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: tl.map(function(t){ return t.date||''; }),
+          datasets: [
+            { label:'HIGH', data: tl.map(function(t){ return t.HIGH||0; }), borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.08)', fill:true, tension:.35, borderWidth:2, pointRadius:0 },
+            { label:'MEDIUM', data: tl.map(function(t){ return t.MEDIUM||0; }), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.06)', fill:true, tension:.35, borderWidth:2, pointRadius:0 },
+          ]
+        },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}},
+          scales:{ x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,maxTicksLimit:6}}, y:{grid:{color:'#f3f4f6'},beginAtZero:true} } }
+      });
+    }).catch(function(){});
+  }
+
+  // MITRE summary
+  var ms = document.getElementById('w-mitre-summary');
+  if (ms) {
+    fetch('/api/mitre/coverage').then(function(r){ return r.json(); }).then(function(d){
+      var coverage = d.coverage || {};
+      var total = Object.values(coverage).reduce(function(a,c){ return a+(c.count||0); }, 0);
+      var tactics = Object.entries(coverage).filter(function(e){ return e[1].count>0; }).slice(0,4);
+      ms.innerHTML = '<div style="text-align:center;margin-bottom:10px;">' +
+        '<div style="font-size:28px;font-weight:700;color:#f59e0b;">' + total + '</div>' +
+        '<div style="font-size:11px;color:#8e8e93;">Rules Triggered</div></div>' +
+        tactics.map(function(e){ return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:12px;">' +
+          '<span style="color:#374151;">' + esc(e[0]) + '</span>' +
+          '<span style="font-weight:700;color:#f59e0b;">' + e[1].count + '</span></div>'; }).join('');
+    }).catch(function(){});
+  }
+
+  // Incident status
+  var is = document.getElementById('w-inc-stats');
+  if (is) {
+    fetch('/api/incidents').then(function(r){ return r.json(); }).then(function(d){
+      var stats = d.stats || {};
+      is.innerHTML =
+        '<div class="w-stat-box"><div class="w-stat-val" style="color:#ef4444;">' + (stats.open||0) + '</div><div class="w-stat-lbl">Open</div></div>' +
+        '<div class="w-stat-box"><div class="w-stat-val" style="color:#f59e0b;">' + (stats.investigating||0) + '</div><div class="w-stat-lbl">Investigating</div></div>' +
+        '<div class="w-stat-box"><div class="w-stat-val" style="color:#10b981;">' + (stats.resolved||0) + '</div><div class="w-stat-lbl">Resolved</div></div>' +
+        '<div class="w-stat-box"><div class="w-stat-val">' + (stats.total||0) + '</div><div class="w-stat-lbl">Total</div></div>';
+    }).catch(function(){});
+  }
+}
+
+// Init grid on load
+window.addEventListener('load', function(){
+  if (typeof GridStack !== 'undefined') {
+    initDashGrid();
+  }
+});
+
+// ── Setup Guide ───────────────────────────────────────────────────────────────
+function copyEnvTemplate() {
+  var el = document.getElementById('env-template');
+  if (el) {
+    navigator.clipboard.writeText(el.textContent).then(function(){
+      var btn = event.target;
+      var orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(function(){ btn.textContent = orig; }, 1500);
+    });
+  }
+}
 
 
 
@@ -2694,7 +3861,8 @@ function startConnectScan() {
     _cwOffset = 0;
     _cwScanId = null;
     _cwSaveLS();
-    cwPoll();
+    // Try WebSocket first (FastAPI), fall back to HTTP polling (Flask)
+    cwConnectWs(d.job_id);
   })
   .catch(function(e) { cwSetStatus('<span class="cs-error">Request failed: ' + e + '</span>'); cwUnlock(); });
 }
@@ -2744,7 +3912,88 @@ function _cwShowDone(status, domain, errMsg) {
   setTimeout(refreshScanHistory, 800);
 }
 
-// ── Poll for new chunks ───────────────────────────────────────────────────
+// ── WebSocket scan streaming (FastAPI /ws/scan/{job_id}) ─────────────────
+var _cwWs = null;
+
+function cwConnectWs(jobId) {
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var wsUrl = proto + '//' + location.host + '/ws/scan/' + jobId + '?offset=0';
+  try {
+    _cwWs = new WebSocket(wsUrl);
+  } catch (e) {
+    // WS not supported / server doesn't have FastAPI — fall back to polling
+    cwPoll();
+    return;
+  }
+
+  _cwWs.onopen = function() {
+    cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Connected via WebSocket…</span>');
+  };
+
+  _cwWs.onmessage = function(evt) {
+    var out = document.getElementById('cwOutput');
+    try {
+      var msg = JSON.parse(evt.data);
+    } catch(e) { return; }
+
+    if (msg.k === 'ping') return;
+
+    if (msg.k === 'status') {
+      _cwClearLS();
+      if (msg.scan_id) _cwScanId = msg.scan_id;
+      var st = msg.d || 'done';
+      if (st === 'aborted') {
+        cwSetStatus('<span class="cs-error">&#9632; Scan stopped by user.</span>');
+        cwUnlock();
+      } else {
+        _cwShowDone(st, _cwCurrentTarget || '', '');
+        cwUnlock();
+      }
+      return;
+    }
+
+    if (msg.k === 'txt') {
+      var line = document.createElement('div');
+      line.className = 'live-line-txt';
+      line.textContent = msg.d;
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    } else if (msg.k === 'tool') {
+      var line = document.createElement('div');
+      line.className = 'live-line-tool';
+      line.textContent = '▶ ' + (msg.d||'') + (msg.i ? ' (' + msg.i.slice(0,80) + ')' : '');
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    } else if (msg.k === 'done') {
+      var line = document.createElement('div');
+      line.className = 'live-line-saved';
+      line.textContent = '✓ Scan complete — results saved';
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    } else if (msg.k === 'err') {
+      var line = document.createElement('div');
+      line.className = 'live-line-res';
+      line.style.color = '#ef4444';
+      line.textContent = '⚠ ' + (msg.d || 'Error');
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    }
+  };
+
+  _cwWs.onerror = function() {
+    // WS failed — gracefully fall back to HTTP polling
+    cwPoll();
+  };
+
+  _cwWs.onclose = function(evt) {
+    if (evt.code !== 1000) {
+      // Abnormal close — poll to pick up any remaining chunks
+      cwPoll();
+    }
+  };
+}
+
+// ── HTTP polling fallback (also used when WS is not available) ─────────────
 function cwPoll() {
   if (!_cwJobId) return;
   fetch('/api/connect/scan/' + _cwJobId + '?offset=' + _cwOffset)
@@ -2769,7 +4018,7 @@ function cwPoll() {
     }
   })
   .catch(function(e) {
-    _cwPollTimer = setTimeout(cwPoll, 3000);  // retry on transient network error
+    _cwPollTimer = setTimeout(cwPoll, 3000);
   });
 }
 
@@ -2967,8 +4216,7 @@ function closeInsightsModal() {
     sessionStorage.removeItem('cfai_open_scan');
     setTimeout(function() {
       openModal(parseInt(sid, 10));
-      var sec = document.getElementById('connect-section');
-      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      sbNav('scan', document.getElementById('sb-scan'));
     }, 400);
   }
   // Resume polling if a scan was interrupted by a page reload
@@ -3221,7 +4469,7 @@ function raiseIncidentFromRule(data) {
   .then(function(r){ return r.json(); })
   .then(function(d){
     if (d.created) {
-      document.getElementById('inc-section').scrollIntoView({behavior:'smooth'});
+      sbNav('incidents', document.getElementById('sb-incidents'));
       loadIncidents('open');
       loadUnifiedOverview();
     }
@@ -3562,94 +4810,92 @@ function runNetMonitor() {
 }
 
 function _renderNetMap(nodes, edges) {
-  var canvas = document.getElementById('net-map-canvas');
-  if (!canvas || !nodes.length) return;
-  if (_nmChart) { _nmChart.destroy(); _nmChart = null; }
+  var svgEl = document.getElementById('net-map-svg');
+  if (!svgEl) return;
+  if (!nodes.length) {
+    document.getElementById('net-map-empty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('net-map-empty').style.display = 'none';
 
-  var ctx = canvas.getContext('2d');
-  var W = canvas.parentElement.offsetWidth || 500;
+  // Clear previous
+  svgEl.innerHTML = '';
+
+  if (typeof d3 === 'undefined') {
+    // Fallback if D3 not loaded
+    svgEl.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#9ca3af" font-size="13" dy=".35em">D3.js not loaded — refresh to retry.</text>';
+    return;
+  }
+
+  var W = svgEl.parentElement.offsetWidth || 560;
   var H = 380;
-  canvas.width  = W;
-  canvas.height = H;
-
-  // Simple force-directed layout: place nodes in a circle around the target
-  var cx = W / 2, cy = H / 2, r = Math.min(W, H) * 0.36;
-  var posMap = {};
-  var nonTarget = nodes.filter(function(n){ return n.type !== 'target'; });
-  posMap[nodes[0].id] = { x: cx, y: cy };
-  nonTarget.forEach(function(n, i){
-    var angle = (2 * Math.PI * i / Math.max(nonTarget.length, 1)) - Math.PI / 2;
-    posMap[n.id] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
-  });
+  svgEl.setAttribute('width', W);
+  svgEl.setAttribute('height', H);
 
   var _groupColors = { target:'#1d1d1f', http:'#2563eb', https:'#2563eb', ssh:'#10b981',
                         mysql:'#f59e0b', ftp:'#ef4444', smtp:'#8b5cf6', remote:'#6b7280', service:'#374151' };
 
-  function _draw() {
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, W, H);
+  var svg = d3.select(svgEl)
+    .style('background','#fff');
 
-    // Draw edges
-    edges.forEach(function(e){
-      var a = posMap[e.from], b = posMap[e.to];
-      if (!a || !b) return;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = '#e5e7eb';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // Arrow
-      var angle = Math.atan2(b.y - a.y, b.x - a.x);
-      var nx = b.x - 18 * Math.cos(angle), ny = b.y - 18 * Math.sin(angle);
-      ctx.beginPath();
-      ctx.moveTo(nx, ny);
-      ctx.lineTo(nx - 8 * Math.cos(angle - 0.4), ny - 8 * Math.sin(angle - 0.4));
-      ctx.lineTo(nx - 8 * Math.cos(angle + 0.4), ny - 8 * Math.sin(angle + 0.4));
-      ctx.closePath();
-      ctx.fillStyle = '#d1d5db';
-      ctx.fill();
-      // Edge label
-      if (e.label) {
-        ctx.font = '10px -apple-system,sans-serif';
-        ctx.fillStyle = '#9ca3af';
-        ctx.textAlign = 'center';
-        ctx.fillText(e.label, (a.x + b.x) / 2, (a.y + b.y) / 2 - 4);
-      }
+  // Arrow marker
+  svg.append('defs').append('marker')
+    .attr('id','arrowhead').attr('markerWidth',8).attr('markerHeight',6)
+    .attr('refX',22).attr('refY',3).attr('orient','auto')
+    .append('polygon').attr('points','0 0, 8 3, 0 6').attr('fill','#d1d5db');
+
+  var d3Nodes = nodes.map(function(n){ return Object.assign({}, n); });
+  var nodeById = {};
+  d3Nodes.forEach(function(n){ nodeById[n.id] = n; });
+  var d3Links = edges.map(function(e){ return { source: e.from, target: e.to, label: e.label||'' }; });
+
+  var simulation = d3.forceSimulation(d3Nodes)
+    .force('link', d3.forceLink(d3Links).id(function(d){ return d.id; }).distance(100))
+    .force('charge', d3.forceManyBody().strength(-220))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide(32));
+
+  var link = svg.append('g').selectAll('line').data(d3Links).enter()
+    .append('line').attr('stroke','#e5e7eb').attr('stroke-width',1.5)
+    .attr('marker-end','url(#arrowhead)');
+
+  var linkLabel = svg.append('g').selectAll('text').data(d3Links).enter()
+    .append('text').attr('text-anchor','middle').attr('font-size',9).attr('fill','#9ca3af')
+    .text(function(d){ return d.label; });
+
+  var node = svg.append('g').selectAll('g').data(d3Nodes).enter()
+    .append('g').call(d3.drag()
+      .on('start', function(event,d){ if(!event.active) simulation.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  function(event,d){ d.fx=event.x; d.fy=event.y; })
+      .on('end',   function(event,d){ if(!event.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }));
+
+  node.append('circle')
+    .attr('r', function(d){ return d.type==='target' ? 22 : 14; })
+    .attr('fill', function(d){ return d.type==='target' ? (_groupColors[d.type]||'#1d1d1f') : '#fff'; })
+    .attr('stroke', function(d){ return _groupColors[d.group]||_groupColors[d.type]||'#6b7280'; })
+    .attr('stroke-width', function(d){ return d.type==='target' ? 0 : 2.5; })
+    .style('filter','drop-shadow(0 2px 4px rgba(0,0,0,.12))');
+
+  node.append('text')
+    .attr('text-anchor','middle').attr('dy','.35em')
+    .attr('font-size', function(d){ return d.type==='target' ? 10 : 9; })
+    .attr('font-weight', function(d){ return d.type==='target' ? '700' : '500'; })
+    .attr('fill', function(d){ return d.type==='target' ? '#fff' : (_groupColors[d.group]||'#374151'); })
+    .text(function(d){ return (d.label||d.id).split('\n')[0].slice(0,14); });
+
+  node.append('title').text(function(d){ return d.label||d.id; });
+
+  simulation.on('tick', function(){
+    link.attr('x1',function(d){return d.source.x;}).attr('y1',function(d){return d.source.y;})
+        .attr('x2',function(d){return d.target.x;}).attr('y2',function(d){return d.target.y;});
+    linkLabel.attr('x',function(d){return (d.source.x+d.target.x)/2;})
+             .attr('y',function(d){return (d.source.y+d.target.y)/2-5;});
+    node.attr('transform',function(d){
+      d.x = Math.max(22, Math.min(W-22, d.x));
+      d.y = Math.max(22, Math.min(H-22, d.y));
+      return 'translate('+d.x+','+d.y+')';
     });
-
-    // Draw nodes
-    nodes.forEach(function(n){
-      var p = posMap[n.id];
-      if (!p) return;
-      var isTarget = n.type === 'target';
-      var rad = isTarget ? 24 : 16;
-      var col = _groupColors[n.group] || _groupColors[n.type] || '#6b7280';
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, rad, 0, 2 * Math.PI);
-      ctx.fillStyle = isTarget ? col : '#fff';
-      ctx.fill();
-      ctx.strokeStyle = col;
-      ctx.lineWidth = isTarget ? 0 : 2;
-      ctx.stroke();
-
-      ctx.font = (isTarget ? 'bold 11px' : '10px') + ' -apple-system,sans-serif';
-      ctx.fillStyle = isTarget ? '#fff' : col;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      var shortLabel = (n.label||n.id).split('\n')[0].slice(-18);
-      ctx.fillText(shortLabel, p.x, p.y);
-      if (!isTarget) {
-        ctx.font = '10px -apple-system,sans-serif';
-        ctx.fillStyle = '#9ca3af';
-        ctx.textBaseline = 'top';
-        ctx.fillText((n.label||'').split('\n').slice(1).join(' ').slice(0, 20), p.x, p.y + rad + 3);
-      }
-    });
-  }
-  _draw();
+  });
 }
 
 function _renderNetServices(services) {

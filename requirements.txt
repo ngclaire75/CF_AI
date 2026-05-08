@@ -7,8 +7,23 @@ anthropic>=0.40.0
 # Model Context Protocol server (for WordPress MCP tools)
 mcp>=1.0.0
 
-# Dashboard web server
+# Dashboard — Flask (legacy, keep for reference)
 flask>=3.0.0
+
+# Dashboard — FastAPI + Starlette + Pydantic (primary API server)
+# Starlette: async web framework (routing, middleware, WebSocket, SSE, background tasks)
+# Pydantic: request/response validation with type-checked models
+# uvicorn: ASGI server to run FastAPI
+fastapi>=0.115.0
+starlette>=0.40.0
+pydantic>=2.7.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9     # required for form data / file uploads in FastAPI
+websockets>=13.0             # WebSocket support (uvicorn[standard] also installs this)
+httpx>=0.27.0                # async HTTP client — used in background tasks
 
 # .env file loading
 python-dotenv>=1.0.0
+
+# Jinja2 for FastAPI templates (also used by Flask)
+jinja2>=3.1.0
