@@ -474,8 +474,8 @@ curl -4 -sI https://{{domain}}/ --max-time 8 -A "Googlebot/2.1 (+http://www.goog
 curl -4 -sI https://{{domain}}/ --max-time 8 -A "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)" 2>/dev/null
 
 # [P3-I] Cloudscraper — Python CF bypass + UA rotation (works when curl is blocked by JS challenge or IP filter)
-python3 -c "import cloudscraper,urllib3,ssl,sys; from requests.adapters import HTTPAdapter; urllib3.disable_warnings(); A=type('A',(HTTPAdapter,),{'init_poolmanager':lambda s,*a,**k:(k.__setitem__('ssl_context',(lambda c:(setattr(c,'check_hostname',False),setattr(c,'verify_mode',ssl.CERT_NONE),c)[-1])(ssl.create_default_context())),super(type(s),s).init_poolmanager(*a,**k))}); s=cloudscraper.create_scraper(browser={{'browser':'chrome','platform':'windows','desktop':True}}); s.mount('https://',A()); r=s.get('https://{{domain}}/',timeout=20); print('Status:',r.status_code); print('Headers:',dict(r.headers)); print(r.text[:2000])" 2>&1 || echo "[cloudscraper] not installed — run: pip3 install cloudscraper"
-python3 -c "import cloudscraper,urllib3,ssl; from requests.adapters import HTTPAdapter; urllib3.disable_warnings(); A=type('A',(HTTPAdapter,),{'init_poolmanager':lambda s,*a,**k:(k.__setitem__('ssl_context',(lambda c:(setattr(c,'check_hostname',False),setattr(c,'verify_mode',ssl.CERT_NONE),c)[-1])(ssl.create_default_context())),super(type(s),s).init_poolmanager(*a,**k))}); s=cloudscraper.create_scraper(browser={{'browser':'firefox','platform':'windows'}}); s.mount('https://',A()); r=s.get('https://{{domain}}/',timeout=20); [print(l) for l in r.text.splitlines()[:60] if l.strip()]" 2>&1 | head -40
+python3 -c "import cloudscraper,urllib3,ssl,sys; from requests.adapters import HTTPAdapter; urllib3.disable_warnings(); A=type('A',(HTTPAdapter,),{{'init_poolmanager':lambda s,*a,**k:(k.__setitem__('ssl_context',(lambda c:(setattr(c,'check_hostname',False),setattr(c,'verify_mode',ssl.CERT_NONE),c)[-1])(ssl.create_default_context())),super(type(s),s).init_poolmanager(*a,**k))}}); s=cloudscraper.create_scraper(browser={{'browser':'chrome','platform':'windows','desktop':True}}); s.mount('https://',A()); r=s.get('https://{{domain}}/',timeout=20); print('Status:',r.status_code); print('Headers:',dict(r.headers)); print(r.text[:2000])" 2>&1 || echo "[cloudscraper] not installed — run: pip3 install cloudscraper"
+python3 -c "import cloudscraper,urllib3,ssl; from requests.adapters import HTTPAdapter; urllib3.disable_warnings(); A=type('A',(HTTPAdapter,),{{'init_poolmanager':lambda s,*a,**k:(k.__setitem__('ssl_context',(lambda c:(setattr(c,'check_hostname',False),setattr(c,'verify_mode',ssl.CERT_NONE),c)[-1])(ssl.create_default_context())),super(type(s),s).init_poolmanager(*a,**k))}}); s=cloudscraper.create_scraper(browser={{'browser':'firefox','platform':'windows'}}); s.mount('https://',A()); r=s.get('https://{{domain}}/',timeout=20); [print(l) for l in r.text.splitlines()[:60] if l.strip()]" 2>&1 | head -40
 
 # [P3-J] Tech fingerprint from HTML (when site is partially reachable)
 curl -L -4 -sk --max-time 15 -A "{_UA}" -H "Referer: {_REF}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt https://{{domain}}/ 2>/dev/null | grep -iEo "(wordpress|drupal|joomla|magento|shopify|woocommerce|laravel|django|rails|react|angular|vue\\.?js|next\\.?js|nuxt|gatsby|symfony|codeigniter|yii|zend|asp\\.net|java|python|ruby|php|nginx|apache|iis|node)" | sort -u | head -20 || echo "[P3-J] No tech fingerprint from live page — site blocked"
@@ -1282,10 +1282,10 @@ if debug_log and len(debug_log) > 50 and ('PHP' in debug_log or 'error' in debug
     for _dl in debug_log.splitlines()[:25]:
         if not _dl.strip(): continue
         if 'PHP Fatal' in _dl or 'PHP Parse error' in _dl or 'database error' in _dl.lower():
-            _dlc = re.sub(r'\s+', ' ', _dl).strip()
+            _dlc = re.sub(r'\\s+', ' ', _dl).strip()
             print(f'WP-LOG | {{_ts_d}} | wp-debug | {{_dlc[:140]}} | - | HIGH')
         elif 'PHP Warning' in _dl or 'PHP Deprecated' in _dl or 'PHP Notice' in _dl:
-            _dlc = re.sub(r'\s+', ' ', _dl).strip()
+            _dlc = re.sub(r'\\s+', ' ', _dl).strip()
             print(f'WP-LOG | {{_ts_d}} | wp-debug | {{_dlc[:140]}} | - | MEDIUM')
 
 # ── Non-WordPress sites: probe generic audit/log REST endpoints ─────────────
