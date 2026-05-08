@@ -2168,15 +2168,27 @@ def api_cloudflare_insights():
         msg  = errs[0].get('message') if errs else 'Unknown Cloudflare API error'
         return jsonify({'error': msg}), 500
 
-    raw         = resp.get('result') or []
     result_info = resp.get('result_info') or {}
 
-    # Filter dismissed client-side if requested
+    # result may be a list of dicts or a nested object
+    raw = resp.get('result') or []
+    if isinstance(raw, dict):
+        # Some CF endpoints wrap the list: {"issues": [...], "total": N}
+        raw = raw.get('issues') or raw.get('insights') or list(raw.values())
+    if not isinstance(raw, list):
+        raw = []
+
+    # Normalise: convert plain strings to minimal dicts
+    raw = [{'description': i} if isinstance(i, str) else i for i in raw if i]
+
+    # Filter dismissed client-side
     if not dismissed:
         raw = [i for i in raw if not i.get('dismissed', False)]
 
     insights = []
     for item in raw:
+        if not isinstance(item, dict):
+            continue
         insights.append({
             'id':           item.get('id', ''),
             'subject':      item.get('subject', ''),
