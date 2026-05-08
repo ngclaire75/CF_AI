@@ -6481,7 +6481,14 @@ function installPlugin(slug, pluginName, btnId) {
     } else {
       status.style.background = '#fde7e9';
       status.style.color = '#a80000';
-      status.textContent = 'Install failed: ' + (d.error || 'Unknown error');
+      var errHtml = '<strong>Install failed:</strong> ' + _esc(d.error || 'Unknown error');
+      if (d.manual_url) {
+        errHtml += '<br><a href="' + _esc(d.manual_url) + '" target="_blank" '
+          + 'style="color:#a80000;font-weight:600;text-decoration:underline;">'
+          + 'Open WordPress Plugin Installer &rarr;</a>'
+          + ' &nbsp;(search for <strong>' + _esc(pluginName) + '</strong> and click Install Now)';
+      }
+      status.innerHTML = errHtml;
     }
   })
   .catch(function(err){

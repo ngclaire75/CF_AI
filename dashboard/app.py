@@ -28,66 +28,115 @@ _BROWSER_UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                'AppleWebKit/537.36 (KHTML, like Gecko) '
                'Chrome/124.0.0.0 Safari/537.36')
 
+try:
+    import requests as _requests
+    import urllib3 as _urllib3
+    _urllib3.disable_warnings(_urllib3.exceptions.InsecureRequestWarning)
+    _HAS_REQUESTS = True
+except ImportError:
+    _HAS_REQUESTS = False
+
+try:
+    import cloudscraper as _cloudscraper
+    _HAS_CLOUDSCRAPER = True
+except ImportError:
+    _HAS_CLOUDSCRAPER = False
+
 
 def _wp_request(url: str, method: str = 'GET', headers: dict | None = None,
                 body: bytes | None = None, timeout: int = 20) -> tuple[int, str]:
-    """HTTP request with SSL bypass + curl fallback for Cloudflare-protected sites.
+    """HTTP request with progressive bypass for Cloudflare/WAF-protected sites.
 
-    Layer 1: urllib with SSL cert check disabled (handles most sites)
-    Layer 2: curl -k with full browser headers (handles Cloudflare)
-    Returns (status_code, body_text); status_code=0 means total failure.
+    Layer 1: requests library — verify=False, full browser headers
+    Layer 2: cloudscraper — solves Cloudflare JS challenges
+    Layer 3: curl -sk — handles edge cases (cert issues, header quirks)
+
+    Returns (status_code, body_text).  status_code=0 means total failure.
+    The error string is always non-empty on failure so callers can surface it.
     """
     hdrs = {
         'User-Agent':      _BROWSER_UA,
         'Accept':          'application/json, */*',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control':   'no-cache',
     }
     if headers:
         hdrs.update(headers)
 
-    # Layer 1 — urllib with SSL verification disabled
-    ctx = _ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode    = _ssl.CERT_NONE
-    opener = _up_req.build_opener(_up_req.HTTPSHandler(context=ctx))
-    req = _up_req.Request(url, data=body, headers=hdrs, method=method)
-    try:
-        with opener.open(req, timeout=timeout) as r:
-            return r.status, r.read().decode('utf-8', errors='replace')
-    except _up_err.HTTPError as e:
-        try:
-            return e.code, e.read().decode('utf-8', errors='replace')
-        except Exception:
-            return e.code, str(e)
-    except Exception:
-        pass  # fall through to curl
+    last_err = 'unknown error'
 
-    # Layer 2 — curl with browser headers (-k skips SSL, handles Cloudflare)
-    if not _shutil.which('curl'):
-        return 0, 'Connection failed and curl is not available'
-    cmd = [
-        'curl', '-sk', '-L', '-w', '\n__STATUS__:%{http_code}',
-        '--max-time', str(timeout), '--connect-timeout', '10',
-        '-X', method,
-        '-H', f'User-Agent: {_BROWSER_UA}',
-        '-H', 'Accept: application/json, */*',
-        '-H', 'Accept-Language: en-US,en;q=0.9',
-    ]
-    for k, v in hdrs.items():
-        if k not in ('User-Agent', 'Accept', 'Accept-Language'):
-            cmd += ['-H', f'{k}: {v}']
-    if body:
-        cmd += ['--data-binary', '@-']
-    cmd.append(url)
-    try:
-        res = _subprocess.run(cmd, input=body, capture_output=True, timeout=timeout + 8)
-        text = res.stdout.decode('utf-8', errors='replace')
-        if '__STATUS__:' in text:
-            body_part, stat = text.rsplit('\n__STATUS__:', 1)
-            return int(stat.strip() or '0'), body_part
-    except Exception:
-        pass
-    return 0, 'Connection timed out — check the URL and that the site is reachable'
+    # Layer 1 — requests with SSL verification disabled
+    if _HAS_REQUESTS:
+        try:
+            resp = _requests.request(
+                method, url,
+                headers=hdrs,
+                data=body,
+                verify=False,
+                timeout=timeout,
+                allow_redirects=True,
+            )
+            return resp.status_code, resp.text
+        except Exception as e:
+            last_err = str(e)
+
+    # Layer 2 — cloudscraper (solves Cloudflare JS challenge v1/v2)
+    if _HAS_CLOUDSCRAPER:
+        try:
+            cs = _cloudscraper.create_scraper(
+                browser={'browser': 'chrome', 'platform': 'linux', 'mobile': False}
+            )
+            resp = cs.request(method, url, headers=hdrs, data=body,
+                              verify=False, timeout=timeout)
+            return resp.status_code, resp.text
+        except Exception as e:
+            last_err = str(e)
+
+    # Layer 3 — curl -sk (handles remaining edge cases)
+    if _shutil.which('curl'):
+        # Write body to temp file to avoid stdin issues on Linux/Windows
+        tmp_path = None
+        try:
+            if body:
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as tf:
+                    tf.write(body)
+                    tmp_path = tf.name
+            cmd = [
+                'curl', '-sk', '-L',
+                '-w', '\n__CF_STATUS__:%{http_code}',
+                '--max-time', str(timeout),
+                '--connect-timeout', '10',
+                '-X', method,
+            ]
+            for k, v in hdrs.items():
+                cmd += ['-H', f'{k}: {v}']
+            if tmp_path:
+                cmd += ['--data-binary', f'@{tmp_path}']
+            cmd.append(url)
+            res = _subprocess.run(cmd, capture_output=True, timeout=timeout + 10)
+            text = res.stdout.decode('utf-8', errors='replace')
+            if '__CF_STATUS__:' in text:
+                body_part, stat = text.rsplit('\n__CF_STATUS__:', 1)
+                code = int(stat.strip() or '0')
+                if code > 0:
+                    return code, body_part
+                last_err = f'curl exited with HTTP 0 — site may be blocking VPS/datacenter IPs'
+            else:
+                stderr = res.stderr.decode('utf-8', errors='replace')[:200]
+                last_err = f'curl no response — {stderr or "connection refused or timed out"}'
+        except Exception as e:
+            last_err = str(e)
+        finally:
+            if tmp_path:
+                try:
+                    import os; os.unlink(tmp_path)
+                except Exception:
+                    pass
+    else:
+        last_err = 'curl not found; requests unavailable'
+
+    return 0, last_err
 
 app = Flask(__name__, template_folder='templates')
 
@@ -1461,14 +1510,24 @@ def api_wp_install_plugin():
                         'version': resp.get('version', '')})
 
     # Surface the real WordPress error message
-    wp_msg = resp.get('message') or resp.get('error') or f'HTTP {code}'
+    raw_err = resp.get('message') or resp.get('error') or ''
     if code == 403:
         wp_msg = 'Permission denied — account needs administrator role (manage_plugins capability).'
     elif code == 401:
         wp_msg = 'Authentication failed — wrong username or Application Password.'
     elif code == 0:
-        wp_msg = f'Could not reach site — check the URL and that it is accessible. Detail: {wp_msg}'
-    return jsonify({'ok': False, 'error': wp_msg, 'code': code}), (400 if code >= 400 else 500)
+        wp_msg = (
+            'VPS/server IP blocked — Cloudflare or the hosting firewall is dropping '
+            'connections from this server. '
+            f'Detail: {raw_err or "TCP connection refused/timed out"}. '
+            'Fix: install the plugin manually from your WordPress admin dashboard '
+            f'({url}/wp-admin/plugin-install.php) or whitelist this VPS IP in Cloudflare.'
+        )
+    else:
+        wp_msg = raw_err or f'Unexpected HTTP {code}'
+    return jsonify({'ok': False, 'error': wp_msg, 'code': code,
+                    'manual_url': f'{url}/wp-admin/plugin-install.php?s={slug}&tab=search&type=term'}), \
+           (400 if code >= 400 else 500)
 
 
 @app.route('/api/logs/cpanel-live', methods=['POST'])
