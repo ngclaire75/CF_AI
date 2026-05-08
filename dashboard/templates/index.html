@@ -985,6 +985,19 @@ tr.hidden-r { display: none; }
 .sig-badge-LOW     { background:#d1fae5; color:#059669; }
 .sig-badge-INFO    { background:#f3f4f6; color:#6b7280; }
 
+/* ── Log Explorer tabs ── */
+.le-tab-bar { display:flex; gap:2px; border-bottom:2px solid #e5e7eb; margin-bottom:16px; }
+.le-tab { background:none; border:none; border-bottom:3px solid transparent; margin-bottom:-2px; padding:8px 18px; font-size:13px; font-weight:500; color:#6b7280; cursor:pointer; font-family:inherit; transition:color .15s; }
+.le-tab:hover { color:#1d1d1f; }
+.le-tab.active { color:#2563eb; border-bottom-color:#2563eb; font-weight:600; }
+.le-tab-pane { padding-top:4px; }
+.le-cred-form { margin-bottom:16px; }
+.le-cred-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px; }
+.le-cred-label { display:block; font-size:11px; font-weight:600; color:#374151; margin-bottom:4px; }
+.le-cred-input { border:1px solid #e5e7eb; border-radius:8px; padding:7px 12px; font-size:13px; font-family:inherit; min-width:160px; outline:none; }
+.le-cred-input:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+.le-cred-actions { display:flex; gap:14px; align-items:center; margin-bottom:10px; }
+.le-hint { font-size:12px; color:#8e8e93; background:#f9fafb; border-radius:8px; padding:8px 12px; margin-bottom:14px; line-height:1.6; }
 /* ── Log Explorer ── */
 .log-form { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px; }
 .log-form input { border:1px solid #e5e7eb; border-radius:8px; padding:7px 12px; font-size:13px; font-family:inherit; flex:1; min-width:160px; outline:none; }
@@ -2924,74 +2937,141 @@ Export Power BI
     <div class="sec-head">
       <div>
         <div class="sec-title">Log Explorer</div>
-        <div class="sec-desc">Real HTTP access log analysis — fetch via SSH or probe observable behaviour</div>
+        <div class="sec-desc">Analyze real-time access logs via SSH, WordPress Admin, or cPanel — no fake data, all live from your server</div>
       </div>
     </div>
-    <!-- Input form -->
-    <div class="log-form">
-      <input type="text" id="le-domain" placeholder="yourdomain.com" style="max-width:240px;">
-      <input type="text" id="le-ssh-host" placeholder="SSH host (optional)" style="max-width:200px;">
-      <input type="text" id="le-ssh-user" placeholder="SSH user" style="max-width:130px;">
-      <input type="password" id="le-ssh-pass" placeholder="SSH password" style="max-width:160px;">
-      <input type="text" id="le-ssh-port" placeholder="Port (22)" style="max-width:90px;">
-      <button class="btn btn-sm" onclick="runLogExplorer()" id="le-run-btn" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:7px 18px;white-space:nowrap;">Analyze Logs</button>
-    </div>
-    <div id="le-results" style="display:none;">
-      <!-- Timeline chart -->
-      <div class="log-timeline-wrap">
-        <h5>Request Timeline</h5>
-        <canvas id="le-timeline-chart" height="80"></canvas>
-      </div>
-      <!-- Latency -->
-      <div class="log-timeline-wrap">
-        <h5>Response Latency</h5>
-        <div class="latency-row" id="le-latency-row"></div>
-      </div>
-      <!-- Stats grid -->
-      <div class="log-explorer-grid" id="le-stats-grid"></div>
-      <!-- Pattern detections -->
-      <div class="pattern-card" id="le-patterns-card">
-        <h5>Threat Detections</h5>
-        <div id="le-patterns-list"><em style="color:#9ca3af;font-size:13px;">No patterns detected.</em></div>
-      </div>
-    </div>
-    <div id="le-loading" style="display:none;padding:20px;text-align:center;color:#6b7280;">
-      <span>Analyzing logs…</span>
-    </div>
-    <div id="le-error" style="display:none;padding:16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;"></div>
-  </section>
 
-  <!-- ── WordPress Login Events ─────────────────────────────────────────────── -->
-  <section class="section" id="wp-login-section" style="margin-top:24px;">
-    <div class="sec-head">
-      <div>
-        <div class="sec-title">WordPress Login Events</div>
-        <div class="sec-desc">User logins captured from WordPress security audit logs — includes IP address and geo-location</div>
+    <!-- Tab bar -->
+    <div class="le-tab-bar">
+      <button class="le-tab active" id="le-tab-btn-ssh" onclick="leTab('ssh',this)">SSH / Access Logs</button>
+      <button class="le-tab" id="le-tab-btn-wp" onclick="leTab('wp',this)">WordPress Admin</button>
+      <button class="le-tab" id="le-tab-btn-cpanel" onclick="leTab('cpanel',this)">cPanel</button>
+      <button class="le-tab" id="le-tab-btn-history" onclick="leTab('history',this)">Scan History Logs</button>
+    </div>
+
+    <!-- ── SSH tab ── -->
+    <div id="le-pane-ssh" class="le-tab-pane">
+      <div class="log-form">
+        <input type="text" id="le-domain" placeholder="yourdomain.com" style="max-width:240px;">
+        <input type="text" id="le-ssh-host" placeholder="SSH host (optional)" style="max-width:200px;">
+        <input type="text" id="le-ssh-user" placeholder="SSH user" style="max-width:130px;">
+        <input type="password" id="le-ssh-pass" placeholder="SSH password" style="max-width:160px;">
+        <input type="text" id="le-ssh-port" placeholder="Port (22)" style="max-width:90px;">
+        <button class="btn btn-sm" onclick="runLogExplorer()" id="le-run-btn" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:7px 18px;white-space:nowrap;">Analyze Logs</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input type="text" id="le-login-target" placeholder="Filter by target (optional)" style="height:30px;border:1px solid #c8c6c4;border-radius:2px;padding:0 10px;font-size:12px;width:220px;font-family:inherit;">
-        <button onclick="loadLoginEvents()" style="height:30px;padding:0 14px;background:#0078d4;color:#fff;border:none;border-radius:2px;font-size:12px;cursor:pointer;font-family:inherit;">Load Login Events</button>
+      <div class="le-hint">Provide SSH credentials to pull real access logs from your server. Without SSH, the tool probes observable URL behaviour instead.</div>
+      <div id="le-results" style="display:none;">
+        <div class="log-timeline-wrap"><h5>Request Timeline</h5><canvas id="le-timeline-chart" height="80"></canvas></div>
+        <div class="log-timeline-wrap"><h5>Response Latency</h5><div class="latency-row" id="le-latency-row"></div></div>
+        <div class="log-explorer-grid" id="le-stats-grid"></div>
+        <div class="pattern-card" id="le-patterns-card"><h5>Threat Detections</h5><div id="le-patterns-list"><em style="color:#9ca3af;font-size:13px;">No patterns detected.</em></div></div>
+      </div>
+      <div id="le-loading" style="display:none;padding:20px;text-align:center;color:#6b7280;">Analyzing logs…</div>
+      <div id="le-error" style="display:none;padding:16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;"></div>
+    </div>
+
+    <!-- ── WordPress Admin tab ── -->
+    <div id="le-pane-wp" class="le-tab-pane" style="display:none;">
+      <div class="le-cred-form">
+        <div class="le-cred-row">
+          <div><label class="le-cred-label">WordPress Site URL</label><input type="text" id="le-wp-url" class="le-cred-input" placeholder="https://yourdomain.com" autocomplete="off"></div>
+          <div><label class="le-cred-label">WP Username</label><input type="text" id="le-wp-user" class="le-cred-input" placeholder="admin" autocomplete="off"></div>
+          <div><label class="le-cred-label">Application Password <span style="font-weight:400;color:#9ca3af;">(recommended)</span></label><input type="password" id="le-wp-apppass" class="le-cred-input" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Events to fetch</label><input type="number" id="le-wp-limit" class="le-cred-input" placeholder="50" value="50" min="10" max="200" style="width:80px;"></div>
+        </div>
+        <div class="le-cred-actions">
+          <button class="btn btn-sm" onclick="runWpLive()" id="le-wp-btn" style="background:#0078d4;color:#fff;border-color:#0078d4;border-radius:8px;padding:7px 20px;">Fetch Live Events</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#605e5c;cursor:pointer;">
+            <input type="checkbox" id="le-wp-autorefresh" onchange="toggleWpAutoRefresh()"> Auto-refresh every 30s
+          </label>
+        </div>
+        <div class="le-hint">Fetches real login events via WordPress REST API. Requires <strong>WP Activity Log (WSAL)</strong> or <strong>Simple History</strong> plugin installed on your site for full activity tracking. Generate an Application Password at: <em>WordPress Admin → Users → Profile → Application Passwords</em>.</div>
+      </div>
+      <div id="le-wp-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Fetching live WordPress events…</div>
+      <div id="le-wp-note" style="display:none;padding:10px 14px;background:#fff4ce;border-radius:6px;color:#7a5c00;font-size:12px;margin-bottom:10px;"></div>
+      <div id="le-wp-error" style="display:none;padding:12px 14px;background:#fde7e9;border-radius:6px;color:#a80000;font-size:12px;margin-bottom:10px;"></div>
+      <div id="le-wp-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#605e5c;"></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-wp-table">
+          <thead><tr style="background:#f3f2f1;border-bottom:1px solid #e1dfdd;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Event</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">IP Address</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Severity</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Source</th>
+          </tr></thead>
+          <tbody id="le-wp-body">
+            <tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Enter your WordPress URL and credentials, then click Fetch Live Events.</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
-    <div id="login-events-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Loading login events…</div>
-    <div id="login-events-error" style="display:none;padding:12px 16px;background:#fde7e9;border-radius:2px;color:#a80000;font-size:12px;margin-bottom:12px;"></div>
-    <div id="login-events-wrap" style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;" id="login-events-table">
-        <thead>
-          <tr style="background:#f3f2f1;border-bottom:1px solid #e1dfdd;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;">Timestamp</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Username</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Event</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">IP Address</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Country / Location</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Status</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#605e5c;text-transform:uppercase;letter-spacing:.3px;">Target</th>
-          </tr>
-        </thead>
-        <tbody id="login-events-body">
-          <tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Click "Load Login Events" to fetch WordPress user logins from scan history.</td></tr>
-        </tbody>
-      </table>
+
+    <!-- ── cPanel tab ── -->
+    <div id="le-pane-cpanel" class="le-tab-pane" style="display:none;">
+      <div class="le-cred-form">
+        <div class="le-cred-row">
+          <div><label class="le-cred-label">cPanel Host</label><input type="text" id="le-cp-host" class="le-cred-input" placeholder="yourserver.com or IP" autocomplete="off"></div>
+          <div><label class="le-cred-label">Username</label><input type="text" id="le-cp-user" class="le-cred-input" placeholder="cpaneluser" autocomplete="off"></div>
+          <div><label class="le-cred-label">API Token <span style="font-weight:400;color:#9ca3af;">(recommended)</span></label><input type="password" id="le-cp-token" class="le-cred-input" placeholder="API token from WHM" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Password <span style="font-weight:400;color:#9ca3af;">(alt)</span></label><input type="password" id="le-cp-pass" class="le-cred-input" placeholder="cPanel password" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Port</label><input type="number" id="le-cp-port" class="le-cred-input" placeholder="2083" value="2083" style="width:80px;"></div>
+        </div>
+        <div class="le-cred-actions">
+          <button class="btn btn-sm" onclick="runCpanelLive()" id="le-cp-btn" style="background:#0078d4;color:#fff;border-color:#0078d4;border-radius:8px;padding:7px 20px;">Fetch Active Sessions</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#605e5c;cursor:pointer;">
+            <input type="checkbox" id="le-cp-autorefresh" onchange="toggleCpAutoRefresh()"> Auto-refresh every 30s
+          </label>
+        </div>
+        <div class="le-hint">Fetches active sessions and last login IP via cPanel UAPI. Generate an API Token at: <em>cPanel → Security → Manage API Tokens</em>. API tokens are more secure than passwords.</div>
+      </div>
+      <div id="le-cp-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Fetching cPanel sessions…</div>
+      <div id="le-cp-note" style="display:none;padding:10px 14px;background:#fff4ce;border-radius:6px;color:#7a5c00;font-size:12px;margin-bottom:10px;"></div>
+      <div id="le-cp-error" style="display:none;padding:12px 14px;background:#fde7e9;border-radius:6px;color:#a80000;font-size:12px;margin-bottom:10px;"></div>
+      <div id="le-cp-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#605e5c;"></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-cp-table">
+          <thead><tr style="background:#f3f2f1;border-bottom:1px solid #e1dfdd;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Event / Session Type</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">IP Address</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Status</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Source</th>
+          </tr></thead>
+          <tbody id="le-cp-body">
+            <tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Enter your cPanel host and credentials, then click Fetch Active Sessions.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Scan History Logs tab ── -->
+    <div id="le-pane-history" class="le-tab-pane" style="display:none;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
+        <input type="text" id="le-login-target" placeholder="Filter by target (optional)" style="height:30px;border:1px solid #e5e7eb;border-radius:8px;padding:0 10px;font-size:12px;width:240px;font-family:inherit;outline:none;">
+        <button onclick="loadLoginEvents()" style="height:30px;padding:0 16px;background:#1d1d1f;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">Load from Scan History</button>
+      </div>
+      <div class="le-hint">Shows WordPress WP-LOG events captured during previous scans. For real-time events, use the WordPress Admin tab above.</div>
+      <div id="login-events-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Loading login events…</div>
+      <div id="login-events-error" style="display:none;padding:12px 16px;background:#fde7e9;border-radius:6px;color:#a80000;font-size:12px;margin-bottom:12px;"></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="login-events-table">
+          <thead><tr style="background:#f3f2f1;border-bottom:1px solid #e1dfdd;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Username</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Event</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">IP Address</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Country</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Status</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#605e5c;">Target</th>
+          </tr></thead>
+          <tbody id="login-events-body">
+            <tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Click "Load from Scan History" to fetch WordPress login events captured during scans.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -3140,7 +3220,13 @@ Load Logs
     <div class="mdef-page-title">Recommendations</div>
     <div class="mdef-toolbar">
       <button class="mdef-toolbar-btn primary" onclick="loadRecommendations()">Refresh</button>
+      <select id="rec-target-sel" onchange="recTargetChange()" style="height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;min-width:180px;">
+        <option value="">All targets</option>
+      </select>
       <input type="text" id="rec-filter" placeholder="Filter recommendations..." oninput="recFilter()" style="height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 10px;font-size:12px;min-width:220px;font-family:inherit;outline:none;margin-left:auto;">
+    </div>
+    <div style="padding:8px 20px;background:#eff6fc;border-bottom:1px solid #c7e0f4;font-size:12px;color:#0078d4;">
+      Recommendations are extracted from the <strong>REMEDIATION PRIORITY</strong> and <strong>Hardening Recommendations</strong> sections of actual scan outputs — only real findings from your website.
     </div>
     <div class="mdef-tbl-wrap">
       <table class="mdef-tbl" id="rec-tbl">
@@ -3807,48 +3893,31 @@ function _mvdRenderRecommendations(scans) {
   var tbody = document.getElementById('mvd-rec-tbody');
   if (!tbody) return;
   var recMap = {};
-  var sevOrder = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,INFO:4};
-  // Severity from confirmed finding markers only — not broad keywords that appear in all scans.
-  function _scanSev(output) {
-    var o = output || '';
-    if (/CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:|CREDS_FOUND|SQL\s+ERROR:|SSTI\s+HIT|\|\s*Critical\s*\|/i.test(o)) return 'CRITICAL';
-    if (/REFLECTED\s+XSS:|FOUND_DB_USER:|APP_PASS_CREATED|WP-LOG.*HIGH|\|\s*High\s*\|/i.test(o)) return 'HIGH';
-    if (/OPEN\s+REDIRECT:|HTML\s+INJECTION:|EXPOSED_FILE|WP-USER-CONFIRMED|WP-LOG.*MEDIUM|\|\s*Medium\s*\|/i.test(o)) return 'MEDIUM';
-    if (/\|\s*Low\s*\||WP-LOG.*LOW/i.test(o)) return 'LOW';
-    return 'INFO';
-  }
+  var sevOrder = {HIGH:0,MEDIUM:1,LOW:2,INFO:3};
   scans.forEach(function(s) {
-    var sev = _scanSev(s.output);
-    var lines=(s.output||'').split('\n');
-    lines.forEach(function(line){
-      var t=line.trim();
-      if(t.length<25||t.length>180) return;
-      if(!/update|patch|fix|upgrade|configure|enable|disable|review|remove|install|harden|restrict|enforce/i.test(t)) return;
-      // Skip setup/system/package-install messages and agent command lines
-      if(/not installed|pip install|package.*install|install.*package|run:.*pip|run:.*python|modulenotfound|importerror|missing.*package|please install|run:.*install|no module named/i.test(t)) return;
-      // Skip lines that are curl commands, nmap commands, or agent instruction text
-      if(/^\s*(curl|nmap|python|python3|dig|whatweb|wpscan|sqlmap|gobuster)\b/i.test(t)) return;
-      if(/CRITICAL:|STEP\s+\d+|LAYER\s+\d+|RUN\s+ALL|PHASE\s+\d/i.test(t)) return;
-      var key=t.slice(0,70).toLowerCase();
-      if(!recMap[key]){recMap[key]={text:t.slice(0,90),sev:sev,sites:new Set(),impact:0};}
+    var sev = _scanSeverity(s.output);
+    var lines = _extractRemediationLines(s.output || '');
+    lines.forEach(function(text) {
+      var key = text.slice(0,60).toLowerCase();
+      if (!recMap[key]) recMap[key] = {text:text.slice(0,100), sev:sev, sites:new Set(), impact:0};
       recMap[key].sites.add(s.target);
-      recMap[key].impact += (sev==='CRITICAL'?5:sev==='HIGH'?3:sev==='MEDIUM'?2:1);
+      recMap[key].impact += (sev==='HIGH'?3:sev==='MEDIUM'?2:1);
     });
   });
-  var recs=Object.values(recMap).sort(function(a,b){
-    return (sevOrder[a.sev]-sevOrder[b.sev]) || (b.impact-a.impact);
+  var recs = Object.values(recMap).sort(function(a,b){
+    return (sevOrder[a.sev]||3)-(sevOrder[b.sev]||3) || (b.impact-a.impact);
   }).slice(0,6);
   if (!recs.length) {
-    tbody.innerHTML='<tr><td colspan="4" style="color:#a19f9d;font-style:italic;padding:14px 6px;">'+(scans.length?'No actionable recommendations found — run more scans.':'No scan data — connect a target and run a scan.')+'</td></tr>';
+    tbody.innerHTML='<tr><td colspan="4" style="color:#a19f9d;font-style:italic;padding:14px 6px;">'+(scans.length?'No recommendations found — scan output lacks REMEDIATION PRIORITY sections.':'No scan data — connect a target and run a scan.')+'</td></tr>';
     return;
   }
   tbody.innerHTML=recs.map(function(r){
-    var icons='<span title="Threats" style="color:#797673;font-size:12px;">&#9888;</span> <span title="Active" style="color:#797673;font-size:11px;">&#9679;</span>';
+    var sevColor = r.sev==='HIGH'?'#a80000':r.sev==='MEDIUM'?'#986f0b':'#107c10';
     return '<tr>'+
       '<td><span class="mvd-rec-name" title="'+escHtml(r.text)+'">'+escHtml(r.text)+'</span></td>'+
       '<td style="text-align:center;">'+r.sites.size+'</td>'+
-      '<td>'+icons+'</td>'+
-      '<td><span style="color:#d83b01;">▼</span> '+r.impact.toFixed(2)+'</td>'+
+      '<td><span style="color:'+sevColor+';font-size:10px;font-weight:700;">'+r.sev+'</span></td>'+
+      '<td><span style="color:#d83b01;">▼</span> '+r.impact.toFixed(1)+'</td>'+
     '</tr>';
   }).join('');
 }
@@ -5400,6 +5469,36 @@ function _cwShowDone(status, domain, errMsg) {
   if (_cwScanId) sessionStorage.setItem('cfai_open_scan', String(_cwScanId));
   // Refresh the scan history table immediately — no page reload needed
   setTimeout(refreshScanHistory, 800);
+  // Show credential suggestions if no credentials were used but the scan detected things needing auth
+  setTimeout(function(){ _cwSuggestCredentials(); }, 1200);
+}
+
+function _cwSuggestCredentials() {
+  var credType = (document.getElementById('cwCredType') || {value:''}).value || 'none';
+  if (credType !== 'none') return; // Already have creds
+  var out = (document.getElementById('cwOutput') || {textContent:''}).textContent || '';
+  var suggestions = [];
+  if (/wp-login\.php|WordPress|\/wp-admin|xmlrpc\.php|wp-content|woocommerce/i.test(out)) {
+    suggestions.push('<strong>WordPress detected</strong> — Add WordPress Admin credentials to enable authenticated scanning: user enumeration bypass, plugin vulnerability audit, activity log access. <em>Select "WordPress Admin" in Add Credentials.</em>');
+  }
+  if (/cpanel|whm|plesk|2083|fantastico/i.test(out)) {
+    suggestions.push('<strong>cPanel / hosting panel detected</strong> — Add cPanel credentials to audit PHP version, email accounts, cron jobs, and file permissions. <em>Select "cPanel Hosting" in Add Credentials.</em>');
+  }
+  if (/ssh|port 22|openssh|unauthorized|403|requires authentication/i.test(out) && !/CREDS_FOUND|logged in/i.test(out)) {
+    suggestions.push('<strong>Authentication barriers found</strong> — Add SSH credentials to pull real server logs and audit config files directly. <em>Select "SSH / Root Access" in Add Credentials.</em>');
+  }
+  if (!suggestions.length) return;
+  var suggEl = document.getElementById('cw-cred-suggestions');
+  if (!suggEl) {
+    suggEl = document.createElement('div');
+    suggEl.id = 'cw-cred-suggestions';
+    suggEl.style.cssText = 'background:#eff6fc;border:1px solid #c7e0f4;border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:#0078d4;';
+    var doneBar = document.getElementById('cwDoneBar');
+    if (doneBar && doneBar.parentNode) doneBar.parentNode.insertBefore(suggEl, doneBar.nextSibling);
+  }
+  suggEl.innerHTML = '<strong style="font-size:13px;">&#128161; Improve scan depth — credentials can help:</strong><ul style="margin:8px 0 4px 16px;line-height:1.8;">' +
+    suggestions.map(function(s){ return '<li>' + s + '</li>'; }).join('') +
+    '</ul><button onclick="cwToggleCreds();document.getElementById(\'cw-cred-suggestions\').style.display=\'none\';" style="background:#0078d4;color:#fff;border:none;border-radius:6px;padding:4px 14px;font-size:12px;cursor:pointer;font-family:inherit;">Add Credentials Now</button>';
 }
 
 // ── WebSocket scan streaming (FastAPI /ws/scan/{job_id}) ─────────────────
@@ -6251,6 +6350,147 @@ function loadLoginEvents() {
 
 // ── Log Explorer ──────────────────────────────────────────────────────────────
 var _leTimelineChart = null;
+var _wpAutoRefreshTimer = null;
+var _cpAutoRefreshTimer = null;
+
+function leTab(name, btn) {
+  document.querySelectorAll('.le-tab').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.le-tab-pane').forEach(function(p){ p.style.display = 'none'; });
+  if (btn) btn.classList.add('active');
+  var pane = document.getElementById('le-pane-' + name);
+  if (pane) pane.style.display = '';
+}
+
+// ── WordPress Admin live events ────────────────────────────────────────────────
+function runWpLive() {
+  var url      = (document.getElementById('le-wp-url').value||'').trim();
+  var wpUser   = (document.getElementById('le-wp-user').value||'').trim();
+  var appPass  = (document.getElementById('le-wp-apppass').value||'').trim();
+  var limit    = parseInt(document.getElementById('le-wp-limit').value||'50')||50;
+  if (!url) { alert('Please enter the WordPress site URL.'); return; }
+
+  document.getElementById('le-wp-loading').style.display = 'block';
+  document.getElementById('le-wp-error').style.display   = 'none';
+  document.getElementById('le-wp-note').style.display    = 'none';
+  document.getElementById('le-wp-stats').style.display   = 'none';
+  document.getElementById('le-wp-btn').disabled = true;
+
+  fetch('/api/logs/wp-live', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: url, wp_user: wpUser, wp_app_pass: appPass, limit: limit }),
+  })
+  .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(function(d){
+    document.getElementById('le-wp-loading').style.display = 'none';
+    document.getElementById('le-wp-btn').disabled = false;
+    if (d.note) {
+      document.getElementById('le-wp-note').textContent = d.note;
+      document.getElementById('le-wp-note').style.display = 'block';
+    }
+    var events = d.events || [];
+    var statsEl = document.getElementById('le-wp-stats');
+    statsEl.textContent = events.length + ' event(s) fetched' + (d.source && d.source !== 'none' ? ' via ' + d.source : '') + (d.total > events.length ? ' (showing ' + events.length + ' of ' + d.total + ')' : '');
+    statsEl.style.display = 'block';
+    var tbody = document.getElementById('le-wp-body');
+    if (!events.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No events found. ' + (d.note || 'Install WSAL or Simple History plugin for full login tracking.') + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = events.map(function(e){
+      var sevColor = e.severity === 'HIGH' ? '#a80000' : '#374151';
+      var statusIcon = e.status === 'failed' ? '<span style="color:#a80000;">✗</span>' : e.status === 'active' ? '<span style="color:#107c10;">●</span>' : '<span style="color:#107c10;">✓</span>';
+      var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#' + _esc(e.ip) + '" target="_blank" style="color:#0078d4;font-family:monospace;">' + _esc(e.ip) + '</a>' : _esc(e.ip||'—');
+      return '<tr style="border-bottom:1px solid #f3f2f1;">' +
+        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-weight:600;">' + _esc(e.user||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(e.event||'') + '">' + _esc(e.event||'—') + '</td>' +
+        '<td style="padding:7px 12px;">' + ip + '</td>' +
+        '<td style="padding:7px 12px;color:' + sevColor + ';font-size:11px;font-weight:600;">' + _esc(e.severity||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;">' + statusIcon + ' ' + _esc(e.source||'—') + '</td>' +
+        '</tr>';
+    }).join('');
+  })
+  .catch(function(err){
+    document.getElementById('le-wp-loading').style.display = 'none';
+    document.getElementById('le-wp-btn').disabled = false;
+    document.getElementById('le-wp-error').textContent = 'Error: ' + err.message;
+    document.getElementById('le-wp-error').style.display = 'block';
+  });
+}
+
+function toggleWpAutoRefresh() {
+  if (_wpAutoRefreshTimer) { clearInterval(_wpAutoRefreshTimer); _wpAutoRefreshTimer = null; }
+  if (document.getElementById('le-wp-autorefresh').checked) {
+    _wpAutoRefreshTimer = setInterval(runWpLive, 30000);
+  }
+}
+
+// ── cPanel live sessions ───────────────────────────────────────────────────────
+function runCpanelLive() {
+  var host     = (document.getElementById('le-cp-host').value||'').trim();
+  var cpUser   = (document.getElementById('le-cp-user').value||'').trim();
+  var cpToken  = (document.getElementById('le-cp-token').value||'').trim();
+  var cpPass   = (document.getElementById('le-cp-pass').value||'').trim();
+  var port     = parseInt(document.getElementById('le-cp-port').value||'2083')||2083;
+  if (!host || !cpUser) { alert('Please enter the cPanel host and username.'); return; }
+  if (!cpToken && !cpPass) { alert('Please enter an API token or password.'); return; }
+
+  document.getElementById('le-cp-loading').style.display = 'block';
+  document.getElementById('le-cp-error').style.display   = 'none';
+  document.getElementById('le-cp-note').style.display    = 'none';
+  document.getElementById('le-cp-stats').style.display   = 'none';
+  document.getElementById('le-cp-btn').disabled = true;
+
+  fetch('/api/logs/cpanel-live', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ host: host, cp_user: cpUser, cp_token: cpToken, cp_pass: cpPass, port: port }),
+  })
+  .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(function(d){
+    document.getElementById('le-cp-loading').style.display = 'none';
+    document.getElementById('le-cp-btn').disabled = false;
+    if (d.note) {
+      document.getElementById('le-cp-note').textContent = d.note;
+      document.getElementById('le-cp-note').style.display = 'block';
+    }
+    var events = d.events || [];
+    var statsEl = document.getElementById('le-cp-stats');
+    statsEl.textContent = events.length + ' session(s) found' + (d.source && d.source !== 'none' ? ' via ' + d.source : '');
+    statsEl.style.display = 'block';
+    var tbody = document.getElementById('le-cp-body');
+    if (!events.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No active sessions found. ' + (d.note||'') + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = events.map(function(e){
+      var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#' + _esc(e.ip) + '" target="_blank" style="color:#0078d4;font-family:monospace;">' + _esc(e.ip) + '</a>' : _esc(e.ip||'—');
+      var statusColor = e.status === 'active' ? '#107c10' : '#605e5c';
+      return '<tr style="border-bottom:1px solid #f3f2f1;">' +
+        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-weight:600;">' + _esc(e.user||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(e.event||'') + '">' + _esc(e.event||'—') + '</td>' +
+        '<td style="padding:7px 12px;">' + ip + '</td>' +
+        '<td style="padding:7px 12px;font-weight:600;color:' + statusColor + ';">' + _esc(e.status||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;">' + _esc(e.source||'—') + '</td>' +
+        '</tr>';
+    }).join('');
+  })
+  .catch(function(err){
+    document.getElementById('le-cp-loading').style.display = 'none';
+    document.getElementById('le-cp-btn').disabled = false;
+    document.getElementById('le-cp-error').textContent = 'Error: ' + err.message;
+    document.getElementById('le-cp-error').style.display = 'block';
+  });
+}
+
+function toggleCpAutoRefresh() {
+  if (_cpAutoRefreshTimer) { clearInterval(_cpAutoRefreshTimer); _cpAutoRefreshTimer = null; }
+  if (document.getElementById('le-cp-autorefresh').checked) {
+    _cpAutoRefreshTimer = setInterval(runCpanelLive, 30000);
+  }
+}
 
 function runLogExplorer() {
   var domain  = (document.getElementById('le-domain').value||'').trim();
@@ -6688,7 +6928,33 @@ function wkDetailTab(name, btn) {
 /* ═══════════════════════════════════════════════════════
    RECOMMENDATIONS PAGE
    ═══════════════════════════════════════════════════════ */
+// Extract recommendation lines from REMEDIATION PRIORITY / Hardening sections only.
+// Never scans whole output with action-verb regex — avoids false positives on every scan.
+function _extractRemediationLines(output) {
+  var recs = [];
+  var inSection = false;
+  var lines = (output || '').split('\n');
+  var _sectionHeader = /^\s*(?:\*{1,2}|#{1,4}\s*)?(?:REMEDIATION\s+PRIORITY|Hardening\s+Recommendations?|Security\s+Recommendations?|Recommended\s+(?:Actions?|Fixes?|Steps?|Remediations?)|Next\s+Steps?|Action\s+Items?|Mitigation\s+Steps?|To\s+Fix|What\s+to\s+(?:Do|Fix)|Suggested\s+Fix)(?:\*{1,2})?[:\s]*$/i;
+  var _newSection = /^\s*(?:#{2,}|={3,}|-{3,}|\*{2}[A-Z][^*]{2,}\*{2}|\[PHASE|STEP\s+\d|LAYER\s+\d)/i;
+  var _bullet = /^\s*(?:[\d]+[.)]\s+|[-*•+]\s+)(.{12,200})$/;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.trim();
+    if (_sectionHeader.test(trimmed)) { inSection = true; continue; }
+    if (inSection && trimmed && _newSection.test(trimmed) && !_bullet.test(line)) { inSection = false; }
+    if (inSection) {
+      var m = line.match(_bullet);
+      if (m) {
+        var item = m[1].replace(/\*\*/g, '').trim();
+        if (item.length > 12 && item.length < 200) recs.push(item);
+      }
+    }
+  }
+  return recs;
+}
+
 var _recAllData = [];
+var _recTargetFilter = '';
 
 function loadRecommendations() {
   var tbody = document.getElementById('rec-tbody');
@@ -6698,25 +6964,47 @@ function loadRecommendations() {
   fetch('/api/scans/recent?limit=500')
     .then(function(r){ return r.json(); })
     .then(function(scans) {
+      // Populate target selector
+      var sel = document.getElementById('rec-target-sel');
+      if (sel) {
+        var targets = [];
+        (scans||[]).forEach(function(s){ if (s.target && targets.indexOf(s.target)===-1) targets.push(s.target); });
+        sel.innerHTML = '<option value="">All targets</option>' + targets.map(function(t){ return '<option value="'+_esc(t)+'"'+(t===_recTargetFilter?' selected':'')+'>'+_esc(t)+'</option>'; }).join('');
+      }
+      var filtered = _recTargetFilter ? (scans||[]).filter(function(s){ return s.target === _recTargetFilter; }) : (scans||[]);
       var recMap = {};
-      (scans || []).forEach(function(s) {
-        var output = s.output || '';
-        var lines = output.split('\n');
-        lines.forEach(function(line) {
-          var m = line.match(/(?:recommend|should|must|consider|ensure|update|patch|disable|enable|configure|fix|remove|add|install)\s+.{10,}/i);
-          if (m) {
-            var text = line.trim().replace(/^[#*\-]+\s*/, '').slice(0,120);
-            if (!recMap[text]) recMap[text] = { text: text, targets: [], risk: s.risk || 'INFO' };
-            if (recMap[text].targets.indexOf(s.target) === -1) recMap[text].targets.push(s.target);
-            var ranks = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1, INFO: 0 };
-            if ((ranks[s.risk] || 0) > (ranks[recMap[text].risk] || 0)) recMap[text].risk = s.risk;
+      filtered.forEach(function(s) {
+        var lines = _extractRemediationLines(s.output || '');
+        lines.forEach(function(text) {
+          var key = text.slice(0,60).toLowerCase();
+          if (!recMap[key]) {
+            recMap[key] = { text: text.slice(0,160), targets: [], risk: _scanSeverity(s.output) };
           }
+          if (recMap[key].targets.indexOf(s.target) === -1) recMap[key].targets.push(s.target);
         });
       });
-      _recAllData = Object.values(recMap).sort(function(a,b){ return (b.targets.length - a.targets.length); }).slice(0, 100);
+      _recAllData = Object.values(recMap).sort(function(a,b){
+        var r = {'HIGH':3,'MEDIUM':2,'LOW':1,'INFO':0};
+        return ((r[b.risk]||0) - (r[a.risk]||0)) || (b.targets.length - a.targets.length);
+      }).slice(0, 100);
       _recRender(_recAllData);
     })
     .catch(function(e){ tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#a80000;">Error: ' + _esc(String(e)) + '</td></tr>'; });
+}
+
+function _scanSeverity(output) {
+  var o = output || '';
+  if (/CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:|SSTI\s+HIT|SSRF\s+HIT:|CREDS_FOUND|SQL\s+ERROR:/i.test(o)) return 'HIGH';
+  if (/REFLECTED\s+XSS:|FOUND_DB_USER:|APP_PASS_CREATED|WP-LOG[^|\n]*\|\s*HIGH|\|\s*High\s*\|/i.test(o)) return 'HIGH';
+  if (/OPEN\s+REDIRECT:|HTML\s+INJECTION:|WP-LOG[^|\n]*\|\s*MEDIUM|\|\s*Medium\s*\|/i.test(o)) return 'MEDIUM';
+  if (/WP-LOG[^|\n]*\|\s*LOW|\|\s*Low\s*\|/i.test(o)) return 'LOW';
+  return 'INFO';
+}
+
+function recTargetChange() {
+  var sel = document.getElementById('rec-target-sel');
+  _recTargetFilter = sel ? sel.value : '';
+  loadRecommendations();
 }
 
 function _recRender(data) {
@@ -6760,8 +7048,11 @@ function loadRemediationPage() {
     incidents.forEach(function(i) {
       rows.push({ title: i.title, component: i.target || '—', status: i.status, severity: i.severity, date: (i.created_at || '').slice(0,10) });
     });
-    scans.filter(function(s){ return /\bhigh\b|\bcritical\b/i.test(s.output || ''); }).slice(0,10).forEach(function(s) {
-      rows.push({ title: 'Remediate high-severity findings on ' + s.target, component: s.target, status: 'pending', severity: s.risk || 'HIGH', date: (s.created_at || '').slice(0,10) });
+    var _confHigh = /REFLECTED\s+XSS:|SQL\s+ERROR:|CMD\s+INJECTION:|CODE\s+INJECTION\s+CONFIRMED:|SSTI\s+HIT|SSRF\s+HIT:|CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:|APP_PASS_CREATED|EXPOSED_FILE\s*\|.*\b20[0-9]\b|WP-LOG[^|\n]*\|\s*HIGH|\|\s*(High|Critical)\s*\|/i;
+    scans.filter(function(s){ return _confHigh.test(s.output || ''); }).slice(0,10).forEach(function(s) {
+      var recs = _extractRemediationLines(s.output || '');
+      var title = recs.length ? recs[0].slice(0,120) : 'Remediate confirmed findings on ' + s.target;
+      rows.push({ title: title, component: s.target, status: 'pending', severity: 'HIGH', date: (s.created_at || '').slice(0,10) });
     });
     if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No open remediation activities. All incidents resolved.</td></tr>'; return; }
     var statusLabel = { open: 'Open', investigating: 'In progress', resolved: 'Resolved', pending: 'Pending' };
@@ -7150,7 +7441,7 @@ function loadThreatIntel() {
       if (wrapEl) wrapEl.style.display = '';
 
       var el;
-      el = document.getElementById('ti-total-cves'); if (el) el.textContent = d.total_cves || 0;
+      el = document.getElementById('ti-total-cves'); if (el) el.textContent = (d.cves||[]).length;
       el = document.getElementById('ti-kev-count');  if (el) el.textContent = d.kev_count  || 0;
       el = document.getElementById('ti-epss-high');  if (el) el.textContent = d.epss_high  || 0;
 

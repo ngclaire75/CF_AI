@@ -706,12 +706,8 @@ async def api_mitre_coverage() -> dict:
     scans = db.get_recent_scans(100)
     coverage = get_coverage(scans)
     from dashboard.mitre_rules import TACTICS
-    return {
-        "coverage":     coverage["by_tactic"],
-        "total":        coverage["total"],
-        "severities":   coverage["severities"],
-        "tactic_order": [t["name"] for t in TACTICS],
-    }
+    coverage['tactic_order'] = [name for _, name in TACTICS]
+    return coverage
 
 
 @app.get("/api/mitre/rules/{tactic_name}")
@@ -743,6 +739,138 @@ async def api_mitre_tactic_rules(tactic_name: str) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Log Analysis
 # ═══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/logs/wp-live")
+async def api_logs_wp_live(request: Request) -> dict:
+    """Fetch real-time login events from WordPress via REST API + WSAL/Simple History plugins."""
+    import base64 as _b64, urllib.request as _req
+    body     = await request.json()
+    url      = (body.get('url') or '').strip().rstrip('/')
+    wp_user  = (body.get('wp_user') or '').strip()
+    app_pass = (body.get('wp_app_pass') or '').strip()
+    limit    = min(int(body.get('limit') or 50), 200)
+    if not url:
+        raise HTTPException(400, 'WordPress site URL required')
+    if not url.startswith('http'):
+        url = 'https://' + url
+    auth_header = ('Basic ' + _b64.b64encode(f'{wp_user}:{app_pass}'.encode()).decode()
+                   if wp_user and app_pass else None)
+
+    def _wp_get(path, timeout=12):
+        req = _req.Request(f'{url}{path}', headers={'User-Agent': 'CyberINK/2.0', 'Accept': 'application/json'})
+        if auth_header:
+            req.add_header('Authorization', auth_header)
+        try:
+            with _req.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode()), None
+        except Exception as e:
+            return None, str(e)
+
+    events, source, note = [], 'none', ''
+    for path in [f'/wp-json/wsal/v1/events?per_page={limit}&orderby=created_on&order=DESC',
+                 f'/wp-json/wsal/v1/events?per_page={limit}']:
+        wsal, _ = _wp_get(path)
+        if not wsal:
+            continue
+        items = wsal if isinstance(wsal, list) else wsal.get('events') or wsal.get('data') or []
+        for ev in items:
+            msg = str(ev.get('message') or ev.get('alert_message') or ev.get('type') or '')
+            if not msg:
+                continue
+            events.append({'timestamp': str(ev.get('created_on') or ev.get('date') or ''),
+                           'user': str(ev.get('user_login') or ev.get('username') or '—'),
+                           'event': msg[:120], 'ip': str(ev.get('client_ip') or ev.get('ip') or ''),
+                           'severity': 'HIGH' if any(k in msg.lower() for k in ('fail','block','attack','brute','invalid')) else 'INFO',
+                           'status': 'failed' if any(k in msg.lower() for k in ('fail','block','denied','invalid')) else 'success',
+                           'source': 'wsal'})
+        if events:
+            source = 'wsal'
+            break
+    if not events:
+        sh, _ = _wp_get(f'/wp-json/simple-history/v1/events?per_page={limit}')
+        if sh and isinstance(sh, list):
+            for ev in sh:
+                msg = str(ev.get('message') or ev.get('text') or '')
+                if not any(k in msg.lower() for k in ('login','logged','auth','fail','password')):
+                    continue
+                events.append({'timestamp': str(ev.get('date') or ''), 'ip': str(ev.get('ip') or ''),
+                               'user': str(ev.get('via') or ev.get('initiator') or '—'), 'event': msg[:120],
+                               'severity': 'HIGH' if 'fail' in msg.lower() else 'INFO',
+                               'status': 'failed' if 'fail' in msg.lower() else 'success', 'source': 'simple_history'})
+            if events:
+                source = 'simple_history'
+    if not events and auth_header:
+        me, _ = _wp_get('/wp-json/wp/v2/users/me?context=edit')
+        if me and me.get('id'):
+            source = 'wp_rest'
+            events.append({'timestamp': '', 'ip': '', 'user': me.get('slug') or wp_user,
+                           'event': f"Authenticated — Role: {', '.join(me.get('roles', []))}",
+                           'severity': 'INFO', 'status': 'success', 'source': 'wp_rest'})
+            note = 'Install "WP Activity Log" (WSAL) plugin for full real-time login tracking.'
+        else:
+            note = 'Auth failed. Check username and Application Password (Users → Profile → Application Passwords).'
+    if not auth_header and not events:
+        root, _ = _wp_get('/wp-json/')
+        note = ('WordPress REST API reachable — add credentials + WSAL plugin for login events.'
+                if root and root.get('name') else 'Could not reach WordPress REST API. Check the URL.')
+    if not events and not note:
+        note = 'Install "WP Activity Log" or "Simple History" plugin for real-time login tracking.'
+    return {'events': events[:limit], 'total': len(events), 'source': source, 'note': note}
+
+
+@app.post("/api/logs/cpanel-live")
+async def api_logs_cpanel_live(request: Request) -> dict:
+    """Fetch real-time session/login data from cPanel via UAPI."""
+    import base64 as _b64, ssl as _ssl, urllib.request as _req
+    body     = await request.json()
+    host     = (body.get('host') or '').strip().rstrip('/')
+    cp_user  = (body.get('cp_user') or '').strip()
+    cp_pass  = (body.get('cp_pass') or '').strip()
+    cp_token = (body.get('cp_token') or '').strip()
+    port     = int(body.get('port') or 2083)
+    limit    = min(int(body.get('limit') or 50), 200)
+    if not host or not cp_user:
+        raise HTTPException(400, 'cPanel host and username required')
+    base = host if host.startswith('http') else f'https://{host}:{port}'
+    if cp_token:
+        auth_header = f'cpanel {cp_user}:{cp_token}'
+    elif cp_pass:
+        auth_header = 'Basic ' + _b64.b64encode(f'{cp_user}:{cp_pass}'.encode()).decode()
+    else:
+        raise HTTPException(400, 'Password or API token required')
+    ctx = _ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = _ssl.CERT_NONE
+
+    def _cp_get(path, timeout=12):
+        req = _req.Request(f'{base}{path}', headers={'Authorization': auth_header, 'Accept': 'application/json'})
+        try:
+            with _req.urlopen(req, timeout=timeout, context=ctx) as r:
+                return json.loads(r.read().decode()), None
+        except Exception as e:
+            return None, str(e)
+
+    events, source, note = [], 'none', ''
+    sess, err = _cp_get('/execute/Session/list')
+    if sess and isinstance(sess, dict) and sess.get('data') is not None:
+        source = 'cpanel_session'
+        for s in (sess.get('data') or [])[:limit]:
+            events.append({'timestamp': str(s.get('session_create') or ''), 'user': str(s.get('session_login') or cp_user),
+                           'event': f"Active session — {s.get('session_type','cPanel')} — {str(s.get('user_agent',''))[:40]}",
+                           'ip': str(s.get('remote_addr') or ''), 'severity': 'INFO', 'status': 'active', 'source': 'cpanel_session'})
+    ll, _ = _cp_get('/execute/LastLogin/get_last_or_current_logged_in_ip')
+    if ll and isinstance(ll, dict) and ll.get('data'):
+        d2 = ll['data']
+        ip = str(d2.get('ip') or d2.get('last_login_ip') or '')
+        if ip:
+            events.append({'timestamp': str(d2.get('unix_last_login') or ''), 'user': cp_user, 'ip': ip,
+                           'event': 'Last recorded login IP', 'severity': 'INFO', 'status': 'success', 'source': 'cpanel_lastlogin'})
+            source = source or 'cpanel_lastlogin'
+    if not events:
+        note = (f'Could not connect: {err}. Check host/port/credentials.' if err
+                else 'Connected but no active sessions found.')
+    return {'events': events[:limit], 'total': len(events), 'source': source, 'note': note}
+
 
 @app.post("/api/logs/analyze")
 async def api_logs_analyze(body: LogAnalyzeRequest) -> dict:
