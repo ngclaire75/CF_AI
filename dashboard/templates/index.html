@@ -299,12 +299,9 @@ code {
 .scroll-panel    { overflow-x: auto; overflow-y: auto; max-height: 420px; }
 .scroll-panel-lg { overflow-x: auto; overflow-y: auto; max-height: 540px; }
 
-/* ── Custom purple scrollbar ── */
-::-webkit-scrollbar              { width: 7px; height: 7px; }
-::-webkit-scrollbar-track        { background: #f3f4f6; border-radius: 4px; }
-::-webkit-scrollbar-thumb        { background: #7c3aed; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover  { background: #6d28d9; }
-*                                { scrollbar-width: thin; scrollbar-color: #7c3aed #f3f4f6; }
+/* ── Hide scrollbars (scrolling still works) ── */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
 
 /* ── Tables ── */
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -1754,7 +1751,6 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   <div class="sb-footer">
     <div class="sb-footer-row">
       <span>CyberINK v2.1</span>
-      <span class="sb-version">Open Source</span>
     </div>
     <div style="margin-top:4px;font-size:10px;color:#c0c4cc;">Updated: <strong id="ts">—</strong></div>
   </div>
@@ -1772,11 +1768,6 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     </div>
     <div class="topbar-right">
       <div id="topbar-dashboard-actions" style="display:none;">
-      </div>
-      <div class="live-stats-bar" id="live-stats-bar" style="display:none;">
-        <span class="live-badge"><span class="live-dot"></span>Live</span>
-        <span class="dhb-item"><span class="dhb-val" id="ls-scans">—</span> scans</span>
-        <span class="dhb-item"><span class="dhb-val" id="ls-incidents" style="color:#a80000;">—</span> open</span>
       </div>
       <button class="btn-topbar" onclick="toggleDashboardEdit()" id="dash-edit-btn">Customize</button>
       <button class="btn-topbar primary" onclick="loadDefDashboard()">Refresh</button>
@@ -1807,7 +1798,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   <div class="mvd-page-title">CyberINK Security Vulnerability Management dashboard</div>
 
   <!-- ── ROW 1: 3-column grid ── -->
-  <div class="mvd-grid">
+  <div class="mvd-grid" id="mvd-grid">
 
     <!-- Panel 1: Exposure Score -->
     <div class="mvd-card">
@@ -1901,7 +1892,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   </div><!-- /mvd-grid -->
 
   <!-- ── ROW 2: 3-col bottom grid ── -->
-  <div class="mvd-grid-b">
+  <div class="mvd-grid-b" id="mvd-grid-b">
 
     <!-- Panel 4: Top Events -->
     <div class="mvd-card-b">
@@ -1909,7 +1900,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       <table class="mvd-evt-tbl">
         <thead>
           <tr>
-            <th style="white-space:nowrap;">Date (UTC)</th>
+            <th style="white-space:nowrap;">Date</th>
             <th>Event</th>
             <th style="white-space:nowrap;">Originally impacted (%)</th>
           </tr>
@@ -1955,6 +1946,46 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       </div>
     </div>
   </div><!-- /mvd-grid-b -->
+
+  <!-- ── ADD-ON PANELS (hidden by default, user-added via Customize) ── -->
+  <div id="panel-cve-chart" class="mvd-addon-panel" style="display:none;margin-top:1px;background:#fff;border:1px solid #e1dfdd;padding:16px 20px;">
+    <div class="mvd-card-section-title">CVE Severity Breakdown</div>
+    <div class="mvd-card-h">Findings by severity</div>
+    <div id="addon-cve-bars" style="display:flex;flex-direction:column;gap:8px;margin-top:12px;"></div>
+  </div>
+
+  <div id="panel-ssl-status" class="mvd-addon-panel" style="display:none;margin-top:1px;background:#fff;border:1px solid #e1dfdd;padding:16px 20px;">
+    <div class="mvd-card-section-title">SSL / TLS Status</div>
+    <div class="mvd-card-h">Certificate & encryption overview</div>
+    <div id="addon-ssl-list" style="margin-top:12px;font-size:13px;color:#605e5c;">Run a scan to populate SSL data.</div>
+  </div>
+
+  <div id="panel-open-ports" class="mvd-addon-panel" style="display:none;margin-top:1px;background:#fff;border:1px solid #e1dfdd;padding:16px 20px;">
+    <div class="mvd-card-section-title">Open Ports Summary</div>
+    <div class="mvd-card-h">Exposed network services across all targets</div>
+    <div id="addon-ports-list" style="margin-top:12px;font-size:13px;color:#605e5c;">Run a scan to populate port data.</div>
+  </div>
+
+  <div id="panel-recent-scans" class="mvd-addon-panel" style="display:none;margin-top:1px;background:#fff;border:1px solid #e1dfdd;padding:16px 20px;">
+    <div class="mvd-card-section-title">Recent Scan Activity</div>
+    <div class="mvd-card-h">Last 10 scans</div>
+    <table style="margin-top:12px;width:100%;font-size:12px;border-collapse:collapse;">
+      <thead><tr style="background:#f3f2f1;"><th style="padding:6px 10px;text-align:left;">Target</th><th style="padding:6px 10px;text-align:left;">Date</th><th style="padding:6px 10px;text-align:left;">Severity</th></tr></thead>
+      <tbody id="addon-scans-tbody"><tr><td colspan="3" style="padding:10px;color:#a19f9d;font-style:italic;">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div id="panel-http-headers" class="mvd-addon-panel" style="display:none;margin-top:1px;background:#fff;border:1px solid #e1dfdd;padding:16px 20px;">
+    <div class="mvd-card-section-title">HTTP Security Headers Audit</div>
+    <div class="mvd-card-h">Missing security headers by site</div>
+    <div id="addon-headers-list" style="margin-top:12px;font-size:13px;color:#605e5c;">Run a scan to populate header data.</div>
+  </div>
+
+  <div id="panel-score-history" class="mvd-addon-panel" style="display:none;margin-top:1px;background:#fff;border:1px solid #e1dfdd;padding:16px 20px;">
+    <div class="mvd-card-section-title">Security Score History</div>
+    <div class="mvd-card-h">Score trend (last 30 days)</div>
+    <div style="height:120px;margin-top:12px;"><canvas id="addon-score-chart"></canvas></div>
+  </div>
 
   </div><!-- /page-dashboard -->
 
@@ -2599,7 +2630,6 @@ Export Power BI
         <div class="sec-desc">Detection rules mapped to MITRE ATT&CK tactics — evaluated against all scan findings</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
-        <span id="siem-total-badge" style="font-size:12px;background:#fef3c7;color:#d97706;border-radius:20px;padding:3px 12px;font-weight:600;"></span>
         <button class="btn btn-sm" onclick="loadMitreCoverage()" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:6px 16px;">Refresh</button>
       </div>
     </div>
@@ -3111,8 +3141,8 @@ Load Logs
   var d = new Date();
   var p = function(n){ return String(n).padStart(2,'0'); };
   document.getElementById('ts').textContent =
-    d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+
-    ' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+' UTC';
+    d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+
+    ' '+p(d.getHours())+':'+p(d.getMinutes());
 })();
 
 // ── /ws/live — real-time stats via FastAPI WebSocket ─────────────────────────
@@ -4663,7 +4693,7 @@ function openDetailsModal(id) {
         '<div class="meta-item"><label>Model</label><span>'+esc(s.model||'--')+'</span></div>'+
         '<div class="meta-item"><label>Duration</label><span>'+s.latency_s+'s</span></div>'+
         '<div class="meta-item"><label>Tools Used</label><span>'+(s.tool_count||0)+'</span></div>'+
-        '<div class="meta-item"><label>Date (UTC)</label><span>'+(s.display_date||'--')+'</span></div>'+
+        '<div class="meta-item"><label>Date</label><span>'+(s.display_date||'--')+'</span></div>'+
       '</div>';
 
       /* ── What the agent did ── */
@@ -4915,7 +4945,7 @@ function openModal(id) {
           '<div class="meta-item"><label>Model</label><span>'+esc(s.model||'--')+'</span></div>'+
           '<div class="meta-item"><label>Duration</label><span>'+s.latency_s+'s</span></div>'+
           '<div class="meta-item"><label>Tools Used</label><span>'+(s.tool_count||0)+'</span></div>'+
-          '<div class="meta-item"><label>Date (UTC)</label><span>'+(s.display_date||'--')+'</span></div>'+
+          '<div class="meta-item"><label>Date</label><span>'+(s.display_date||'--')+'</span></div>'+
         '</div>'+
 
         /* CVE analysis bar */
@@ -5605,7 +5635,7 @@ function loadMitreCoverage() {
       _mitreData = d;
       var total = d.total || 0;
       var badge = document.getElementById('siem-total-badge');
-      badge.textContent = total + ' detection rule' + (total !== 1 ? 's' : '') + ' triggered';
+      if (badge) badge.textContent = total + ' detection rule' + (total !== 1 ? 's' : '') + ' triggered';
 
       var list = document.getElementById('siem-tactic-list');
       var order = d.tactic_order || [];
@@ -6671,8 +6701,14 @@ function loadSecureScore() {
    DASHBOARD PANEL EDIT MODE
    ═══════════════════════════════════════════════════════ */
 var _DASH_PANELS = [
-  { id: 'mvd-grid', label: 'Exposure & Recommendations (top)' },
-  { id: 'mvd-grid-b', label: 'Events & Distribution (bottom)' },
+  { id: 'mvd-grid',          label: 'Exposure & Recommendations' },
+  { id: 'mvd-grid-b',        label: 'Events & Distribution' },
+  { id: 'panel-cve-chart',   label: 'CVE Severity Breakdown',      addable: true },
+  { id: 'panel-ssl-status',  label: 'SSL / TLS Status',            addable: true },
+  { id: 'panel-open-ports',  label: 'Open Ports Summary',          addable: true },
+  { id: 'panel-recent-scans',label: 'Recent Scan Activity',        addable: true },
+  { id: 'panel-http-headers',label: 'HTTP Security Headers Audit', addable: true },
+  { id: 'panel-score-history',label: 'Security Score History',     addable: true },
 ];
 var _dashEditOpen = false;
 
@@ -6680,27 +6716,81 @@ function toggleDashboardEdit() {
   _dashEditOpen = !_dashEditOpen;
   var bar = document.getElementById('dash-edit-bar');
   if (bar) bar.classList.toggle('visible', _dashEditOpen);
+  if (_dashEditOpen) _dashRenderEditBar();
 }
 
 function _dashPanelToggle(id, checked) {
   var panel = document.getElementById(id);
   if (panel) panel.style.display = checked ? '' : 'none';
   try { localStorage.setItem('dash_panel_' + id, checked ? '1' : '0'); } catch(e) {}
+  if (checked) _dashPopulateAddon(id);
 }
 
-function _dashInitPanels() {
+function _dashPopulateAddon(id) {
+  if (id === 'panel-recent-scans') {
+    fetch('/api/scans/recent?limit=10').then(function(r){ return r.json(); }).then(function(scans) {
+      var tb = document.getElementById('addon-scans-tbody');
+      if (!tb) return;
+      if (!scans || !scans.length) { tb.innerHTML = '<tr><td colspan="3" style="padding:10px;color:#a19f9d;font-style:italic;">No scans yet.</td></tr>'; return; }
+      tb.innerHTML = scans.map(function(s) {
+        var sev = /critical/i.test(s.output||'') ? '<span style="color:#a80000;font-weight:600;">Critical</span>' : /high/i.test(s.output||'') ? '<span style="color:#c50f1f;font-weight:600;">High</span>' : /medium/i.test(s.output||'') ? '<span style="color:#986f0b;">Medium</span>' : '<span style="color:#107c10;">Low</span>';
+        return '<tr style="border-bottom:1px solid #f3f2f1;"><td style="padding:6px 10px;">' + (s.target||'—') + '</td><td style="padding:6px 10px;color:#605e5c;">' + (s.display_date||s.created_at||'—').toString().slice(0,16) + '</td><td style="padding:6px 10px;">' + sev + '</td></tr>';
+      }).join('');
+    }).catch(function(){});
+  }
+  if (id === 'panel-cve-chart') {
+    fetch('/api/scans/recent?limit=500').then(function(r){ return r.json(); }).then(function(scans) {
+      var counts = {CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+      scans.forEach(function(s){ var o=(s.output||'').toLowerCase(); if(/\bcritical\b/.test(o)) counts.CRITICAL++; else if(/\bhigh\b/.test(o)) counts.HIGH++; else if(/\bmedium\b/.test(o)) counts.MEDIUM++; else counts.LOW++; });
+      var total = counts.CRITICAL+counts.HIGH+counts.MEDIUM+counts.LOW||1;
+      var cols = {CRITICAL:'#a80000',HIGH:'#c50f1f',MEDIUM:'#986f0b',LOW:'#107c10'};
+      var el = document.getElementById('addon-cve-bars');
+      if (!el) return;
+      el.innerHTML = Object.keys(counts).map(function(k) {
+        var pct = Math.round(counts[k]/total*100);
+        return '<div style="display:flex;align-items:center;gap:10px;font-size:13px;"><span style="width:70px;color:'+cols[k]+';font-weight:600;">'+k+'</span><div style="flex:1;height:14px;background:#f3f2f1;border-radius:3px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:'+cols[k]+';"></div></div><span style="width:50px;text-align:right;color:#605e5c;">'+counts[k]+'</span></div>';
+      }).join('');
+    }).catch(function(){});
+  }
+}
+
+function _dashRenderEditBar() {
   var bar = document.getElementById('dash-edit-bar');
   if (!bar) return;
-  bar.innerHTML = '<span class="dash-edit-bar-title">Customize panels:</span>' +
-    _DASH_PANELS.map(function(p) {
-      var saved = null;
-      try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e) {}
+  var activePanels = _DASH_PANELS.filter(function(p){ return !p.addable; });
+  var addablePanels = _DASH_PANELS.filter(function(p){ return p.addable; });
+  bar.innerHTML =
+    '<span class="dash-edit-bar-title">Visible panels:</span>' +
+    activePanels.map(function(p) {
+      var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e) {}
       var checked = saved === null ? true : saved === '1';
       var panel = document.getElementById(p.id);
       if (panel && !checked) panel.style.display = 'none';
       return '<label class="panel-toggle ' + (checked ? '' : 'off') + '"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="this.closest(\'label\').classList.toggle(\'off\',!this.checked);_dashPanelToggle(\'' + p.id + '\',this.checked)"> ' + p.label + '</label>';
     }).join('') +
+    '<span class="dash-edit-bar-title" style="margin-left:12px;">Add panel:</span>' +
+    addablePanels.map(function(p) {
+      var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e) {}
+      var on = saved === '1';
+      var panel = document.getElementById(p.id);
+      if (panel && on) panel.style.display = '';
+      return '<label class="panel-toggle ' + (on ? '' : 'off') + '" style="background:'+(on?'#dff6dd':'#f3f2f1')+';border-color:'+(on?'#107c10':'#c8c6c4')+'"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="this.closest(\'label\').style.background=this.checked?\'#dff6dd\':\'#f3f2f1\';this.closest(\'label\').style.borderColor=this.checked?\'#107c10\':\'#c8c6c4\';this.closest(\'label\').classList.toggle(\'off\',!this.checked);_dashPanelToggle(\'' + p.id + '\',this.checked)"> ' + p.label + '</label>';
+    }).join('') +
     '<button class="mdef-toolbar-btn" onclick="toggleDashboardEdit()" style="margin-left:auto;">Done</button>';
+}
+
+function _dashInitPanels() {
+  _DASH_PANELS.forEach(function(p) {
+    var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e) {}
+    var panel = document.getElementById(p.id);
+    if (!panel) return;
+    if (p.addable) {
+      panel.style.display = saved === '1' ? '' : 'none';
+      if (saved === '1') _dashPopulateAddon(p.id);
+    } else {
+      if (saved === '0') panel.style.display = 'none';
+    }
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
