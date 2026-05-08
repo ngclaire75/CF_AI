@@ -2172,21 +2172,24 @@ def api_cloudflare_insights():
                     'timestamp': now_ts,
                     'dismissed': False,
                     'resolution': (
-                        f'Risk: Excessive skip rules enlarge your attack surface by bypassing Cloudflare security mitigations.\n'
-                        f'Detection: {len(skip_rules)} of {total_rules} WAF rule(s) ({skip_pct}%) use the "skip" action. Rules: {skip_names}.\n'
-                        f'Recommended actions: Review and remove unnecessary "skip" rules in Security → WAF → Custom rules.'
+                        f'Detection: Queried /zones/{zid}/rulesets/phases/http_request_firewall_custom/entrypoint via Cloudflare API — '
+                        f'{len(skip_rules)} of {total_rules} rule(s) ({skip_pct}%) have action="skip": {skip_names}.\n'
+                        f'Recommended actions: Review these rules at dash.cloudflare.com → Security → WAF → Custom rules and remove unnecessary skip actions.'
                     ),
                 })
 
-        # ── AI Labyrinth — check via zone rulesets (works on all plans) ──────
+        # ── AI Labyrinth — check via zone rulesets ────────────────────────────
         rulesets_resp = _cf_json(f'/zones/{zid}/rulesets')
         if rulesets_resp and rulesets_resp.get('success'):
             active_rulesets = rulesets_resp.get('result') or []
-            ai_enabled = any(
-                'ai' in (r.get('name') or '').lower() or 'labyrinth' in (r.get('name') or '').lower()
-                for r in active_rulesets if isinstance(r, dict)
-            )
-            if not ai_enabled:
+            total_rulesets  = len(active_rulesets)
+            ai_ruleset = next((
+                r for r in active_rulesets if isinstance(r, dict) and (
+                    'ai' in (r.get('name') or '').lower() or
+                    'labyrinth' in (r.get('name') or '').lower()
+                )
+            ), None)
+            if not ai_ruleset:
                 insights.append({
                     'id': f'ai-labyrinth-{zid}',
                     'subject': zname,
@@ -2196,11 +2199,10 @@ def api_cloudflare_insights():
                     'timestamp': now_ts,
                     'dismissed': False,
                     'resolution': (
-                        'Risk: AI crawlers that do not adhere to recommended guidelines crawl without permission, '
-                        'consuming bandwidth and scraping content.\n'
-                        'Detection: Cloudflare Security settings reviewed — AI Labyrinth is not enabled for this zone.\n'
-                        'Recommended actions: Enable AI Labyrinth in Security → Bots. It adds nofollow links with '
-                        'AI-generated content visible only to bots, disrupting non-compliant crawlers without affecting real visitors.'
+                        f'Detection: Queried /zones/{zid}/rulesets via Cloudflare API — '
+                        f'{total_rulesets} ruleset(s) found, none matching AI Labyrinth.\n'
+                        f'Active rulesets: {", ".join((r.get("name","?") for r in active_rulesets[:5])) or "none"}.\n'
+                        f'Recommended actions: Enable AI Labyrinth at dash.cloudflare.com → Security → Bots.'
                     ),
                 })
 
@@ -2217,7 +2219,10 @@ def api_cloudflare_insights():
                     'insight_type': 'Configuration suggestion',
                     'timestamp': now_ts,
                     'dismissed': False,
-                    'resolution': 'Set SSL/TLS mode to Full (Strict) in SSL/TLS → Overview for end-to-end encryption.',
+                    'resolution': (
+                        f'Detection: Queried /zones/{zid}/settings/ssl via Cloudflare API — current value: "{ssl_val}".\n'
+                        f'Recommended actions: Change SSL/TLS mode to "full" or "strict" at dash.cloudflare.com → SSL/TLS → Overview.'
+                    ),
                 })
 
         # ── Security level ────────────────────────────────────────────────
@@ -2233,7 +2238,10 @@ def api_cloudflare_insights():
                     'insight_type': 'Configuration suggestion',
                     'timestamp': now_ts,
                     'dismissed': False,
-                    'resolution': 'Raise Security Level to Medium or High in Security → Settings.',
+                    'resolution': (
+                        f'Detection: Queried /zones/{zid}/settings/security_level via Cloudflare API — current value: "{sl_val}".\n'
+                        f'Recommended actions: Raise Security Level to "medium" or "high" at dash.cloudflare.com → Security → Settings.'
+                    ),
                 })
 
     return jsonify({
