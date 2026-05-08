@@ -1643,6 +1643,37 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   <div class="ink-spin-label">Loading CyberINK…</div>
 </div>
 
+<!-- ══ CUSTOMIZE DRAWER ══════════════════════════════════════════════════════ -->
+<div id="customize-backdrop" onclick="toggleDashboardEdit()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998;"></div>
+<div id="customize-drawer" style="display:none;position:fixed;top:0;right:0;width:360px;height:100%;background:#fff;z-index:9999;box-shadow:-4px 0 24px rgba(0,0,0,.18);overflow-y:auto;flex-direction:column;">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #e1dfdd;background:#f3f2f1;">
+    <div>
+      <div style="font-size:15px;font-weight:700;color:#201f1e;">Customize Dashboard</div>
+      <div style="font-size:11px;color:#605e5c;margin-top:2px;">Toggle panels or add new ones</div>
+    </div>
+    <button onclick="toggleDashboardEdit()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#605e5c;line-height:1;padding:4px 8px;">&#x2715;</button>
+  </div>
+
+  <!-- Active panels section -->
+  <div style="padding:16px 20px 8px;">
+    <div style="font-size:11px;font-weight:700;color:#201f1e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Active Panels</div>
+    <div id="cust-active-list"></div>
+  </div>
+
+  <div style="height:1px;background:#e1dfdd;margin:4px 0;"></div>
+
+  <!-- Add panels section -->
+  <div style="padding:12px 20px 8px;">
+    <div style="font-size:11px;font-weight:700;color:#201f1e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Add Panels</div>
+    <div id="cust-add-list"></div>
+  </div>
+
+  <div style="padding:16px 20px;">
+    <button onclick="toggleDashboardEdit()" style="width:100%;padding:10px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;">Done</button>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════════════════════
      SIDEBAR
 ═══════════════════════════════════════════════════════════════════════════ -->
@@ -6701,37 +6732,84 @@ function loadSecureScore() {
 /* ═══════════════════════════════════════════════════════
    DASHBOARD PANEL EDIT MODE
    ═══════════════════════════════════════════════════════ */
+/* ── Dashboard panel registry ─────────────────────────────────────────────── */
 var _DASH_PANELS = [
-  { id: 'mvd-grid',          label: 'Exposure & Recommendations' },
-  { id: 'mvd-grid-b',        label: 'Events & Distribution' },
-  { id: 'panel-cve-chart',   label: 'CVE Severity Breakdown',      addable: true },
-  { id: 'panel-ssl-status',  label: 'SSL / TLS Status',            addable: true },
-  { id: 'panel-open-ports',  label: 'Open Ports Summary',          addable: true },
-  { id: 'panel-recent-scans',label: 'Recent Scan Activity',        addable: true },
-  { id: 'panel-http-headers',label: 'HTTP Security Headers Audit', addable: true },
-  { id: 'panel-score-history',label: 'Security Score History',     addable: true },
+  { id:'mvd-grid',           label:'Exposure & Recommendations', desc:'Exposure score gauge, threat KPIs, and top security recommendations.',   addable:false, default:true },
+  { id:'mvd-grid-b',         label:'Events & Distribution',      desc:'Top events table, exposure distribution donut, and remediation list.',   addable:false, default:true },
+  { id:'panel-cve-chart',    label:'CVE Severity Breakdown',     desc:'Bar chart showing Critical / High / Medium / Low finding counts.',       addable:true,  default:false },
+  { id:'panel-ssl-status',   label:'SSL / TLS Status',           desc:'Certificate validity and encryption grade for each scanned site.',       addable:true,  default:false },
+  { id:'panel-open-ports',   label:'Open Ports Summary',         desc:'Exposed network services discovered across all targets.',                addable:true,  default:false },
+  { id:'panel-recent-scans', label:'Recent Scan Activity',       desc:'Last 10 scans with target, date, and highest severity found.',           addable:true,  default:false },
+  { id:'panel-http-headers', label:'HTTP Security Headers',      desc:'Sites missing CSP, HSTS, X-Frame-Options, and other headers.',          addable:true,  default:false },
+  { id:'panel-score-history',label:'Security Score History',     desc:'30-day trend line of your overall security score.',                     addable:true,  default:false },
 ];
 var _dashEditOpen = false;
 
 function toggleDashboardEdit() {
   _dashEditOpen = !_dashEditOpen;
-  var bar = document.getElementById('dash-edit-bar');
-  if (!bar) return;
+  var drawer   = document.getElementById('customize-drawer');
+  var backdrop = document.getElementById('customize-backdrop');
+  if (!drawer) return;
   if (_dashEditOpen) {
-    _dashRenderEditBar();
-    bar.style.display = 'flex';
-    bar.classList.add('visible');
+    drawer.style.display   = 'flex';
+    backdrop.style.display = 'block';
+    _custRenderDrawer();
   } else {
-    bar.style.display = 'none';
-    bar.classList.remove('visible');
+    drawer.style.display   = 'none';
+    backdrop.style.display = 'none';
   }
 }
 
-function _dashPanelToggle(id, checked) {
+function _custRenderDrawer() {
+  var activeList = document.getElementById('cust-active-list');
+  var addList    = document.getElementById('cust-add-list');
+  if (!activeList || !addList) return;
+
+  var active  = _DASH_PANELS.filter(function(p){ return !p.addable; });
+  var addable = _DASH_PANELS.filter(function(p){ return  p.addable; });
+
+  activeList.innerHTML = active.map(function(p) {
+    var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e){}
+    var on = saved === null ? true : saved === '1';
+    return _custRow(p, on);
+  }).join('');
+
+  addList.innerHTML = addable.map(function(p) {
+    var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e){}
+    var on = saved === '1';
+    return _custRow(p, on);
+  }).join('');
+}
+
+function _custRow(p, on) {
+  var bg  = on ? '#f0fdf4' : '#fafafa';
+  var col = on ? '#107c10' : '#605e5c';
+  var btnLabel = on ? '&#x2713; Added' : '+ Add';
+  var btnStyle = on
+    ? 'background:#dff6dd;color:#107c10;border:1px solid #a3d9a5;'
+    : 'background:#f3f2f1;color:#323130;border:1px solid #c8c6c4;';
+  return '<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #f3f2f1;" id="cust-row-' + p.id + '">' +
+    '<div style="flex:1;">' +
+      '<div style="font-size:13px;font-weight:600;color:#201f1e;">' + p.label + '</div>' +
+      '<div style="font-size:11px;color:#605e5c;margin-top:2px;line-height:1.4;">' + p.desc + '</div>' +
+    '</div>' +
+    '<button onclick="_custToggle(' + JSON.stringify(p.id) + ')" style="flex-shrink:0;padding:5px 12px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;' + btnStyle + '">' + btnLabel + '</button>' +
+  '</div>';
+}
+
+function _custToggle(id) {
   var panel = document.getElementById(id);
-  if (panel) panel.style.display = checked ? '' : 'none';
-  try { localStorage.setItem('dash_panel_' + id, checked ? '1' : '0'); } catch(e) {}
-  if (checked) _dashPopulateAddon(id);
+  var saved = null; try { saved = localStorage.getItem('dash_panel_' + id); } catch(e){}
+  var p = null;
+  for (var i=0; i<_DASH_PANELS.length; i++) { if (_DASH_PANELS[i].id === id) { p = _DASH_PANELS[i]; break; } }
+  var isOn = p && !p.addable ? (saved === null ? true : saved === '1') : saved === '1';
+  var nowOn = !isOn;
+  if (panel) panel.style.display = nowOn ? '' : 'none';
+  try { localStorage.setItem('dash_panel_' + id, nowOn ? '1' : '0'); } catch(e){}
+  if (nowOn) _dashPopulateAddon(id);
+  // Re-render just this row
+  var row = document.getElementById('cust-row-' + id);
+  if (row && p) row.outerHTML = _custRow(p, nowOn);
 }
 
 function _dashPopulateAddon(id) {
@@ -6756,40 +6834,15 @@ function _dashPopulateAddon(id) {
       if (!el) return;
       el.innerHTML = Object.keys(counts).map(function(k) {
         var pct = Math.round(counts[k]/total*100);
-        return '<div style="display:flex;align-items:center;gap:10px;font-size:13px;"><span style="width:70px;color:'+cols[k]+';font-weight:600;">'+k+'</span><div style="flex:1;height:14px;background:#f3f2f1;border-radius:3px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:'+cols[k]+';"></div></div><span style="width:50px;text-align:right;color:#605e5c;">'+counts[k]+'</span></div>';
+        return '<div style="display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:6px;"><span style="width:70px;color:'+cols[k]+';font-weight:600;">'+k+'</span><div style="flex:1;height:14px;background:#f3f2f1;border-radius:3px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:'+cols[k]+';"></div></div><span style="width:40px;text-align:right;color:#605e5c;">'+counts[k]+'</span></div>';
       }).join('');
     }).catch(function(){});
   }
 }
 
-function _dashRenderEditBar() {
-  var bar = document.getElementById('dash-edit-bar');
-  if (!bar) return;
-  var activePanels = _DASH_PANELS.filter(function(p){ return !p.addable; });
-  var addablePanels = _DASH_PANELS.filter(function(p){ return p.addable; });
-  bar.innerHTML =
-    '<span class="dash-edit-bar-title">Visible panels:</span>' +
-    activePanels.map(function(p) {
-      var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e) {}
-      var checked = saved === null ? true : saved === '1';
-      var panel = document.getElementById(p.id);
-      if (panel && !checked) panel.style.display = 'none';
-      return '<label class="panel-toggle ' + (checked ? '' : 'off') + '"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="this.closest(\'label\').classList.toggle(\'off\',!this.checked);_dashPanelToggle(\'' + p.id + '\',this.checked)"> ' + p.label + '</label>';
-    }).join('') +
-    '<span class="dash-edit-bar-title" style="margin-left:12px;">Add panel:</span>' +
-    addablePanels.map(function(p) {
-      var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e) {}
-      var on = saved === '1';
-      var panel = document.getElementById(p.id);
-      if (panel && on) panel.style.display = '';
-      return '<label class="panel-toggle ' + (on ? '' : 'off') + '" style="background:'+(on?'#dff6dd':'#f3f2f1')+';border-color:'+(on?'#107c10':'#c8c6c4')+'"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="this.closest(\'label\').style.background=this.checked?\'#dff6dd\':\'#f3f2f1\';this.closest(\'label\').style.borderColor=this.checked?\'#107c10\':\'#c8c6c4\';this.closest(\'label\').classList.toggle(\'off\',!this.checked);_dashPanelToggle(\'' + p.id + '\',this.checked)"> ' + p.label + '</label>';
-    }).join('') +
-    '<button class="mdef-toolbar-btn" onclick="toggleDashboardEdit()" style="margin-left:auto;">Done</button>';
-}
-
 function _dashInitPanels() {
   _DASH_PANELS.forEach(function(p) {
-    var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e) {}
+    var saved = null; try { saved = localStorage.getItem('dash_panel_' + p.id); } catch(e){}
     var panel = document.getElementById(p.id);
     if (!panel) return;
     if (p.addable) {
