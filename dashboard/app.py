@@ -909,6 +909,39 @@ def api_scans_recent():
     return jsonify([enrich(r) for r in rows])
 
 
+_RISK_HIGH_RE = re.compile(
+    r'REFLECTED\s+XSS:|SQL\s+ERROR:|CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:'
+    r'|SSTI\s+HIT|SSRF\s+HIT:|CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:'
+    r'|APP_PASS_CREATED|EXPOSED_FILE\s*\|.*\b20[0-9]\b'
+    r'|WP-LOG[^|\n]*\|\s*HIGH|\|\s*(High|Critical)\s*\|', re.I)
+_RISK_MED_RE = re.compile(
+    r'OPEN\s+REDIRECT:|HTML\s+INJECTION:|WP-USER-CONFIRMED|WP-USER\s*\|'
+    r'|WP-LOG[^|\n]*\|\s*MEDIUM|\|\s*Medium\s*\|', re.I)
+_RISK_LOW_RE = re.compile(r'\|\s*(Low|Info)\s*\||\d+/tcp\s+open', re.I)
+
+def _scan_risk(out: str) -> str:
+    if _RISK_HIGH_RE.search(out): return 'HIGH'
+    if _RISK_MED_RE.search(out):  return 'MEDIUM'
+    if _RISK_LOW_RE.search(out):  return 'LOW'
+    return 'INFO'
+
+@app.route('/api/scans/summary')
+def api_scans_summary():
+    """Lightweight scan list — pre-computed risk, no output text. For dashboard charts/KPIs."""
+    limit = min(int(request.args.get('limit', 500)), 2000)
+    rows  = db.get_recent_scans(limit)
+    return jsonify([{
+        'id':         r['id'],
+        'target':     r['target'],
+        'agent_type': r['agent_type'],
+        'created_at': r['created_at'],
+        'status':     r['status'],
+        'latency_s':  r['latency_s'],
+        'tool_count': r['tool_count'],
+        'risk':       _scan_risk(r.get('output') or ''),
+    } for r in rows])
+
+
 @app.route('/api/scan/<int:scan_id>/cve')
 def api_scan_cve(scan_id):
     """Query NVD for real CVEs matching the technologies found in this scan."""

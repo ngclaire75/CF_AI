@@ -30,7 +30,21 @@ _FAST     = 8
 # ── Optional Cloudflare-bypass library ───────────────────────────────────────
 try:
     import cloudscraper as _cloudscraper
+    import urllib3 as _urllib3
+    import ssl as _ssl
+    from requests.adapters import HTTPAdapter as _HTTPAdapter
+    _urllib3.disable_warnings(_urllib3.exceptions.InsecureRequestWarning)
+
+    class _NoSSLVerifyAdapter(_HTTPAdapter):
+        def init_poolmanager(self, *args, **kwargs):
+            ctx = _ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = _ssl.CERT_NONE
+            kwargs['ssl_context'] = ctx
+            return super().init_poolmanager(*args, **kwargs)
+
     _cs = _cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
+    _cs.mount('https://', _NoSSLVerifyAdapter())
     _HAS_CLOUDSCRAPER = True
 except ImportError:
     _cs = None
@@ -125,7 +139,7 @@ def _cloudscraper_fetch(url: str, method: str = 'GET', headers: dict | None = No
         h = {'User-Agent': _UA}
         if headers:
             h.update(headers)
-        resp = _cs.request(method, url, headers=h, data=body, timeout=timeout, verify=False)
+        resp = _cs.request(method, url, headers=h, data=body, timeout=timeout)
         return resp.status_code, resp.text, dict(resp.headers)
     except Exception as exc:
         return 0, f'[cloudscraper error: {exc}]', {}

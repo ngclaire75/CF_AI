@@ -3384,36 +3384,44 @@ Load Logs
 // ── /ws/live — real-time stats via FastAPI WebSocket ─────────────────────────
 (function initLiveWs() {
   if (!window.WebSocket) return;
-  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  var ws = new WebSocket(proto + '//' + location.host + '/ws/live');
-  var bar = document.getElementById('live-stats-bar');
+  var _wsRetries = 0;
+  var _wsMaxRetries = 5;
+  function connect() {
+    if (_wsRetries >= _wsMaxRetries) return; // stop trying after 5 fails
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var ws;
+    try { ws = new WebSocket(proto + '//' + location.host + '/ws/live'); }
+    catch(e) { return; }
+    var bar = document.getElementById('live-stats-bar');
 
-  ws.onopen = function() {
-    if (bar) bar.style.display = 'flex';
-  };
+    ws.onopen = function() {
+      _wsRetries = 0;
+      if (bar) bar.style.display = 'flex';
+    };
 
-  ws.onmessage = function(evt) {
-    try {
-      var d = JSON.parse(evt.data);
-      var el;
-      el = document.getElementById('ls-scans');
-      if (el) el.textContent = d.total_scans !== undefined ? d.total_scans : el.textContent;
-      el = document.getElementById('ls-incidents');
-      if (el) el.textContent = d.open_incidents !== undefined ? d.open_incidents : el.textContent;
-      // Also update sidebar badge
-      var incBadge = document.getElementById('sb-badge-inc');
-      if (incBadge && d.open_incidents > 0) {
-        incBadge.textContent = d.open_incidents;
-        incBadge.style.display = '';
-      }
-    } catch(e) {}
-  };
+    ws.onmessage = function(evt) {
+      try {
+        var d = JSON.parse(evt.data);
+        var el;
+        el = document.getElementById('ls-scans');
+        if (el) el.textContent = d.total_scans !== undefined ? d.total_scans : el.textContent;
+        el = document.getElementById('ls-incidents');
+        if (el) el.textContent = d.open_incidents !== undefined ? d.open_incidents : el.textContent;
+        var incBadge = document.getElementById('sb-badge-inc');
+        if (incBadge && d.open_incidents > 0) {
+          incBadge.textContent = d.open_incidents;
+          incBadge.style.display = '';
+        }
+      } catch(e) {}
+    };
 
-  ws.onerror = ws.onclose = function() {
-    if (bar) bar.style.display = 'none';
-    // Retry after 30 s
-    setTimeout(initLiveWs, 30000);
-  };
+    ws.onerror = ws.onclose = function() {
+      if (bar) bar.style.display = 'none';
+      _wsRetries++;
+      if (_wsRetries < _wsMaxRetries) setTimeout(connect, 30000);
+    };
+  }
+  connect();
 })();
 
 // ── SPA Sidebar Navigation ────────────────────────────────────────────────────
@@ -3759,22 +3767,27 @@ function _hideLoadingOverlay() {
 
 function loadDefDashboard() {
   var days = parseInt((document.getElementById('def-days')||{}).value||'30');
+  // Two parallel fetches:
+  // 1. summary: all scans with pre-computed risk (no output text) — for KPIs/charts
+  // 2. recent (limit 50 with output) — only for recommendations & event labels
   Promise.all([
     fetch('/api/stats').then(function(r){return r.json();}).catch(function(){return {};}),
     fetch('/api/incidents').then(function(r){return r.json();}).catch(function(){return {incidents:[],stats:{}};}),
-    fetch('/api/scans/recent?limit=500').then(function(r){return r.json();}).catch(function(){return [];}),
-    fetch('/api/security-signals?days='+days).then(function(r){return r.json();}).catch(function(){return {events:[],timeline:[]};}),
+    fetch('/api/scans/summary?limit=500').then(function(r){return r.json();}).catch(function(){return [];}),
+    fetch('/api/scans/recent?limit=50').then(function(r){return r.json();}).catch(function(){return [];}),
   ]).then(function(res) {
-    var stats=res[0], incData=res[1], scans=res[2], signals=res[3];
-    _mvdRenderKPIs(stats, incData.stats||{}, scans);
-    _mvdRenderThreatHeader(scans);
-    _mvdRenderGauge(scans);
-    _mvdRenderRecommendations(scans);
-    _mvdRenderEvents(scans);
-    _mvdRenderSecScore(scans);
-    _mvdRenderDonut(scans);
-    _mvdRenderSparklines(scans);
-    _mvdRenderRemediation(incData.incidents||[], scans);
+    var stats=res[0], incData=res[1], summary=res[2], recent=res[3];
+    // KPIs, charts, gauge: use summary (no regex needed — risk already computed)
+    _mvdRenderKPIs(stats, incData.stats||{}, summary);
+    _mvdRenderThreatHeader(summary);
+    _mvdRenderGauge(summary);
+    _mvdRenderSecScore(summary);
+    _mvdRenderDonut(summary);
+    _mvdRenderSparklines(summary);
+    _mvdRenderRemediation(incData.incidents||[], summary);
+    // Recommendations & events: use recent (need output text, but only top 50)
+    _mvdRenderRecommendations(recent);
+    _mvdRenderEvents(recent);
     _hideLoadingOverlay();
   });
 }
@@ -3783,17 +3796,16 @@ function _mvdCalcScore(scans) {
   if (!scans || !scans.length) return 0;
   var total = 0;
   scans.forEach(function(s) {
-    var o=(s.output||'').toLowerCase();
-    if(/\bcritical\b/.test(o)) total+=25;
-    else if(/\bhigh\b/.test(o)) total+=15;
-    else if(/\bmedium\b/.test(o)) total+=5;
-    else if(/\blow\b/.test(o)) total+=2;
+    var r = s.risk || 'INFO';
+    if (r === 'HIGH')   total += 15;
+    else if (r === 'MEDIUM') total += 5;
+    else if (r === 'LOW')    total += 2;
   });
   return Math.max(0, Math.min(100, Math.round(100 - total/scans.length)));
 }
 
 function _mvdRenderKPIs(stats, incStats, scans) {
-  var critCount = scans.filter(function(s){return /\bcritical\b/i.test(s.output||'');}).length;
+  var critCount = scans.filter(function(s){return s.risk === 'HIGH';}).length;
   var el;
   el=document.getElementById('mvd-kpi-scanned');    if(el) el.textContent=stats.unique_targets||'0';
   el=document.getElementById('mvd-kpi-critical');   if(el) el.textContent=critCount;
@@ -3808,8 +3820,8 @@ function _mvdRenderThreatHeader(scans) {
     if(p) p.textContent='Run a scan on a target to begin generating security findings and threat awareness data.';
     return;
   }
-  var critCnt = scans.filter(function(s){return /\bcritical\b/i.test(s.output||'');}).length;
-  var highCnt = scans.filter(function(s){return /\bhigh\b/i.test(s.output||'');}).length;
+  var critCnt = scans.filter(function(s){return s.risk === 'HIGH';}).length;
+  var highCnt = critCnt;
   if (critCnt > 0) {
     if(h) h.textContent = critCnt+' site(s) with critical-severity findings';
     if(p) p.innerHTML = 'Critical vulnerabilities detected across your scanned targets. Sites with these findings may be exposed to <strong>remote code execution, data exfiltration, or full compromise</strong>. Immediate remediation is recommended.';
@@ -4011,12 +4023,11 @@ function _mvdRenderDonut(scans) {
   var C={Critical:0,High:0,Medium:0,Low:0,Info:0};
   var COLORS={Critical:'#a80000',High:'#d83b01',Medium:'#ffb900',Low:'#499205',Info:'rgba(0,120,212,0.7)'};
   scans.forEach(function(s){
-    var o=(s.output||'').toLowerCase();
-    if(/\bcritical\b/.test(o)) C.Critical++;
-    else if(/\bhigh\b/.test(o)) C.High++;
-    else if(/\bmedium\b/.test(o)) C.Medium++;
-    else if(/\blow\b/.test(o)) C.Low++;
-    else C.Info++;
+    var r = s.risk || 'INFO';
+    if (r === 'HIGH')        C.High++;
+    else if (r === 'MEDIUM') C.Medium++;
+    else if (r === 'LOW')    C.Low++;
+    else                     C.Info++;
   });
   var items=Object.entries(C).filter(function(x){return x[1]>0;});
   if (!items.length) {
@@ -4049,7 +4060,7 @@ function _mvdRenderSparklines(scans) {
   var s1=dates.map(function(d){return _mvdCalcScore(byDate[d]);});
   var s2=dates.map(function(d){
     var arr=byDate[d];
-    return Math.round(arr.filter(function(s){return !/\bcritical\b|\bhigh\b/i.test(s.output||'');}).length/arr.length*100);
+    return Math.round(arr.filter(function(s){return s.risk !== 'HIGH';}).length/arr.length*100);
   });
   var sparkOpts={
     responsive:true,maintainAspectRatio:false,
@@ -4080,14 +4091,14 @@ function _mvdRenderRemediation(incidents, scans) {
   var openInc=incidents.filter(function(i){return i.status==='open'||i.status==='investigating';}).slice(0,6);
   if (!openInc.length) {
     // Fall back to top severity scans as suggested tasks
-    var topScans=scans.filter(function(s){return /\bcritical\b|\bhigh\b/i.test(s.output||'');}).slice(0,4);
+    var topScans=scans.filter(function(s){return s.risk==='HIGH';}).slice(0,4);
     if (!topScans.length) {
       tbody.innerHTML='<tr><td colspan="4" style="color:#a19f9d;font-style:italic;padding:14px 6px;">No remediation activities — resolve scan findings to generate tasks.</td></tr>';
       return;
     }
     tbody.innerHTML=topScans.map(function(s){
       var d=(s.created_at||'').slice(0,10);
-      var sev=/\bcritical\b/i.test(s.output||'')?'CRITICAL':'HIGH';
+      var sev='HIGH';
       return '<tr>'+
         '<td><span class="mvd-badge mvd-badge-'+sev+'">'+sev+'</span> Address findings for '+escHtml((s.target||'').slice(0,25))+'</td>'+
         '<td style="font-size:10px;color:#605e5c;">'+escHtml((s.target||'').slice(0,20))+'</td>'+
@@ -4283,16 +4294,22 @@ function histRiskFilter(btn, risk) {
 }
 
 function _refreshAllDashboard() {
-  // Reload every page that derives data from scan records
+  // Stagger API calls to avoid firing 7+ requests simultaneously
   _buildHistoryKPIs();
   _buildHistoryChart();
-  if (typeof loadMvdDashboard === 'function')   loadMvdDashboard();
-  if (typeof loadSignals === 'function')         loadSignals();
-  if (typeof loadMitreCoverage === 'function')   loadMitreCoverage();
-  if (typeof loadEventTimeline === 'function')   loadEventTimeline();
-  if (typeof loadWeaknesses === 'function')      loadWeaknesses();
-  if (typeof loadIncidents === 'function')       loadIncidents(_incStatus);
-  if (typeof loadUnifiedOverview === 'function') loadUnifiedOverview();
+  loadDefDashboard();
+  setTimeout(function() {
+    if (typeof loadSignals === 'function')         loadSignals();
+    if (typeof loadMitreCoverage === 'function')   loadMitreCoverage();
+  }, 200);
+  setTimeout(function() {
+    if (typeof loadIncidents === 'function')       loadIncidents(_incStatus);
+    if (typeof loadUnifiedOverview === 'function') loadUnifiedOverview();
+  }, 500);
+  setTimeout(function() {
+    if (typeof loadEventTimeline === 'function')   loadEventTimeline();
+    if (typeof loadWeaknesses === 'function')      loadWeaknesses();
+  }, 900);
 }
 
 function deleteScan(id, btn) {
@@ -5383,7 +5400,7 @@ function _cwResumeFromLS() {
     _cwScanId = null;
     cwLock();
     document.getElementById('cwOutput').classList.add('active');
-    cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Scan in progress (reconnected)...</span>');
+    cwSetStatus('<span class="cs-running">Scan in progress (reconnected)...</span>');
     cwPoll();
   })
   .catch(function() { _cwClearLS(); });
@@ -5405,7 +5422,7 @@ function startConnectScan() {
   document.getElementById('cwDoneBar').classList.remove('active');
   document.getElementById('cwDoneBar').className = 'connect-done-bar';
   document.getElementById('cwPluginLogsBtn').style.display = 'none';
-  cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Scanning ' + domain + ' ...</span>');
+  cwSetStatus('<span class="cs-running">Scanning ' + domain + ' ...</span>');
 
   var creds = cwGetCreds();
   fetch('/api/connect/scan', {
@@ -5458,7 +5475,7 @@ function _cwShowDone(status, domain, errMsg) {
     bar.className  = 'connect-done-bar cdb-success active';
     title.textContent = '✓ Scan Results Have Been Logged to Dashboard';
     meta.textContent  = domain ? 'Target: ' + domain + (_cwScanId ? '  ·  ID #' + _cwScanId : '') : '';
-    cwSetStatus('<span class="cs-done"><span class="cs-spin"></span>Logged to dashboard' + (domain ? ' — ' + domain : '') + '</span>');
+    cwSetStatus('<span class="cs-done">Logged to dashboard' + (domain ? ' — ' + domain : '') + '</span>');
   } else {
     bar.className  = 'connect-done-bar cdb-error active';
     title.textContent = '⚠ Scan ended with errors — partial results may be logged';
@@ -5516,7 +5533,7 @@ function cwConnectWs(jobId) {
   }
 
   _cwWs.onopen = function() {
-    cwSetStatus('<span class="cs-running"><span class="cs-dot"></span>Connected via WebSocket…</span>');
+    cwSetStatus('<span class="cs-running">Connected via WebSocket…</span>');
   };
 
   _cwWs.onmessage = function(evt) {
@@ -5532,7 +5549,7 @@ function cwConnectWs(jobId) {
       if (msg.scan_id) _cwScanId = msg.scan_id;
       var st = msg.d || 'done';
       if (st === 'aborted') {
-        cwSetStatus('<span class="cs-error">&#9632; Scan stopped by user.</span>');
+        cwSetStatus('<span class="cs-error">Scan stopped by user.</span>');
         cwUnlock();
       } else {
         _cwShowDone(st, _cwCurrentTarget || '', '');
@@ -5598,7 +5615,7 @@ function cwPoll() {
       _cwPollTimer = setTimeout(cwPoll, 1500);
     } else if (d.status === 'aborted') {
       _cwClearLS();
-      cwSetStatus('<span class="cs-error">&#9632; Scan stopped by user.</span>');
+      cwSetStatus('<span class="cs-error">Scan stopped by user.</span>');
       cwUnlock();
     } else {
       _cwClearLS();
@@ -5681,7 +5698,7 @@ function cwAbortScan() {
   var jid = _cwJobId;
   fetch('/api/connect/scan/' + jid + '/abort', {method: 'POST'}).catch(function(){});
   _cwClearLS();
-  cwSetStatus('<span class="cs-error">&#9632; Scan stopped by user.</span>');
+  cwSetStatus('<span class="cs-error">Scan stopped by user.</span>');
   cwUnlock();
 }
 

@@ -57,9 +57,14 @@ def _fetch(url: str, timeout: int = 15, wayback: bool = False) -> str:
 def _cf_scraper_fetch(url: str) -> str:
     """Cloudscraper fallback for CF-protected sites."""
     script = (
-        "import cloudscraper,sys; "
-        f"s=cloudscraper.create_scraper(); "
-        f"r=s.get('{url}',timeout=15,verify=False); "
+        "import cloudscraper,urllib3,ssl,sys; from requests.adapters import HTTPAdapter; "
+        "urllib3.disable_warnings(); "
+        "A=type('A',(HTTPAdapter,),{'init_poolmanager':lambda s,*a,**k:"
+        "(k.__setitem__('ssl_context',(lambda c:(setattr(c,'check_hostname',False),"
+        "setattr(c,'verify_mode',ssl.CERT_NONE),c)[-1])(ssl.create_default_context())),"
+        "super(type(s),s).init_poolmanager(*a,**k))}); "
+        f"s=cloudscraper.create_scraper(); s.mount('https://',A()); "
+        f"r=s.get('{url}',timeout=15); "
         "print(r.text[:80000])"
     )
     try:

@@ -488,6 +488,41 @@ async def api_scans_recent(limit: int = Query(50, ge=1, le=500)) -> list:
     return db.get_recent_scans(limit)
 
 
+_RISK_HIGH = re.compile(
+    r'REFLECTED\s+XSS:|SQL\s+ERROR:|CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:'
+    r'|SSTI\s+HIT|SSRF\s+HIT:|CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:'
+    r'|APP_PASS_CREATED|EXPOSED_FILE\s*\|.*\b20[0-9]\b'
+    r'|WP-LOG[^|\n]*\|\s*HIGH|\|\s*(High|Critical)\s*\|', re.I)
+_RISK_MED = re.compile(
+    r'OPEN\s+REDIRECT:|HTML\s+INJECTION:|WP-USER-CONFIRMED|WP-USER\s*\|'
+    r'|WP-LOG[^|\n]*\|\s*MEDIUM|\|\s*Medium\s*\|', re.I)
+_RISK_LOW = re.compile(r'\|\s*(Low|Info)\s*\||\d+/tcp\s+open', re.I)
+
+def _scan_risk(out: str) -> str:
+    if _RISK_HIGH.search(out): return 'HIGH'
+    if _RISK_MED.search(out):  return 'MEDIUM'
+    if _RISK_LOW.search(out):  return 'LOW'
+    return 'INFO'
+
+@app.get("/api/scans/summary")
+async def api_scans_summary(limit: int = Query(500, ge=1, le=2000)) -> list:
+    """Lightweight scan list — pre-computed risk, no output text. Use for dashboard charts/KPIs."""
+    scans = db.get_recent_scans(limit)
+    return [
+        {
+            'id':         s['id'],
+            'target':     s['target'],
+            'agent_type': s['agent_type'],
+            'created_at': s['created_at'],
+            'status':     s['status'],
+            'latency_s':  s['latency_s'],
+            'tool_count': s['tool_count'],
+            'risk':       _scan_risk(s.get('output') or ''),
+        }
+        for s in scans
+    ]
+
+
 @app.delete("/api/scans/clear", status_code=200)
 async def api_scans_clear() -> dict:
     """Clear all scan history from the database."""
