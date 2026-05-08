@@ -1,11 +1,30 @@
 """CF_AI tool: generic Linux command execution with real-time output."""
 import os
+import platform
 import re
 import subprocess
 from sdk.agents import function_tool
 
 TOOL_TIMEOUT = int(os.environ.get('CFAI_TOOL_TIMEOUT', '300'))
 CWD          = os.environ.get('CFAI_CWD', '/root')
+
+# ── Cross-platform bash resolution ──────────────────────────────────────────
+def _find_bash() -> list:
+    """Return the argv prefix to invoke bash -c on any platform."""
+    if platform.system() != 'Windows':
+        return ['/bin/bash', '-c']
+    # Windows: prefer Git Bash, fallback to WSL
+    for candidate in [
+        r'C:\Program Files\Git\bin\bash.exe',
+        r'C:\Program Files (x86)\Git\bin\bash.exe',
+        r'C:\Windows\System32\bash.exe',   # WSL bash
+    ]:
+        if os.path.isfile(candidate):
+            return [candidate, '-c']
+    return None  # no bash found — fallback to cmd.exe
+
+_BASH_ARGV = _find_bash()
+_IS_WINDOWS = platform.system() == 'Windows'
 
 _EXIT_EXPLAIN = {
     0:  'The server returned an empty response. '
@@ -63,6 +82,15 @@ def _patch_curl(cmd: str) -> str:
     return _CURL_RE.sub(_inject, cmd)
 
 
+def _patch_windows_compat(cmd: str) -> str:
+    """On Windows, substitute commands that don't exist for compatible equivalents."""
+    if not _IS_WINDOWS:
+        return cmd
+    # Agents use python3 but Windows installs as python
+    cmd = re.sub(r'\bpython3\b', 'python', cmd)
+    return cmd
+
+
 @function_tool
 def generic_linux_command(command: str) -> str:
     """Execute any Linux shell command on the Kali VPS and return its output.
@@ -74,17 +102,35 @@ def generic_linux_command(command: str) -> str:
     Returns stdout + stderr combined. Truncated to 8000 chars if very long.
     """
     patched = _patch_curl(command)
+    patched = _patch_windows_compat(patched)
+
+    # Determine working directory — use temp dir on Windows since /root doesn't exist
+    cwd = CWD
+    if _IS_WINDOWS and not os.path.isdir(cwd):
+        cwd = os.environ.get('TEMP', os.path.expanduser('~'))
+
     try:
-        result = subprocess.run(
-            patched,
-            shell=True,
-            executable='/bin/bash',   # force bash — avoids dash ")" syntax errors in complex one-liners
-            capture_output=True,
-            text=True,
-            timeout=TOOL_TIMEOUT,
-            cwd=CWD,
-            env={**os.environ, 'TERM': 'dumb', 'COLUMNS': '120'},
-        )
+        if _BASH_ARGV:
+            # Unix or Windows with Git Bash / WSL — run through real bash
+            result = subprocess.run(
+                _BASH_ARGV + [patched],
+                capture_output=True,
+                text=True,
+                timeout=TOOL_TIMEOUT,
+                cwd=cwd,
+                env={**os.environ, 'TERM': 'dumb', 'COLUMNS': '120'},
+            )
+        else:
+            # Windows without bash — use cmd.exe (limited, but better than crashing)
+            result = subprocess.run(
+                patched,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=TOOL_TIMEOUT,
+                cwd=cwd,
+                env={**os.environ, 'TERM': 'dumb', 'COLUMNS': '120'},
+            )
         output = (result.stdout + result.stderr).strip()
         if not output and result.returncode in _EXIT_EXPLAIN:
             return _EXIT_EXPLAIN[result.returncode]

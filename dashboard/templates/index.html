@@ -3682,16 +3682,27 @@ function _mvdRenderRecommendations(scans) {
   if (!tbody) return;
   var recMap = {};
   var sevOrder = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,INFO:4};
+  // Severity from confirmed finding markers only — not broad keywords that appear in all scans.
+  function _scanSev(output) {
+    var o = output || '';
+    if (/CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:|CREDS_FOUND|SQL\s+ERROR:|SSTI\s+HIT|\|\s*Critical\s*\|/i.test(o)) return 'CRITICAL';
+    if (/REFLECTED\s+XSS:|FOUND_DB_USER:|APP_PASS_CREATED|WP-LOG.*HIGH|\|\s*High\s*\|/i.test(o)) return 'HIGH';
+    if (/OPEN\s+REDIRECT:|HTML\s+INJECTION:|EXPOSED_FILE|WP-USER-CONFIRMED|WP-LOG.*MEDIUM|\|\s*Medium\s*\|/i.test(o)) return 'MEDIUM';
+    if (/\|\s*Low\s*\||WP-LOG.*LOW/i.test(o)) return 'LOW';
+    return 'INFO';
+  }
   scans.forEach(function(s) {
-    var o=(s.output||'').toLowerCase();
-    var sev=/\bcritical\b/.test(o)?'CRITICAL':/\bhigh\b/.test(o)?'HIGH':/\bmedium\b/.test(o)?'MEDIUM':/\blow\b/.test(o)?'LOW':'INFO';
+    var sev = _scanSev(s.output);
     var lines=(s.output||'').split('\n');
     lines.forEach(function(line){
       var t=line.trim();
       if(t.length<25||t.length>180) return;
       if(!/update|patch|fix|upgrade|configure|enable|disable|review|remove|install|harden|restrict|enforce/i.test(t)) return;
-      // Skip setup/system/package-install messages
+      // Skip setup/system/package-install messages and agent command lines
       if(/not installed|pip install|package.*install|install.*package|run:.*pip|run:.*python|modulenotfound|importerror|missing.*package|please install|run:.*install|no module named/i.test(t)) return;
+      // Skip lines that are curl commands, nmap commands, or agent instruction text
+      if(/^\s*(curl|nmap|python|python3|dig|whatweb|wpscan|sqlmap|gobuster)\b/i.test(t)) return;
+      if(/CRITICAL:|STEP\s+\d+|LAYER\s+\d+|RUN\s+ALL|PHASE\s+\d/i.test(t)) return;
       var key=t.slice(0,70).toLowerCase();
       if(!recMap[key]){recMap[key]={text:t.slice(0,90),sev:sev,sites:new Set(),impact:0};}
       recMap[key].sites.add(s.target);
@@ -3725,26 +3736,38 @@ function _mvdRenderEvents(scans) {
     tbody.innerHTML='<tr><td colspan="3" style="color:#a19f9d;font-style:italic;padding:12px 6px;">No scan events in the last 7 days.</td></tr>';
     return;
   }
+  // Only label based on CONFIRMED findings from agent output, not test descriptions.
   function _evtLabel(s) {
-    var o=(s.output||'').toLowerCase();
+    var o=s.output||'';
     var t=s.target||'site';
-    if (/\bcritical\b/.test(o))   return 'Critical vulnerability detected on '+t;
-    if (/sql.inject/i.test(o))    return 'SQL injection risk found on '+t;
-    if (/xss|cross.site/i.test(o))return 'Cross-site scripting risk on '+t;
-    if (/ssl|tls|certif/i.test(o)) return 'SSL/TLS issue on '+t;
-    if (/wp.admin|wordpress|wp-login/i.test(o)) return 'WordPress security scan on '+t;
-    if (/open.*port|port.*open/i.test(o)) return 'Open ports discovered on '+t;
-    if (/auth|login|password|brute/i.test(o)) return 'Authentication weakness on '+t;
-    if (/header|csp|hsts/i.test(o)) return 'Missing security headers on '+t;
-    if (/\bhigh\b/.test(o))       return 'High severity finding on '+t;
-    if (/\bmedium\b/.test(o))     return 'Medium severity finding on '+t;
+    if (/CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:|SSTI\s+HIT/i.test(o)) return 'Code/command injection confirmed on '+t;
+    if (/SQL\s+ERROR:/i.test(o))           return 'SQL injection confirmed on '+t;
+    if (/REFLECTED\s+XSS:|HTML\s+INJECTION:/i.test(o)) return 'XSS vulnerability confirmed on '+t;
+    if (/SSRF\s+HIT:/i.test(o))            return 'SSRF vulnerability confirmed on '+t;
+    if (/OPEN\s+REDIRECT:/i.test(o))       return 'Open redirect confirmed on '+t;
+    if (/CREDS_FOUND|FOUND_DB_USER:|APP_PASS_CREATED/i.test(o)) return 'Credentials exposed on '+t;
+    if (/WP-LOG\s*\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|\s*HIGH/i.test(o)) return 'High-severity WordPress event on '+t;
+    if (/EXPOSED_FILE\s*\|.*\b20\d\b/i.test(o)) return 'Sensitive file exposed on '+t;
+    if (/WP-USER-CONFIRMED|WP-USER\s*\|/i.test(o)) return 'WordPress users enumerated on '+t;
+    if (/\|\s*(High|Critical)\s*\|/i.test(o)) return 'High severity finding on '+t;
+    if (/\|\s*Medium\s*\|/i.test(o))       return 'Medium severity finding on '+t;
+    var ag = s.agent_type || '';
+    if (/info/i.test(ag))    return 'Reconnaissance scan completed on '+t;
+    if (/athn/i.test(ag))    return 'Authentication scan completed on '+t;
+    if (/inpv/i.test(ag))    return 'Injection scan completed on '+t;
+    if (/apit/i.test(ag))    return 'API security scan completed on '+t;
+    if (/cryp/i.test(ag))    return 'TLS/cryptography scan completed on '+t;
     return 'Security scan completed on '+t;
   }
   var sevCol={CRITICAL:'#a80000',HIGH:'#c50f1f',MEDIUM:'#986f0b',LOW:'#107c10'};
   tbody.innerHTML=recent.map(function(s){
     var d=new Date(s.created_at||0).toLocaleDateString()+' '+new Date(s.created_at||0).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    var o=(s.output||'').toLowerCase();
-    var sev=/\bcritical\b/.test(o)?'CRITICAL':/\bhigh\b/.test(o)?'HIGH':/\bmedium\b/.test(o)?'MEDIUM':'LOW';
+    var o=s.output||'';
+    // Determine severity from confirmed finding markers only
+    var sev=/CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:|CREDS_FOUND|SQL\s+ERROR:|SSTI\s+HIT|SSRF\s+HIT:|\|\s*(Critical)\s*\|/i.test(o)?'CRITICAL'
+          :/REFLECTED\s+XSS:|FOUND_DB_USER:|APP_PASS_CREATED|WP-LOG.*HIGH|\|\s*High\s*\|/i.test(o)?'HIGH'
+          :/OPEN\s+REDIRECT:|HTML\s+INJECTION:|EXPOSED_FILE|WP-USER-CONFIRMED|WP-LOG.*MEDIUM|\|\s*Medium\s*\|/i.test(o)?'MEDIUM'
+          :'LOW';
     var col=sevCol[sev];
     return '<tr>'+
       '<td style="white-space:nowrap;color:#605e5c;font-size:11px;width:120px;">'+d+'</td>'+
@@ -3755,11 +3778,12 @@ function _mvdRenderEvents(scans) {
 }
 
 function _mvdRenderSecScore(scans) {
+  // Patterns check for CONFIRMED findings/problems only, not test descriptions.
   var CATS=[
-    {name:'SSL / TLS',      pat:/ssl|tls|certif|https/i,                       id:'ssl',  max:25},
-    {name:'HTTP Headers',   pat:/header|csp|hsts|x-frame|content.security/i,   id:'hdr',  max:25},
-    {name:'Authentication', pat:/auth|login|password|credential|brute/i,        id:'auth', max:25},
-    {name:'CMS Security',   pat:/wordpress|wp.plugin|cms|wp-admin|plugin/i,     id:'cms',  max:25},
+    {name:'SSL / TLS',      pat:/WEAK.*TLS|TLS.*1\.0.*WEAK|RC4|NULL\s+cipher|EXPORT.*cipher|no.*https|SSL.*2\.0|WP-LOG.*ssl/i,  id:'ssl',  max:25},
+    {name:'HTTP Headers',   pat:/\|\s*(High|Medium|Low)\s*\|.*[Hh]eader|WP-LOG.*missing.*header|\|\s*(High|Medium)\s*\|.*[Cc][Ss][Pp]|EXPOSED_FILE/i, id:'hdr',  max:25},
+    {name:'Authentication', pat:/CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:|APP_PASS_CREATED|WP-LOG.*login.*HIGH|WP-LOG.*credentials/i, id:'auth', max:25},
+    {name:'CMS Security',   pat:/EXPOSED_FILE\s*\|.*wp-config|WP-USER-CONFIRMED|WP-LOG.*HIGH|CREDS_FOUND_XMLRPC|CREDS_FOUND_FORM/i, id:'cms',  max:25},
   ];
   var pctEl=document.getElementById('mvd-sec-pct'),ptsEl=document.getElementById('mvd-pts-text');
   if (!scans.length) {
@@ -5875,7 +5899,7 @@ function loadSignals() {
   fetch('/api/security-signals')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      _allSignals = d.signals || [];
+      _allSignals = d.events || d.signals || [];  // API returns "events", not "signals"
       var c = d.counts || {};
       var total = _allSignals.length;
       document.getElementById('sig-cnt-all').textContent  = total;
@@ -6604,14 +6628,17 @@ function loadEventTimeline() {
         var d = new Date((s.created_at || '').replace(' ','T') + 'Z');
         if (d < cutoff) return;
         var output = s.output || '';
+        // Only match lines with CONFIRMED finding markers from agents (not test descriptions).
         var lines = output.split('\n').filter(function(l){
-          return /\b(critical|high|cve-|exploit|vuln|inject|xss|rce|leaked|exposed|misconfigur|admin|login|password|bypass|waf|403|error)\b/i.test(l) && l.trim().length > 20;
-        }).slice(0, 5);
+          return /REFLECTED\s+XSS:|SQL\s+ERROR:|CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:|SSTI\s+HIT|SSRF\s+HIT:|OPEN\s+REDIRECT:|HTML\s+INJECTION:|CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:|EXPOSED_FILE\s*\||APP_PASS_CREATED|WP-USER-CONFIRMED|WP-LOG\s*\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|\s*(HIGH|MEDIUM)|\|\s*(Critical|High|Medium)\s*\||\bCVE-\d{4}-\d{4,}\b/i.test(l) && l.trim().length > 10;
+        }).slice(0, 8);
         lines.forEach(function(line) {
-          var sev = /\bcritical\b/i.test(line) ? 'CRITICAL' : /\bhigh\b|\bcve-/i.test(line) ? 'HIGH' : 'MEDIUM';
+          var sev = /critical|CODE\s+INJECTION|CMD\s+INJECTION|CREDS_FOUND|CVE-\d{4}-\d{4,}/i.test(line) ? 'CRITICAL'
+                  : /REFLECTED\s+XSS:|SQL\s+ERROR:|SSTI\s+HIT|SSRF\s+HIT:|FOUND_DB_USER:|APP_PASS_CREATED|\|\s*(High|Critical)\s*\||WP-LOG.*HIGH/i.test(line) ? 'HIGH'
+                  : 'MEDIUM';
           events.push({ date: d, target: s.target, text: line.trim().slice(0, 120), severity: sev });
         });
-        events.push({ date: d, target: s.target, text: 'Scan completed — risk: ' + s.risk, severity: s.risk || 'INFO' });
+        events.push({ date: d, target: s.target, text: 'Scan completed', severity: 'INFO' });
       });
       events.sort(function(a,b){ return b.date - a.date; });
       if (!events.length) { list.innerHTML = '<div class="mdef-empty">No events in the selected period.</div>'; return; }

@@ -626,9 +626,42 @@ async def api_incidents_update(iid: int, body: IncidentUpdate) -> dict:
 # Security Signals
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_HIGH_SIGNALS  = re.compile(r'sql\s*inject|remote\s*code|rce|shell\s*upload|credential\s*expos|path\s*travers|XXE|SSRF', re.I)
-_MED_SIGNALS   = re.compile(r'xss|csrf|open\s*redirect|weak\s*(cipher|protocol)|directory\s*list|exposure|outdated', re.I)
-_LOW_SIGNALS   = re.compile(r'missing\s*header|cookie\s*flag|information\s*disclos|verbose\s*error|banner\s*grab', re.I)
+# Match only CONFIRMED findings from agent output — not test section headers or commands.
+# Agents emit specific marker prefixes when they actually find something (see wstg_agents.py).
+_HIGH_SIGNALS = re.compile(
+    r'REFLECTED\s+XSS:'                          # INPV agent confirmed XSS
+    r'|SQL\s+ERROR:'                              # INPV confirmed SQL injection
+    r'|CODE\s+INJECTION\s+CONFIRMED:'             # INPV confirmed code injection
+    r'|CMD\s+INJECTION:'                          # INPV confirmed command injection
+    r'|SSTI\s+HIT'                                # INPV confirmed SSTI
+    r'|SSRF\s+HIT:'                               # INPV confirmed SSRF
+    r'|CREDS_FOUND'                               # APIT found valid credentials
+    r'|FOUND_DB_USER:|FOUND_ENV_USER:'            # APIT found exposed credentials
+    r'|EXPOSED_FILE\s*\|.*\b20[0-9]\b'           # APIT exposed file (HTTP 2xx)
+    r'|APP_PASS_CREATED'                          # APIT auto-created application password
+    r'|WP-LOG\s*\|[^|\n]+\|[^|\n]+\|[^|\n]+\|[^|\n]+\|\s*HIGH'  # WP log HIGH
+    r'|\|\s*(High|Critical)\s*\|'                # Agent final report table rows
+    r'|\bCVE-\d{4}-\d{4,}\b',                   # Any CVE reference found
+    re.I,
+)
+_MED_SIGNALS = re.compile(
+    r'OPEN\s+REDIRECT:'                           # CLNT confirmed open redirect
+    r'|HTML\s+INJECTION:'                         # CLNT confirmed HTML injection
+    r'|WP-USER-CONFIRMED'                         # APIT confirmed valid username
+    r'|WP-USER\s*\|'                              # APIT enumerated WP user
+    r'|WP-LOG\s*\|[^|\n]+\|[^|\n]+\|[^|\n]+\|[^|\n]+\|\s*MEDIUM'  # WP log MEDIUM
+    r'|\|\s*Medium\s*\|'                          # Agent final report table rows
+    r'|AUDIT_ENDPOINT\s*\|.*\b20[0-9]\b'         # APIT found exposed audit log
+    r'|EXPOSED_FILE\s*\|.*\b(301|302)\b',        # APIT exposed file (redirect)
+    re.I,
+)
+_LOW_SIGNALS = re.compile(
+    r'WP-LOG\s*\|[^|\n]+\|[^|\n]+\|[^|\n]+\|[^|\n]+\|\s*LOW'  # WP log LOW
+    r'|\|\s*(Low|Info)\s*\|'                     # Agent final report Info/Low rows
+    r'|WP_SITE\s*\|'                             # WordPress site identified
+    r'|WP_REST_ROOT:',                           # WordPress REST API confirmed
+    re.I,
+)
 
 import re
 
