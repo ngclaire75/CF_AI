@@ -1910,7 +1910,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       <span class="sb-label">Log explorer</span>
     </button>
     <button class="sb-item" id="sb-pluginlogs" onclick="sbNav('pluginlogs',this)">
-      <span class="sb-label">Plugin logs</span>
+      <span class="sb-label">User activity logs</span>
     </button>
     <button class="sb-item" id="sb-network" onclick="sbNav('network',this)">
       <span class="sb-label">Network monitor</span>
@@ -2739,49 +2739,12 @@ Export Power BI
     </div>
     <!-- Tab bar -->
     <div class="obs-tabs">
-      <button class="obs-tab active" onclick="obsTab('overview',this)">Overview</button>
-      <button class="obs-tab" onclick="obsTab('signals',this)">Signals</button>
+      <button class="obs-tab active" onclick="obsTab('signals',this)">Signals</button>
       <button class="obs-tab" onclick="obsTab('performance',this)">Performance</button>
-      <button class="obs-tab" onclick="obsTab('incidents',this)">Incidents</button>
-    </div>
-
-    <!-- Overview tab -->
-    <div class="obs-tab-panel active" id="obs-panel-overview">
-      <div class="obs-grid-3">
-        <div class="obs-card" style="text-align:center;">
-          <h5>Active Incidents</h5>
-          <div class="obs-metric-val" id="obs-inc-open" style="color:#ef4444;">—</div>
-          <div class="obs-metric-lbl">Open</div>
-        </div>
-        <div class="obs-card" style="text-align:center;">
-          <h5>MITRE Rules Triggered</h5>
-          <div class="obs-metric-val" id="obs-mitre-total" style="color:#f59e0b;">—</div>
-          <div class="obs-metric-lbl">Detections</div>
-        </div>
-        <div class="obs-card" style="text-align:center;">
-          <h5>Scan Error Rate</h5>
-          <div class="obs-metric-val" id="obs-error-rate" style="color:#6b7280;">—</div>
-          <div class="obs-metric-lbl">% failed scans</div>
-        </div>
-      </div>
-      <div class="obs-grid">
-        <div class="obs-card">
-          <h5>Security Signal Timeline (last 14 days)</h5>
-          <canvas id="obs-signal-chart" height="100"></canvas>
-        </div>
-        <div class="obs-card">
-          <h5>Slowest Scan Targets</h5>
-          <div id="obs-slowest-list"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
-        </div>
-      </div>
-      <div class="obs-card">
-        <h5>Recent High-Severity Detections</h5>
-        <div id="obs-high-signals"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
-      </div>
     </div>
 
     <!-- Signals tab (reuses security-signals data) -->
-    <div class="obs-tab-panel" id="obs-panel-signals">
+    <div class="obs-tab-panel active" id="obs-panel-signals">
       <div id="obs-signals-embed" style="color:#9ca3af;font-size:13px;padding:20px;text-align:center;">
         Click "Refresh" then navigate to the Security Signals page for the full live feed.
         <br><br><button class="btn btn-sm" onclick="sbNav('signals',document.getElementById('sb-signals'))">Open Security Signals →</button>
@@ -2797,13 +2760,6 @@ Export Power BI
       <div id="obs-perf-result"><em style="color:#9ca3af;font-size:13px;">Enter a domain and run a latency probe to see response times.</em></div>
     </div>
 
-    <!-- Incidents tab (quick view) -->
-    <div class="obs-tab-panel" id="obs-panel-incidents">
-      <div style="text-align:right;margin-bottom:10px;">
-        <button class="btn btn-sm" onclick="sbNav('incidents',document.getElementById('sb-incidents'))" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;">Open Incident Manager →</button>
-      </div>
-      <div id="obs-incidents-preview"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
-    </div>
   </section>
 
   </div><!-- /page-observability -->
@@ -3302,7 +3258,7 @@ Export Power BI
   <section class="section">
     <div class="sec-head">
       <div>
-        <div class="sec-title">Plugin Activity Logs</div>
+        <div class="sec-title">User Activity Logs</div>
         <div class="sec-desc">WordPress plugin and user activity captured from authenticated scans (WP-LOG entries from scan history)</div>
       </div>
     </div>
@@ -6552,7 +6508,6 @@ function obsTab(name, el) {
   el.classList.add('active');
   var panel = document.getElementById('obs-panel-' + name);
   if (panel) panel.classList.add('active');
-  if (name === 'incidents') loadIncidents('all');
 }
 
 function loadUnifiedOverview() {
@@ -6560,17 +6515,19 @@ function loadUnifiedOverview() {
     .then(function(r){ return r.json(); })
     .then(function(d){
       _obsData = d;
-      document.getElementById('obs-inc-open').textContent = (d.incident_stats && d.incident_stats.open) || 0;
-      document.getElementById('obs-mitre-total').textContent = d.mitre_total || 0;
-      document.getElementById('obs-error-rate').textContent = (d.error_rate_pct || 0) + '%';
+      var _obsEl = function(id){ return document.getElementById(id); };
+      if (_obsEl('obs-inc-open'))    _obsEl('obs-inc-open').textContent    = (d.incident_stats && d.incident_stats.open) || 0;
+      if (_obsEl('obs-mitre-total')) _obsEl('obs-mitre-total').textContent = d.mitre_total || 0;
+      if (_obsEl('obs-error-rate'))  _obsEl('obs-error-rate').textContent  = (d.error_rate_pct || 0) + '%';
 
       // Signal timeline chart
       var canvas = document.getElementById('obs-signal-chart');
+      if (!canvas) { /* panel removed */ } else {
       if (_obsSignalChart) { _obsSignalChart.destroy(); _obsSignalChart = null; }
       var tl = d.signal_timeline || {};
       var labels = Object.keys(tl).sort();
       var vals   = labels.map(function(k){ return tl[k]; });
-      if (canvas && labels.length) {
+      if (labels.length) {
         _obsSignalChart = new Chart(canvas.getContext('2d'), {
           type: 'bar',
           data: { labels: labels, datasets: [{
@@ -6586,42 +6543,36 @@ function loadUnifiedOverview() {
             animation: { duration: 400 },
           },
         });
-      }
+      } } // end canvas block
 
       // Slowest targets
       var sl = document.getElementById('obs-slowest-list');
+      if (sl) {
       var slow = (d.slowest_pages || []).slice(0, 8);
       sl.innerHTML = slow.length ? slow.map(function(s){
         var color = s.latency > 60 ? '#ef4444' : s.latency > 20 ? '#f59e0b' : '#10b981';
         return '<div class="obs-metric-row"><span style="font-family:monospace;font-size:12px;">' + escHtml(s.target.slice(-40)) + '</span>' +
           '<span style="font-weight:700;color:' + color + ';">' + s.latency + 's</span></div>';
       }).join('') : '<em style="color:#9ca3af;font-size:13px;">No scan data yet.</em>';
+      }
 
       // Recent high signals
       var hs = document.getElementById('obs-high-signals');
-      var sigs = (d.recent_high_signals || []).slice(0, 8);
-      hs.innerHTML = sigs.length ? '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
-        '<thead><tr><th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Rule</th>' +
-        '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Tactic</th>' +
-        '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Target</th>' +
-        '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Date</th></tr></thead><tbody>' +
-        sigs.map(function(s){
-          return '<tr><td style="padding:6px 8px;font-weight:500;">' + escHtml(s.title) + '</td>' +
-            '<td style="padding:6px 8px;"><span class="siem-rule-tactic-link">' + escHtml(s.tactic) + '</span></td>' +
-            '<td style="padding:6px 8px;font-family:monospace;font-size:12px;">' + escHtml(s.target||'—') + '</td>' +
-            '<td style="padding:6px 8px;font-size:12px;color:#8e8e93;">' + (s.date||'—') + '</td></tr>';
-        }).join('') + '</tbody></table>'
-      : '<em style="color:#9ca3af;font-size:13px;">No high-severity detections yet. Run scans to populate.</em>';
-
-      // Incidents preview
-      var ip = document.getElementById('obs-incidents-preview');
-      var ist = d.incident_stats || {};
-      ip.innerHTML = '<div style="display:flex;gap:14px;flex-wrap:wrap;">' +
-        _obsStatChip('Open', ist.open||0, '#fee2e2', '#dc2626') +
-        _obsStatChip('Investigating', ist.investigating||0, '#fef3c7', '#d97706') +
-        _obsStatChip('Resolved', ist.resolved||0, '#d1fae5', '#059669') +
-        _obsStatChip('Total', ist.total||0, '#f5f5f7', '#374151') +
-        '</div>';
+      if (hs) {
+        var sigs = (d.recent_high_signals || []).slice(0, 8);
+        hs.innerHTML = sigs.length ? '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+          '<thead><tr><th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Rule</th>' +
+          '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Tactic</th>' +
+          '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Target</th>' +
+          '<th style="text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;padding:4px 8px;border-bottom:1px solid #f3f4f6;">Date</th></tr></thead><tbody>' +
+          sigs.map(function(s){
+            return '<tr><td style="padding:6px 8px;font-weight:500;">' + escHtml(s.title) + '</td>' +
+              '<td style="padding:6px 8px;"><span class="siem-rule-tactic-link">' + escHtml(s.tactic) + '</span></td>' +
+              '<td style="padding:6px 8px;font-family:monospace;font-size:12px;">' + escHtml(s.target||'—') + '</td>' +
+              '<td style="padding:6px 8px;font-size:12px;color:#8e8e93;">' + (s.date||'—') + '</td></tr>';
+          }).join('') + '</tbody></table>'
+        : '<em style="color:#9ca3af;font-size:13px;">No high-severity detections yet. Run scans to populate.</em>';
+      }
     })
     .catch(function(){});
 }
