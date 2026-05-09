@@ -48,6 +48,18 @@ def init_db():
                 notes           TEXT DEFAULT ''
             )
         ''')
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS maintenance_sites (
+                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                domain                  TEXT NOT NULL,
+                zone_id                 TEXT DEFAULT '',
+                method                  TEXT DEFAULT 'cloudflare',
+                cf_rule_id              TEXT DEFAULT '',
+                previous_security_level TEXT DEFAULT 'medium',
+                enabled_at              TEXT DEFAULT (datetime('now')),
+                reason                  TEXT DEFAULT ''
+            )
+        ''')
         con.commit()
 
 
@@ -200,3 +212,39 @@ def get_incident_stats() -> dict:
         inv_c    = con.execute("SELECT COUNT(*) FROM incidents WHERE status='investigating'").fetchone()[0]
         res_c    = con.execute("SELECT COUNT(*) FROM incidents WHERE status='resolved'").fetchone()[0]
     return {'total': total, 'open': open_c, 'investigating': inv_c, 'resolved': res_c}
+
+
+# ── Maintenance mode ──────────────────────────────────────────────────────────
+
+def get_maintenance(domain: str) -> dict | None:
+    with _connect() as con:
+        row = con.execute(
+            'SELECT * FROM maintenance_sites WHERE domain = ?', (domain.lower(),)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def enable_maintenance(domain: str, zone_id: str = '', method: str = 'cloudflare',
+                       cf_rule_id: str = '', prev_level: str = 'medium', reason: str = '') -> int:
+    with _connect() as con:
+        con.execute('DELETE FROM maintenance_sites WHERE domain = ?', (domain.lower(),))
+        cur = con.execute(
+            '''INSERT INTO maintenance_sites
+               (domain, zone_id, method, cf_rule_id, previous_security_level, reason)
+               VALUES (?, ?, ?, ?, ?, ?)''',
+            (domain.lower(), zone_id, method, cf_rule_id, prev_level, reason)
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def disable_maintenance(domain: str) -> None:
+    with _connect() as con:
+        con.execute('DELETE FROM maintenance_sites WHERE domain = ?', (domain.lower(),))
+        con.commit()
+
+
+def get_all_maintenance() -> list:
+    with _connect() as con:
+        rows = con.execute('SELECT * FROM maintenance_sites').fetchall()
+    return [dict(r) for r in rows]

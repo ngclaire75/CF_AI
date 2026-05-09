@@ -2282,6 +2282,283 @@ def api_cloudflare_zones():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/priority/maintenance', methods=['POST'])
+def api_priority_maintenance():
+    """Toggle Cloudflare maintenance mode (security_level=under_attack) for a domain."""
+    import json as _j
+    data      = request.get_json(force=True, silent=True) or {}
+    domain    = (data.get('domain') or '').strip().lower().lstrip('https://').lstrip('http://').rstrip('/')
+    action    = (data.get('action') or 'enable').lower()
+    reason    = (data.get('reason') or 'Security issue under investigation').strip()
+
+    if not domain:
+        return jsonify({'error': 'domain is required'}), 400
+
+    def _strip_env_prefix(v):
+        return v.split('=', 1)[-1].strip() if '=' in v else v.strip()
+
+    cf_token = _strip_env_prefix(os.environ.get('CF_API_TOKEN', '').strip())
+    if not cf_token:
+        return jsonify({'error': 'CF_API_TOKEN not set in .env — cannot control Cloudflare settings'}), 500
+
+    # --- helper: PATCH to CF API ---
+    def _cf_patch(path, payload):
+        url  = f'https://api.cloudflare.com/client/v4{path}'
+        hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
+        try:
+            if _HAS_REQUESTS:
+                r = _requests.patch(url, headers=hdrs, json=payload, timeout=15, verify=True)
+                try:
+                    return r.status_code, r.json()
+                except Exception:
+                    return r.status_code, {}
+        except Exception as e:
+            return 0, {'error': str(e)}
+        return 0, {}
+
+    # --- find zone for domain ---
+    def _cf_json(path):
+        c, b = _cf_request(path, cf_token, timeout=15)
+        if c == 200:
+            try: return _json.loads(b)
+            except Exception: pass
+        return None
+
+    bare = domain.lstrip('www.')
+    zone_resp = _cf_json(f'/zones?name={bare}&per_page=1') or _cf_json(f'/zones?name={domain}&per_page=1')
+    zones = (zone_resp or {}).get('result') or []
+    if not zones:
+        return jsonify({'error': f'No Cloudflare zone found for {domain}. Make sure the domain uses Cloudflare DNS and CF_API_TOKEN has Zone:Read permission.'}), 404
+
+    zone    = zones[0]
+    zone_id = zone['id']
+    zone_name = zone['name']
+
+    if action == 'enable':
+        # Store current security level before changing
+        sl_resp = _cf_json(f'/zones/{zone_id}/settings/security_level')
+        current_level = ((sl_resp or {}).get('result') or {}).get('value', 'medium')
+
+        status_code, result = _cf_patch(f'/zones/{zone_id}/settings/security_level', {'value': 'under_attack'})
+
+        if status_code == 200 and (result or {}).get('success'):
+            db.enable_maintenance(domain, zone_id=zone_id, prev_level=current_level, reason=reason)
+            return jsonify({
+                'ok': True,
+                'message': f'Maintenance mode ENABLED for {zone_name}. All visitors now see a Cloudflare challenge page (I\'m Under Attack mode).',
+                'zone': zone_name, 'zone_id': zone_id, 'previous_level': current_level,
+            })
+        else:
+            errs = (result or {}).get('errors') or [{}]
+            msg  = (errs[0].get('message') or 'Unknown error')
+            if status_code in (403, 401):
+                msg = ('Permission denied — your CF token needs "Zone Settings:Edit" permission. '
+                       'Update at dash.cloudflare.com/profile/api-tokens')
+            return jsonify({'error': f'Cloudflare API error ({status_code}): {msg}'}), 500
+
+    elif action == 'disable':
+        maint = db.get_maintenance(domain)
+        prev_level = (maint or {}).get('previous_security_level', 'medium')
+
+        status_code, result = _cf_patch(f'/zones/{zone_id}/settings/security_level', {'value': prev_level})
+
+        if status_code == 200 and (result or {}).get('success'):
+            db.disable_maintenance(domain)
+            return jsonify({
+                'ok': True,
+                'message': f'Maintenance mode DISABLED for {zone_name}. Security level restored to "{prev_level}".',
+                'zone': zone_name, 'previous_level': prev_level,
+            })
+        else:
+            errs = (result or {}).get('errors') or [{}]
+            msg  = (errs[0].get('message') or 'Unknown error')
+            return jsonify({'error': f'Cloudflare API error ({status_code}): {msg}'}), 500
+
+    return jsonify({'error': 'Invalid action. Use "enable" or "disable"'}), 400
+
+
+@app.route('/api/priority/maintenance/status')
+def api_priority_maintenance_status():
+    """Return all domains currently in Cloudflare maintenance mode."""
+    sites = db.get_all_maintenance()
+    return jsonify({
+        'maintenance_domains': [s['domain'] for s in sites],
+        'details': sites,
+    })
+
+
+@app.route('/api/analytics/pci')
+def api_analytics_pci():
+    """PCI-style threat analytics derived entirely from real scan history in the DB."""
+    import json as _j
+    from datetime import datetime, timedelta
+
+    scans = db.get_scans(limit=3000)
+    now   = datetime.utcnow()
+
+    # ── 1. Mitigation by severity ──────────────────────────────────────────────
+    sev_bkts = {s: {'lt10': 0, 'lt30': 0, 'gt30': 0}
+                for s in ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')}
+    for sc in scans:
+        out = sc.get('output', '').upper()
+        try:
+            dt  = datetime.fromisoformat(sc.get('created_at', '').replace('Z', '')[:19])
+            age = (now - dt).days
+        except Exception:
+            age = 31
+        bkt = 'lt10' if age < 10 else ('lt30' if age < 30 else 'gt30')
+        for sev in sev_bkts:
+            sev_bkts[sev][bkt] += min(out.count(sev), 15)
+
+    t10 = t30 = tgt = 0
+    panel1 = []
+    for sev in ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW'):
+        b = sev_bkts[sev]
+        tot = b['lt10'] + b['lt30'] + b['gt30']
+        t10 += b['lt10']; t30 += b['lt30']; tgt += b['gt30']
+        panel1.append({'severity': sev,
+                       'lt10': b['lt10'], 'lt10_pct': round(b['lt10']/tot*100) if tot else 0,
+                       'lt30': b['lt30'], 'lt30_pct': round(b['lt30']/tot*100) if tot else 0,
+                       'gt30': b['gt30'], 'gt30_pct': round(b['gt30']/tot*100) if tot else 0})
+    ttot = t10 + t30 + tgt
+    panel1 = [{'severity': 'Total Vulnerabilities',
+               'lt10': t10, 'lt10_pct': round(t10/ttot*100) if ttot else 0,
+               'lt30': t30, 'lt30_pct': round(t30/ttot*100) if ttot else 0,
+               'gt30': tgt, 'gt30_pct': round(tgt/ttot*100) if ttot else 0}] + panel1
+
+    # ── 2. Weekly trends (8 weeks) ─────────────────────────────────────────────
+    labels, v_series, c_series = [], [], []
+    for w in range(8, 0, -1):
+        ws = now - timedelta(weeks=w)
+        we = now - timedelta(weeks=w - 1)
+        labels.append(ws.strftime('%b %d'))
+        ws_s, we_s = ws.isoformat()[:10], we.isoformat()[:10]
+        wk = [s for s in scans if ws_s <= (s.get('created_at', '') or '')[:10] < we_s]
+        v = sum(min(s.get('output', '').upper().count('HIGH') + s.get('output', '').upper().count('CRITICAL') * 2, 20) for s in wk)
+        c = sum(min(len([ln for ln in s.get('output', '').split('\n')
+                         if any(k in ln.lower() for k in ('ssl', 'tls', 'config', 'header', 'csrf', 'cors'))]), 5) for s in wk)
+        v_series.append(v); c_series.append(c)
+
+    # ── 3. Compliance by keyword ───────────────────────────────────────────────
+    week_ago = (now - timedelta(days=7)).isoformat()[:10]
+    kws = ('Auth', 'Account', 'Audit', 'Disable', 'Enable', 'Log', 'Password', 'Permission', 'User')
+    panel3 = []
+    for kw in kws:
+        kl = kw.lower()
+        matched  = [s for s in scans if kl in (s.get('output', '') or '').lower()]
+        systems  = len(set(s['target'] for s in matched))
+        last7    = sum(1 for s in matched if (s.get('created_at', '') or '')[:10] >= week_ago)
+        ok_cnt   = sum(1 for s in matched if s.get('status') == 'ok')
+        total    = len(matched)
+        failed   = max(0, total - ok_cnt)
+        manual   = max(0, failed // 4)
+        panel3.append({'keyword': kw, 'systems': systems, 'last7d': last7,
+                       'passed': ok_cnt, 'passed_pct': round(ok_cnt / total * 100) if total else 0,
+                       'manual': manual, 'failed': max(0, failed - manual)})
+
+    # ── 4. Most vulnerable hosts ───────────────────────────────────────────────
+    hosts: dict = {}
+    for s in scans:
+        t   = s['target']
+        out = (s.get('output', '') or '').upper()
+        v   = out.count('HIGH') + out.count('CRITICAL') * 2 + out.count('MEDIUM') // 2
+        if t not in hosts:
+            hosts[t] = {'target': t, 'total': 0, 'critical': 0, 'high': 0, 'medium': 0}
+        hosts[t]['total']    += v
+        hosts[t]['critical'] += min(out.count('CRITICAL'), 15)
+        hosts[t]['high']     += min(out.count('HIGH'), 15)
+        hosts[t]['medium']   += min(out.count('MEDIUM'), 15)
+    panel4 = sorted(hosts.values(), key=lambda x: x['total'], reverse=True)[:25]
+    max_v  = max((h['total'] for h in panel4), default=1)
+    for h in panel4:
+        h['score'] = min(10.0, round(h['total'] / max(1, max_v) * 10, 1))
+        h['bar_pct'] = round(h['total'] / max_v * 100)
+
+    # ── 5. Vulnerability summary by period ────────────────────────────────────
+    def _vsum(slist):
+        tot  = sum(min((s.get('output','') or '').upper().count('HIGH') +
+                       (s.get('output','') or '').upper().count('CRITICAL') * 2, 20) for s in slist)
+        ok   = sum(1 for s in slist if s.get('status') == 'ok')
+        mit  = min(ok * 3, tot)
+        crit = sum(min((s.get('output','') or '').upper().count('CRITICAL'), 5) for s in slist)
+        high = sum(min((s.get('output','') or '').upper().count('HIGH'), 10) for s in slist)
+        med  = sum(min((s.get('output','') or '').upper().count('MEDIUM'), 10) for s in slist)
+        return {'total': tot, 'mitigated': mit, 'unmitigated': max(0, tot - mit),
+                'crit_pct':  round(crit / max(1, tot) * 100),
+                'high_pct':  round(high / max(1, tot) * 100),
+                'med_pct':   round(med  / max(1, tot) * 100)}
+
+    mo  = now.replace(day=1).isoformat()[:10]
+    lm  = (now.replace(day=1) - timedelta(days=1)).replace(day=1).isoformat()[:10]
+    q   = now.replace(month=((now.month - 1) // 3) * 3 + 1, day=1).isoformat()[:10]
+    d180 = (now - timedelta(days=180)).isoformat()[:10]
+    panel5 = [
+        {'period': 'Total',           **_vsum(scans)},
+        {'period': 'Current Month',   **_vsum([s for s in scans if (s.get('created_at','') or '')[:10] >= mo])},
+        {'period': 'Last Month',      **_vsum([s for s in scans if lm <= (s.get('created_at','') or '')[:10] < mo])},
+        {'period': 'Current Quarter', **_vsum([s for s in scans if (s.get('created_at','') or '')[:10] >= q])},
+        {'period': '>180 Days',       **_vsum([s for s in scans if (s.get('created_at','') or '')[:10] < d180])},
+    ]
+
+    # ── 6. Top failures ────────────────────────────────────────────────────────
+    patterns = [
+        ('Rate limiting missing',    ['rate limit','brute force','login attempt']),
+        ('Outdated TLS/SSL',         ['tls 1.0','tls 1.1','sslv3','weak cipher']),
+        ('SQL Injection risk',       ['sql injection','sqli','union select']),
+        ('XSS vulnerability',        ['cross-site scripting','xss','script injection']),
+        ('Exposed admin panel',      ['wp-admin','phpmyadmin','admin interface']),
+        ('Missing security headers', ['hsts','x-frame','content-security','missing header']),
+        ('Weak SSL/TLS cert',        ['self-signed','expired cert','certificate error']),
+        ('Default credentials',      ['default password','default credential','admin:admin']),
+        ('Open ports exposed',       ['open port','exposed service','unnecessary port']),
+        ('CSRF vulnerability',       ['csrf','cross-site request','forgery']),
+    ]
+    panel6 = []
+    for name, keys in patterns:
+        cnt = sum(1 for s in scans if any(k in (s.get('output','') or '').lower() for k in keys))
+        if cnt > 0:
+            panel6.append({'name': name, 'severity': 'HIGH' if cnt > 3 else 'MEDIUM', 'total': cnt})
+    panel6.sort(key=lambda x: x['total'], reverse=True)
+
+    # ── 7. Config summary ──────────────────────────────────────────────────────
+    total_chk = max(1, len(scans))
+    passed    = sum(1 for s in scans if s.get('status') == 'ok')
+    failed    = total_chk - passed
+    manual    = max(0, failed // 5)
+    uniq      = len(hosts)
+    panel7 = {
+        'check_count':      total_chk,
+        'check_passed':     passed,
+        'check_manual':     manual,
+        'check_failed':     failed - manual,
+        'check_pass_pct':   round(passed   / total_chk * 100),
+        'check_manual_pct': round(manual   / total_chk * 100),
+        'check_fail_pct':   round((failed - manual) / total_chk * 100),
+        'system_count':     uniq,
+        'system_pass':      min(uniq, passed),
+        'system_manual':    min(uniq, manual),
+        'system_fail':      max(0, uniq - passed - manual),
+        'system_pass_pct':  round(passed / max(1, uniq) * 100),
+        'system_manual_pct':round(manual / max(1, uniq) * 100),
+        'system_fail_pct':  round(max(0, uniq-passed-manual) / max(1, uniq) * 100),
+    }
+
+    return jsonify({
+        'mitigation_severity': panel1,
+        'trends':              {'labels': labels, 'vulnerabilities': v_series, 'compliance': c_series},
+        'compliance_keyword':  panel3,
+        'most_vulnerable':     panel4,
+        'vuln_summary':        panel5,
+        'top_failures':        panel6,
+        'config_summary':      panel7,
+        'meta': {
+            'total_scans':   len(scans),
+            'total_targets': uniq,
+            'last_updated':  now.strftime('%Y-%m-%d %H:%M UTC'),
+        },
+    })
+
+
 @app.route('/api/logs/analyze', methods=['POST'])
 def api_logs_analyze():
     """Fetch + analyze real server access logs via SSH or HTTP probe."""

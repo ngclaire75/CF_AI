@@ -1628,6 +1628,47 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 @keyframes ink-spin{to{transform:rotate(360deg);}}
 .ink-spin-label{color:#fff;font-size:13px;font-family:'Segoe UI',sans-serif;letter-spacing:.5px;opacity:.85;}
 
+/* ── Threat Analytics — PCI Monitoring style ────────────────────────────── */
+.pci-hdr{background:#1b1b1b;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.pci-hdr-title{font-size:14px;font-weight:600;font-family:'Segoe UI',sans-serif;display:flex;align-items:center;gap:8px;}
+.pci-hdr-acts{display:flex;gap:6px;align-items:center;}
+.pci-hdr-btn{padding:4px 11px;background:#3a3a3a;border:1px solid #555;color:#fff;font-size:11px;cursor:pointer;border-radius:2px;font-family:'Segoe UI',sans-serif;white-space:nowrap;}
+.pci-hdr-btn:hover{background:#4a4a4a;}.pci-hdr-btn.pciprimary{background:#0078d4;border-color:#006bb8;}
+.pci-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px;background:#f2f2f2;align-items:start;}
+.pci-card{background:#fff;border:1px solid #d6d6d6;display:flex;flex-direction:column;}
+.pci-card-hdr{padding:6px 10px 5px;font-size:11px;font-weight:700;color:#252423;font-family:'Segoe UI',sans-serif;border-bottom:1px solid #ebebeb;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.pci-card-count{font-size:10px;color:#797673;font-weight:400;white-space:nowrap;}
+.pci-card-pg{display:flex;align-items:center;gap:2px;font-size:10px;color:#797673;}
+.pci-card-pg button{border:none;background:none;color:#0078d4;cursor:pointer;font-size:13px;padding:0 1px;line-height:1;}
+.pci-card-body{flex:1;}
+.pci-card-foot{padding:3px 10px;font-size:10px;color:#b0adab;border-top:1px solid #f3f2f1;}
+.pci-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.pci-tbl th{padding:5px 8px;background:#f3f3f3;color:#797673;font-size:10px;font-weight:700;text-transform:uppercase;border-bottom:1px solid #e0e0e0;text-align:right;white-space:nowrap;}
+.pci-tbl th:first-child,.pci-tbl th.pci-l{text-align:left;}
+.pci-tbl td{padding:4px 8px;border-bottom:1px solid #f0f0f0;text-align:right;color:#323130;font-size:11px;}
+.pci-tbl td:first-child,.pci-tbl td.pci-l{text-align:left;}
+.pci-tbl tr:hover td{background:#f0f8ff;}
+.pci-row-total td{background:#f3f3f3!important;font-weight:700;}
+.pci-sev-crit{background:#C00000;color:#fff;padding:1px 4px;font-size:10px;font-weight:700;display:inline-block;}
+.pci-sev-high{background:#FF0000;color:#fff;padding:1px 4px;font-size:10px;font-weight:700;display:inline-block;}
+.pci-sev-med{background:#FFC000;color:#fff;padding:1px 4px;font-size:10px;font-weight:700;display:inline-block;}
+.pci-sev-low{background:#92D050;color:#000;padding:1px 4px;font-size:10px;font-weight:700;display:inline-block;}
+.pci-cfg-g{background:#70AD47;color:#fff;padding:1px 5px;font-weight:700;font-size:10px;}
+.pci-cfg-y{background:#FFC000;color:#fff;padding:1px 5px;font-weight:700;font-size:10px;}
+.pci-cfg-r{background:#C00000;color:#fff;padding:1px 5px;font-weight:700;font-size:10px;}
+.pci-chk-ok{color:#107c10;font-size:13px;}
+.pci-bar-wrap{display:inline-flex;height:10px;width:80px;background:#e8e8e8;vertical-align:middle;}
+.pci-bar-c{background:#C00000;height:100%;}
+.pci-bar-h{background:#FF0000;height:100%;}
+.pci-pct-cell{font-size:10px;color:#605e5c;}
+.pci-empty{padding:28px;text-align:center;color:#a19f9d;font-size:12px;grid-column:1/-1;}
+/* Maintenance mode badge and button */
+.maint-badge{display:inline-block;background:#a80000;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:5px;vertical-align:middle;letter-spacing:.3px;}
+.btn-lock{background:#a80000;color:#fff;border:none;border-radius:4px;padding:4px 9px;font-size:11px;cursor:pointer;white-space:nowrap;}
+.btn-lock:hover{background:#8b0000;}
+.btn-unlock{background:#107c10;color:#fff;border:none;border-radius:4px;padding:4px 9px;font-size:11px;cursor:pointer;white-space:nowrap;}
+.btn-unlock:hover{background:#0b5e0b;}
+
 /* ═══ Weaknesses / new pages shared styles ══════════════════════════════════ */
 .mdef-page{padding:0;}
 .mdef-page-title{font-size:24px;font-weight:700;color:#201f1e;padding:20px 24px 10px;font-family:'Segoe UI',sans-serif;}
@@ -2255,14 +2296,18 @@ Export Power BI
               <th>Recommended Action</th>
               <th style="width:170px;">Identified By</th>
               <th style="width:88px;">Date</th>
-              <th style="width:64px;"></th>
+              <th style="width:72px;"></th>
+              <th style="width:100px;" title="Close site via Cloudflare until fix is applied">Lock Site</th>
             </tr>
           </thead>
           <tbody id="prio-tbody">
           {% for rec in all_recs %}
             <tr data-target="{{ rec.target|lower }}">
               <td><span class="badge badge-{{ rec.risk }}">{{ rec.risk }}</span></td>
-              <td class="td-target" title="{{ rec.target }}">{{ rec.target }}</td>
+              <td class="td-target" title="{{ rec.target }}">
+                {{ rec.target }}
+                <span class="maint-badge" id="maint-badge-{{ rec.target|lower|replace('.','_')|replace('/','_') }}" style="display:none;">LOCKED</span>
+              </td>
               <td>
                 <div class="rec-text">
                   {{ rec.text }}
@@ -2272,6 +2317,10 @@ Export Power BI
               <td><div class="rec-agent">{{ rec.agent }}</div></td>
               <td class="td-dim">{{ rec.date }}</td>
               <td><button class="btn btn-sm" onclick="openModal({{ rec.scan_id }})">View Fix</button></td>
+              <td>
+                <button class="btn-lock" id="lock-btn-{{ rec.target|lower|replace('.','_')|replace('/','_') }}"
+                  onclick="toggleSiteLock('{{ rec.target }}', this)">🔒 Lock</button>
+              </td>
             </tr>
           {% endfor %}
           </tbody>
@@ -3415,13 +3464,22 @@ Load Logs
 
   <!-- ══ THREAT ANALYTICS PAGE ═════════════════════════════════════════════ -->
   <div id="page-threatanalytics" class="page-section" style="display:none">
-  <div class="mdef-page">
-    <div class="mdef-page-title">Threat analytics</div>
-    <div class="mdef-toolbar">
-      <button class="mdef-toolbar-btn primary" onclick="loadThreatAnalytics()">Refresh</button>
+  <!-- PCI Continuous Monitoring style header -->
+  <div class="pci-hdr">
+    <div class="pci-hdr-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      Threat Analytics
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px;" id="ta-grid">
-      <div class="mdef-empty" style="grid-column:1/-1;">Click Refresh to load threat analytics from scan findings and CISA KEV.</div>
+    <div class="pci-hdr-acts">
+      <button class="pci-hdr-btn pciprimary" onclick="loadThreatAnalytics()">↺ Refresh All</button>
+      <button class="pci-hdr-btn">Switch Dashboard ▾</button>
+      <button class="pci-hdr-btn">⚙ Options ▾</button>
+    </div>
+  </div>
+  <!-- 3-column PCI grid -->
+  <div class="pci-grid" id="ta-pci-grid">
+    <div class="pci-card" style="grid-column:1/-1">
+      <div class="pci-card-body pci-empty">Click <strong>↺ Refresh All</strong> to load threat analytics from real scan data.</div>
     </div>
   </div>
   </div><!-- /page-threatanalytics -->
@@ -3605,6 +3663,7 @@ function sbNav(section, el) {
   if (section === 'eventtimeline') loadEventTimeline();
   if (section === 'threatanalytics') loadThreatAnalytics();
   if (section === 'securescore')   loadSecureScore();
+  if (section === 'priority')      loadMaintenanceStatus();
 }
 
 function toggleSidebar() {
@@ -4605,6 +4664,79 @@ function filterPrioActions(val) {
 function clearPrioFilter() {
   document.getElementById('prioDomainFilter').value = '';
   filterPrioActions('');
+}
+
+// ── Priority Actions — Maintenance Mode (Lock Site via Cloudflare) ────────────
+var _maintDomains = {};
+
+function _domainKey(d) { return d.toLowerCase().replace(/[./]/g,'_'); }
+
+function loadMaintenanceStatus() {
+  fetch('/api/priority/maintenance/status')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      (d.maintenance_domains || []).forEach(function(dom) { _maintDomains[dom] = true; });
+      _updateLockUI();
+    })
+    .catch(function(){});
+}
+
+function _updateLockUI() {
+  Object.keys(_maintDomains).forEach(function(dom) {
+    var k = _domainKey(dom);
+    var btn = document.getElementById('lock-btn-' + k);
+    var badge = document.getElementById('maint-badge-' + k);
+    if (btn) {
+      btn.className = 'btn-unlock'; btn.textContent = '🔓 Unlock';
+      btn.setAttribute('data-action', 'disable');
+    }
+    if (badge) badge.style.display = '';
+  });
+}
+
+function toggleSiteLock(domain, btn) {
+  var action = (btn.getAttribute('data-action') || 'enable');
+  var msg    = action === 'enable'
+    ? 'Lock ' + domain + ' down via Cloudflare (sets "I\'m Under Attack" mode — all visitors see a challenge page until you unlock)?\n\nMake sure your CF token has Zone Settings:Edit permission.'
+    : 'Unlock ' + domain + ' and restore normal Cloudflare security level?';
+  if (!confirm(msg)) return;
+
+  btn.disabled = true; btn.textContent = action === 'enable' ? '⏳ Locking…' : '⏳ Unlocking…';
+
+  fetch('/api/priority/maintenance', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ domain: domain, action: action,
+      reason: 'Locked from Priority Actions — security issue under investigation' })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    btn.disabled = false;
+    if (d.ok) {
+      if (action === 'enable') {
+        _maintDomains[domain.toLowerCase()] = true;
+        btn.className = 'btn-unlock'; btn.textContent = '🔓 Unlock';
+        btn.setAttribute('data-action', 'disable');
+        var badge = document.getElementById('maint-badge-' + _domainKey(domain));
+        if (badge) badge.style.display = '';
+        alert('✅ ' + d.message);
+      } else {
+        delete _maintDomains[domain.toLowerCase()];
+        btn.className = 'btn-lock'; btn.textContent = '🔒 Lock';
+        btn.setAttribute('data-action', 'enable');
+        var badge2 = document.getElementById('maint-badge-' + _domainKey(domain));
+        if (badge2) badge2.style.display = 'none';
+        alert('✅ ' + d.message);
+      }
+    } else {
+      btn.textContent = action === 'enable' ? '🔒 Lock' : '🔓 Unlock';
+      alert('❌ ' + (d.error || 'Unknown error'));
+    }
+  })
+  .catch(function(e) {
+    btn.disabled = false; btn.textContent = action === 'enable' ? '🔒 Lock' : '🔓 Unlock';
+    alert('❌ Request failed: ' + e);
+  });
 }
 
 /* ── HTML escape ── */
@@ -7654,58 +7786,299 @@ function loadEventTimeline() {
 /* ═══════════════════════════════════════════════════════
    THREAT ANALYTICS PAGE
    ═══════════════════════════════════════════════════════ */
+/* ─── PCI-style Threat Analytics ─────────────────────────────────────── */
+var _taChart = null;
+var _taData  = null;
+
+// Paginated table state: {panelKey: {page, perPage, data, renderFn}}
+var _taPg = {};
+
+function _taPage(key, dir) {
+  var s = _taPg[key]; if (!s) return;
+  var maxPage = Math.ceil(s.data.length / s.perPage);
+  s.page = Math.max(1, Math.min(maxPage, s.page + dir));
+  s.renderFn(s);
+}
+
+function _pciCard(title, countHtml, bodyHtml, footerTs) {
+  return '<div class="pci-card">'
+    + '<div class="pci-card-hdr">' + escHtml(title) + '<span class="pci-card-count">' + (countHtml||'') + '</span></div>'
+    + '<div class="pci-card-body">' + bodyHtml + '</div>'
+    + '<div class="pci-card-foot">Last Updated: ' + (footerTs||'just now') + '</div>'
+    + '</div>';
+}
+
+function _pciPgCard(title, key, data, perPage, renderBodyFn, footerTs) {
+  _taPg[key] = { page:1, perPage:perPage, data:data, renderFn: function(s) {
+    var start = (s.page-1)*s.perPage, slice = s.data.slice(start, start+s.perPage);
+    var maxPage = Math.max(1, Math.ceil(s.data.length / s.perPage));
+    var el = document.getElementById('pci-pg-body-'+key);
+    var cnt = document.getElementById('pci-pg-cnt-'+key);
+    var pgLabel = document.getElementById('pci-pg-lbl-'+key);
+    if (el) el.innerHTML = renderBodyFn(slice);
+    if (cnt) cnt.textContent = data.length + ' Item(s)';
+    if (pgLabel) pgLabel.textContent = 'Page ' + s.page + ' of ' + maxPage;
+  }};
+  var maxPage = Math.max(1, Math.ceil(data.length / perPage));
+  var countHtml = '<span id="pci-pg-cnt-'+key+'">' + data.length + ' Item(s)</span>'
+    + '<span class="pci-card-pg">'
+    + '&nbsp;&nbsp;1 to ' + Math.min(perPage, data.length) + ' of ' + data.length
+    + '&nbsp;<button onclick="_taPage(\''+key+'\',-999)">&#x25C0;&#x25C0;</button>'
+    + '<button onclick="_taPage(\''+key+'\',-1)">&#x25C0;</button>'
+    + '&nbsp;<span id="pci-pg-lbl-'+key+'">Page 1 of '+maxPage+'</span>'
+    + '&nbsp;<button onclick="_taPage(\''+key+'\',1)">&#x25B6;</button>'
+    + '<button onclick="_taPage(\''+key+'\',999)">&#x25B6;&#x25B6;</button>'
+    + '</span>';
+  var firstSlice = data.slice(0, perPage);
+  return '<div class="pci-card">'
+    + '<div class="pci-card-hdr">' + escHtml(title) + '<span class="pci-card-count">' + countHtml + '</span></div>'
+    + '<div class="pci-card-body"><table class="pci-tbl"><tbody id="pci-pg-body-'+key+'">'
+    + renderBodyFn(firstSlice)
+    + '</tbody></table></div>'
+    + '<div class="pci-card-foot">Last Updated: ' + (footerTs||'just now') + '</div>'
+    + '</div>';
+}
+
 function loadThreatAnalytics() {
-  var grid = document.getElementById('ta-grid');
+  var grid = document.getElementById('ta-pci-grid');
   if (!grid) return;
-  grid.innerHTML = '<div style="grid-column:1/-1;" class="mdef-empty">Loading...</div>';
+  grid.innerHTML = '<div class="pci-card" style="grid-column:1/-1"><div class="pci-card-body pci-empty">Loading from scan database…</div></div>';
+  _taPg = {};
+  if (_taChart) { try { _taChart.destroy(); } catch(e){} _taChart = null; }
 
-  Promise.all([
-    fetch('/api/vuln-intel/correlate?limit=500').then(function(r){ return r.json(); }).catch(function(){ return {cves:[],kev_count:0,epss_high:0}; }),
-    fetch('/api/security-signals?days=30').then(function(r){ return r.json(); }).catch(function(){ return {events:[]}; }),
-    fetch('/api/vuln-intel/kev').then(function(r){ return r.json(); }).catch(function(){ return {total:0}; })
-  ]).then(function(res) {
-    var intel = res[0], signals = res[1], kevInfo = res[2];
-    var cves = intel.cves || [];
-    var events = signals.events || [];
-    var cards = [];
+  fetch('/api/analytics/pci')
+    .then(function(r){ return r.json(); })
+    .then(function(d) { _taData = d; _taRender(d, grid); })
+    .catch(function(e) {
+      grid.innerHTML = '<div class="pci-card" style="grid-column:1/-1"><div class="pci-card-body pci-empty" style="color:#a80000;">Error loading data: ' + _esc(String(e)) + '</div></div>';
+    });
+}
 
-    cards.push('<div style="background:#fff;border:1px solid #e1dfdd;padding:16px;">' +
-      '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">CISA Known Exploited Vulnerabilities</div>' +
-      '<div style="font-size:32px;font-weight:700;color:#a80000;font-family:\'Segoe UI\';">' + (intel.kev_count || 0) + '</div>' +
-      '<div style="font-size:11px;color:#605e5c;margin-top:4px;">CVEs from your scans are in the KEV catalogue (' + (kevInfo.total || 0) + ' total in KEV)</div>' +
-      '<div style="margin-top:12px;">' + cves.filter(function(r){ return r.in_kev; }).slice(0,5).map(function(r){ return '<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;"><span style="color:#0078d4;font-weight:600;">' + r.cve_id + '</span> — ' + _esc(((r.kev||{}).name||'').slice(0,60)) + '</div>'; }).join('') + '</div>' +
-      '</div>');
+function _taRender(d, grid) {
+  var ts = d.meta && d.meta.last_updated ? d.meta.last_updated : 'just now';
+  var cards = [];
 
-    var epssHigh = cves.filter(function(r){ return (r.epss_score||0) >= 0.5; });
-    cards.push('<div style="background:#fff;border:1px solid #e1dfdd;padding:16px;">' +
-      '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">High EPSS Score CVEs (exploitation probability ≥50%)</div>' +
-      '<div style="font-size:32px;font-weight:700;color:#986f0b;font-family:\'Segoe UI\';">' + epssHigh.length + '</div>' +
-      '<div style="font-size:11px;color:#605e5c;margin-top:4px;">CVEs with high exploitation probability in the next 30 days</div>' +
-      '<div style="margin-top:12px;">' + epssHigh.slice(0,5).map(function(r){ return '<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;"><span style="color:#0078d4;">' + r.cve_id + '</span> — EPSS: ' + (r.epss_score*100).toFixed(1) + '%</div>'; }).join('') + '</div>' +
-      '</div>');
+  // ── COLUMN 1 ─────────────────────────────────────────────────────────────
+  // Card 1: Mitigated Vulnerabilities by Severity
+  var mitRows = (d.mitigation_severity || []).map(function(r, i) {
+    var sevHtml = i === 0 ? '<strong>' + escHtml(r.severity) + '</strong>'
+      : r.severity === 'CRITICAL' ? '<span class="pci-sev-crit">Critical</span>'
+      : r.severity === 'HIGH'     ? '<span class="pci-sev-high">High</span>'
+      : r.severity === 'MEDIUM'   ? '<span class="pci-sev-med">Medium</span>'
+      :                             '<span class="pci-sev-low">Low</span>';
+    var rowCls = i === 0 ? ' class="pci-row-total"' : '';
+    return '<tr' + rowCls + '><td class="pci-l">' + sevHtml + '</td>'
+      + '<td>' + r.lt10 + '<br><span class="pci-pct-cell">' + r.lt10_pct + '%</span></td>'
+      + '<td>' + r.lt30 + '<br><span class="pci-pct-cell">' + r.lt30_pct + '%</span></td>'
+      + '<td>' + r.gt30 + '<br><span class="pci-pct-cell">' + r.gt30_pct + '%</span></td>'
+      + '</tr>';
+  }).join('');
+  cards.push(_pciCard(
+    'Security Monitoring - Mitigated Vulnerabilities by Severity', '',
+    '<table class="pci-tbl"><thead><tr><th class="pci-l"></th><th>Mitigated&nbsp;&lt;10d</th><th>Mitigated&nbsp;10-30d</th><th>Mitigated&nbsp;&gt;30d</th></tr></thead><tbody>' + mitRows + '</tbody></table>',
+    ts
+  ));
 
-    var sigCounts = {};
-    events.forEach(function(ev){ sigCounts[ev.rule_id||ev.title||'unknown'] = (sigCounts[ev.rule_id||ev.title||'unknown']||0)+1; });
-    var topSigs = Object.entries(sigCounts).sort(function(a,b){ return b[1]-a[1]; }).slice(0,5);
-    cards.push('<div style="background:#fff;border:1px solid #e1dfdd;padding:16px;">' +
-      '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">Top security signals (last 30 days)</div>' +
-      '<div style="font-size:32px;font-weight:700;color:#0078d4;font-family:\'Segoe UI\';">' + events.length + '</div>' +
-      '<div style="font-size:11px;color:#605e5c;margin-top:4px;">Total signals detected across all scans</div>' +
-      '<div style="margin-top:12px;">' + topSigs.map(function(e){ return '<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;display:flex;justify-content:space-between;"><span>' + _esc(String(e[0]).slice(0,50)) + '</span><strong>' + e[1] + '</strong></div>'; }).join('') + '</div>' +
-      '</div>');
+  // Card 2: Most Vulnerable Hosts (paginated)
+  cards.push(_pciPgCard(
+    'Security Monitoring - Most Vulnerable Hosts', 'vuln-hosts',
+    d.most_vulnerable || [], 5,
+    function(rows) {
+      return rows.map(function(h) {
+        var bar = '<div class="pci-bar-wrap"><div class="pci-bar-c" style="width:' + Math.round((h.critical||0)/Math.max(1,h.total)*h.bar_pct) + '%"></div><div class="pci-bar-h" style="width:' + Math.round((h.high||0)/Math.max(1,h.total)*h.bar_pct) + '%"></div></div>';
+        return '<tr><td class="pci-l" style="font-family:monospace;font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHtml(h.target)+'">'+escHtml(h.target.slice(0,20))+'</td>'
+          + '<td>' + (h.score||0) + '</td>'
+          + '<td>' + (h.total||0) + '</td>'
+          + '<td>' + bar + '</td></tr>';
+      }).join('');
+    }, ts
+  ));
+  // Inject thead for vuln-hosts after card is built
+  cards[cards.length-1] = cards[cards.length-1].replace(
+    '<tbody id="pci-pg-body-vuln-hosts"',
+    '<thead><tr><th class="pci-l">Target</th><th>Score&nbsp;▾</th><th>Total</th><th>Vulnerabilities</th></tr></thead><tbody id="pci-pg-body-vuln-hosts"'
+  );
 
-    var sevCounts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0 };
-    cves.forEach(function(r){ var s = ((r.nvd||{}).severity||'LOW').toUpperCase(); if (sevCounts[s] !== undefined) sevCounts[s]++; });
-    cards.push('<div style="background:#fff;border:1px solid #e1dfdd;padding:16px;">' +
-      '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">CVE severity breakdown</div>' +
-      '<div style="font-size:32px;font-weight:700;color:#201f1e;font-family:\'Segoe UI\';">' + cves.length + '</div>' +
-      '<div style="font-size:11px;color:#605e5c;margin-top:4px;">Total CVEs identified across all scans</div>' +
-      '<div style="margin-top:12px;">' +
-        Object.entries(sevCounts).map(function(e){ var cols={CRITICAL:'#a80000',HIGH:'#c50f1f',MEDIUM:'#986f0b',LOW:'#107c10'}; var c=cols[e[0]]||'#605e5c'; return '<div style="padding:4px 0;border-bottom:1px solid #f3f2f1;font-size:12px;display:flex;justify-content:space-between;align-items:center;"><span style="color:'+c+';font-weight:600;">'+e[0]+'</span><strong>'+e[1]+'</strong></div>'; }).join('') +
-      '</div></div>');
+  // Card 3: Most Mitigated (top failures reused)
+  var topFail = d.top_failures || [];
+  cards.push(_pciPgCard(
+    'Security Monitoring - Most Mitigated Vulnerabilities', 'top-fail',
+    topFail, 5,
+    function(rows) {
+      return rows.map(function(r, i) {
+        var sevBadge = r.severity === 'HIGH' ? '<span class="pci-sev-high">HIGH</span>' : '<span class="pci-sev-med">MEDIUM</span>';
+        return '<tr><td class="pci-l" style="font-size:10px;color:#0078d4;font-weight:600;">' + (i+1).toString().padStart(5,'0') + '</td>'
+          + '<td class="pci-l" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHtml(r.name)+'">'+escHtml(r.name)+'</td>'
+          + '<td>' + sevBadge + '</td>'
+          + '<td>' + r.total + '</td></tr>';
+      }).join('');
+    }, ts
+  ));
+  cards[cards.length-1] = cards[cards.length-1].replace(
+    '<tbody id="pci-pg-body-top-fail"',
+    '<thead><tr><th class="pci-l">Plugin&nbsp;ID</th><th class="pci-l">Name</th><th>Severity</th><th>Total&nbsp;▾</th></tr></thead><tbody id="pci-pg-body-top-fail"'
+  );
 
-    grid.innerHTML = cards.join('');
+  // ── COLUMN 2 ─────────────────────────────────────────────────────────────
+  // Card 4: Vulnerability & Configuration Trends (Chart.js)
+  cards.push('<div class="pci-card">'
+    + '<div class="pci-card-hdr">Security Monitoring - Vulnerability and Configuration Trends</div>'
+    + '<div class="pci-card-body" style="padding:8px;"><canvas id="ta-trend-chart" height="160"></canvas></div>'
+    + '<div style="padding:4px 10px;font-size:10px;display:flex;gap:12px;align-items:center;border-top:1px solid #f0f0f0;">'
+    + '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:22px;height:3px;background:#118DFF;display:inline-block;"></span>Vulnerabilities-Total</span>'
+    + '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:22px;height:3px;background:#12239E;display:inline-block;"></span>Compliance-Total</span>'
+    + '</div>'
+    + '<div class="pci-card-foot">Last Updated: ' + ts + '</div>'
+    + '</div>');
+
+  // Card 5: Vulnerability Summary
+  var vSumRows = (d.vuln_summary || []).map(function(r, i) {
+    var rowCls = i === 0 ? ' class="pci-row-total"' : '';
+    return '<tr' + rowCls + '><td class="pci-l">' + escHtml(r.period) + '</td>'
+      + '<td>' + r.mitigated + '</td>'
+      + '<td>' + r.unmitigated + '</td>'
+      + '<td><span class="pci-pct-cell">' + r.med_pct + '%</span></td>'
+      + '<td><span class="pci-pct-cell">' + r.high_pct + '%</span></td>'
+      + '<td><span class="pci-pct-cell">' + r.crit_pct + '%</span></td>'
+      + '</tr>';
+  }).join('');
+  cards.push(_pciCard(
+    'Security Monitoring - Vulnerability Summary', '',
+    '<table class="pci-tbl"><thead><tr><th class="pci-l"></th><th>Mitigated</th><th>Unmitigated</th><th>Medium%</th><th>High%</th><th>Critical%</th></tr></thead><tbody>' + vSumRows + '</tbody></table>',
+    ts
+  ));
+
+  // Card 6: Configuration Summary
+  var cfg = d.config_summary || {};
+  var cfgHtml = '<table class="pci-tbl"><thead><tr><th class="pci-l"></th><th><span class="pci-cfg-g">Passed</span></th><th><span class="pci-cfg-y">Manual Check</span></th><th><span class="pci-cfg-r">Failed</span></th></tr></thead><tbody>'
+    + '<tr><td class="pci-l">Check Count</td>'
+    + '<td><span class="pci-cfg-g">' + (cfg.check_passed||0) + '</span></td>'
+    + '<td><span class="pci-cfg-y">' + (cfg.check_manual||0) + '</span></td>'
+    + '<td><span class="pci-cfg-r">' + (cfg.check_failed||0) + '</span></td></tr>'
+    + '<tr><td class="pci-l">Check Ratio</td>'
+    + '<td><span class="pci-cfg-g">' + (cfg.check_pass_pct||0) + '%</span></td>'
+    + '<td><span class="pci-cfg-y">' + (cfg.check_manual_pct||0) + '%</span></td>'
+    + '<td><span class="pci-cfg-r">' + (cfg.check_fail_pct||0) + '%</span></td></tr>'
+    + '<tr><td class="pci-l">System Count</td>'
+    + '<td><span class="pci-cfg-g">' + (cfg.system_pass||0) + '</span></td>'
+    + '<td><span class="pci-cfg-y">' + (cfg.system_manual||0) + '</span></td>'
+    + '<td><span class="pci-cfg-r">' + (cfg.system_fail||0) + '</span></td></tr>'
+    + '<tr><td class="pci-l">System Ratio</td>'
+    + '<td><span class="pci-cfg-g">' + (cfg.system_pass_pct||0) + '%</span></td>'
+    + '<td><span class="pci-cfg-y">' + (cfg.system_manual_pct||0) + '%</span></td>'
+    + '<td><span class="pci-cfg-r">' + (cfg.system_fail_pct||0) + '%</span></td></tr>'
+    + '</tbody></table>';
+  cards.push(_pciCard('Security Monitoring - Configuration Summary', '', cfgHtml, ts));
+
+  // Card 7: Understanding Risk
+  var remHtml = '<div style="padding:10px;">';
+  (d.most_vulnerable || []).slice(0, 8).forEach(function(h, i) {
+    var w = Math.min(100, Math.round(h.bar_pct || 0));
+    remHtml += '<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">'
+      + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">'
+      + '<span title="'+escHtml(h.target)+'">'+escHtml(h.target.slice(0,28))+'</span>'
+      + '<strong>' + h.total + '</strong></div>'
+      + '<div style="height:6px;background:#e8e8e8;"><div style="height:100%;background:#C00000;width:'+w+'%;"></div></div>'
+      + '</div>';
   });
+  remHtml += '</div>';
+  cards.push(_pciCard('Understanding Risk — Remediation Opportunities', (d.most_vulnerable||[]).length + ' Item(s)', remHtml, ts));
+
+  // ── COLUMN 3 ─────────────────────────────────────────────────────────────
+  // Card 8: CSF - Compliance Checks By Keyword
+  var ckwRows = (d.compliance_keyword || []).map(function(r) {
+    return '<tr><td class="pci-l">' + escHtml(r.keyword) + '</td>'
+      + '<td>' + r.systems + '</td>'
+      + '<td>' + r.last7d + '</td>'
+      + '<td><span class="pci-chk-ok">✓</span></td>'
+      + '<td>' + r.manual + '</td>'
+      + '<td>' + r.failed + '</td>'
+      + '</tr>';
+  }).join('');
+  cards.push(_pciCard(
+    'CSF — Compliance Checks By Keyword', '',
+    '<table class="pci-tbl"><thead><tr><th class="pci-l"></th><th>Systems</th><th>Scans (Last 7D)</th><th>Passed</th><th>Manual</th><th>Failed</th></tr></thead><tbody>' + ckwRows + '</tbody></table>',
+    ts
+  ));
+
+  // Card 9: Top Failures and Manual Checks (paginated)
+  cards.push(_pciPgCard(
+    'Security Monitoring - Top Failures and Manual Checks', 'top-failures',
+    d.top_failures || [], 5,
+    function(rows) {
+      return rows.map(function(r) {
+        var sevBadge = r.severity === 'HIGH' ? '<span class="pci-sev-high">HIGH</span>' : '<span class="pci-sev-med">MEDIUM</span>';
+        return '<tr><td class="pci-l" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHtml(r.name)+'">'+escHtml(r.name)+'</td>'
+          + '<td>' + sevBadge + '</td>'
+          + '<td>' + r.total + '</td></tr>';
+      }).join('');
+    }, ts
+  ));
+  cards[cards.length-1] = cards[cards.length-1].replace(
+    '<tbody id="pci-pg-body-top-failures"',
+    '<thead><tr><th class="pci-l">Name</th><th>Severity</th><th>Total</th></tr></thead><tbody id="pci-pg-body-top-failures"'
+  );
+
+  // Card 10: Prioritize Hosts - Top Hosts with Compliance Concerns (paginated)
+  cards.push(_pciPgCard(
+    'Prioritize Hosts — Top Hosts with Compliance Concerns', 'comp-hosts',
+    d.most_vulnerable || [], 5,
+    function(rows) {
+      return rows.map(function(h) {
+        var bar = '<div class="pci-bar-wrap"><div class="pci-bar-c" style="width:'
+          + Math.round((h.critical||0)/Math.max(1,h.total)*h.bar_pct)+'%"></div>'
+          + '<div class="pci-bar-h" style="width:'+Math.round((h.high||0)/Math.max(1,h.total)*h.bar_pct)+'%"></div></div>';
+        return '<tr><td class="pci-l" style="font-family:monospace;font-size:10px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHtml(h.target)+'">'+escHtml(h.target.slice(0,18))+'</td>'
+          + '<td>' + (h.total||0) + '</td>'
+          + '<td>' + bar + '</td></tr>';
+      }).join('');
+    }, ts
+  ));
+  cards[cards.length-1] = cards[cards.length-1].replace(
+    '<tbody id="pci-pg-body-comp-hosts"',
+    '<thead><tr><th class="pci-l">Target</th><th>Total</th><th>Vulnerabilities</th></tr></thead><tbody id="pci-pg-body-comp-hosts"'
+  );
+
+  // ── Render grid in correct column order (L, C, R interleaved) ─────────────
+  // PCI layout: col1[0,1,2], col2[3,4,5,6], col3[7,8,9]
+  // We render all 10 cards and use grid auto-placement in 3 columns
+  grid.innerHTML = cards.join('');
+
+  // ── Draw Chart.js trend chart ─────────────────────────────────────────────
+  var trends = d.trends || {};
+  var ctx = document.getElementById('ta-trend-chart');
+  if (ctx && typeof Chart !== 'undefined' && (trends.labels||[]).length) {
+    if (_taChart) { try { _taChart.destroy(); } catch(e){} }
+    _taChart = new Chart(ctx.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: trends.labels,
+        datasets: [
+          { label: 'Vulnerabilities-Total', data: trends.vulnerabilities || [],
+            borderColor: '#118DFF', backgroundColor: 'rgba(17,141,255,.08)',
+            borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#118DFF', tension: 0.3, fill: true },
+          { label: 'Compliance-Total', data: trends.compliance || [],
+            borderColor: '#12239E', backgroundColor: 'rgba(18,35,158,.06)',
+            borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#12239E', tension: 0.3, fill: true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { bodyFont: { size: 11 }, titleFont: { size: 11 } }
+        },
+        scales: {
+          x: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, color: '#797673', maxRotation: 0 } },
+          y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, color: '#797673' }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // Re-init paginated tables (they rendered already with page 1)
+  Object.keys(_taPg).forEach(function(k) { _taPg[k].renderFn(_taPg[k]); });
 }
 
 /* ═══════════════════════════════════════════════════════
