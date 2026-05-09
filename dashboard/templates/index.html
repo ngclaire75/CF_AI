@@ -1887,9 +1887,6 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <div class="sb-divider"></div>
 
     <div class="sb-nav-label">Vulnerability management</div>
-    <button class="sb-item" id="sb-vulns" onclick="sbNav('vulns',this)">
-      <span class="sb-label">Overview</span>
-    </button>
     <button class="sb-item" id="sb-weaknesses" onclick="sbNav('weaknesses',this)">
       <span class="sb-label">Weaknesses</span>
     </button>
@@ -2739,12 +2736,48 @@ Export Power BI
     </div>
     <!-- Tab bar -->
     <div class="obs-tabs">
-      <button class="obs-tab active" onclick="obsTab('signals',this)">Signals</button>
+      <button class="obs-tab active" onclick="obsTab('overview',this)">Overview</button>
+      <button class="obs-tab" onclick="obsTab('signals',this)">Signals</button>
       <button class="obs-tab" onclick="obsTab('performance',this)">Performance</button>
     </div>
 
+    <!-- Overview tab -->
+    <div class="obs-tab-panel active" id="obs-panel-overview">
+      <div class="obs-grid-3">
+        <div class="obs-card" style="text-align:center;">
+          <h5>Active Incidents</h5>
+          <div class="obs-metric-val" id="obs-inc-open" style="color:#ef4444;">—</div>
+          <div class="obs-metric-lbl">Open</div>
+        </div>
+        <div class="obs-card" style="text-align:center;">
+          <h5>MITRE Rules Triggered</h5>
+          <div class="obs-metric-val" id="obs-mitre-total" style="color:#f59e0b;">—</div>
+          <div class="obs-metric-lbl">Detections</div>
+        </div>
+        <div class="obs-card" style="text-align:center;">
+          <h5>Scan Error Rate</h5>
+          <div class="obs-metric-val" id="obs-error-rate" style="color:#6b7280;">—</div>
+          <div class="obs-metric-lbl">% failed scans</div>
+        </div>
+      </div>
+      <div class="obs-grid">
+        <div class="obs-card">
+          <h5>Security Signal Timeline (last 14 days)</h5>
+          <canvas id="obs-signal-chart" height="100"></canvas>
+        </div>
+        <div class="obs-card">
+          <h5>Slowest Scan Targets</h5>
+          <div id="obs-slowest-list"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
+        </div>
+      </div>
+      <div class="obs-card">
+        <h5>Recent High-Severity Detections</h5>
+        <div id="obs-high-signals"><em style="color:#9ca3af;font-size:13px;">Loading…</em></div>
+      </div>
+    </div>
+
     <!-- Signals tab (reuses security-signals data) -->
-    <div class="obs-tab-panel active" id="obs-panel-signals">
+    <div class="obs-tab-panel" id="obs-panel-signals">
       <div id="obs-signals-embed" style="color:#9ca3af;font-size:13px;padding:20px;text-align:center;">
         Click "Refresh" then navigate to the Security Signals page for the full live feed.
         <br><br><button class="btn btn-sm" onclick="sbNav('signals',document.getElementById('sb-signals'))">Open Security Signals →</button>
