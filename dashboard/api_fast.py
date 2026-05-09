@@ -80,6 +80,31 @@ _scan_jobs: Dict[str, Dict[str, Any]] = {}
 _ws_clients: Dict[str, List[WebSocket]] = {}   # job_id → connected websockets
 _geo_cache: Dict[str, str] = {}
 
+_JOB_DIR = Path(__file__).parent.parent / "data" / "jobs"
+
+def _job_persist(job_id: str, job: dict) -> None:
+    try:
+        _JOB_DIR.mkdir(parents=True, exist_ok=True)
+        (_JOB_DIR / f"{job_id}.json").write_text(
+            json.dumps({
+                "status":  job.get("status", "done"),
+                "scan_id": job.get("scan_id"),
+                "error":   job.get("error"),
+                "domain":  job.get("domain", ""),
+            })
+        )
+    except Exception:
+        pass
+
+def _job_load(job_id: str) -> dict | None:
+    try:
+        p = _JOB_DIR / f"{job_id}.json"
+        if p.exists():
+            return json.loads(p.read_text())
+    except Exception:
+        pass
+    return None
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Pydantic models
@@ -274,6 +299,7 @@ def _run_scan_background(
             on_result=on_result,
             cred_block=cred_block,
             agent_key=agent_type,
+            is_aborted=lambda: bool(job.get("aborted")),
         )
     except InterruptedError:
         job["status"] = "aborted"
@@ -303,6 +329,7 @@ def _run_scan_background(
         job["scan_id"] = scan_id
     elif job.get("status") not in ("error", "aborted"):
         job["status"] = "done"  # completed but no output to log
+    _job_persist(job_id, job)
 
 
 # Background asyncio event loop for WebSocket broadcasts from threads
@@ -450,7 +477,18 @@ async def api_scan_poll(
     """
     job = _scan_jobs.get(job_id)
     if not job:
-        raise HTTPException(404, "Job not found")
+        saved = _job_load(job_id)
+        if saved:
+            return {
+                "status":    saved.get("status", "done"),
+                "domain":    saved.get("domain", ""),
+                "scan_id":   saved.get("scan_id"),
+                "error":     saved.get("error"),
+                "chunks":    [],
+                "next_offset": 0,
+                "recovered": True,
+            }
+        raise HTTPException(404, "Job not found — server may have restarted. Check Scan History for results.")
     new_chunks = job["chunks"][offset:]
     return {
         "status":      job["status"],

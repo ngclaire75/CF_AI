@@ -6296,12 +6296,40 @@ function cwConnectWs(jobId) {
 }
 
 // ── HTTP polling fallback (also used when WS is not available) ─────────────
+var _cwNotFoundRetries = 0;
 function cwPoll() {
   if (!_cwJobId) return;
   fetch('/api/connect/scan/' + _cwJobId + '?offset=' + _cwOffset)
   .then(function(r) { return r.json(); })
   .then(function(d) {
-    if (d.error) { cwSetStatus('<span class="cs-error">' + d.error + '</span>'); _cwClearLS(); cwUnlock(); return; }
+    var errMsg = d.error || d.detail || '';
+    if (errMsg && !d.recovered) {
+      var isNotFound = errMsg.toLowerCase().indexOf('not found') !== -1;
+      if (isNotFound && _cwNotFoundRetries < 8) {
+        _cwNotFoundRetries++;
+        var delay = Math.min(2000 * _cwNotFoundRetries, 12000);
+        cwSetStatus('<span style="color:#986f0b;">Reconnecting... attempt ' + _cwNotFoundRetries + '/8</span>');
+        _cwPollTimer = setTimeout(cwPoll, delay);
+        return;
+      }
+      _cwClearLS(); cwUnlock();
+      if (isNotFound) {
+        cwSetStatus('<span class="cs-error">Connection lost — server restarted mid-scan. Check Scan History for any saved results.</span>');
+      } else {
+        cwSetStatus('<span class="cs-error">' + errMsg + '</span>');
+      }
+      return;
+    }
+    _cwNotFoundRetries = 0;
+
+    if (d.recovered) {
+      // Job found on disk after server restart — show done state from disk
+      _cwClearLS();
+      _cwShowDone(d.status, d.domain || '', d.error || '');
+      if (d.scan_id) { _cwScanId = d.scan_id; }
+      cwUnlock();
+      return;
+    }
 
     _cwOffset = (d.next_offset != null) ? d.next_offset : _cwOffset;
     _cwRenderChunks(d.chunks || [], document.getElementById('cwOutput'));

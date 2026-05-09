@@ -414,6 +414,35 @@ app = Flask(__name__, template_folder='templates')
 # ── In-memory scan job store (Connect Your Website feature) ──────────────────
 _scan_jobs: dict = {}
 
+_JOB_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'jobs')
+
+def _job_persist(job_id: str, job: dict) -> None:
+    """Write terminal job state to disk so polls survive server restarts."""
+    try:
+        os.makedirs(_JOB_DIR, exist_ok=True)
+        path = os.path.join(_JOB_DIR, f'{job_id}.json')
+        with open(path, 'w') as fh:
+            _json.dump({
+                'status':  job.get('status', 'done'),
+                'scan_id': job.get('scan_id'),
+                'error':   job.get('error'),
+                'domain':  job.get('domain', ''),
+                'target':  job.get('target', ''),
+            }, fh)
+    except Exception:
+        pass
+
+def _job_load(job_id: str) -> dict | None:
+    """Try to load a completed job from disk (fallback after server restart)."""
+    try:
+        path = os.path.join(_JOB_DIR, f'{job_id}.json')
+        if os.path.exists(path):
+            with open(path) as fh:
+                return _json.load(fh)
+    except Exception:
+        pass
+    return None
+
 # ── IP geolocation (ip-api.com, free, no key required) ───────────────────────
 _geo_cache: dict[str, str] = {}
 
@@ -706,7 +735,8 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             from agents.pentest import run_full_pentest
             t0 = _time.time()
             run_full_pentest(domain, model=model or None, on_text=_ot, on_tool=_oo, on_result=_or,
-                             cred_block=cred_block or None)
+                             cred_block=cred_block or None,
+                             is_aborted=lambda: bool(job.get('aborted')))
             model_used = model or ''
         elif agent_type in ('ctf', 'ot', 'enum'):
             from agents.special_agents import SPECIAL_REGISTRY as _SREG
@@ -813,6 +843,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         job['chunks'].append({'k': 'saved', 'id': scan_id})
         job.update({'status': 'done', 'elapsed': round(elapsed, 2),
                     'tool_count': tools[0], 'scan_id': scan_id})
+        _job_persist(job_id, job)
 
     except Exception as exc:
         import traceback as _tb
@@ -833,6 +864,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             job.update({'status': 'error', 'error': str(exc), 'trace': tb, 'scan_id': scan_id})
         except Exception:
             job.update({'status': 'error', 'error': str(exc), 'trace': tb})
+        _job_persist(job_id, job)
     finally:
         for k, orig in env_restore.items():
             if orig: os.environ[k] = orig
@@ -1503,7 +1535,19 @@ def api_connect_scan_poll(job_id):
     """
     job = _scan_jobs.get(job_id)
     if not job:
-        return jsonify({'error': 'job not found'}), 404
+        # Server may have restarted — try to recover from disk
+        saved = _job_load(job_id)
+        if saved:
+            return jsonify({
+                'status':      saved.get('status', 'done'),
+                'domain':      saved.get('domain', ''),
+                'scan_id':     saved.get('scan_id'),
+                'error':       saved.get('error'),
+                'chunks':      [],
+                'next_offset': 0,
+                'recovered':   True,
+            })
+        return jsonify({'error': 'job not found — server may have restarted. Check Scan History for results.'}), 404
 
     offset = int(request.args.get('offset', 0))
     new_chunks = job['chunks'][offset:]
@@ -2427,17 +2471,46 @@ def api_priority_maintenance():
     if not cf_token:
         return jsonify({'error': 'CF_API_TOKEN not set in .env — cannot control Cloudflare settings'}), 500
 
-    # --- helper: PATCH to CF API ---
+    def _cf_get(path):
+        c, b = _cf_request(path, cf_token, timeout=15)
+        if c == 200:
+            try: return c, _json.loads(b)
+            except Exception: pass
+        try: return c, _json.loads(b)
+        except Exception: return c, {}
+
+    def _cf_post(path, payload):
+        url  = f'https://api.cloudflare.com/client/v4{path}'
+        hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
+        try:
+            if _HAS_REQUESTS:
+                r = _requests.post(url, headers=hdrs, json=payload, timeout=15, verify=True)
+                try: return r.status_code, r.json()
+                except Exception: return r.status_code, {}
+        except Exception as e:
+            return 0, {'error': str(e)}
+        return 0, {}
+
+    def _cf_delete(path):
+        url  = f'https://api.cloudflare.com/client/v4{path}'
+        hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
+        try:
+            if _HAS_REQUESTS:
+                r = _requests.delete(url, headers=hdrs, timeout=15, verify=True)
+                try: return r.status_code, r.json()
+                except Exception: return r.status_code, {}
+        except Exception as e:
+            return 0, {'error': str(e)}
+        return 0, {}
+
     def _cf_patch(path, payload):
         url  = f'https://api.cloudflare.com/client/v4{path}'
         hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
         try:
             if _HAS_REQUESTS:
                 r = _requests.patch(url, headers=hdrs, json=payload, timeout=15, verify=True)
-                try:
-                    return r.status_code, r.json()
-                except Exception:
-                    return r.status_code, {}
+                try: return r.status_code, r.json()
+                except Exception: return r.status_code, {}
         except Exception as e:
             return 0, {'error': str(e)}
         return 0, {}
@@ -2456,49 +2529,94 @@ def api_priority_maintenance():
     if not zones:
         return jsonify({'error': f'No Cloudflare zone found for {domain}. Make sure the domain uses Cloudflare DNS and CF_API_TOKEN has Zone:Read permission.'}), 404
 
-    zone    = zones[0]
-    zone_id = zone['id']
+    zone      = zones[0]
+    zone_id   = zone['id']
     zone_name = zone['name']
 
     if action == 'enable':
-        # Store current security level before changing
-        sl_resp = _cf_json(f'/zones/{zone_id}/settings/security_level')
-        current_level = ((sl_resp or {}).get('result') or {}).get('value', 'medium')
+        # Step 1: Get or create the WAF custom rules phase ruleset
+        sc, rs_data = _cf_get(f'/zones/{zone_id}/rulesets/phases/http_request_firewall_custom/entrypoint')
+        ruleset_id = ((rs_data or {}).get('result') or {}).get('id')
 
-        status_code, result = _cf_patch(f'/zones/{zone_id}/settings/security_level', {'value': 'under_attack'})
+        if not ruleset_id:
+            # Create the ruleset if it doesn't exist yet
+            sc2, rs_create = _cf_post(f'/zones/{zone_id}/rulesets', {
+                'name': 'default', 'kind': 'zone',
+                'phase': 'http_request_firewall_custom', 'rules': []
+            })
+            ruleset_id = ((rs_create or {}).get('result') or {}).get('id')
 
-        if status_code == 200 and (result or {}).get('success'):
+        if not ruleset_id:
+            # Fallback: use security_level under_attack only
+            sl_resp = _cf_json(f'/zones/{zone_id}/settings/security_level')
+            current_level = ((sl_resp or {}).get('result') or {}).get('value', 'medium')
+            _cf_patch(f'/zones/{zone_id}/settings/security_level', {'value': 'under_attack'})
             db.enable_maintenance(domain, zone_id=zone_id, prev_level=current_level, reason=reason)
             return jsonify({
                 'ok': True,
-                'message': f'Maintenance mode ENABLED for {zone_name}. All visitors now see a Cloudflare challenge page (I\'m Under Attack mode).',
-                'zone': zone_name, 'zone_id': zone_id, 'previous_level': current_level,
+                'message': f'Site locked for {zone_name} (Under Attack mode — WAF ruleset unavailable). Requires Zone WAF:Edit permission for full block.',
+                'zone': zone_name,
+            })
+
+        # Step 2: Add block-all rule at top of the ruleset
+        sc3, rule_resp = _cf_post(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules', {
+            'description': 'CF_AI Site Lock — block all traffic',
+            'expression':  'true',
+            'action':      'block',
+            'enabled':     True,
+        })
+        rule_result = (rule_resp or {}).get('result') or {}
+        # The API returns the updated ruleset; find our rule by description
+        rules = rule_result.get('rules') or []
+        our_rule = next((r for r in reversed(rules) if r.get('description') == 'CF_AI Site Lock — block all traffic'), None)
+        rule_id = (our_rule or {}).get('id', '')
+
+        if sc3 in (200, 201) and rule_id:
+            # Also store current security level so we can restore it on unlock
+            sl_resp = _cf_json(f'/zones/{zone_id}/settings/security_level')
+            current_level = ((sl_resp or {}).get('result') or {}).get('value', 'medium')
+            cf_rule_ref = f'{ruleset_id}:{rule_id}'
+            db.enable_maintenance(domain, zone_id=zone_id, cf_rule_id=cf_rule_ref,
+                                  prev_level=current_level, reason=reason)
+            return jsonify({
+                'ok': True,
+                'message': f'Site LOCKED for {zone_name}. All HTTP traffic is now blocked (HTTP 403) by a Cloudflare WAF rule. Click Unlock to restore access.',
+                'zone': zone_name, 'zone_id': zone_id, 'rule_id': rule_id,
             })
         else:
-            errs = (result or {}).get('errors') or [{}]
-            msg  = (errs[0].get('message') or 'Unknown error')
-            if status_code in (403, 401):
-                msg = ('Permission denied — your CF token needs "Zone Settings:Edit" permission. '
-                       'Update at dash.cloudflare.com/profile/api-tokens')
-            return jsonify({'error': f'Cloudflare API error ({status_code}): {msg}'}), 500
+            errs = (rule_resp or {}).get('errors') or [{}]
+            msg  = (errs[0].get('message') if errs else '') or 'Unknown error'
+            if sc3 in (403, 401):
+                msg = 'Permission denied — CF token needs Zone WAF:Edit permission. Update at dash.cloudflare.com/profile/api-tokens'
+            return jsonify({'error': f'Cloudflare WAF rule creation failed ({sc3}): {msg}'}), 500
 
     elif action == 'disable':
         maint = db.get_maintenance(domain)
-        prev_level = (maint or {}).get('previous_security_level', 'medium')
+        cf_rule_ref   = (maint or {}).get('cf_rule_id', '')
+        prev_level    = (maint or {}).get('previous_security_level', 'medium')
 
-        status_code, result = _cf_patch(f'/zones/{zone_id}/settings/security_level', {'value': prev_level})
+        deleted = False
+        if cf_rule_ref and ':' in cf_rule_ref:
+            ruleset_id, rule_id = cf_rule_ref.split(':', 1)
+            sc_del, _ = _cf_delete(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules/{rule_id}')
+            deleted = sc_del in (200, 204)
 
-        if status_code == 200 and (result or {}).get('success'):
-            db.disable_maintenance(domain)
+        # Also restore security level
+        _cf_patch(f'/zones/{zone_id}/settings/security_level', {'value': prev_level})
+        db.disable_maintenance(domain)
+
+        if deleted or not cf_rule_ref:
             return jsonify({
                 'ok': True,
-                'message': f'Maintenance mode DISABLED for {zone_name}. Security level restored to "{prev_level}".',
-                'zone': zone_name, 'previous_level': prev_level,
+                'message': f'Site UNLOCKED for {zone_name}. WAF block rule removed — traffic is flowing normally again.',
+                'zone': zone_name,
             })
         else:
-            errs = (result or {}).get('errors') or [{}]
-            msg  = (errs[0].get('message') or 'Unknown error')
-            return jsonify({'error': f'Cloudflare API error ({status_code}): {msg}'}), 500
+            return jsonify({
+                'ok': True,
+                'message': f'Site unlocked for {zone_name} (WAF rule may need manual removal — check Cloudflare dashboard).',
+                'zone': zone_name,
+            })
 
     return jsonify({'error': 'Invalid action. Use "enable" or "disable"'}), 400
 
