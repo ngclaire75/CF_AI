@@ -8,6 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" defer></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; scroll-behavior: smooth; }
@@ -1669,6 +1671,60 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 .btn-unlock{background:#107c10;color:#fff;border:none;border-radius:4px;padding:4px 9px;font-size:11px;cursor:pointer;white-space:nowrap;}
 .btn-unlock:hover{background:#0b5e0b;}
 
+/* ── Security Operations Center ─────────────────────────────────────────── */
+.soc-wrap{display:flex;flex-direction:column;height:100%;}
+.soc-kpis{display:flex;gap:0;background:#1b1b1b;padding:0 16px;}
+.soc-kpi{padding:10px 20px;border-right:1px solid #333;min-width:130px;}
+.soc-kpi:last-child{border-right:none;}
+.soc-kpi-label{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.soc-kpi-val{font-size:22px;font-weight:700;font-family:'Segoe UI',sans-serif;color:#fff;}
+.soc-kpi-val.red{color:#ef4444;}.soc-kpi-val.orange{color:#f97316;}.soc-kpi-val.green{color:#22c55e;}.soc-kpi-val.blue{color:#60a5fa;}
+.soc-map-wrap{position:relative;width:100%;height:380px;background:#0f172a;}
+#soc-world-map{width:100%;height:100%;}
+.soc-map-legend{position:absolute;bottom:10px;left:10px;background:rgba(15,23,42,.85);border:1px solid #334155;border-radius:4px;padding:6px 10px;display:flex;gap:12px;z-index:1000;}
+.soc-map-leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:#cbd5e1;}
+.soc-map-leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.soc-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;flex:1;min-height:0;}
+.soc-panel{border-right:1px solid #e1dfdd;display:flex;flex-direction:column;min-height:300px;}
+.soc-panel:last-child{border-right:none;}
+.soc-panel-hdr{padding:8px 14px;background:#f8f8f8;border-bottom:1px solid #e1dfdd;font-size:11px;font-weight:700;color:#252423;display:flex;align-items:center;justify-content:space-between;}
+.soc-panel-body{flex:1;overflow-y:auto;max-height:340px;}
+.soc-event-row{padding:7px 12px;border-bottom:1px solid #f3f2f1;display:flex;gap:8px;align-items:flex-start;cursor:pointer;}
+.soc-event-row:hover{background:#f8f8f8;}
+.soc-ev-badge{font-size:9px;font-weight:700;padding:2px 5px;border-radius:2px;white-space:nowrap;flex-shrink:0;margin-top:1px;}
+.soc-ev-badge.CRITICAL{background:#7f1d1d;color:#fca5a5;}
+.soc-ev-badge.HIGH{background:#991b1b;color:#fecaca;}
+.soc-ev-badge.MEDIUM{background:#92400e;color:#fde68a;}
+.soc-ev-badge.LOW{background:#1e3a5f;color:#bfdbfe;}
+.soc-ev-badge.INFO{background:#374151;color:#d1d5db;}
+.soc-ev-body{flex:1;min-width:0;}
+.soc-ev-type{font-size:11px;font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.soc-ev-meta{font-size:10px;color:#6b7280;margin-top:1px;}
+.soc-ev-ip{font-family:monospace;color:#0078d4;}
+.soc-ev-ts{font-size:10px;color:#9ca3af;white-space:nowrap;flex-shrink:0;}
+.soc-rem-row{padding:7px 12px;border-bottom:1px solid #f3f2f1;font-size:11px;}
+.soc-rem-row:hover{background:#f8f8f8;}
+.soc-rem-rule{font-weight:600;color:#1f2937;}
+.soc-rem-action{color:#0078d4;font-size:10px;}
+.soc-rem-status-ok{color:#107c10;font-weight:700;}
+.soc-rem-status-fail{color:#a80000;font-weight:700;}
+.soc-rem-status-run{color:#986f0b;font-weight:700;}
+.soc-rule-row{padding:8px 12px;border-bottom:1px solid #f3f2f1;font-size:11px;}
+.soc-rule-active{display:flex;align-items:center;gap:6px;font-weight:600;color:#252423;}
+.soc-rule-desc{font-size:10px;color:#6b7280;margin-top:2px;}
+.soc-rule-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;}
+.soc-tab-bar{display:flex;border-bottom:1px solid #e1dfdd;background:#fff;padding:0 16px;}
+.soc-tab{padding:8px 14px;font-size:12px;font-weight:500;color:#605e5c;border:none;border-bottom:3px solid transparent;background:none;cursor:pointer;font-family:'Segoe UI',sans-serif;}
+.soc-tab.active{color:#0078d4;border-bottom-color:#0078d4;}
+.soc-ingest-form{padding:14px 16px;background:#f9f9f9;border-bottom:1px solid #e1dfdd;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
+.soc-ingest-form input,.soc-ingest-form select{height:30px;border:1px solid #e5e7eb;border-radius:6px;padding:0 8px;font-size:12px;font-family:inherit;outline:none;background:#fff;}
+.soc-ingest-form label{font-size:10px;color:#6b7280;display:block;margin-bottom:3px;font-weight:600;text-transform:uppercase;}
+.soc-filter-bar{display:flex;gap:8px;padding:8px 14px;background:#fafafa;border-bottom:1px solid #ebebeb;align-items:center;flex-wrap:wrap;}
+.soc-filter-bar select,.soc-filter-bar input{height:28px;border:1px solid #e5e7eb;border-radius:6px;padding:0 8px;font-size:11px;font-family:inherit;outline:none;background:#fff;}
+/* Leaflet popup override */
+.leaflet-popup-content{font-size:11px;font-family:'Segoe UI',sans-serif;min-width:160px;}
+.leaflet-popup-content b{color:#0078d4;}
+
 /* ═══ Weaknesses / new pages shared styles ══════════════════════════════════ */
 .mdef-page{padding:0;}
 .mdef-page-title{font-size:24px;font-weight:700;color:#201f1e;padding:20px 24px 10px;font-family:'Segoe UI',sans-serif;}
@@ -2319,7 +2375,7 @@ Export Power BI
               <td><button class="btn btn-sm" onclick="openModal({{ rec.scan_id }})">View Fix</button></td>
               <td>
                 <button class="btn-lock" id="lock-btn-{{ rec.target|lower|replace('.','_')|replace('/','_') }}"
-                  onclick="toggleSiteLock('{{ rec.target }}', this)">🔒 Lock</button>
+                  onclick="toggleSiteLock('{{ rec.target }}', this)">Lock</button>
               </td>
             </tr>
           {% endfor %}
@@ -3406,18 +3462,158 @@ Load Logs
   <!-- ══ REMEDIATION PAGE ══════════════════════════════════════════════════ -->
   <div id="page-remediation" class="page-section" style="display:none">
   <div class="mdef-page">
-    <div class="mdef-page-title">Remediation</div>
-    <div class="mdef-toolbar">
-      <button class="mdef-toolbar-btn primary" onclick="loadRemediationPage()">Refresh</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px 0;">
+      <div class="mdef-page-title" style="padding:0;">Remediation</div>
+      <button class="mdef-toolbar-btn primary" onclick="remTab(_remActiveTab, null, true)">↺ Refresh</button>
     </div>
-    <div class="mdef-tbl-wrap">
-      <table class="mdef-tbl" id="rem-tbl">
-        <thead><tr><th>Remediation activity</th><th>Related component</th><th>Status</th><th>Severity</th><th>Completion date</th></tr></thead>
-        <tbody id="rem-tbody">
-          <tr><td colspan="5" class="mdef-empty">Click Refresh to load remediation activities from incidents and scan findings.</td></tr>
-        </tbody>
-      </table>
+
+    <!-- Sub-tab bar -->
+    <div class="soc-tab-bar" style="margin-top:8px;">
+      <button class="soc-tab active" id="rem-tab-btn-activities" onclick="remTab('activities',this)">Remediation Activities</button>
+      <button class="soc-tab" id="rem-tab-btn-soc" onclick="remTab('soc',this)">Security Operations Center</button>
+      <button class="soc-tab" id="rem-tab-btn-autoremed" onclick="remTab('autoremed',this)">Auto-Remediation Log</button>
+      <button class="soc-tab" id="rem-tab-btn-blocked" onclick="remTab('blocked',this)">Blocked IPs</button>
     </div>
+
+    <!-- Tab: Remediation Activities -->
+    <div id="rem-pane-activities">
+      <div class="mdef-tbl-wrap">
+        <table class="mdef-tbl" id="rem-tbl">
+          <thead><tr><th>Remediation activity</th><th>Related component</th><th>Status</th><th>Severity</th><th>Completion date</th></tr></thead>
+          <tbody id="rem-tbody">
+            <tr><td colspan="5" class="mdef-empty">Click Refresh to load remediation activities.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab: Security Operations Center (world map + event feed) -->
+    <div id="rem-pane-soc" style="display:none;">
+      <div class="soc-wrap">
+        <!-- KPI bar -->
+        <div class="soc-kpis">
+          <div class="soc-kpi"><div class="soc-kpi-label">Total Events (7d)</div><div class="soc-kpi-val blue" id="soc-kpi-total">—</div></div>
+          <div class="soc-kpi"><div class="soc-kpi-label">Critical</div><div class="soc-kpi-val red" id="soc-kpi-crit">—</div></div>
+          <div class="soc-kpi"><div class="soc-kpi-label">High Severity</div><div class="soc-kpi-val orange" id="soc-kpi-high">—</div></div>
+          <div class="soc-kpi"><div class="soc-kpi-label">Blocked IPs</div><div class="soc-kpi-val red" id="soc-kpi-blocked">—</div></div>
+          <div class="soc-kpi"><div class="soc-kpi-label">Auto-Fixes Applied</div><div class="soc-kpi-val green" id="soc-kpi-autofixes">—</div></div>
+          <div class="soc-kpi" style="margin-left:auto;">
+            <div class="soc-kpi-label">Days</div>
+            <select id="soc-days-filter" onchange="loadSocData()" style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:4px;padding:3px 8px;font-size:11px;">
+              <option value="1">1 day</option>
+              <option value="7" selected>7 days</option>
+              <option value="30">30 days</option>
+            </select>
+          </div>
+        </div>
+        <!-- World Map -->
+        <div class="soc-map-wrap">
+          <div id="soc-world-map"></div>
+          <div class="soc-map-legend">
+            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#ef4444;"></div>Critical / Attack</div>
+            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#f97316;"></div>High</div>
+            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#eab308;"></div>Medium</div>
+            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#22c55e;"></div>Login Success</div>
+            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#60a5fa;"></div>Info</div>
+          </div>
+        </div>
+        <!-- Manual event ingest -->
+        <div class="soc-ingest-form">
+          <div><label>Event Type</label>
+            <select id="soc-ingest-type" style="width:160px;">
+              <option value="login_failed">login_failed</option>
+              <option value="login_success">login_success</option>
+              <option value="sql_injection">sql_injection</option>
+              <option value="xss_attempt">xss_attempt</option>
+              <option value="brute_force">brute_force</option>
+              <option value="port_scan">port_scan</option>
+              <option value="vulnerability_detected">vulnerability_detected</option>
+              <option value="blocked_request">blocked_request</option>
+              <option value="auto_remediation">auto_remediation</option>
+            </select>
+          </div>
+          <div><label>IP Address</label><input type="text" id="soc-ingest-ip" placeholder="103.x.x.x" style="width:130px;"></div>
+          <div><label>Target Domain</label><input type="text" id="soc-ingest-target" placeholder="yourdomain.com" style="width:160px;"></div>
+          <div><label>Severity</label>
+            <select id="soc-ingest-sev">
+              <option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option>
+              <option value="HIGH" selected>HIGH</option><option value="CRITICAL">CRITICAL</option>
+            </select>
+          </div>
+          <div><label>Description</label><input type="text" id="soc-ingest-desc" placeholder="Optional description" style="width:200px;"></div>
+          <div style="padding-bottom:0;">
+            <label>&nbsp;</label>
+            <button class="mdef-toolbar-btn primary" onclick="socIngestEvent()" style="height:30px;padding:0 14px;">+ Log Event</button>
+          </div>
+          <div id="soc-ingest-msg" style="font-size:11px;padding-top:14px;"></div>
+        </div>
+        <!-- 3-column panel: Event Feed | Top Countries | Active Threats -->
+        <div class="soc-body">
+          <div class="soc-panel">
+            <div class="soc-panel-hdr">
+              Live Event Feed
+              <select id="soc-cat-filter" onchange="socRenderEvents()" style="font-size:10px;border:1px solid #e1dfdd;border-radius:4px;padding:1px 4px;">
+                <option value="">All categories</option>
+                <option value="auth">Auth</option>
+                <option value="attack">Attack</option>
+                <option value="vulnerability">Vulnerability</option>
+                <option value="remediation">Remediation</option>
+              </select>
+            </div>
+            <div class="soc-panel-body" id="soc-event-feed">
+              <div style="padding:20px;text-align:center;color:#a19f9d;font-size:12px;">Loading events…</div>
+            </div>
+          </div>
+          <div class="soc-panel">
+            <div class="soc-panel-hdr">Top Source Countries</div>
+            <div class="soc-panel-body" id="soc-countries-panel">
+              <div style="padding:20px;text-align:center;color:#a19f9d;font-size:12px;">Loading…</div>
+            </div>
+          </div>
+          <div class="soc-panel" style="border-right:none;">
+            <div class="soc-panel-hdr">Attack Type Breakdown</div>
+            <div class="soc-panel-body" style="padding:8px;">
+              <canvas id="soc-attack-chart" height="180"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Auto-Remediation Log -->
+    <div id="rem-pane-autoremed" style="display:none;">
+      <div class="soc-filter-bar" style="padding:10px 14px;">
+        <strong style="font-size:12px;color:#252423;">Auto-Remediation Log</strong>
+        <span style="font-size:11px;color:#605e5c;margin-left:8px;">Rule-based actions triggered automatically when threat thresholds are exceeded</span>
+      </div>
+      <div class="mdef-tbl-wrap">
+        <table class="mdef-tbl">
+          <thead><tr><th>Time</th><th>Rule</th><th>Action</th><th>Target</th><th>Status</th><th>Result</th></tr></thead>
+          <tbody id="soc-remed-tbody">
+            <tr><td colspan="6" class="mdef-empty">No auto-remediation actions yet — events will trigger rules automatically.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:14px 16px;border-top:1px solid #e1dfdd;background:#f9f9f9;">
+        <strong style="font-size:12px;color:#252423;display:block;margin-bottom:10px;">Active Rules</strong>
+        <div id="soc-rules-list">
+          <div style="color:#a19f9d;font-size:12px;">Loading rules…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Blocked IPs -->
+    <div id="rem-pane-blocked" style="display:none;">
+      <div class="mdef-tbl-wrap">
+        <table class="mdef-tbl">
+          <thead><tr><th>IP Address</th><th>Country</th><th>Block Reason</th><th>CF Rule ID</th><th>Blocked At</th><th>Status</th></tr></thead>
+          <tbody id="soc-blocked-tbody">
+            <tr><td colspan="6" class="mdef-empty">No blocked IPs yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
   </div><!-- /page-remediation -->
 
@@ -3658,7 +3854,7 @@ function sbNav(section, el) {
   if (section === 'vulns')         _tiAutoLoad();
   if (section === 'weaknesses')    loadWeaknesses();
   if (section === 'recommendations') loadRecommendations();
-  if (section === 'remediation')   loadRemediationPage();
+  if (section === 'remediation')   { remTab(_remActiveTab); loadRemediationPage(); }
   if (section === 'inventories')   loadInventories();
   if (section === 'eventtimeline') loadEventTimeline();
   if (section === 'threatanalytics') loadThreatAnalytics();
@@ -4687,7 +4883,7 @@ function _updateLockUI() {
     var btn = document.getElementById('lock-btn-' + k);
     var badge = document.getElementById('maint-badge-' + k);
     if (btn) {
-      btn.className = 'btn-unlock'; btn.textContent = '🔓 Unlock';
+      btn.className = 'btn-unlock'; btn.textContent = 'Unlock';
       btn.setAttribute('data-action', 'disable');
     }
     if (badge) badge.style.display = '';
@@ -4697,11 +4893,11 @@ function _updateLockUI() {
 function toggleSiteLock(domain, btn) {
   var action = (btn.getAttribute('data-action') || 'enable');
   var msg    = action === 'enable'
-    ? 'Lock ' + domain + ' down via Cloudflare (sets "I\'m Under Attack" mode — all visitors see a challenge page until you unlock)?\n\nMake sure your CF token has Zone Settings:Edit permission.'
+    ? 'Lock ' + domain + ' via Cloudflare?\n\nThis sets "I\'m Under Attack" mode — all visitors see a JS challenge page until you unlock.\n\nRequires CF_API_TOKEN with Zone Settings:Edit permission.'
     : 'Unlock ' + domain + ' and restore normal Cloudflare security level?';
   if (!confirm(msg)) return;
 
-  btn.disabled = true; btn.textContent = action === 'enable' ? '⏳ Locking…' : '⏳ Unlocking…';
+  btn.disabled = true; btn.textContent = action === 'enable' ? 'Locking...' : 'Unlocking...';
 
   fetch('/api/priority/maintenance', {
     method: 'POST',
@@ -4715,28 +4911,283 @@ function toggleSiteLock(domain, btn) {
     if (d.ok) {
       if (action === 'enable') {
         _maintDomains[domain.toLowerCase()] = true;
-        btn.className = 'btn-unlock'; btn.textContent = '🔓 Unlock';
+        btn.className = 'btn-unlock'; btn.textContent = 'Unlock';
         btn.setAttribute('data-action', 'disable');
         var badge = document.getElementById('maint-badge-' + _domainKey(domain));
         if (badge) badge.style.display = '';
-        alert('✅ ' + d.message);
+        alert(d.message);
       } else {
         delete _maintDomains[domain.toLowerCase()];
-        btn.className = 'btn-lock'; btn.textContent = '🔒 Lock';
+        btn.className = 'btn-lock'; btn.textContent = 'Lock';
         btn.setAttribute('data-action', 'enable');
         var badge2 = document.getElementById('maint-badge-' + _domainKey(domain));
         if (badge2) badge2.style.display = 'none';
-        alert('✅ ' + d.message);
+        alert(d.message);
       }
     } else {
-      btn.textContent = action === 'enable' ? '🔒 Lock' : '🔓 Unlock';
-      alert('❌ ' + (d.error || 'Unknown error'));
+      btn.textContent = action === 'enable' ? 'Lock' : 'Unlock';
+      alert('Error: ' + (d.error || 'Unknown error'));
     }
   })
   .catch(function(e) {
-    btn.disabled = false; btn.textContent = action === 'enable' ? '🔒 Lock' : '🔓 Unlock';
-    alert('❌ Request failed: ' + e);
+    btn.disabled = false; btn.textContent = action === 'enable' ? 'Lock' : 'Unlock';
+    alert('Request failed: ' + e);
   });
+}
+
+/* ══ REMEDIATION PAGE — sub-tab switching + SOC functions ══════════════════ */
+var _remActiveTab = 'activities';
+var _socEvents    = [];
+var _socMap       = null;
+var _socMarkers   = [];
+var _socAttackChart = null;
+
+function remTab(tab, btn, refresh) {
+  _remActiveTab = tab || 'activities';
+  ['activities','soc','autoremed','blocked'].forEach(function(t) {
+    var pane = document.getElementById('rem-pane-' + t);
+    var b    = document.getElementById('rem-tab-btn-' + t);
+    if (pane) pane.style.display = (t === _remActiveTab) ? '' : 'none';
+    if (b)    b.className = 'soc-tab' + (t === _remActiveTab ? ' active' : '');
+  });
+  if (_remActiveTab === 'activities' && refresh) loadRemediationActivities();
+  if (_remActiveTab === 'soc')       loadSocData();
+  if (_remActiveTab === 'autoremed') { loadRemLog(); loadActiveRules(); }
+  if (_remActiveTab === 'blocked')   loadBlockedIps();
+}
+
+function loadSocData() {
+  var days = (document.getElementById('soc-days-filter') || {}).value || 7;
+
+  /* ── init Leaflet map once ── */
+  if (!_socMap && typeof L !== 'undefined') {
+    _socMap = L.map('soc-world-map', { zoomControl: true, scrollWheelZoom: false });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
+    }).addTo(_socMap);
+    _socMap.setView([20, 0], 2);
+  }
+
+  /* ── fetch stats ── */
+  fetch('/api/events/stats?days=' + days)
+    .then(function(r){ return r.json(); })
+    .then(function(s) {
+      var el = function(id){ return document.getElementById(id); };
+      if (el('soc-kpi-total'))    el('soc-kpi-total').textContent    = s.total   || 0;
+      if (el('soc-kpi-crit'))     el('soc-kpi-crit').textContent     = s.critical || 0;
+      if (el('soc-kpi-high'))     el('soc-kpi-high').textContent     = s.high    || 0;
+
+      /* countries panel */
+      var cpanel = el('soc-countries-panel');
+      if (cpanel) {
+        var top = s.top_countries || [];
+        if (!top.length) {
+          cpanel.innerHTML = '<div style="padding:20px;text-align:center;color:#a19f9d;font-size:12px;">No data</div>';
+        } else {
+          var max = top[0].count || 1;
+          cpanel.innerHTML = top.map(function(c) {
+            var pct = Math.round(c.count / max * 100);
+            return '<div style="padding:6px 12px;border-bottom:1px solid #f3f2f1;">'
+              + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">'
+              + '<span>' + esc(c.country) + '</span><span style="color:#605e5c;">' + c.count + '</span></div>'
+              + '<div style="background:#f3f2f1;border-radius:2px;height:4px;">'
+              + '<div style="background:#118DFF;width:' + pct + '%;height:4px;border-radius:2px;"></div></div></div>';
+          }).join('');
+        }
+      }
+
+      /* attack type chart */
+      var cats = s.by_category || [];
+      var catChart = el('soc-attack-chart');
+      if (catChart && cats.length) {
+        if (_socAttackChart) _socAttackChart.destroy();
+        _socAttackChart = new Chart(catChart, {
+          type: 'doughnut',
+          data: {
+            labels: cats.map(function(c){ return c.category || 'other'; }),
+            datasets: [{ data: cats.map(function(c){ return c.count; }),
+              backgroundColor: ['#ef4444','#f97316','#eab308','#22c55e','#60a5fa','#a855f7','#ec4899'] }]
+          },
+          options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } } },
+            responsive: true, maintainAspectRatio: false }
+        });
+      }
+    })
+    .catch(function(){});
+
+  /* ── fetch blocked IPs count ── */
+  fetch('/api/events/blocked-ips')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var b = document.getElementById('soc-kpi-blocked');
+      if (b) b.textContent = (d.blocked_ips || []).length;
+    }).catch(function(){});
+
+  /* ── fetch auto-fix count ── */
+  fetch('/api/remediation/log')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var b = document.getElementById('soc-kpi-autofixes');
+      if (b) b.textContent = (d.actions || []).filter(function(a){ return a.auto_triggered; }).length;
+    }).catch(function(){});
+
+  /* ── fetch events for feed ── */
+  fetch('/api/events?days=' + days + '&limit=100')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      _socEvents = d.events || [];
+      socRenderEvents();
+    }).catch(function(){});
+
+  /* ── fetch map points ── */
+  fetch('/api/events/map?days=' + days)
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (!_socMap) return;
+      _socMarkers.forEach(function(m){ _socMap.removeLayer(m); });
+      _socMarkers = [];
+      (d.events || []).forEach(function(ev) {
+        if (!ev.latitude || !ev.longitude) return;
+        var color = {CRITICAL:'#ef4444',HIGH:'#f97316',MEDIUM:'#eab308',LOW:'#22c55e',INFO:'#60a5fa'}[ev.severity] || '#60a5fa';
+        var circle = L.circleMarker([ev.latitude, ev.longitude], {
+          radius: ev.severity === 'CRITICAL' ? 9 : ev.severity === 'HIGH' ? 7 : 5,
+          color: color, fillColor: color, fillOpacity: 0.7, weight: 1
+        });
+        circle.bindPopup(
+          '<b>' + esc(ev.event_type) + '</b><br>'
+          + esc(ev.ip_address) + ' (' + esc(ev.country) + ')<br>'
+          + '<span style="color:' + color + ';font-weight:700;">' + esc(ev.severity) + '</span><br>'
+          + '<small>' + esc(ev.description || '') + '</small>'
+        );
+        circle.addTo(_socMap);
+        _socMarkers.push(circle);
+      });
+    }).catch(function(){});
+}
+
+function socRenderEvents() {
+  var cat   = (document.getElementById('soc-cat-filter') || {}).value || '';
+  var feed  = document.getElementById('soc-event-feed');
+  if (!feed) return;
+  var evs = cat ? _socEvents.filter(function(e){ return e.category === cat; }) : _socEvents;
+  if (!evs.length) {
+    feed.innerHTML = '<div style="padding:20px;text-align:center;color:#a19f9d;font-size:12px;">No events. Log one above or wait for an agent scan to trigger events.</div>';
+    return;
+  }
+  feed.innerHTML = evs.slice(0, 60).map(function(ev) {
+    var sev = ev.severity || 'INFO';
+    var t   = (ev.created_at || '').replace('T',' ').slice(0,16);
+    return '<div class="soc-event-row">'
+      + '<span class="soc-ev-badge ' + esc(sev) + '">' + esc(sev) + '</span>'
+      + '<span style="font-size:11px;color:#252423;font-weight:600;margin-left:4px;">' + esc(ev.event_type) + '</span>'
+      + (ev.ip_address ? ' <span style="font-size:10px;color:#605e5c;">' + esc(ev.ip_address) + '</span>' : '')
+      + (ev.target ? ' &rarr; <span style="font-size:10px;color:#0078d4;">' + esc(ev.target) + '</span>' : '')
+      + '<span style="font-size:10px;color:#a19f9d;margin-left:auto;">' + t + '</span>'
+      + (ev.description ? '<div style="font-size:10px;color:#605e5c;margin-top:2px;padding-left:4px;">' + esc(ev.description) + '</div>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function socIngestEvent() {
+  var type   = (document.getElementById('soc-ingest-type')   || {}).value || 'login_failed';
+  var ip     = ((document.getElementById('soc-ingest-ip')     || {}).value || '').trim();
+  var target = ((document.getElementById('soc-ingest-target') || {}).value || '').trim();
+  var sev    = (document.getElementById('soc-ingest-sev')     || {}).value || 'HIGH';
+  var desc   = ((document.getElementById('soc-ingest-desc')   || {}).value || '').trim();
+  var msg    = document.getElementById('soc-ingest-msg');
+
+  if (!ip) { if (msg) msg.style.color='#a80000', msg.textContent='IP address is required.'; return; }
+
+  if (msg) { msg.style.color='#605e5c'; msg.textContent='Logging event...'; }
+
+  fetch('/api/events/ingest', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ event_type: type, ip_address: ip, target: target,
+      severity: sev, description: desc })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok || d.event_id) {
+      if (msg) { msg.style.color='#107c10'; msg.textContent='Event logged (ID ' + (d.event_id||'?') + '). GeoIP lookup in progress.'; }
+      setTimeout(loadSocData, 1500);
+    } else {
+      if (msg) { msg.style.color='#a80000'; msg.textContent = d.error || 'Failed to log event.'; }
+    }
+  })
+  .catch(function(e) {
+    if (msg) { msg.style.color='#a80000'; msg.textContent='Request failed: ' + e; }
+  });
+}
+
+function loadRemLog() {
+  fetch('/api/remediation/log')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var tbody = document.getElementById('soc-remed-tbody');
+      if (!tbody) return;
+      var rows = d.actions || [];
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="mdef-empty">No auto-remediation actions yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(function(a) {
+        var sc = a.status === 'success' ? 'color:#107c10;font-weight:700;' : a.status === 'failed' ? 'color:#a80000;' : 'color:#605e5c;';
+        return '<tr>'
+          + '<td style="font-size:11px;white-space:nowrap;">' + esc((a.created_at||'').slice(0,16).replace('T',' ')) + '</td>'
+          + '<td style="font-size:11px;">' + esc(a.rule_name) + '</td>'
+          + '<td style="font-size:11px;">' + esc(a.action_type) + '</td>'
+          + '<td style="font-size:11px;">' + esc(a.target) + '</td>'
+          + '<td style="font-size:11px;' + sc + '">' + esc(a.status) + '</td>'
+          + '<td style="font-size:10px;color:#605e5c;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(a.result) + '">' + esc(a.result) + '</td>'
+          + '</tr>';
+      }).join('');
+    }).catch(function(){});
+}
+
+function loadActiveRules() {
+  fetch('/api/remediation/rules')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var list = document.getElementById('soc-rules-list');
+      if (!list) return;
+      var rules = d.rules || [];
+      if (!rules.length) { list.innerHTML = '<div style="color:#a19f9d;font-size:12px;">No rules configured.</div>'; return; }
+      list.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;">'
+        + rules.map(function(r) {
+          return '<div style="background:#fff;border:1px solid #e1dfdd;border-radius:4px;padding:8px 12px;font-size:11px;min-width:220px;">'
+            + '<div style="font-weight:700;color:#252423;margin-bottom:2px;">' + esc(r.name) + '</div>'
+            + '<div style="color:#605e5c;">' + esc(r.description || '') + '</div>'
+            + '<div style="color:#0078d4;margin-top:3px;">Action: ' + esc(r.action) + '</div>'
+            + (r.threshold ? '<div style="color:#a19f9d;">Threshold: ' + r.threshold + ' events / ' + (r.window_min||'?') + ' min</div>' : '')
+            + '</div>';
+        }).join('')
+        + '</div>';
+    }).catch(function(){});
+}
+
+function loadBlockedIps() {
+  fetch('/api/events/blocked-ips')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var tbody = document.getElementById('soc-blocked-tbody');
+      if (!tbody) return;
+      var ips = d.blocked_ips || [];
+      if (!ips.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="mdef-empty">No blocked IPs yet. Auto-remediation rules will populate this when thresholds are exceeded.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = ips.map(function(b) {
+        return '<tr>'
+          + '<td style="font-size:12px;font-weight:600;color:#252423;">' + esc(b.ip_address) + '</td>'
+          + '<td style="font-size:11px;">' + esc(b.country) + '</td>'
+          + '<td style="font-size:11px;">' + esc(b.block_reason) + '</td>'
+          + '<td style="font-size:10px;color:#605e5c;font-family:monospace;">' + esc(b.cf_rule_id) + '</td>'
+          + '<td style="font-size:11px;">' + esc((b.created_at||'').slice(0,16).replace('T',' ')) + '</td>'
+          + '<td><span style="background:' + (b.status==='active'?'#a80000':'#605e5c') + ';color:#fff;font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;">' + esc((b.status||'').toUpperCase()) + '</span></td>'
+          + '</tr>';
+      }).join('');
+    }).catch(function(){});
 }
 
 /* ── HTML escape ── */
@@ -7642,6 +8093,8 @@ function recFilter() {
 /* ═══════════════════════════════════════════════════════
    REMEDIATION PAGE
    ═══════════════════════════════════════════════════════ */
+function loadRemediationActivities() { loadRemediationPage(); }
+
 function loadRemediationPage() {
   var tbody = document.getElementById('rem-tbody');
   if (!tbody) return;

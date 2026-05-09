@@ -42,7 +42,133 @@ try:
 except ImportError:
     _HAS_CLOUDSCRAPER = False
 
-_SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '')
+_SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '').strip()
+
+# ── GeoIP lookup cache (uses ip-api.com, free, no key, 45 req/min) ─────────
+_geoip_cache: dict = {}
+
+def _geoip_detail(ip: str) -> dict:
+    """Return {country, country_code, lat, lon} for an IP. Cached."""
+    _blank = {'country': '', 'country_code': '', 'lat': 0.0, 'lon': 0.0}
+    if not ip or ip in ('127.0.0.1', '::1', 'localhost', '0.0.0.0', ''):
+        return _blank
+    if ip in _geoip_cache:
+        return _geoip_cache[ip]
+    try:
+        import urllib.request as _ur2
+        with _ur2.urlopen(
+            f'http://ip-api.com/json/{ip}?fields=country,countryCode,lat,lon',
+            timeout=3
+        ) as _r2:
+            _d2 = _json.loads(_r2.read())
+            result = {
+                'country':      _d2.get('country', ''),
+                'country_code': _d2.get('countryCode', ''),
+                'lat':          float(_d2.get('lat', 0)),
+                'lon':          float(_d2.get('lon', 0)),
+            }
+    except Exception:
+        result = _blank.copy()
+    _geoip_cache[ip] = result
+    return result
+
+
+# ── Auto-remediation rules ────────────────────────────────────────────────────
+_REMED_RULES = [
+    {'name': 'brute_force_block',     'event_types': ['login_failed'],
+     'threshold': 10, 'window_min': 5,   'action': 'block_ip',
+     'severity': 'HIGH',     'description': 'Block IPs with >10 failed logins in 5 min'},
+    {'name': 'sql_injection_block',   'event_types': ['sql_injection'],
+     'threshold': 1,  'window_min': 60,  'action': 'block_ip',
+     'severity': 'CRITICAL', 'description': 'Immediately block SQL injection sources'},
+    {'name': 'xss_block',             'event_types': ['xss_attempt'],
+     'threshold': 3,  'window_min': 10,  'action': 'block_ip',
+     'severity': 'HIGH',     'description': 'Block IPs with ≥3 XSS attempts in 10 min'},
+    {'name': 'scanner_block',         'event_types': ['port_scan', 'vuln_scan'],
+     'threshold': 5,  'window_min': 2,   'action': 'block_ip',
+     'severity': 'MEDIUM',   'description': 'Block aggressive scanners (≥5 probes in 2 min)'},
+    {'name': 'credential_stuffing',   'event_types': ['login_failed'],
+     'threshold': 50, 'window_min': 60,  'action': 'block_ip',
+     'severity': 'CRITICAL', 'description': 'Block credential-stuffing sources (≥50 failures/hour)'},
+    {'name': 'critical_vuln_incident','event_types': ['vulnerability_detected'],
+     'threshold': 1,  'window_min': 1440,'action': 'create_incident',
+     'severity': 'CRITICAL', 'description': 'Open incident for every critical vulnerability'},
+]
+
+
+def _run_remediation(event_id: int, event: dict) -> None:
+    """Check rules against the new event; trigger actions when thresholds are met."""
+    ip        = event.get('ip_address', '')
+    ev_type   = event.get('event_type', '')
+    target    = event.get('target', '')
+
+    for rule in _REMED_RULES:
+        if ev_type not in rule['event_types']:
+            continue
+        count = db.count_events_by_ip(ip, rule['event_types'], rule['window_min'])
+        if count < rule['threshold']:
+            continue
+
+        action_id = db.log_remediation(
+            trigger_event_id=event_id, rule_name=rule['name'],
+            action_type=rule['action'], target=ip or target,
+            parameters=_json.dumps({'rule': rule['name'], 'count': count, 'ip': ip}),
+            status='running', auto_triggered=True,
+        )
+
+        try:
+            if rule['action'] == 'block_ip' and ip and not db.is_ip_blocked(ip):
+                _auto_block_ip(ip, rule['name'], event.get('country', ''), action_id)
+            elif rule['action'] == 'create_incident':
+                db.create_incident(
+                    title=f"[Auto] {event.get('description','Security event')}",
+                    description=f"Rule: {rule['description']}\nEvent ID: {event_id}\nTarget: {target}",
+                    severity=rule['severity'],
+                    target=target,
+                )
+                db.update_remediation(action_id, 'success', 'Incident created')
+        except Exception as _e:
+            db.update_remediation(action_id, 'failed', str(_e)[:200])
+
+
+def _auto_block_ip(ip: str, rule_name: str, country: str, action_id: int) -> None:
+    """Block an IP via Cloudflare Firewall Rules (requires Zone WAF:Edit permission)."""
+    def _strip_env_prefix(v):
+        return v.split('=', 1)[-1].strip() if '=' in v else v.strip()
+
+    cf_token = _strip_env_prefix(os.environ.get('CF_API_TOKEN', '').strip())
+    if not cf_token:
+        db.add_blocked_ip(ip, country, rule_name)
+        db.update_remediation(action_id, 'success', f'Blocked locally (no CF token)')
+        return
+
+    # Find a zone to apply the rule to (use first available zone)
+    try:
+        zr = _json.loads(_cf_request('/zones?per_page=1', cf_token, timeout=10)[1])
+        zones = (zr.get('result') or [])
+        zone_id = zones[0]['id'] if zones else ''
+    except Exception:
+        zone_id = ''
+
+    cf_rule_id = ''
+    if zone_id and _HAS_REQUESTS:
+        url  = f'https://api.cloudflare.com/client/v4/zones/{zone_id}/firewall/rules'
+        hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
+        try:
+            r = _requests.post(url, headers=hdrs, json=[{
+                'filter': {'expression': f'(ip.src eq {ip})'},
+                'action': 'block',
+                'description': f'CF_AI auto-block: {rule_name}',
+            }], timeout=15, verify=True)
+            data = r.json()
+            if r.status_code == 200 and data.get('success'):
+                cf_rule_id = (data.get('result') or [{}])[0].get('id', '')
+        except Exception:
+            pass
+
+    db.add_blocked_ip(ip, country, rule_name, cf_rule_id, zone_id)
+    db.update_remediation(action_id, 'success',
+        f'IP {ip} blocked' + (f' via CF rule {cf_rule_id}' if cf_rule_id else ' locally'))
 
 
 def _wp_request(url: str, method: str = 'GET', headers: dict | None = None,
@@ -2385,6 +2511,130 @@ def api_priority_maintenance_status():
         'maintenance_domains': [s['domain'] for s in sites],
         'details': sites,
     })
+
+
+# ══ Security Operations ══════════════════════════════════════════════════════
+
+@app.route('/api/events/ingest', methods=['POST'])
+def api_events_ingest():
+    """Ingest a security event. Runs GeoIP lookup and auto-remediation rules."""
+    data       = request.get_json(force=True, silent=True) or {}
+    event_type = (data.get('event_type') or '').strip()
+    if not event_type:
+        return jsonify({'error': 'event_type is required'}), 400
+
+    ip      = (data.get('ip') or data.get('ip_address') or '').strip()
+    geo     = _geoip_detail(ip) if ip else {}
+
+    ev = {
+        'event_type':   event_type,
+        'category':     (data.get('category') or _infer_category(event_type)),
+        'severity':     (data.get('severity') or 'LOW').upper(),
+        'ip_address':   ip,
+        'country':      geo.get('country', data.get('country', '')),
+        'country_code': geo.get('country_code', ''),
+        'latitude':     geo.get('lat', 0),
+        'longitude':    geo.get('lon', 0),
+        'target':       (data.get('target') or '').strip(),
+        'user_name':    (data.get('user') or data.get('user_name') or '').strip(),
+        'description':  (data.get('description') or data.get('event') or event_type).strip(),
+        'raw_data':     _json.dumps(data),
+    }
+
+    event_id = db.log_security_event(**ev)
+    _run_remediation(event_id, ev)
+    return jsonify({'ok': True, 'event_id': event_id, 'geo': geo})
+
+
+def _infer_category(event_type: str) -> str:
+    et = event_type.lower()
+    if any(k in et for k in ('login', 'auth', 'password', 'mfa', 'session')): return 'auth'
+    if any(k in et for k in ('sql', 'xss', 'injection', 'scan', 'brute', 'attack', 'block')): return 'attack'
+    if any(k in et for k in ('vuln', 'cve', 'outdated', 'patch', 'weak')): return 'vulnerability'
+    if any(k in et for k in ('fix', 'update', 'remediat', 'patch')): return 'remediation'
+    return 'system'
+
+
+@app.route('/api/events')
+def api_events():
+    limit    = min(int(request.args.get('limit', 200)), 1000)
+    category = request.args.get('category', '')
+    severity = request.args.get('severity', '')
+    days     = int(request.args.get('days', 7))
+    events   = db.get_security_events(limit=limit, category=category, severity=severity, days=days)
+    stats    = db.get_event_stats(days=days)
+    blocked  = db.get_blocked_ips()
+    return jsonify({'events': events, 'stats': stats,
+                    'blocked_count': len(blocked), 'total': len(events)})
+
+
+@app.route('/api/events/map')
+def api_events_map():
+    days   = int(request.args.get('days', 7))
+    events = db.get_events_map(days=days)
+    return jsonify({'events': events, 'total': len(events)})
+
+
+@app.route('/api/events/stats')
+def api_events_stats():
+    days = int(request.args.get('days', 7))
+    return jsonify(db.get_event_stats(days=days))
+
+
+@app.route('/api/remediation/log')
+def api_remediation_log():
+    return jsonify({'actions': db.get_remediation_log(limit=200)})
+
+
+@app.route('/api/remediation/rules')
+def api_remediation_rules():
+    return jsonify({'rules': _REMED_RULES})
+
+
+@app.route('/api/events/blocked-ips')
+def api_blocked_ips():
+    return jsonify({'blocked_ips': db.get_blocked_ips()})
+
+
+@app.route('/api/events/ingest-scan', methods=['POST'])
+def api_events_ingest_scan():
+    """Parse a completed scan output for security events and auto-ingest them."""
+    data    = request.get_json(force=True, silent=True) or {}
+    scan_id = data.get('scan_id')
+    if not scan_id:
+        return jsonify({'error': 'scan_id required'}), 400
+
+    scan = db.get_scan(int(scan_id))
+    if not scan:
+        return jsonify({'error': 'scan not found'}), 404
+
+    output = (scan.get('output') or '').lower()
+    target = scan.get('target', '')
+    count  = 0
+
+    # Parse common patterns from scan output and emit events
+    _scan_patterns = [
+        ('sql_injection',       'attack',        'HIGH',     ['sql injection', 'sqli']),
+        ('xss_attempt',         'attack',        'HIGH',     ['cross-site scripting', 'xss']),
+        ('brute_force',         'attack',        'HIGH',     ['brute force', 'login attempt']),
+        ('open_port',           'attack',        'MEDIUM',   ['open port', 'exposed service']),
+        ('weak_ssl',            'vulnerability', 'HIGH',     ['weak ssl', 'self-signed', 'tls 1.0', 'tls 1.1']),
+        ('missing_headers',     'vulnerability', 'MEDIUM',   ['missing header', 'hsts', 'x-frame']),
+        ('outdated_software',   'vulnerability', 'HIGH',     ['outdated', 'vulnerable version']),
+        ('vulnerability_detected','vulnerability','CRITICAL', ['critical', 'cve-']),
+        ('default_credentials', 'attack',        'CRITICAL', ['default password', 'admin:admin']),
+    ]
+
+    for ev_type, cat, sev, keywords in _scan_patterns:
+        if any(k in output for k in keywords):
+            db.log_security_event(
+                event_type=ev_type, category=cat, severity=sev,
+                target=target, description=f'{ev_type} detected during scan of {target}',
+                raw_data=_json.dumps({'scan_id': scan_id}),
+            )
+            count += 1
+
+    return jsonify({'ok': True, 'events_created': count, 'target': target})
 
 
 @app.route('/api/analytics/pci')

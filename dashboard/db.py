@@ -60,6 +60,47 @@ def init_db():
                 reason                  TEXT DEFAULT ''
             )
         ''')
+        con.execute('''CREATE TABLE IF NOT EXISTS security_events (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+            event_type   TEXT NOT NULL,
+            category     TEXT DEFAULT '',
+            severity     TEXT DEFAULT 'LOW',
+            ip_address   TEXT DEFAULT '',
+            country      TEXT DEFAULT '',
+            country_code TEXT DEFAULT '',
+            latitude     REAL DEFAULT 0,
+            longitude    REAL DEFAULT 0,
+            target       TEXT DEFAULT '',
+            user_name    TEXT DEFAULT '',
+            description  TEXT DEFAULT '',
+            raw_data     TEXT DEFAULT '',
+            remediated   INTEGER DEFAULT 0,
+            remediation_id INTEGER DEFAULT NULL
+        )''')
+        con.execute('''CREATE TABLE IF NOT EXISTS remediation_actions (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+            trigger_event_id INTEGER DEFAULT NULL,
+            rule_name        TEXT NOT NULL DEFAULT '',
+            action_type      TEXT NOT NULL,
+            target           TEXT DEFAULT '',
+            parameters       TEXT DEFAULT '',
+            status           TEXT DEFAULT 'pending',
+            result           TEXT DEFAULT '',
+            auto_triggered   INTEGER DEFAULT 1
+        )''')
+        con.execute('''CREATE TABLE IF NOT EXISTS blocked_ips (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+            ip_address   TEXT NOT NULL,
+            country      TEXT DEFAULT '',
+            block_reason TEXT DEFAULT '',
+            cf_rule_id   TEXT DEFAULT '',
+            zone_id      TEXT DEFAULT '',
+            expires_at   TEXT DEFAULT '',
+            status       TEXT DEFAULT 'active'
+        )''')
         con.commit()
 
 
@@ -248,3 +289,145 @@ def get_all_maintenance() -> list:
     with _connect() as con:
         rows = con.execute('SELECT * FROM maintenance_sites').fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Security Events ───────────────────────────────────────────────────────────
+
+def log_security_event(*, event_type: str, category: str = '', severity: str = 'LOW',
+                       ip_address: str = '', country: str = '', country_code: str = '',
+                       latitude: float = 0, longitude: float = 0, target: str = '',
+                       user_name: str = '', description: str = '', raw_data: str = '') -> int:
+    with _connect() as con:
+        cur = con.execute(
+            '''INSERT INTO security_events
+               (event_type, category, severity, ip_address, country, country_code,
+                latitude, longitude, target, user_name, description, raw_data)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''',
+            (event_type, category, severity, ip_address, country, country_code,
+             float(latitude), float(longitude), target, user_name, description, str(raw_data)[:4000])
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def get_security_events(limit: int = 200, category: str = '', severity: str = '',
+                        days: int = 7) -> list:
+    with _connect() as con:
+        wheres = ["created_at >= datetime('now', ?)"]
+        params: list = [f'-{days} days']
+        if category:
+            wheres.append('category = ?'); params.append(category)
+        if severity:
+            wheres.append('severity = ?'); params.append(severity)
+        rows = con.execute(
+            f'SELECT * FROM security_events WHERE {" AND ".join(wheres)} ORDER BY created_at DESC LIMIT ?',
+            params + [limit]
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_events_map(days: int = 7) -> list:
+    """Return events that have valid geo coords for the world map."""
+    with _connect() as con:
+        rows = con.execute(
+            '''SELECT id, created_at, event_type, category, severity,
+                      ip_address, country, country_code, latitude, longitude,
+                      target, description
+               FROM security_events
+               WHERE created_at >= datetime('now', ?)
+                 AND latitude != 0 AND longitude != 0
+               ORDER BY created_at DESC LIMIT 500''',
+            (f'-{days} days',)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def count_events_by_ip(ip: str, event_types: list, window_minutes: int) -> int:
+    placeholders = ','.join('?' * len(event_types))
+    with _connect() as con:
+        row = con.execute(
+            f'''SELECT COUNT(*) FROM security_events
+                WHERE ip_address = ?
+                  AND event_type IN ({placeholders})
+                  AND created_at >= datetime('now', ?)''',
+            [ip] + event_types + [f'-{window_minutes} minutes']
+        ).fetchone()
+    return row[0] if row else 0
+
+
+def get_event_stats(days: int = 7) -> dict:
+    with _connect() as con:
+        total  = con.execute("SELECT COUNT(*) FROM security_events WHERE created_at >= datetime('now', ?)", (f'-{days} days',)).fetchone()[0]
+        crit   = con.execute("SELECT COUNT(*) FROM security_events WHERE severity='CRITICAL' AND created_at >= datetime('now', ?)", (f'-{days} days',)).fetchone()[0]
+        high   = con.execute("SELECT COUNT(*) FROM security_events WHERE severity='HIGH' AND created_at >= datetime('now', ?)", (f'-{days} days',)).fetchone()[0]
+        by_cat = con.execute("SELECT category, COUNT(*) FROM security_events WHERE created_at >= datetime('now', ?) GROUP BY category", (f'-{days} days',)).fetchall()
+        by_country = con.execute("SELECT country, COUNT(*) FROM security_events WHERE created_at >= datetime('now', ?) AND country != '' GROUP BY country ORDER BY COUNT(*) DESC LIMIT 10", (f'-{days} days',)).fetchall()
+    return {
+        'total': total, 'critical': crit, 'high': high,
+        'by_category': [dict(zip(['category','count'], r)) for r in by_cat],
+        'top_countries': [dict(zip(['country','count'], r)) for r in by_country],
+    }
+
+
+# ── Remediation Actions ───────────────────────────────────────────────────────
+
+def log_remediation(*, trigger_event_id: int = None, rule_name: str = '',
+                    action_type: str, target: str = '', parameters: str = '',
+                    status: str = 'pending', result: str = '',
+                    auto_triggered: bool = True) -> int:
+    with _connect() as con:
+        cur = con.execute(
+            '''INSERT INTO remediation_actions
+               (trigger_event_id, rule_name, action_type, target, parameters,
+                status, result, auto_triggered)
+               VALUES (?,?,?,?,?,?,?,?)''',
+            (trigger_event_id, rule_name, action_type, target,
+             parameters, status, result, 1 if auto_triggered else 0)
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def update_remediation(action_id: int, status: str, result: str = '') -> None:
+    with _connect() as con:
+        con.execute('UPDATE remediation_actions SET status=?, result=? WHERE id=?',
+                    (status, result, action_id))
+        con.commit()
+
+
+def get_remediation_log(limit: int = 100) -> list:
+    with _connect() as con:
+        rows = con.execute(
+            'SELECT * FROM remediation_actions ORDER BY created_at DESC LIMIT ?', (limit,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ── Blocked IPs ───────────────────────────────────────────────────────────────
+
+def add_blocked_ip(ip: str, country: str = '', reason: str = '',
+                   cf_rule_id: str = '', zone_id: str = '') -> int:
+    with _connect() as con:
+        con.execute('DELETE FROM blocked_ips WHERE ip_address = ?', (ip,))
+        cur = con.execute(
+            'INSERT INTO blocked_ips (ip_address, country, block_reason, cf_rule_id, zone_id) VALUES (?,?,?,?,?)',
+            (ip, country, reason, cf_rule_id, zone_id)
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def get_blocked_ips(status: str = 'active') -> list:
+    with _connect() as con:
+        rows = con.execute(
+            'SELECT * FROM blocked_ips WHERE status=? ORDER BY created_at DESC LIMIT 500', (status,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def is_ip_blocked(ip: str) -> bool:
+    with _connect() as con:
+        row = con.execute(
+            "SELECT id FROM blocked_ips WHERE ip_address=? AND status='active'", (ip,)
+        ).fetchone()
+    return row is not None
