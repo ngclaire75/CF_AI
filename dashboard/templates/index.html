@@ -4747,8 +4747,9 @@ function runPluginLogsPage() {
     .then(function(r){ return r.json(); })
     .then(function(d){
       (d.logins || []).forEach(function(l){
+        var sev = l.risk || (l.event && /fail|block|attack|brute|invalid/i.test(l.event) ? 'HIGH' : 'INFO');
         allLogs.push({ timestamp: l.date, user: l.user, event: l.event,
-                       ip: l.ip, severity: /login_success|admin|authenticated/i.test(l.event) ? 'INFO' : 'MEDIUM',
+                       ip: l.ip, severity: sev,
                        _target: l.target, source: 'agent' });
       });
     }).catch(function(){});

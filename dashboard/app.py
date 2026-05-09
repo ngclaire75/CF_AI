@@ -485,6 +485,27 @@ def _parse_and_save_plugins(scan_id: int, target: str, output: str) -> int:
             found[key] = {'name': name, 'version': '', 'plugin_type': 'WordPress Plugin',
                           'status': 'active', 'vulnerable': 0}
 
+    # wp_security_scan output: [ACTIVE] Plugin Name v1.0.0 — slug/slug.php
+    for m in re.finditer(
+            r'\[(ACTIVE|INACTIVE|MUST-USE|DROP-IN)\]\s+(.+?)\s+v([\d][0-9.]*)',
+            output, re.I):
+        status = m.group(1).lower()
+        name   = m.group(2).strip().rstrip(' —-')
+        ver    = m.group(3).strip()
+        key    = name.lower()
+        if key not in found and 2 < len(name) < 80:
+            found[key] = {'name': name, 'version': ver, 'plugin_type': 'WordPress Plugin',
+                          'status': status, 'vulnerable': 0}
+
+    # Active theme line: "Active theme: ThemeName v1.0"
+    for m in re.finditer(r'active theme:\s+(.+?)\s+v([\d][0-9.]*)', output, re.I):
+        name = m.group(1).strip()
+        ver  = m.group(2).strip()
+        key  = name.lower()
+        if key not in found and len(name) < 80:
+            found[key] = {'name': name, 'version': ver, 'plugin_type': 'WordPress Theme',
+                          'status': 'active', 'vulnerable': 0}
+
     # Generic plugin lines: "Plugin: name v1.0" or "Detected plugin: name 1.0"
     for m in re.finditer(
             r'(?:detected\s+)?plugin[:\s]+([a-zA-Z][\w ._-]{2,50}?)\s+v?([\d]+\.[\d.]+)',
@@ -2861,30 +2882,45 @@ def api_inventories_logins():
     limit  = min(int(request.args.get('limit', 500)), 2000)
     scans  = db.get_scans_for_target(target) if target else db.get_recent_scans(limit=200)
 
-    login_pat = re.compile(
-        r'WP-LOG\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)'  # WP-LOG | date | user | role | event | ip
-        r'|(?:logged?\s*in|login\s*success|auth(?:enticated)?)[^\n]{0,80}user(?:name)?[:\s]+([^\s,\n]{1,60})'
-        r'|user\s+([^\s,\n]{1,60})\s+(?:logged?\s*in|authenticated)',
-        re.I,
+    # Also capture WP-USER enumeration lines not covered by WP-LOG
+    user_enum_pat = re.compile(
+        r'^WP-USER(?:-ENUM|-CONFIRMED)?\s*\|\s*(\S+)\s*\|\s*(\S+)',
+        re.I | re.MULTILINE,
     )
+
     logins = []
     for s in (scans or []):
         out = s.get('output', '') or ''
-        for m in login_pat.finditer(out):
-            if m.group(1) is not None:
-                # WP-LOG line
-                date_str = m.group(1).strip()
-                user     = m.group(3).strip() or m.group(2).strip()
-                event    = m.group(5).strip() if m.group(5) else m.group(4).strip()
-                ip       = m.group(6).strip() if m.group(6) else ''
-                if not user or len(user) > 80: continue
-                logins.append({'target': s['target'], 'user': user, 'event': event or 'login',
-                               'ip': ip, 'date': date_str, 'scan_id': s['id']})
-            else:
-                user = (m.group(7) or m.group(8) or '').strip()
-                if user and len(user) < 80:
-                    logins.append({'target': s['target'], 'user': user, 'event': 'login_success',
-                                   'ip': '', 'date': (s.get('created_at') or '')[:16], 'scan_id': s['id']})
+        fallback_date = (s.get('created_at') or '')[:16]
+
+        # Use the existing extract_wp_logs() which correctly parses WP-LOG | date | user | event | ip | risk
+        # and also handles WP-USER / CREDS_FOUND / APP_PASS_CREATED fallback lines
+        wp = extract_wp_logs(out)
+        for entry in wp.get('entries', []):
+            logins.append({
+                'target':  s['target'],
+                'user':    entry.get('user', ''),
+                'event':   entry.get('event', 'login'),
+                'ip':      entry.get('ip', ''),
+                'risk':    entry.get('risk', 'INFO'),
+                'date':    entry.get('timestamp') or fallback_date,
+                'scan_id': s['id'],
+            })
+
+        # WP-USER | id | login | and WP-USER-CONFIRMED | username | lines (user enumeration)
+        for m in user_enum_pat.finditer(out):
+            username = m.group(2).strip()
+            if username and len(username) < 80:
+                logins.append({
+                    'target':  s['target'],
+                    'user':    username,
+                    'event':   'User enumerated by scanner',
+                    'ip':      '',
+                    'risk':    'MEDIUM',
+                    'date':    fallback_date,
+                    'scan_id': s['id'],
+                })
+
         if len(logins) >= limit:
             break
 

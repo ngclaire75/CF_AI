@@ -282,8 +282,8 @@ def _run_scan_background(
             raise InterruptedError("aborted")
         _push({"k": "tool", "d": name, "i": str(inp)[:120]})
 
-    def on_result(res: dict) -> None:
-        _push({"k": "done", "d": res})
+    def on_result(name: str, result: str, elapsed: float) -> None:
+        _push({"k": "result", "d": result[:4000], "n": name})
 
     start = time.monotonic()
     elapsed = 0.0
@@ -312,6 +312,11 @@ def _run_scan_background(
         full_output = "".join(
             c["d"] for c in job["chunks"] if c.get("k") == "txt"
         )
+        # Also collect tool results for plugin/login parsing (not saved to DB but used for parsing)
+        tool_results_text = "\n\n".join(
+            f"[RESULT] {c.get('n','tool')}: {c['d']}"
+            for c in job["chunks"] if c.get("k") == "result"
+        )
         tool_count = sum(1 for c in job["chunks"] if c.get("k") == "tool")
 
     was_aborted = job.get("aborted", False)
@@ -337,7 +342,7 @@ def _run_scan_background(
         # Parse and store detected plugins
         from dashboard.app import _parse_and_save_plugins
         try:
-            _parse_and_save_plugins(scan_id, domain, full_output)
+            _parse_and_save_plugins(scan_id, domain, full_output + "\n\n" + tool_results_text)
         except Exception:
             pass
     elif job.get("status") != "error":
