@@ -443,6 +443,90 @@ def _job_load(job_id: str) -> dict | None:
         pass
     return None
 
+# ── Plugin inventory parser ───────────────────────────────────────────────────
+
+def _parse_and_save_plugins(scan_id: int, target: str, output: str) -> int:
+    """Extract plugins/packages from scan output and upsert them into the DB."""
+    found: dict = {}
+
+    # WordPress wp plugin list table: | slug | active | 1.2.3 |
+    for m in re.finditer(
+            r'\|\s*([\w][\w-]{1,60})\s*\|\s*(active|inactive|must-use|drop-in)\s*\|\s*([\d.]+)\s*\|',
+            output, re.I):
+        slug, status, ver = m.group(1).strip(), m.group(2).strip().lower(), m.group(3).strip()
+        key = slug.lower()
+        found[key] = {'name': slug, 'version': ver, 'plugin_type': 'WordPress Plugin',
+                      'status': status, 'vulnerable': 0}
+
+    # WordPress REST API JSON blobs: "slug":"name","version":"x.y"
+    for m in re.finditer(r'"slug"\s*:\s*"([^"]{2,60})"[^}]{0,200}?"version"\s*:\s*"([^"]+)"',
+                         output, re.I | re.S):
+        name, ver = m.group(1).strip(), m.group(2).strip()
+        key = name.lower()
+        if key not in found:
+            found[key] = {'name': name, 'version': ver, 'plugin_type': 'WordPress Plugin',
+                          'status': 'active', 'vulnerable': 0}
+
+    # wp-content/plugins/slug paths
+    for m in re.finditer(r'wp-content/plugins/([\w-]{3,60})', output, re.I):
+        slug = m.group(1).strip()
+        key = slug.lower()
+        if key not in found:
+            found[key] = {'name': slug, 'version': '', 'plugin_type': 'WordPress Plugin',
+                          'status': 'active', 'vulnerable': 0}
+
+    # WP-LOG plugin activation/deactivation entries
+    for m in re.finditer(
+            r'WP-LOG[^\n]*(?:activated|deactivated|installed)\s+(?:plugin\s+)?[:\s]+"?([^"|\n]{3,60}?)"?\s*\|',
+            output, re.I):
+        name = m.group(1).strip().rstrip('.')
+        key = name.lower()
+        if key not in found:
+            found[key] = {'name': name, 'version': '', 'plugin_type': 'WordPress Plugin',
+                          'status': 'active', 'vulnerable': 0}
+
+    # Generic plugin lines: "Plugin: name v1.0" or "Detected plugin: name 1.0"
+    for m in re.finditer(
+            r'(?:detected\s+)?plugin[:\s]+([a-zA-Z][\w ._-]{2,50}?)\s+v?([\d]+\.[\d.]+)',
+            output, re.I):
+        name, ver = m.group(1).strip(), m.group(2).strip()
+        key = name.lower()
+        if key not in found and len(name) < 60:
+            found[key] = {'name': name, 'version': ver, 'plugin_type': 'Plugin',
+                          'status': 'active', 'vulnerable': 0}
+
+    # npm packages: "package-name@version" patterns in output
+    for m in re.finditer(r'(?:^|\s)([@\w][\w/-]{1,50})@([\d]+\.[\d.]+)', output, re.M):
+        name, ver = m.group(1).strip(), m.group(2).strip()
+        if name.startswith('@') or '/' in name:
+            continue  # skip scoped packages
+        key = name.lower()
+        if key not in found:
+            found[key] = {'name': name, 'version': ver, 'plugin_type': 'npm Package',
+                          'status': 'active', 'vulnerable': 0}
+
+    # Mark known-vulnerable plugins
+    vuln_ctx = re.findall(
+        r'(?:CVE-\d{4}-\d{4,}|vulnerable|exploit|critical\s+vuln)[^\n]{0,120}',
+        output, re.I)
+    for ctx in vuln_ctx:
+        for key in list(found.keys()):
+            if key in ctx.lower():
+                found[key]['vulnerable'] = 1
+
+    # Persist to DB
+    for data in found.values():
+        try:
+            db.upsert_plugin(
+                target=target, name=data['name'], version=data['version'],
+                plugin_type=data['plugin_type'], status=data['status'],
+                vulnerable=data['vulnerable'], scan_id=scan_id,
+            )
+        except Exception:
+            pass
+
+    return len(found)
+
 # ── IP geolocation (ip-api.com, free, no key required) ───────────────────────
 _geo_cache: dict[str, str] = {}
 
@@ -830,19 +914,24 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 Runner.run(agent, f'Run all WSTG-{agent_type.upper()} checks on {domain}.',
                            on_text=_ot, on_tool=_oo, on_result=_or)
 
-        elapsed = _time.time() - t0
-        output  = '\n\n'.join(parts)
+        elapsed  = _time.time() - t0
+        output   = '\n\n'.join(parts)
+        was_aborted = job.get('aborted', False)
+        db_status   = 'interrupted' if was_aborted else 'ok'
 
         scan_id = db.save_scan(
             target=domain, agent_type=agent_type,
-            model=model_used, status='ok',
+            model=model_used, status=db_status,
             latency_s=round(elapsed, 2),
             tool_count=tools[0], output=output,
         )
-        # Tell the browser the save succeeded so it can show the "Logged" confirmation
+        final_status = 'interrupted' if was_aborted else 'done'
+        if was_aborted:
+            job['chunks'].append({'k': 'txt', 'd': '\n[Scan stopped — findings logged to dashboard]\n'})
         job['chunks'].append({'k': 'saved', 'id': scan_id})
-        job.update({'status': 'done', 'elapsed': round(elapsed, 2),
+        job.update({'status': final_status, 'elapsed': round(elapsed, 2),
                     'tool_count': tools[0], 'scan_id': scan_id})
+        _parse_and_save_plugins(scan_id, domain, output)
         _job_persist(job_id, job)
 
     except Exception as exc:
@@ -862,6 +951,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             )
             job['chunks'].append({'k': 'saved', 'id': scan_id})
             job.update({'status': 'error', 'error': str(exc), 'trace': tb, 'scan_id': scan_id})
+            _parse_and_save_plugins(scan_id, domain or target or '', '\n\n'.join(parts))
         except Exception:
             job.update({'status': 'error', 'error': str(exc), 'trace': tb})
         _job_persist(job_id, job)
@@ -1563,13 +1653,14 @@ def api_connect_scan_poll(job_id):
 
 @app.route('/api/connect/scan/<job_id>/abort', methods=['POST'])
 def api_connect_scan_abort(job_id):
-    """Signal a running background scan to stop after its current tool call."""
+    """Signal a running background scan to stop; partial findings will be saved."""
     job = _scan_jobs.get(job_id)
     if not job:
         return jsonify({'error': 'job not found'}), 404
     job['aborted'] = True
-    job['status']  = 'aborted'
-    job['chunks'].append({'k': 'txt', 'd': '\n[SCAN ABORTED by user]'})
+    # Keep status as 'running' so the frontend keeps polling until the
+    # background thread finishes saving partial output, then sets 'interrupted'.
+    job['chunks'].append({'k': 'txt', 'd': '\n[Stopping scan — saving findings so far...]\n'})
     return jsonify({'ok': True})
 
 
@@ -2753,6 +2844,51 @@ def api_events_ingest_scan():
             count += 1
 
     return jsonify({'ok': True, 'events_created': count, 'target': target})
+
+
+@app.route('/api/inventories/plugins')
+def api_inventories_plugins():
+    """Return all plugins detected across scans, optionally filtered by target."""
+    target = request.args.get('target', '')
+    plugins = db.get_plugins(target=target)
+    return jsonify({'plugins': plugins, 'total': len(plugins)})
+
+
+@app.route('/api/inventories/logins')
+def api_inventories_logins():
+    """Return user login events extracted from scan output (WP-LOG and auth lines)."""
+    target = request.args.get('target', '')
+    limit  = min(int(request.args.get('limit', 500)), 2000)
+    scans  = db.get_scans_for_target(target) if target else db.get_recent_scans(limit=200)
+
+    login_pat = re.compile(
+        r'WP-LOG\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)'  # WP-LOG | date | user | role | event | ip
+        r'|(?:logged?\s*in|login\s*success|auth(?:enticated)?)[^\n]{0,80}user(?:name)?[:\s]+([^\s,\n]{1,60})'
+        r'|user\s+([^\s,\n]{1,60})\s+(?:logged?\s*in|authenticated)',
+        re.I,
+    )
+    logins = []
+    for s in (scans or []):
+        out = s.get('output', '') or ''
+        for m in login_pat.finditer(out):
+            if m.group(1) is not None:
+                # WP-LOG line
+                date_str = m.group(1).strip()
+                user     = m.group(3).strip() or m.group(2).strip()
+                event    = m.group(5).strip() if m.group(5) else m.group(4).strip()
+                ip       = m.group(6).strip() if m.group(6) else ''
+                if not user or len(user) > 80: continue
+                logins.append({'target': s['target'], 'user': user, 'event': event or 'login',
+                               'ip': ip, 'date': date_str, 'scan_id': s['id']})
+            else:
+                user = (m.group(7) or m.group(8) or '').strip()
+                if user and len(user) < 80:
+                    logins.append({'target': s['target'], 'user': user, 'event': 'login_success',
+                                   'ip': '', 'date': (s.get('created_at') or '')[:16], 'scan_id': s['id']})
+        if len(logins) >= limit:
+            break
+
+    return jsonify({'logins': logins[:limit], 'total': len(logins)})
 
 
 @app.route('/api/analytics/pci')

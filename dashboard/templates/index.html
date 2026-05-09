@@ -3292,7 +3292,7 @@ Export Power BI
     <div class="sec-head">
       <div>
         <div class="sec-title">User Activity Logs</div>
-        <div class="sec-desc">WordPress plugin and user activity captured from authenticated scans (WP-LOG entries from scan history)</div>
+        <div class="sec-desc">User logins, plugin activity, and admin actions captured automatically from every scan — including WP-LOG entries and agent-detected auth events</div>
       </div>
     </div>
     <div class="pl-controls">
@@ -4731,22 +4731,34 @@ function runPluginLogsPage() {
   tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#605e5c;">Loading...</td></tr>';
   document.getElementById('pl-count').textContent = '';
 
-  function _fetchLogs(t, cb) {
+  var allLogs = [];
+
+  // Source 1: WP-LOG entries from scan output
+  function _fetchWpLogs(t, cb) {
     fetch('/api/target/' + encodeURIComponent(t) + '/wp-logs')
       .then(function(r){ return r.json(); })
-      .then(function(d){ cb(null, d.logs || []); })
-      .catch(function(e){ cb(e, []); });
+      .then(function(d){ cb(null, (d.logs || []).map(function(l){ l.source='wp-log'; l._target=t; return l; })); })
+      .catch(function(){ cb(null, []); });
   }
 
+  // Source 2: Agent-detected login events
+  var loginUrl = '/api/inventories/logins' + (target ? '?target=' + encodeURIComponent(target) : '');
+  var loginP = fetch(loginUrl)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      (d.logins || []).forEach(function(l){
+        allLogs.push({ timestamp: l.date, user: l.user, event: l.event,
+                       ip: l.ip, severity: /login_success|admin|authenticated/i.test(l.event) ? 'INFO' : 'MEDIUM',
+                       _target: l.target, source: 'agent' });
+      });
+    }).catch(function(){});
+
   if (target) {
-    _fetchLogs(target, function(err, logs) {
-      if (err) { tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a80000;">Error loading logs.</td></tr>'; return; }
-      logs.forEach(function(l){ l._target = target; });
-      _renderPluginLogs(logs);
-    });
+    Promise.all([loginP, new Promise(function(res){
+      _fetchWpLogs(target, function(err, logs){ allLogs = allLogs.concat(logs); res(); });
+    })]).then(function(){ _renderPluginLogs(allLogs); });
   } else {
-    // Load all targets
-    fetch('/api/scans/recent?limit=500')
+    fetch('/api/scans/recent?limit=200')
       .then(function(r){ return r.json(); })
       .then(function(d) {
         var scans = d.scans || d || [];
@@ -4754,17 +4766,16 @@ function runPluginLogsPage() {
         var seen = {};
         scans.forEach(function(s){ if (s.target && !seen[s.target]) { seen[s.target]=1; targets.push(s.target); } });
         if (!targets.length) {
-          tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a19f9d;font-style:italic;">No targets found. Run a WordPress scan first.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a19f9d;font-style:italic;">No targets found. Run a scan first.</td></tr>';
           return;
         }
-        var allLogs = [], done = 0;
-        targets.forEach(function(t) {
-          _fetchLogs(t, function(err, logs) {
-            logs.forEach(function(l){ l._target = t; allLogs.push(l); });
-            done++;
-            if (done === targets.length) _renderPluginLogs(allLogs);
-          });
+        var done = 0;
+        function _maybeRender() { done++; if (done >= targets.length + 1) _renderPluginLogs(allLogs); }
+        loginP.then(_maybeRender);
+        targets.slice(0, 20).forEach(function(t) {
+          _fetchWpLogs(t, function(err, logs){ allLogs = allLogs.concat(logs); _maybeRender(); });
         });
+        if (targets.length > 20) done += (targets.length - 20); // skip excess
       })
       .catch(function(){ tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a80000;">Failed to load target list.</td></tr>'; });
   }
@@ -8156,37 +8167,42 @@ function loadInventories() {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading...</td></tr>';
 
-  fetch('/api/scans/recent?limit=500')
+  // Plugins come from the persistent DB (server-parsed after every scan)
+  var pluginsP = fetch('/api/inventories/plugins')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      _invData.plugins = (d.plugins || []).map(function(p) {
+        return { name: p.name, type: p.target || p.plugin_type || 'Plugin', version: p.version || '',
+                 targets: [p.target], risk: p.vulnerable ? 'HIGH' : 'INFO',
+                 status: p.status, updated: (p.updated_at || '').slice(0,10) };
+      });
+    }).catch(function(){});
+
+  // Software and targets parsed client-side from scan output
+  var scansP = fetch('/api/scans/recent?limit=500')
     .then(function(r){ return r.json(); })
     .then(function(scans) {
-      var sw = {}, pl = {}, tgt = {};
-      var swPat = [/(?:wordpress|wp)\s+([\d.]+)/gi, /php\s+([\d.]+)/gi, /apache\s+([\d.x]+)/gi, /nginx\s+([\d.x]+)/gi, /mysql\s+([\d.x]+)/gi, /openssl\s+([\d.x]+)/gi];
-      var plPat = /plugin[:\s]+([a-zA-Z0-9 _-]{3,40})\s+(?:v|version)?\s*([\d.]+)/gi;
+      var sw = {}, tgt = {};
+      var swPat = [/(?:wordpress|wp)\s+([\d.]+)/gi, /php[\s/]+([\d.]+)/gi, /apache[\s/]+([\d.x]+)/gi, /nginx[\s/]+([\d.x]+)/gi, /mysql[\s/]+([\d.x]+)/gi, /openssl[\s/]+([\d.x]+)/gi, /jquery\s+v?([\d.]+)/gi, /react[\s/]+([\d.]+)/gi];
       (scans || []).forEach(function(s) {
         var out = s.output || '';
         swPat.forEach(function(pat) {
           var m; pat.lastIndex = 0;
           while ((m = pat.exec(out)) !== null) {
-            var name = pat.source.split('\\\\')[0].replace(/[^a-z]/gi,'');
-            var key = name + '@' + m[1];
-            if (!sw[key]) sw[key] = { name: name.charAt(0).toUpperCase() + name.slice(1), type: 'CMS/Server', version: m[1], targets: [], risk: s.risk || 'INFO' };
+            var name = pat.source.replace(/\(.*/, '').replace(/[\\[\]().*+?^${}|]/g,'').replace(/\s+/g,'').split('/')[0];
+            name = name.charAt(0).toUpperCase() + name.slice(1);
+            var key = name.toLowerCase() + '@' + m[1];
+            if (!sw[key]) sw[key] = { name: name, type: 'CMS/Server', version: m[1], targets: [], risk: s.risk || 'INFO' };
             if (sw[key].targets.indexOf(s.target) === -1) sw[key].targets.push(s.target);
           }
         });
-        var pm; plPat.lastIndex = 0;
-        while ((pm = plPat.exec(out)) !== null) {
-          var key = pm[1].trim() + '@' + pm[2];
-          if (!pl[key]) pl[key] = { name: pm[1].trim(), type: 'Plugin', version: pm[2], targets: [], risk: s.risk || 'INFO' };
-          if (pl[key].targets.indexOf(s.target) === -1) pl[key].targets.push(s.target);
-        }
         if (!tgt[s.target]) tgt[s.target] = { name: s.target, type: 'Website', version: (s.created_at||'').slice(0,10), targets: [s.target], risk: s.risk || 'INFO' };
       });
       _invData.software = Object.values(sw);
-      _invData.plugins  = Object.values(pl);
       _invData.targets  = Object.values(tgt);
-      _invRender();
-    })
-    .catch(function(e){ tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#a80000;">Error: ' + _esc(String(e)) + '</td></tr>'; });
+    }).catch(function(){});
+
+  Promise.all([pluginsP, scansP]).then(function(){ _invRender(); });
 }
 
 function _invRender() {
@@ -8194,10 +8210,21 @@ function _invRender() {
   if (!tbody) return;
   var data = _invData[_invTab] || [];
   var q = (document.getElementById('inv-filter').value || '').toLowerCase();
-  if (q) data = data.filter(function(r){ return (r.name||'').toLowerCase().indexOf(q) >= 0 || (r.version||'').toLowerCase().indexOf(q) >= 0; });
-  if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No ' + _invTab + ' detected. Run a scan first.</td></tr>'; return; }
+  if (q) data = data.filter(function(r){ return (r.name||'').toLowerCase().indexOf(q) >= 0 || (r.version||'').toLowerCase().indexOf(q) >= 0 || (r.targets||[]).join(' ').toLowerCase().indexOf(q) >= 0; });
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No ' + _invTab + ' detected yet. Run a scan to auto-populate.</td></tr>'; return; }
   tbody.innerHTML = data.map(function(r) {
-    return '<tr><td style="font-weight:500;">' + _esc(r.name) + '</td><td style="color:#605e5c;">' + _esc(r.type) + '</td><td style="font-family:monospace;font-size:11px;">' + _esc(r.version) + '</td><td style="color:#605e5c;">' + _esc((r.targets||[]).join(', ').slice(0,60)) + '</td><td>' + _sevBars(r.risk) + '</td></tr>';
+    var namePart = _esc(r.name);
+    if (r.vulnerable) namePart += ' <span style="background:#a80000;color:#fff;font-size:9px;padding:1px 4px;border-radius:2px;font-weight:700;vertical-align:middle;">VULNERABLE</span>';
+    var statusBadge = r.status && r.status !== 'active'
+      ? ' <span style="background:#e8e6e3;color:#605e5c;font-size:9px;padding:1px 4px;border-radius:2px;">' + _esc(r.status) + '</span>'
+      : '';
+    return '<tr>'
+      + '<td style="font-weight:500;">' + namePart + statusBadge + '</td>'
+      + '<td style="color:#605e5c;font-size:11px;">' + _esc(r.type) + '</td>'
+      + '<td style="font-family:monospace;font-size:11px;">' + _esc(r.version || '—') + '</td>'
+      + '<td style="color:#605e5c;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc((r.targets||[]).join(', ')) + '">' + _esc((r.targets||[]).join(', ').slice(0,60)) + '</td>'
+      + '<td>' + _sevBars(r.risk) + '</td>'
+      + '</tr>';
   }).join('');
 }
 

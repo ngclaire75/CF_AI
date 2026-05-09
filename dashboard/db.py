@@ -101,6 +101,19 @@ def init_db():
             expires_at   TEXT DEFAULT '',
             status       TEXT DEFAULT 'active'
         )''')
+        con.execute('''CREATE TABLE IF NOT EXISTS plugins (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+            target      TEXT NOT NULL,
+            name        TEXT NOT NULL,
+            version     TEXT DEFAULT '',
+            plugin_type TEXT DEFAULT 'Plugin',
+            status      TEXT DEFAULT 'active',
+            vulnerable  INTEGER DEFAULT 0,
+            scan_id     INTEGER DEFAULT NULL
+        )''')
+        con.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_plugins_target_name ON plugins(target, name)')
         con.commit()
 
 
@@ -431,3 +444,40 @@ def is_ip_blocked(ip: str) -> bool:
             "SELECT id FROM blocked_ips WHERE ip_address=? AND status='active'", (ip,)
         ).fetchone()
     return row is not None
+
+
+# ── Plugin Inventory ──────────────────────────────────────────────────────────
+
+def upsert_plugin(*, target: str, name: str, version: str = '',
+                  plugin_type: str = 'Plugin', status: str = 'active',
+                  vulnerable: int = 0, scan_id: int = None) -> int:
+    with _connect() as con:
+        con.execute(
+            '''INSERT INTO plugins (target, name, version, plugin_type, status, vulnerable, scan_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(target, name) DO UPDATE SET
+                 version     = excluded.version,
+                 plugin_type = excluded.plugin_type,
+                 status      = excluded.status,
+                 vulnerable  = excluded.vulnerable,
+                 scan_id     = excluded.scan_id,
+                 updated_at  = datetime('now')''',
+            (target, name, version, plugin_type, status, vulnerable, scan_id)
+        )
+        con.commit()
+        row = con.execute('SELECT id FROM plugins WHERE target=? AND name=?', (target, name)).fetchone()
+    return row[0] if row else 0
+
+
+def get_plugins(target: str = '', limit: int = 1000) -> list:
+    with _connect() as con:
+        if target:
+            rows = con.execute(
+                'SELECT * FROM plugins WHERE target=? ORDER BY updated_at DESC LIMIT ?',
+                (target, limit)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM plugins ORDER BY updated_at DESC LIMIT ?', (limit,)
+            ).fetchall()
+    return [dict(r) for r in rows]

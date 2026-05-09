@@ -302,7 +302,7 @@ def _run_scan_background(
             is_aborted=lambda: bool(job.get("aborted")),
         )
     except InterruptedError:
-        job["status"] = "aborted"
+        pass  # abort handled via is_aborted flag; output saved below
     except Exception as exc:
         job["error"] = str(exc)[:400]
         job["status"] = "error"
@@ -314,21 +314,34 @@ def _run_scan_background(
         )
         tool_count = sum(1 for c in job["chunks"] if c.get("k") == "tool")
 
-    # Only record scans that completed successfully with actual output
-    if job.get("status") not in ("error", "aborted") and full_output.strip():
-        job["status"] = "done"
+    was_aborted = job.get("aborted", False)
+
+    # Save output whenever there's content — including partial output on abort
+    if job.get("status") != "error" and full_output.strip():
+        db_status    = "interrupted" if was_aborted else "ok"
+        final_status = "interrupted" if was_aborted else "done"
+        if was_aborted:
+            _push({"k": "txt", "d": "\n[Scan stopped — findings logged to dashboard]\n"})
         scan_id = db.save_scan(
             target=target,
             agent_type=agent_type,
             model=model,
-            status="ok",
+            status=db_status,
             latency_s=elapsed,
             tool_count=tool_count,
             output=full_output,
         )
         job["scan_id"] = scan_id
-    elif job.get("status") not in ("error", "aborted"):
-        job["status"] = "done"  # completed but no output to log
+        job["status"]  = final_status
+        _push({"k": "saved", "id": scan_id})
+        # Parse and store detected plugins
+        from dashboard.app import _parse_and_save_plugins
+        try:
+            _parse_and_save_plugins(scan_id, domain, full_output)
+        except Exception:
+            pass
+    elif job.get("status") != "error":
+        job["status"] = "interrupted" if was_aborted else "done"
     _job_persist(job_id, job)
 
 
