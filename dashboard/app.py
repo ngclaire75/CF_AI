@@ -2794,89 +2794,108 @@ def api_priority_maintenance():
     zone_name = zone['name']
 
     if action == 'enable':
-        # Step 1: Get or create the WAF custom rules phase ruleset
+        # Use Cloudflare Firewall Rules API — creates a hard block (HTTP 403) for ALL visitors.
+        # Firewall Rules run before WAF Custom Rules and work on all Cloudflare plans.
+        expr = f'(http.host eq "{zone_name}" or http.host eq "www.{zone_name}")'
+        sc_fw, fw_resp = _cf_post(f'/zones/{zone_id}/firewall/rules', [
+            {
+                'filter':      {'expression': expr, 'paused': False},
+                'action':      'block',
+                'description': 'CF_AI Site Lock',
+                'priority':    1,
+                'paused':      False,
+            }
+        ])
+        fw_result  = (fw_resp or [{}])[0] if isinstance(fw_resp, list) else (fw_resp or {}).get('result') or {}
+        fw_rule_id = (fw_result.get('id') or '')
+        fw_filt_id = ((fw_result.get('filter') or {}).get('id') or '')
+
+        if sc_fw in (200, 201) and fw_rule_id:
+            db.enable_maintenance(domain, zone_id=zone_id,
+                                  cf_rule_id=f'fw:{fw_rule_id}:{fw_filt_id}',
+                                  prev_level='medium', reason=reason)
+            return jsonify({
+                'ok': True,
+                'message': (f'Site LOCKED. All visitors to {zone_name} now receive HTTP 403 — '
+                            f'nobody can access the site until you click Unlock.'),
+                'zone': zone_name, 'rule_id': fw_rule_id,
+            })
+
+        # Firewall Rules failed — try WAF Custom Rules (Rulesets API)
+        errs_fw = fw_resp if isinstance(fw_resp, list) else (fw_resp or {}).get('errors') or []
         sc, rs_data = _cf_get(f'/zones/{zone_id}/rulesets/phases/http_request_firewall_custom/entrypoint')
         ruleset_id = ((rs_data or {}).get('result') or {}).get('id')
-
         if not ruleset_id:
-            # Create the ruleset if it doesn't exist yet
             sc2, rs_create = _cf_post(f'/zones/{zone_id}/rulesets', {
                 'name': 'default', 'kind': 'zone',
                 'phase': 'http_request_firewall_custom', 'rules': []
             })
             ruleset_id = ((rs_create or {}).get('result') or {}).get('id')
 
-        if not ruleset_id:
-            # Fallback: use security_level under_attack only
-            sl_resp = _cf_json(f'/zones/{zone_id}/settings/security_level')
-            current_level = ((sl_resp or {}).get('result') or {}).get('value', 'medium')
-            _cf_patch(f'/zones/{zone_id}/settings/security_level', {'value': 'under_attack'})
-            db.enable_maintenance(domain, zone_id=zone_id, prev_level=current_level, reason=reason)
-            return jsonify({
-                'ok': True,
-                'message': f'Site locked for {zone_name} (Under Attack mode — WAF ruleset unavailable). Requires Zone WAF:Edit permission for full block.',
-                'zone': zone_name,
+        if ruleset_id:
+            sc3, rule_resp = _cf_post(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules', {
+                'description': 'CF_AI Site Lock',
+                'expression':  f'(http.host eq "{zone_name}" or http.host eq "www.{zone_name}")',
+                'action':      'block',
+                'enabled':     True,
             })
+            rule_result = (rule_resp or {}).get('result') or {}
+            rules = rule_result.get('rules') or []
+            our_rule = next((r for r in reversed(rules) if r.get('description') == 'CF_AI Site Lock'), None)
+            rule_id  = (our_rule or {}).get('id', '')
+            if sc3 in (200, 201) and rule_id:
+                db.enable_maintenance(domain, zone_id=zone_id,
+                                      cf_rule_id=f'{ruleset_id}:{rule_id}',
+                                      prev_level='medium', reason=reason)
+                return jsonify({
+                    'ok': True,
+                    'message': (f'Site LOCKED via WAF rule. All visitors to {zone_name} now receive '
+                                f'HTTP 403 — nobody can access the site until you click Unlock.'),
+                    'zone': zone_name,
+                })
 
-        # Step 2: Add block-all rule at top of the ruleset
-        sc3, rule_resp = _cf_post(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules', {
-            'description': 'CF_AI Site Lock — block all traffic',
-            'expression':  'true',
-            'action':      'block',
-            'enabled':     True,
-        })
-        rule_result = (rule_resp or {}).get('result') or {}
-        # The API returns the updated ruleset; find our rule by description
-        rules = rule_result.get('rules') or []
-        our_rule = next((r for r in reversed(rules) if r.get('description') == 'CF_AI Site Lock — block all traffic'), None)
-        rule_id = (our_rule or {}).get('id', '')
-
-        if sc3 in (200, 201) and rule_id:
-            # Also store current security level so we can restore it on unlock
-            sl_resp = _cf_json(f'/zones/{zone_id}/settings/security_level')
-            current_level = ((sl_resp or {}).get('result') or {}).get('value', 'medium')
-            cf_rule_ref = f'{ruleset_id}:{rule_id}'
-            db.enable_maintenance(domain, zone_id=zone_id, cf_rule_id=cf_rule_ref,
-                                  prev_level=current_level, reason=reason)
-            return jsonify({
-                'ok': True,
-                'message': f'Site LOCKED for {zone_name}. All HTTP traffic is now blocked (HTTP 403) by a Cloudflare WAF rule. Click Unlock to restore access.',
-                'zone': zone_name, 'zone_id': zone_id, 'rule_id': rule_id,
-            })
-        else:
-            errs = (rule_resp or {}).get('errors') or [{}]
-            msg  = (errs[0].get('message') if errs else '') or 'Unknown error'
-            if sc3 in (403, 401):
-                msg = 'Permission denied — CF token needs Zone WAF:Edit permission. Update at dash.cloudflare.com/profile/api-tokens'
-            return jsonify({'error': f'Cloudflare WAF rule creation failed ({sc3}): {msg}'}), 500
+        # Both methods failed — report the real Cloudflare error
+        cf_err = ''
+        if isinstance(errs_fw, list) and errs_fw:
+            e0 = errs_fw[0] if isinstance(errs_fw[0], dict) else {}
+            cf_err = e0.get('message') or str(errs_fw[0])
+        if not cf_err:
+            cf_err = 'Cloudflare returned HTTP ' + str(sc_fw)
+        if sc_fw in (403, 401):
+            cf_err = ('Permission denied — your CF_API_TOKEN needs "Zone → Firewall Services: Edit" '
+                      'permission. Create a new token at dash.cloudflare.com/profile/api-tokens.')
+        return jsonify({'ok': False, 'error': f'Could not lock site: {cf_err}'}), 200
 
     elif action == 'disable':
-        maint = db.get_maintenance(domain)
-        cf_rule_ref   = (maint or {}).get('cf_rule_id', '')
-        prev_level    = (maint or {}).get('previous_security_level', 'medium')
+        maint       = db.get_maintenance(domain)
+        cf_rule_ref = (maint or {}).get('cf_rule_id', '')
+        prev_level  = (maint or {}).get('previous_security_level', 'medium')
+        deleted     = False
 
-        deleted = False
-        if cf_rule_ref and ':' in cf_rule_ref:
+        if cf_rule_ref.startswith('fw:'):
+            # Firewall Rules path
+            parts      = cf_rule_ref.split(':', 2)
+            fw_rule_id = parts[1] if len(parts) > 1 else ''
+            fw_filt_id = parts[2] if len(parts) > 2 else ''
+            if fw_rule_id:
+                sc_d, _ = _cf_delete(f'/zones/{zone_id}/firewall/rules/{fw_rule_id}')
+                deleted = sc_d in (200, 204)
+            if fw_filt_id:
+                _cf_delete(f'/zones/{zone_id}/filters/{fw_filt_id}')
+        elif cf_rule_ref and ':' in cf_rule_ref:
+            # WAF Rulesets path
             ruleset_id, rule_id = cf_rule_ref.split(':', 1)
-            sc_del, _ = _cf_delete(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules/{rule_id}')
-            deleted = sc_del in (200, 204)
+            sc_d, _ = _cf_delete(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules/{rule_id}')
+            deleted = sc_d in (200, 204)
 
-        # Also restore security level
-        _cf_patch(f'/zones/{zone_id}/settings/security_level', {'value': prev_level})
         db.disable_maintenance(domain)
-
-        if deleted or not cf_rule_ref:
-            return jsonify({
-                'ok': True,
-                'message': f'Site UNLOCKED for {zone_name}. WAF block rule removed — traffic is flowing normally again.',
-                'zone': zone_name,
-            })
-        else:
-            return jsonify({
-                'ok': True,
-                'message': f'Site unlocked for {zone_name} (WAF rule may need manual removal — check Cloudflare dashboard).',
-                'zone': zone_name,
-            })
+        return jsonify({
+            'ok': True,
+            'message': (f'Site UNLOCKED. {zone_name} is now accessible to all visitors again.'
+                        if deleted else
+                        f'Site unlocked for {zone_name} (rule may need manual removal in Cloudflare dashboard).'),
+            'zone': zone_name,
+        })
 
     return jsonify({'error': 'Invalid action. Use "enable" or "disable"'}), 400
 
