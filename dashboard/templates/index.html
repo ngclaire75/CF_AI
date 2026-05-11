@@ -3623,6 +3623,14 @@ Load Logs
     </div>
     <div class="mdef-toolbar">
       <button class="mdef-toolbar-btn primary" onclick="loadInventories()">Refresh</button>
+      <!-- Plugin domain loader — only visible on Plugins tab -->
+      <div id="inv-plugin-domain-bar" style="display:none;align-items:center;gap:6px;">
+        <select id="inv-plugin-domain-sel" style="height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;min-width:200px;">
+          <option value="">All domains</option>
+        </select>
+        <button class="mdef-toolbar-btn primary" onclick="loadLoggedPlugins()" id="inv-load-logged-btn">Load Logged Plugins</button>
+        <span id="inv-plugin-count" style="font-size:12px;color:#605e5c;"></span>
+      </div>
       <input type="text" id="inv-filter" placeholder="Filter..." oninput="invFilter()" style="height:28px;border:1px solid #c8c6c4;border-radius:2px;padding:0 10px;font-size:12px;min-width:200px;font-family:inherit;outline:none;margin-left:auto;">
     </div>
     <div class="mdef-tbl-wrap" id="inv-wrap">
@@ -8312,6 +8320,9 @@ function invTab(name, btn) {
   _invTab = name;
   document.querySelectorAll('#page-inventories .mdef-detail-tab').forEach(function(b){ b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
+  var bar = document.getElementById('inv-plugin-domain-bar');
+  if (bar) bar.style.display = (name === 'plugins') ? 'flex' : 'none';
+  if (name === 'plugins') _invPopulateDomains();
   _invRender();
 }
 
@@ -8320,6 +8331,10 @@ function loadInventories() {
   var tbody = document.getElementById('inv-tbody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading...</td></tr>';
+  // Ensure domain bar is visible if Plugins tab is active
+  var bar = document.getElementById('inv-plugin-domain-bar');
+  if (bar) bar.style.display = (_invTab === 'plugins') ? 'flex' : 'none';
+  if (_invTab === 'plugins') _invPopulateDomains();
 
   // Plugins from persistent DB (scan-detected)
   var pluginsFromScan = [];
@@ -8434,6 +8449,131 @@ function _invRender() {
 }
 
 function invFilter() { _invRender(); }
+
+function _getInvPluginDomain() {
+  try { return localStorage.getItem('cfai_inv_plugin_domain') || ''; } catch(e) { return ''; }
+}
+function _saveInvPluginDomain(d) {
+  try { if (d) localStorage.setItem('cfai_inv_plugin_domain', d); else localStorage.removeItem('cfai_inv_plugin_domain'); } catch(e) {}
+}
+
+function _invPopulateDomains() {
+  var sel = document.getElementById('inv-plugin-domain-sel');
+  if (!sel) return;
+  var seen = {};
+  var domains = [];
+
+  // Add cPanel / MySQL connected domains first
+  var cp = _getCpanelCreds();
+  if (cp && cp.url) { var d = cp.url.replace(/^https?:\/\//,'').replace(/\/$/,''); if (!seen[d]) { seen[d]=1; domains.push(d); } }
+  var my = _getMysqlCreds();
+  if (my && my.db_name && !seen[my.db_name]) { seen[my.db_name]=1; domains.push(my.db_name); }
+
+  // Add domains from already-loaded plugin data
+  (_invData.plugins || []).forEach(function(p) {
+    (p.targets || []).forEach(function(t) { if (t && !seen[t]) { seen[t]=1; domains.push(t); } });
+  });
+
+  fetch('/api/scans/recent?limit=500')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      (d.scans || d || []).forEach(function(s) { if (s.target && !seen[s.target]) { seen[s.target]=1; domains.push(s.target); } });
+      domains.sort();
+      var saved = _getInvPluginDomain();
+      sel.innerHTML = '<option value="">All domains</option>' +
+        domains.map(function(t){ return '<option value="'+_esc(t)+'"'+(t===saved?' selected':'')+'>'+_esc(t)+'</option>'; }).join('');
+      if (saved) loadLoggedPlugins(); // auto-load saved domain
+    }).catch(function(){
+      domains.sort();
+      var saved = _getInvPluginDomain();
+      sel.innerHTML = '<option value="">All domains</option>' +
+        domains.map(function(t){ return '<option value="'+_esc(t)+'"'+(t===saved?' selected':'')+'>'+_esc(t)+'</option>'; }).join('');
+      if (saved) loadLoggedPlugins();
+    });
+}
+
+function loadLoggedPlugins() {
+  var sel    = document.getElementById('inv-plugin-domain-sel');
+  var domain = sel ? sel.value : '';
+  _saveInvPluginDomain(domain);
+
+  var btn    = document.getElementById('inv-load-logged-btn');
+  var cntEl  = document.getElementById('inv-plugin-count');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  if (cntEl) cntEl.textContent = '';
+
+  var merged = {};
+
+  // Layer 1: already in memory
+  (_invData.plugins || []).forEach(function(p) {
+    var inDomain = !domain || (p.targets || []).some(function(t){ return t === domain || t.replace(/^https?:\/\//,'').replace(/\/$/,'') === domain; });
+    if (inDomain) merged[p.name.toLowerCase()] = Object.assign({}, p);
+  });
+
+  var promises = [];
+
+  // Layer 2: scan-detected from DB filtered by domain
+  var scanP = fetch('/api/inventories/plugins' + (domain ? '?target=' + encodeURIComponent(domain) : ''))
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      (d.plugins || []).forEach(function(p) {
+        var k = p.name.toLowerCase();
+        var entry = { name: p.name, type: p.plugin_type || 'Plugin', version: p.version || '',
+                      targets: [p.target], risk: p.vulnerable ? 'HIGH' : 'INFO',
+                      status: p.status, updated: (p.updated_at||'').slice(0,10), source: 'scan' };
+        if (!merged[k]) merged[k] = entry;
+        else { if (p.version) merged[k].version = p.version; merged[k].source = (merged[k].source||'scan'); }
+      });
+    }).catch(function(){});
+  promises.push(scanP);
+
+  // Layer 3: cPanel live fetch if domain matches saved cPanel creds
+  var cp = _getCpanelCreds();
+  var cpDomain = cp ? (cp.url||'').replace(/^https?:\/\//,'').replace(/\/$/,'') : '';
+  if (cp && (!domain || cpDomain === domain || cpDomain.indexOf(domain) >= 0 || domain.indexOf(cpDomain) >= 0)) {
+    var cpP = fetch('/api/inventories/cpanel-plugins', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(cp)
+    }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      (d.plugins || []).forEach(function(p) {
+        var k = p.name.toLowerCase();
+        var entry = { name: p.name, type: 'WordPress Plugin', version: p.version || '',
+                      targets: [cpDomain || domain], risk: 'INFO', status: p.status || 'active',
+                      updated: '', source: 'cPanel' };
+        if (!merged[k]) merged[k] = entry;
+        else { merged[k].source = (merged[k].source||'') + '+cPanel'; if (p.version) merged[k].version = p.version; }
+      });
+    }).catch(function(){});
+    promises.push(cpP);
+  }
+
+  // Layer 4: MySQL live fetch if domain matches
+  var my = _getMysqlCreds();
+  if (my && (!domain || my.db_name === domain)) {
+    var myP = fetch('/api/inventories/mysql-plugins', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(my)
+    }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      (d.plugins || []).forEach(function(p) {
+        var k = p.name.toLowerCase();
+        var entry = { name: p.name, type: 'WordPress Plugin', version: p.version || '',
+                      targets: [my.db_name], risk: 'INFO', status: p.status || 'active',
+                      updated: '', source: 'MySQL' };
+        if (!merged[k]) merged[k] = entry;
+        else { merged[k].source = (merged[k].source||'') + '+MySQL'; if (p.version) merged[k].version = p.version; }
+      });
+    }).catch(function(){});
+    promises.push(myP);
+  }
+
+  Promise.all(promises).then(function() {
+    if (btn) { btn.disabled = false; btn.textContent = 'Load Logged Plugins'; }
+    var list = Object.values(merged);
+    _invData.plugins = list;
+    if (cntEl) cntEl.textContent = list.length + ' plugin(s)';
+    _invRender();
+  });
+}
 
 /* ═══════════════════════════════════════════════════════
    EVENT TIMELINE PAGE
