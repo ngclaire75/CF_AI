@@ -3178,9 +3178,9 @@ Export Power BI
     <div id="le-pane-hostinger" class="le-tab-pane" style="display:none;">
       <div class="le-cred-form">
         <div class="le-cred-row">
-          <div><label class="le-cred-label">DB Host</label><input type="text" id="le-hostinger-host" class="le-cred-input" placeholder="srv1234.hstgr.io" style="width:200px;" autocomplete="off"></div>
+          <div><label class="le-cred-label">DB Host <span style="color:#a80000;font-weight:400;font-size:10px;">⚠ NOT localhost</span></label><input type="text" id="le-hostinger-host" class="le-cred-input" placeholder="auth-db1234.hstgr.io" style="width:220px;" autocomplete="off"></div>
           <div><label class="le-cred-label">DB Port</label><input type="number" id="le-hostinger-port" class="le-cred-input" value="3306" style="width:70px;"></div>
-          <div><label class="le-cred-label">DB Name</label><input type="text" id="le-hostinger-name" class="le-cred-input" placeholder="u123456_wp" autocomplete="off"></div>
+          <div><label class="le-cred-label">DB Name</label><input type="text" id="le-hostinger-name" class="le-cred-input" placeholder="u123456_dbname" autocomplete="off"></div>
           <div><label class="le-cred-label">DB Username</label><input type="text" id="le-hostinger-user" class="le-cred-input" placeholder="u123456_user" autocomplete="off"></div>
           <div><label class="le-cred-label">DB Password</label><input type="password" id="le-hostinger-pass" class="le-cred-input" placeholder="database password" autocomplete="new-password"></div>
           <div><label class="le-cred-label">Table Prefix</label><input type="text" id="le-hostinger-prefix" class="le-cred-input" value="wp_" style="width:80px;"></div>
@@ -3190,10 +3190,12 @@ Export Power BI
           <button class="btn btn-sm" onclick="runHostingerMysql()" id="le-hostinger-btn" style="background:#0078d4;color:#fff;border-color:#0078d4;border-radius:8px;padding:7px 20px;">Fetch via MySQL</button>
         </div>
         <div class="le-hint">
-          Get credentials from <strong>Hostinger hPanel → Databases → MySQL Databases</strong>.<br>
-          Enable remote access: <strong>hPanel → Databases → Remote MySQL → add your VPS IP</strong>.<br>
-          Reads <strong>Simple History</strong>, <strong>Wordfence</strong> login/block/issue tables automatically.<br>
-          After a successful connection, <strong>User Activity Logs</strong> and <strong>Plugin Inventory</strong> will auto-load from your database.
+          <strong style="color:#a80000;">⚠ DB Host must be the remote Hostinger hostname, NOT "localhost"</strong><br>
+          <strong>Step 1:</strong> hPanel → Databases → MySQL Databases → copy the <em>Database Server</em> field (e.g. <code>auth-db1234.hstgr.io</code>)<br>
+          <strong>Step 2:</strong> hPanel → Databases → Remote MySQL → add your VPS/dashboard server IP<br>
+          <strong>Step 3:</strong> Paste the DB Server hostname above (not localhost), fill in DB Name, Username, Password → click Fetch<br>
+          <br>
+          Reads <strong>Simple History</strong> + <strong>Wordfence</strong> login/block/issue tables. After connecting, <strong>User Activity Logs</strong> and <strong>Plugin Inventory</strong> auto-load from MySQL.
           <span id="le-mysql-saved-indicator" style="display:none;margin-left:8px;padding:2px 8px;background:#dff6dd;border-radius:4px;color:#107c10;font-weight:600;font-size:11px;">MySQL credentials saved</span>
           <button onclick="_clearMysqlCreds()" style="margin-left:8px;padding:2px 8px;border:1px solid #c8c6c4;background:#fff;border-radius:4px;cursor:pointer;font-size:11px;color:#605e5c;">Clear saved</button>
         </div>

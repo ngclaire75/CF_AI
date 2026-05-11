@@ -2313,9 +2313,25 @@ def api_logs_wp_mysql_direct():
     except Exception as e:
         err = str(e)
         if 'Access denied' in err:
-            return jsonify({'error': 'Access denied — wrong database username or password'}), 401
-        if 'Can\'t connect' in err or 'Connection refused' in err or 'timed out' in err.lower():
-            return jsonify({'error': f'Cannot connect to MySQL at {db_host}:{db_port} — make sure Remote MySQL is enabled in hPanel and VPS IP 114.5.244.37 is whitelisted'}), 500
+            return jsonify({'error': 'Access denied — wrong DB username or password. Check hPanel → Databases → MySQL Databases for the correct credentials.'}), 401
+        if db_host in ('localhost', '127.0.0.1', '::1'):
+            return jsonify({'error': (
+                'DB Host is set to "localhost" — this only works if MySQL is running on the same machine as the dashboard. '
+                'For Hostinger, go to hPanel → Databases → MySQL Databases and copy the "Database Server" hostname '
+                '(looks like auth-db1234.hstgr.io or similar). Paste that as the DB Host.'
+            )}), 500
+        if 'Can\'t connect' in err or 'Connection refused' in err or 'timed out' in err.lower() or 'refused' in err.lower():
+            # Detect server's outbound IP for the whitelist hint
+            try:
+                import urllib.request as _ur2
+                _my_ip = _ur2.urlopen('https://api.ipify.org', timeout=4).read().decode().strip()
+            except Exception:
+                _my_ip = 'your VPS IP'
+            return jsonify({'error': (
+                f'Cannot connect to {db_host}:{db_port}. '
+                f'In Hostinger hPanel → Databases → Remote MySQL, add this server\'s IP: {_my_ip}. '
+                f'Then retry. If it still fails, check that the DB Host is correct (not "localhost").'
+            )}), 500
         return jsonify({'error': f'MySQL connection failed: {err}'}), 500
 
     events, source, note = [], 'none', ''
