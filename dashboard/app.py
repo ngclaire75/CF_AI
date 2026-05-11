@@ -3979,7 +3979,7 @@ def api_gsc_analyze():
         except Exception as e:
             scores['safe_browsing'] = {'checked': False, 'error': str(e)}
 
-    # ── 8. PageSpeed Insights ──────────────────────────────────────────────────
+    # ── 8. PageSpeed Insights + Core Web Vitals (CrUX field data) ────────────────
     if api_key:
         try:
             psi_url = (f'https://www.googleapis.com/pagespeedonline/v5/runPagespeed'
@@ -3996,6 +3996,70 @@ def api_gsc_analyze():
                     if s is not None:
                         psi_scores[ck] = round(s * 100)
                 scores['pagespeed'] = psi_scores
+
+                # ── Core Web Vitals from CrUX field data ──────────────────────
+                cwv_raw = psi_data.get('loadingExperience', {}).get('metrics', {})
+                if cwv_raw:
+                    def _cwv_cat(cat): return {'FAST': 'good', 'AVERAGE': 'needs-improvement', 'SLOW': 'poor'}.get(cat, cat)
+                    cwv = {}
+                    lcp = cwv_raw.get('LARGEST_CONTENTFUL_PAINT_MS', {})
+                    cls = cwv_raw.get('CUMULATIVE_LAYOUT_SHIFT_SCORE', {})
+                    inp = cwv_raw.get('INTERACTION_TO_NEXT_PAINT', cwv_raw.get('FIRST_INPUT_DELAY_MS', {}))
+                    fcp = cwv_raw.get('FIRST_CONTENTFUL_PAINT_MS', {})
+                    if lcp:
+                        lcp_ms = lcp.get('percentile', 0)
+                        cwv['lcp'] = {'value': lcp_ms, 'unit': 'ms', 'category': _cwv_cat(lcp.get('category', ''))}
+                        if lcp_ms > 4000:
+                            _add('Performance', 'high', f'Core Web Vitals: LCP is poor ({lcp_ms/1000:.1f}s)',
+                                 f'Largest Contentful Paint (real user data): {lcp_ms/1000:.1f}s. Google threshold: good < 2.5s.',
+                                 'Poor LCP directly hurts Google search rankings via Core Web Vitals signal.',
+                                 ['Optimize the largest element (hero image, heading, or block).',
+                                  'Use next-gen image formats (WebP/AVIF) and lazy loading.',
+                                  'Enable server-side caching and use a CDN.',
+                                  'Eliminate render-blocking resources (defer JS, inline critical CSS).'])
+                        elif lcp_ms > 2500:
+                            _add('Performance', 'medium', f'Core Web Vitals: LCP needs improvement ({lcp_ms/1000:.1f}s)',
+                                 f'LCP (real users): {lcp_ms/1000:.1f}s. Google threshold: good < 2.5s.',
+                                 'Needs improvement LCP may affect search rankings.',
+                                 ['Optimize largest page element and enable CDN caching.',
+                                  'Run pagespeed.web.dev for specific recommendations.'])
+                    if cls:
+                        cls_val = cls.get('percentile', 0) / 100
+                        cwv['cls'] = {'value': cls_val, 'unit': '', 'category': _cwv_cat(cls.get('category', ''))}
+                        if cls_val > 0.25:
+                            _add('Performance', 'high', f'Core Web Vitals: CLS is poor ({cls_val:.2f})',
+                                 f'Cumulative Layout Shift (real users): {cls_val:.2f}. Good threshold: < 0.1.',
+                                 'Layout shifts frustrate users and hurt Core Web Vitals rankings.',
+                                 ['Reserve space for images and ads with explicit width/height attributes.',
+                                  'Avoid inserting content above existing content after page load.',
+                                  'Use font-display: swap carefully to avoid FOUT shifts.'])
+                        elif cls_val > 0.1:
+                            _add('Performance', 'medium', f'Core Web Vitals: CLS needs improvement ({cls_val:.2f})',
+                                 f'CLS (real users): {cls_val:.2f}. Good threshold: < 0.1.',
+                                 'Layout instability affects user experience and rankings.',
+                                 ['Set explicit dimensions on images and embeds.',
+                                  'Pre-load web fonts to reduce FOUT.'])
+                    if inp:
+                        inp_ms = inp.get('percentile', 0)
+                        cwv['inp'] = {'value': inp_ms, 'unit': 'ms', 'category': _cwv_cat(inp.get('category', ''))}
+                        if inp_ms > 500:
+                            _add('Performance', 'high', f'Core Web Vitals: INP is poor ({inp_ms}ms)',
+                                 f'Interaction to Next Paint (real users): {inp_ms}ms. Good threshold: < 200ms.',
+                                 'Poor interactivity hurts Core Web Vitals and user engagement.',
+                                 ['Reduce JavaScript execution time — split large tasks.',
+                                  'Use web workers for heavy computations.',
+                                  'Minimize third-party scripts (ads, chat widgets, analytics).'])
+                        elif inp_ms > 200:
+                            _add('Performance', 'medium', f'Core Web Vitals: INP needs improvement ({inp_ms}ms)',
+                                 f'INP (real users): {inp_ms}ms. Good threshold: < 200ms.',
+                                 'Sluggish interactions reduce user engagement.',
+                                 ['Profile JS with Chrome DevTools Performance panel.',
+                                  'Defer non-critical third-party scripts.'])
+                    if fcp:
+                        cwv['fcp'] = {'value': fcp.get('percentile', 0), 'unit': 'ms',
+                                      'category': _cwv_cat(fcp.get('category', ''))}
+                    scores['cwv'] = cwv
+                    scores['cwv_overall'] = _cwv_cat(psi_data.get('loadingExperience', {}).get('overall_category', ''))
 
                 cat_map = {'performance': 'Performance', 'seo': 'SEO',
                            'best-practices': 'Best Practices', 'accessibility': 'Accessibility'}
@@ -4093,49 +4157,133 @@ def api_gsc_analyze():
         except Exception as e:
             scores['gsc'] = {'error': str(e)}
 
-    # ── 10. Search Analytics (top queries, CTR issues) ────────────────────────
+    # ── 10. Search Analytics (queries, pages, devices, countries) ───────────────
     if access_token:
         import datetime as _dt2
         try:
             end_date   = _dt2.date.today()
             start_date = end_date - _dt2.timedelta(days=28)
             site_enc   = _up_parse.quote(f'{base_url}/', safe='')
-            r_sa, _    = _fetch_url(
-                f'https://www.googleapis.com/webmasters/v3/sites/{site_enc}/searchAnalytics/query',
-                method='POST', timeout=15,
-                extra_headers={'Authorization': f'Bearer {access_token}'},
-                json_body={
-                    'startDate': str(start_date), 'endDate': str(end_date),
-                    'dimensions': ['query'], 'rowLimit': 10, 'type': 'web',
-                },
-            )
-            if r_sa is not None and r_sa.status_code == 200:
-                rows = (r_sa.json() if callable(getattr(r_sa, 'json', None)) else {}).get('rows', [])
-                scores['search_analytics'] = {
-                    'period': f'{start_date} to {end_date}',
-                    'top_queries': [
-                        {'query': r['keys'][0], 'clicks': int(r.get('clicks', 0)),
-                         'impressions': int(r.get('impressions', 0)),
-                         'ctr': round(r.get('ctr', 0) * 100, 1),
-                         'position': round(r.get('position', 0), 1)}
-                        for r in rows if r.get('keys')
-                    ],
-                }
-                for row in rows:
-                    if row.get('impressions', 0) > 100 and row.get('ctr', 0) < 0.02:
-                        q = row['keys'][0] if row.get('keys') else '(unknown)'
-                        _add('SEO', 'medium', f'Low CTR on "{q}"',
-                             f'"{q}" gets {int(row.get("impressions",0))} impressions but only '
-                             f'{row.get("ctr",0)*100:.1f}% CTR (avg position: {row.get("position",0):.1f}).',
-                             'Users see the result but don\'t click — title/description may be uncompelling.',
-                             ['Rewrite the page meta title to be more specific and compelling.',
-                              'Improve the meta description to state the value proposition clearly.',
-                              'Add rich snippets (reviews, FAQ) to increase SERP real estate.',
-                              'Check if search intent matches your page content.'])
-            elif r_sa is not None and r_sa.status_code == 403:
-                scores['search_analytics'] = {'error': 'Permission denied — ensure site is verified in GSC and OAuth scope is webmasters.readonly'}
-            elif r_sa is not None:
-                scores['search_analytics'] = {'error': f'HTTP {r_sa.status_code}'}
+            sa_base    = f'https://www.googleapis.com/webmasters/v3/sites/{site_enc}/searchAnalytics/query'
+            sa_hdrs    = {'Authorization': f'Bearer {access_token}'}
+            sa_dates   = {'startDate': str(start_date), 'endDate': str(end_date), 'type': 'web'}
+
+            def _sa_query(dims, limit=10):
+                r, _ = _fetch_url(sa_base, method='POST', timeout=15, extra_headers=sa_hdrs,
+                                   json_body={**sa_dates, 'dimensions': dims, 'rowLimit': limit})
+                if r is not None and r.status_code == 200:
+                    return (r.json() if callable(getattr(r, 'json', None)) else {}).get('rows', [])
+                if r is not None and r.status_code == 403:
+                    raise PermissionError('Permission denied')
+                return None
+
+            # Top queries
+            q_rows = _sa_query(['query'], 10)
+            # Top pages
+            p_rows = _sa_query(['page'], 10)
+            # Device breakdown
+            d_rows = _sa_query(['device'], 3)
+            # Country breakdown
+            c_rows = _sa_query(['country'], 5)
+
+            top_pages = []
+            if p_rows:
+                for r in p_rows:
+                    if r.get('keys'):
+                        top_pages.append(r['keys'][0])
+
+            scores['search_analytics'] = {
+                'period': f'{start_date} to {end_date}',
+                'top_queries': [
+                    {'query': r['keys'][0], 'clicks': int(r.get('clicks', 0)),
+                     'impressions': int(r.get('impressions', 0)),
+                     'ctr': round(r.get('ctr', 0) * 100, 1),
+                     'position': round(r.get('position', 0), 1)}
+                    for r in (q_rows or []) if r.get('keys')
+                ],
+                'top_pages': [
+                    {'page': r['keys'][0], 'clicks': int(r.get('clicks', 0)),
+                     'impressions': int(r.get('impressions', 0)),
+                     'ctr': round(r.get('ctr', 0) * 100, 1),
+                     'position': round(r.get('position', 0), 1)}
+                    for r in (p_rows or []) if r.get('keys')
+                ],
+                'devices': [
+                    {'device': r['keys'][0], 'clicks': int(r.get('clicks', 0)),
+                     'impressions': int(r.get('impressions', 0))}
+                    for r in (d_rows or []) if r.get('keys')
+                ],
+                'countries': [
+                    {'country': r['keys'][0].upper(), 'clicks': int(r.get('clicks', 0)),
+                     'impressions': int(r.get('impressions', 0))}
+                    for r in (c_rows or []) if r.get('keys')
+                ],
+            }
+
+            # Flag low CTR queries
+            for row in (q_rows or []):
+                if row.get('impressions', 0) > 100 and row.get('ctr', 0) < 0.02:
+                    q = row['keys'][0] if row.get('keys') else '(unknown)'
+                    _add('SEO', 'medium', f'Low CTR on "{q}"',
+                         f'"{q}" gets {int(row.get("impressions",0))} impressions but only '
+                         f'{row.get("ctr",0)*100:.1f}% CTR (avg position: {row.get("position",0):.1f}).',
+                         'Users see the result but don\'t click — title/description may be uncompelling.',
+                         ['Rewrite the page meta title to be more specific and compelling.',
+                          'Improve the meta description to state the value proposition clearly.',
+                          'Add rich snippets (reviews, FAQ) to increase SERP real estate.',
+                          'Check if search intent matches your page content.'])
+
+            # ── Deep Safe Browsing: crawl top pages too ──────────────────────
+            if api_key and top_pages:
+                try:
+                    extra_urls = []
+                    for page_url in top_pages[:5]:
+                        r_pg, _ = _fetch_url(page_url, timeout=8)
+                        if r_pg is not None:
+                            pg_html = getattr(r_pg, 'text', '')
+                            link_pat2 = re.compile(r'href=["\']([^"\'#\s]{6,})["\']', re.I)
+                            for href in link_pat2.findall(pg_html)[:30]:
+                                if href.startswith('http'):
+                                    extra_urls.append(href)
+                    if extra_urls:
+                        extra_urls = list(dict.fromkeys(extra_urls))[:100]
+                        sb2_body = {
+                            'client': {'clientId': 'cf-ai-dashboard', 'clientVersion': '1.0'},
+                            'threatInfo': {
+                                'threatTypes': ['MALWARE', 'SOCIAL_ENGINEERING',
+                                                'UNWANTED_SOFTWARE', 'POTENTIALLY_HARMFUL_APPLICATION'],
+                                'platformTypes': ['ANY_PLATFORM'],
+                                'threatEntryTypes': ['URL'],
+                                'threatEntries': [{'url': u} for u in extra_urls],
+                            },
+                        }
+                        r_sb2, _ = _fetch_url(
+                            f'https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}',
+                            timeout=15, method='POST', json_body=sb2_body)
+                        if r_sb2 is not None and r_sb2.status_code == 200:
+                            sb2_data = r_sb2.json() if callable(getattr(r_sb2, 'json', None)) else {}
+                            for m in sb2_data.get('matches', []):
+                                ttype    = m.get('threatType', 'Unknown')
+                                turl     = m.get('threat', {}).get('url', '')
+                                existing = scores.get('safe_browsing', {})
+                                existing['threats'] = existing.get('threats', 0) + 1
+                                existing.setdefault('threat_details', []).append(
+                                    {'url': turl, 'type': ttype, 'platform': m.get('platformType', ''),
+                                     'found_on': 'internal page (deep scan)'})
+                                scores['safe_browsing'] = existing
+                                _add('Security', 'critical',
+                                     f'Links to harmful downloads on internal page',
+                                     f'Deep scan found harmful link on a top page: {turl}\nThreat: {ttype}',
+                                     'This matches the GSC "Links to harmful downloads" security issue.',
+                                     ['Find and remove this link from your site immediately.',
+                                      'Check Google Search Console Security Issues for all affected pages.',
+                                      'Scan with Sucuri SiteCheck (sitecheck.sucuri.net).',
+                                      'After cleanup, click "Request Review" in GSC Security Issues.'])
+                except Exception:
+                    pass
+
+        except PermissionError as pe:
+            scores['search_analytics'] = {'error': str(pe)}
         except Exception as e:
             scores['search_analytics'] = {'error': str(e)}
 
@@ -4173,6 +4321,59 @@ def api_gsc_analyze():
                           'WordPress: Yoast SEO auto-generates and submits sitemaps.'])
         except Exception as e:
             scores['gsc_sitemaps'] = {'error': str(e)}
+
+    # ── 12. VirusTotal domain reputation ─────────────────────────────────────────
+    vt_key = os.environ.get('VIRUSTOTAL_API_KEY', '').strip()
+    if vt_key:
+        try:
+            r_vt, _ = _fetch_url(
+                f'https://www.virustotal.com/api/v3/domains/{domain}',
+                timeout=12, extra_headers={'x-apikey': vt_key})
+            if r_vt is not None and r_vt.status_code == 200:
+                vt_data  = r_vt.json() if callable(getattr(r_vt, 'json', None)) else {}
+                attrs    = vt_data.get('data', {}).get('attributes', {})
+                analysis = attrs.get('last_analysis_stats', {})
+                malicious   = analysis.get('malicious', 0)
+                suspicious  = analysis.get('suspicious', 0)
+                harmless    = analysis.get('harmless', 0)
+                undetected  = analysis.get('undetected', 0)
+                total       = malicious + suspicious + harmless + undetected
+                reputation  = attrs.get('reputation', 0)
+                categories  = attrs.get('categories', {})
+
+                scores['virustotal'] = {
+                    'malicious': malicious, 'suspicious': suspicious,
+                    'harmless': harmless, 'total_engines': total,
+                    'reputation': reputation,
+                    'categories': list(set(categories.values()))[:5],
+                }
+
+                if malicious > 0:
+                    engines = [k for k, v in attrs.get('last_analysis_results', {}).items()
+                               if v.get('category') in ('malicious',)][:8]
+                    _add('Security', 'critical', f'VirusTotal: {malicious}/{total} engines flag as malicious',
+                         f'{malicious} security vendors flag {domain} as malicious. Engines: {", ".join(engines) or "see VT report"}.',
+                         'Visitors using security-aware browsers or AV software will be blocked from the site.',
+                         ['Check full report at virustotal.com/gui/domain/' + domain,
+                          'Scan site for malware at sitecheck.sucuri.net.',
+                          'Check for injected code: recently modified files in cPanel File Manager.',
+                          'Contact hosting provider for malware scan assistance.',
+                          'After cleaning, request review at each flagging vendor.'])
+                elif suspicious > 0:
+                    _add('Security', 'medium', f'VirusTotal: {suspicious}/{total} engines flag as suspicious',
+                         f'{suspicious} vendors mark {domain} as suspicious.',
+                         'May trigger warnings in some security tools and corporate firewalls.',
+                         ['Review full VirusTotal report: virustotal.com/gui/domain/' + domain,
+                          'Check for any recently added third-party scripts or ads.',
+                          'Ensure no questionable affiliate links are present.'])
+                else:
+                    _add('Security', 'info',
+                         f'VirusTotal: Clean ({harmless} engines confirm safe)',
+                         f'{harmless}/{total} engines mark {domain} as safe. Reputation score: {reputation}.',
+                         'Domain has a clean reputation across major security vendors.',
+                         ['Continue monitoring at virustotal.com/gui/domain/' + domain])
+        except Exception as e:
+            scores['virustotal'] = {'error': str(e)}
 
     # ── Sort and return ────────────────────────────────────────────────────────
     sev_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3, 'info': 4}

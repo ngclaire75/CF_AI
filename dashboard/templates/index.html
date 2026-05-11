@@ -9659,10 +9659,70 @@ function _gscRenderSummary(data) {
       + '</div>';
   }
 
+  // VirusTotal tile
+  var vt = scores.virustotal || {};
+  if (vt.total_engines != null) {
+    var vtCol = vt.malicious > 0 ? '#a80000' : vt.suspicious > 0 ? '#986f0b' : '#107c10';
+    var vtLabel = vt.malicious > 0 ? vt.malicious + ' malicious' : vt.suspicious > 0 ? vt.suspicious + ' suspicious' : 'Clean';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:13px;font-weight:700;color:' + vtCol + ';">' + vtLabel + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">VirusTotal</div>'
+      + '</div>';
+  }
+
+  // Core Web Vitals tiles
+  var cwv = scores.cwv || {};
+  var cwvColMap = {'good':'#107c10','needs-improvement':'#986f0b','poor':'#a80000'};
+  if (cwv.lcp) {
+    var lcpCol = cwvColMap[cwv.lcp.category] || '#605e5c';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:13px;font-weight:700;color:' + lcpCol + ';">' + (cwv.lcp.value/1000).toFixed(1) + 's</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">LCP</div>'
+      + '</div>';
+  }
+  if (cwv.cls) {
+    var clsCol = cwvColMap[cwv.cls.category] || '#605e5c';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:13px;font-weight:700;color:' + clsCol + ';">' + (cwv.cls.value/100).toFixed(2) + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">CLS</div>'
+      + '</div>';
+  }
+  if (cwv.inp) {
+    var inpCol = cwvColMap[cwv.inp.category] || '#605e5c';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:13px;font-weight:700;color:' + inpCol + ';">' + cwv.inp.value + 'ms</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">INP</div>'
+      + '</div>';
+  }
+
   tiles.innerHTML = tileHtml;
   document.getElementById('gsc-summary-bar').style.display = '';
 
-  // Search Analytics table
+  // GSC Quick Links panel
+  var domain = data.domain || '';
+  var gscLinks = document.getElementById('gsc-quick-links');
+  if (!gscLinks) {
+    gscLinks = document.createElement('div');
+    gscLinks.id = 'gsc-quick-links';
+    gscLinks.style.cssText = 'margin-bottom:16px;padding:14px 16px;background:#fff;border:1px solid #edebe9;border-radius:6px;';
+    document.getElementById('gsc-summary-bar').after(gscLinks);
+  }
+  var encDomain = encodeURIComponent('https://' + domain + '/');
+  gscLinks.innerHTML = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">Google Search Console — Quick Links</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;">'
+    + '<a href="https://search.google.com/search-console/security-issues?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#fde7e9;color:#a80000;border-radius:4px;font-weight:600;text-decoration:none;">Security Issues</a>'
+    + '<a href="https://search.google.com/search-console/manual-actions?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#fff4ce;color:#7a4f00;border-radius:4px;font-weight:600;text-decoration:none;">Manual Actions</a>'
+    + '<a href="https://search.google.com/search-console/index?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#eff6fc;color:#004578;border-radius:4px;font-weight:600;text-decoration:none;">Page Indexing</a>'
+    + '<a href="https://search.google.com/search-console/performance/search-analytics?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#e9f8ee;color:#107c10;border-radius:4px;font-weight:600;text-decoration:none;">Performance</a>'
+    + '<a href="https://search.google.com/search-console/sitemaps?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">Sitemaps</a>'
+    + '<a href="https://search.google.com/search-console/core-web-vitals?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">Core Web Vitals</a>'
+    + '<a href="https://search.google.com/search-console/links?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">Links</a>'
+    + '<a href="https://search.google.com/search-console/removals?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">Removals</a>'
+    + '<a href="https://pagespeed.web.dev/report?url=https%3A%2F%2F' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">PageSpeed</a>'
+    + '<a href="https://www.virustotal.com/gui/domain/' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">VirusTotal</a>'
+    + '</div>';
+
+  // Search Analytics tables (queries + pages + devices + countries)
   var sa = scores.search_analytics || {};
   var saWrap = document.getElementById('gsc-search-analytics');
   if (!saWrap) {
@@ -9672,23 +9732,69 @@ function _gscRenderSummary(data) {
     var issWrap = document.getElementById('gsc-issues-wrap');
     issWrap.parentNode.insertBefore(saWrap, issWrap);
   }
-  if (sa.top_queries && sa.top_queries.length) {
-    var rows = sa.top_queries.map(function(q){
-      var posCol = q.position <= 3 ? '#107c10' : q.position <= 10 ? '#986f0b' : '#a80000';
-      var ctrCol = q.ctr >= 5 ? '#107c10' : q.ctr >= 2 ? '#986f0b' : '#a80000';
-      return '<tr>'
-        + '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc(q.query)+'">'+_esc(q.query)+'</td>'
-        + '<td style="text-align:right;">'+q.clicks+'</td>'
-        + '<td style="text-align:right;">'+q.impressions+'</td>'
-        + '<td style="text-align:right;color:'+ctrCol+';font-weight:600;">'+q.ctr+'%</td>'
-        + '<td style="text-align:right;color:'+posCol+';font-weight:600;">#'+q.position+'</td>'
-        + '</tr>';
-    }).join('');
-    saWrap.innerHTML = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:6px;">Search Analytics — last 28 days <span style="font-weight:400;color:#a19f9d;">('+_esc(sa.period)+')</span></div>'
-      + '<div class="scroll-panel"><table><thead><tr>'
-      + '<th>Query</th><th style="text-align:right;">Clicks</th><th style="text-align:right;">Impressions</th>'
-      + '<th style="text-align:right;">CTR</th><th style="text-align:right;">Position</th>'
-      + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  if (sa.top_queries || sa.top_pages) {
+    var period = sa.period ? '<span style="font-weight:400;color:#a19f9d;">('+_esc(sa.period)+')</span>' : '';
+    var saHtml = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:10px;">Search Analytics — last 28 days ' + period + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">';
+
+    // Top Queries
+    if (sa.top_queries && sa.top_queries.length) {
+      var qRows = sa.top_queries.map(function(q){
+        var posCol = q.position <= 3 ? '#107c10' : q.position <= 10 ? '#986f0b' : '#a80000';
+        var ctrCol = q.ctr >= 5 ? '#107c10' : q.ctr >= 2 ? '#986f0b' : '#a80000';
+        return '<tr>'
+          + '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc(q.query)+'">'+_esc(q.query)+'</td>'
+          + '<td style="text-align:right;">'+q.clicks+'</td>'
+          + '<td style="text-align:right;color:'+ctrCol+';font-weight:600;">'+q.ctr+'%</td>'
+          + '<td style="text-align:right;color:'+posCol+';font-weight:600;">#'+q.position+'</td>'
+          + '</tr>';
+      }).join('');
+      saHtml += '<div><div style="font-size:11px;font-weight:600;color:#605e5c;margin-bottom:4px;">Top Queries</div>'
+        + '<div class="scroll-panel"><table><thead><tr><th>Query</th><th style="text-align:right;">Clicks</th><th style="text-align:right;">CTR</th><th style="text-align:right;">Pos</th></tr></thead>'
+        + '<tbody>'+qRows+'</tbody></table></div></div>';
+    }
+
+    // Top Pages
+    if (sa.top_pages && sa.top_pages.length) {
+      var pRows = sa.top_pages.map(function(p){
+        var slug = p.page.replace(/^https?:\/\/[^\/]+/, '') || '/';
+        var posCol2 = p.position <= 3 ? '#107c10' : p.position <= 10 ? '#986f0b' : '#a80000';
+        return '<tr>'
+          + '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc(p.page)+'">'+_esc(slug)+'</td>'
+          + '<td style="text-align:right;">'+p.clicks+'</td>'
+          + '<td style="text-align:right;">'+p.impressions+'</td>'
+          + '<td style="text-align:right;color:'+posCol2+';font-weight:600;">#'+p.position+'</td>'
+          + '</tr>';
+      }).join('');
+      saHtml += '<div><div style="font-size:11px;font-weight:600;color:#605e5c;margin-bottom:4px;">Top Pages</div>'
+        + '<div class="scroll-panel"><table><thead><tr><th>Page</th><th style="text-align:right;">Clicks</th><th style="text-align:right;">Impr.</th><th style="text-align:right;">Pos</th></tr></thead>'
+        + '<tbody>'+pRows+'</tbody></table></div></div>';
+    }
+
+    saHtml += '</div>';
+
+    // Devices + Countries side by side
+    var dcHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+    if (sa.devices && sa.devices.length) {
+      var dRows = sa.devices.map(function(d){
+        return '<tr><td>'+_esc(d.device)+'</td><td style="text-align:right;">'+d.clicks+'</td><td style="text-align:right;">'+d.impressions+'</td></tr>';
+      }).join('');
+      dcHtml += '<div><div style="font-size:11px;font-weight:600;color:#605e5c;margin-bottom:4px;">Devices</div>'
+        + '<table><thead><tr><th>Device</th><th style="text-align:right;">Clicks</th><th style="text-align:right;">Impr.</th></tr></thead>'
+        + '<tbody>'+dRows+'</tbody></table></div>';
+    }
+    if (sa.countries && sa.countries.length) {
+      var cRows = sa.countries.map(function(c){
+        return '<tr><td>'+_esc(c.country)+'</td><td style="text-align:right;">'+c.clicks+'</td><td style="text-align:right;">'+c.impressions+'</td></tr>';
+      }).join('');
+      dcHtml += '<div><div style="font-size:11px;font-weight:600;color:#605e5c;margin-bottom:4px;">Top Countries</div>'
+        + '<table><thead><tr><th>Country</th><th style="text-align:right;">Clicks</th><th style="text-align:right;">Impr.</th></tr></thead>'
+        + '<tbody>'+cRows+'</tbody></table></div>';
+    }
+    dcHtml += '</div>';
+    if (sa.devices || sa.countries) saHtml += dcHtml;
+
+    saWrap.innerHTML = saHtml;
   } else if (sa.error) {
     saWrap.innerHTML = '<div style="font-size:12px;color:#a19f9d;">Search Analytics: '+_esc(sa.error)+'</div>';
   } else {
