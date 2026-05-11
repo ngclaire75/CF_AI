@@ -3133,6 +3133,120 @@ def api_inventories_mysql_plugins():
     return jsonify({'plugins': plugins, 'total': len(plugins)})
 
 
+@app.route('/api/inventories/cpanel-plugins', methods=['POST'])
+def api_inventories_cpanel_plugins():
+    """Read active WordPress plugins from wp_options via cPanel Fileman (no direct MySQL needed)."""
+    import base64 as _b64, json as _j, re as _re, random as _rand, string as _str
+    import ssl as _ssl2, urllib.request as _req2
+
+    data     = request.get_json(force=True, silent=True) or {}
+    site_url = (data.get('url') or '').strip().rstrip('/')
+    cp_host  = (data.get('cp_host') or '').strip().rstrip('/')
+    cp_user  = (data.get('cp_user') or '').strip()
+    cp_pass  = (data.get('cp_pass') or '').strip()
+    cp_token = (data.get('cp_token') or '').strip()
+    wp_dir   = (data.get('wp_dir') or 'public_html').strip().strip('/')
+
+    if not cp_host or not cp_user or not (cp_pass or cp_token):
+        return jsonify({'error': 'cPanel host, username, and password or token required'}), 400
+    if not site_url:
+        return jsonify({'error': 'WordPress site URL required'}), 400
+    if not site_url.startswith('http'):
+        site_url = 'https://' + site_url
+
+    base = cp_host if cp_host.startswith('http') else f'https://{cp_host}:2083'
+    auth_hdr = (f'cpanel {cp_user}:{cp_token}' if cp_token
+                else 'Basic ' + _b64.b64encode(f'{cp_user}:{cp_pass}'.encode()).decode())
+    ctx = _ssl2.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = _ssl2.CERT_NONE
+
+    def _cp(path, method='GET', post_data=None):
+        url = f'{base}/execute/{path}'
+        hdr = {'Authorization': auth_hdr, 'Accept': 'application/json', 'User-Agent': _BROWSER_UA}
+        if post_data:
+            body = _up_parse.urlencode(post_data).encode()
+            req = _req2.Request(url, data=body, headers={**hdr, 'Content-Type': 'application/x-www-form-urlencoded'})
+        else:
+            req = _req2.Request(url, headers=hdr)
+        try:
+            with _req2.urlopen(req, timeout=15, context=ctx) as r:
+                return _j.loads(r.read().decode())
+        except Exception as e:
+            return {'_err': str(e)}
+
+    # Read wp-config.php to extract DB credentials
+    cfg = _cp(f'Fileman/get_file_content?dir=%2F{_up_parse.quote(wp_dir)}&file=wp-config.php')
+    if cfg.get('_err') or not cfg.get('status'):
+        return jsonify({'error': f'Cannot read wp-config.php: {cfg.get("_err") or cfg.get("errors") or "check WP Directory"}'}), 500
+    wp_config = (cfg.get('data') or {}).get('content', '')
+    if not wp_config:
+        return jsonify({'error': 'wp-config.php is empty or unreadable'}), 500
+
+    def _cfg(key):
+        m = _re.search(rf"define\s*\(\s*['\"]DB_{key}['\"]\s*,\s*['\"]([^'\"]*)['\"]", wp_config)
+        return m.group(1) if m else ''
+
+    db_host   = _cfg('HOST') or 'localhost'
+    db_name   = _cfg('NAME')
+    db_user2  = _cfg('USER')
+    db_pass2  = _cfg('PASSWORD')
+    pfx_m     = _re.search(r"\$table_prefix\s*=\s*['\"]([^'\"]+)['\"]", wp_config)
+    table_pfx = pfx_m.group(1) if pfx_m else 'wp_'
+
+    if not db_name or not db_user2:
+        return jsonify({'error': 'Could not parse DB credentials from wp-config.php'}), 500
+
+    script_name = 'cfai_' + ''.join(_rand.choices(_str.ascii_lowercase + _str.digits, k=14)) + '.php'
+    php = (
+        "<?php error_reporting(0);\n"
+        "try {\n"
+        f"  $pdo = new PDO('mysql:host={db_host};dbname={db_name};charset=utf8','{db_user2}','{db_pass2}');\n"
+        "  $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);\n"
+        f"  $p = '{table_pfx}';\n"
+        "  $plugins = [];\n"
+        "  $row = $pdo->query(\"SELECT option_value FROM {$p}options WHERE option_name='active_plugins' LIMIT 1\")->fetch(PDO::FETCH_ASSOC);\n"
+        "  if ($row) {\n"
+        "    preg_match_all('/\"([\\w\\/-]+\\.php)\"/', $row['option_value'], $m);\n"
+        "    foreach ($m[1] as $path) {\n"
+        "      $slug = explode('/', $path)[0];\n"
+        "      $plugins[] = ['name'=>$slug,'path'=>$path,'status'=>'active','version'=>''];\n"
+        "    }\n"
+        "    $upd = $pdo->query(\"SELECT option_value FROM {$p}options WHERE option_name='update_plugins' LIMIT 1\")->fetch(PDO::FETCH_ASSOC);\n"
+        "    if ($upd) { foreach ($plugins as &$plug) {\n"
+        "      if (preg_match('/\"'.preg_quote($plug['path'],'/').'\"[^}]*?\"new_version\";s:\\d+:\"([^\"]+)\"/', $upd['option_value'], $vm))\n"
+        "        $plug['version'] = $vm[1];\n"
+        "    }}\n"
+        "  }\n"
+        "  header('Content-Type: application/json');\n"
+        "  echo json_encode(['ok'=>true,'plugins'=>$plugins]);\n"
+        "} catch(Exception $e) {\n"
+        "  header('Content-Type: application/json');\n"
+        "  echo json_encode(['ok'=>false,'error'=>$e->getMessage()]);\n"
+        "}\n"
+    )
+
+    up = _cp('Fileman/save_file_content', method='POST',
+             post_data={'dir': f'/{wp_dir}', 'file': script_name, 'content': php})
+    if up.get('_err') or not up.get('status'):
+        return jsonify({'error': f'Cannot upload script via cPanel Fileman: {up.get("_err") or up.get("errors")}'}), 500
+
+    plugins = []
+    try:
+        sc_code, sc_body = _wp_request(f'{site_url}/{script_name}', timeout=20)
+        if sc_code == 200:
+            result = _j.loads(sc_body)
+            if result.get('ok'):
+                plugins = result.get('plugins', [])
+    except Exception:
+        pass
+    finally:
+        _cp('Fileman/delete_files', method='POST',
+            post_data={'files': f'/{wp_dir}/{script_name}'})
+
+    return jsonify({'plugins': plugins, 'total': len(plugins), 'source': 'cpanel'})
+
+
 @app.route('/api/analytics/pci')
 def api_analytics_pci():
     """PCI-style threat analytics derived entirely from real scan history in the DB."""

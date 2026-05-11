@@ -4779,6 +4779,25 @@ function runPluginLogsPage() {
     promises.push(mysqlP);
   }
 
+  // Source 4: cPanel Database Access (auto-load if credentials saved from Log Explorer → cPanel tab)
+  var cpanelCreds = _getCpanelCreds();
+  if (cpanelCreds) {
+    var cpanelLogP = fetch('/api/logs/wp-cpanel-db', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({}, cpanelCreds, {limit: 200}))
+    }).then(function(r){ return r.json(); })
+    .then(function(d){
+      (d.events || []).forEach(function(e){
+        allLogs.push({ timestamp: e.timestamp, user: e.user, event: e.event,
+                       ip: e.ip, severity: e.severity,
+                       _target: cpanelCreds.url || cpanelCreds.wp_dir,
+                       source: e.source || 'wp_db' });
+      });
+    }).catch(function(){});
+    promises.push(cpanelLogP);
+  }
+
   if (target) {
     var wpLogP = new Promise(function(res){
       _fetchWpLogs(target, function(err, logs){ allLogs = allLogs.concat(logs); res(); });
@@ -4821,7 +4840,7 @@ function _renderPluginLogs(logs) {
   var countEl = document.getElementById('pl-count');
   if (!tbody) return;
   if (!logs.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No WP-LOG entries found. Run a WordPress scan using the "apit" agent with WordPress credentials to capture plugin activity.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No events found. Go to <strong>Log Explorer → cPanel</strong> tab and click "Fetch via Database" to load live events, or use the <strong>Hostinger / MySQL</strong> tab for direct MySQL access.</td></tr>';
     if (countEl) countEl.textContent = '';
     return;
   }
@@ -7315,6 +7334,13 @@ function _checkMysqlSavedIndicator() {
   var ind = document.getElementById('le-mysql-saved-indicator');
   if (ind) ind.style.display = _getMysqlCreds() ? 'inline' : 'none';
 }
+function _getCpanelCreds() {
+  try { return JSON.parse(localStorage.getItem('cfai_cpanel_creds') || 'null'); }
+  catch(e) { return null; }
+}
+function _clearCpanelCreds() {
+  localStorage.removeItem('cfai_cpanel_creds');
+}
 
 function renderWpEvents(events, source, note, total) {
   var statsEl = document.getElementById('le-wp-stats');
@@ -7376,6 +7402,13 @@ function runWpCpanelDb() {
       stat.style.cssText = 'display:block;padding:10px 14px;border-radius:6px;font-size:12px;margin-top:8px;background:#dff6dd;color:#107c10;';
       stat.textContent = 'Loaded ' + d.events.length + ' events from database.';
       renderWpEvents(d.events, d.source, d.note, d.total);
+      // Save cPanel creds so Inventories page can auto-load without re-entering
+      try {
+        localStorage.setItem('cfai_cpanel_creds', JSON.stringify({
+          url: url, cp_host: host, cp_user: user, cp_pass: pass,
+          cp_token: token, wp_dir: dir
+        }));
+      } catch(e) {}
     }
   }).catch(function(e){
     btn.disabled = false; btn.textContent = 'Fetch via Database';
@@ -8258,6 +8291,22 @@ function loadInventories() {
       }).catch(function(){ return []; })
     : Promise.resolve([]);
 
+  // Plugins from cPanel Database Access (auto-load if credentials saved)
+  var cpanelCreds = _getCpanelCreds();
+  var cpanelPluginsP = cpanelCreds
+    ? fetch('/api/inventories/cpanel-plugins', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(cpanelCreds)
+      }).then(function(r){ return r.json(); })
+      .then(function(d) {
+        return (d.plugins || []).map(function(p) {
+          return { name: p.name, type: 'WordPress Plugin', version: p.version || '',
+                   targets: [cpanelCreds.url || cpanelCreds.wp_dir], risk: 'INFO',
+                   status: p.status || 'active', updated: '', source: 'cPanel' };
+        });
+      }).catch(function(){ return []; })
+    : Promise.resolve([]);
+
   // Software and targets parsed client-side from scan output
   var scansP = fetch('/api/scans/recent?limit=500')
     .then(function(r){ return r.json(); })
@@ -8282,15 +8331,21 @@ function loadInventories() {
       _invData.targets  = Object.values(tgt);
     }).catch(function(){});
 
-  Promise.all([pluginsP, mysqlPluginsP, scansP]).then(function(res) {
-    var mysqlPlugins = res[1] || [];
-    // Merge scan-detected and MySQL plugins (MySQL overrides scan if same name)
+  Promise.all([pluginsP, mysqlPluginsP, cpanelPluginsP, scansP]).then(function(res) {
+    var mysqlPlugins   = res[1] || [];
+    var cpanelPlugins  = res[2] || [];
+    // Merge all sources: scan → MySQL → cPanel (later overrides version if known)
     var merged = {};
     pluginsFromScan.forEach(function(p){ merged[p.name.toLowerCase()] = p; });
     mysqlPlugins.forEach(function(p){
       var k = p.name.toLowerCase();
       if (!merged[k]) merged[k] = p;
       else { merged[k].source = 'scan+MySQL'; if (p.version) merged[k].version = p.version; }
+    });
+    cpanelPlugins.forEach(function(p){
+      var k = p.name.toLowerCase();
+      if (!merged[k]) merged[k] = p;
+      else { merged[k].source = (merged[k].source || 'scan') + '+cPanel'; if (p.version) merged[k].version = p.version; }
     });
     _invData.plugins = Object.values(merged);
     _invRender();
