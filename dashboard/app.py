@@ -4583,25 +4583,29 @@ def api_gsc_analyze():
     except Exception as e:
         scores['url_scan'] = {'error': str(e)}
 
-    # ── 15. URLScan.io (free, no API key, deep URL inspection) ───────────────
+    # ── 15. URLScan.io (free API key, deep URL inspection) ───────────────────
     try:
         import time as _time
+        urlscan_key = os.environ.get('URLSCAN_API_KEY', '')
+        us_headers = {'Content-Type': 'application/json'}
+        if urlscan_key:
+            us_headers['API-Key'] = urlscan_key
         urlscan_body = {'url': base_url, 'visibility': 'public'}
-        r_us, _ = _fetch_url(
+        r_us, us_err = _fetch_url(
             'https://urlscan.io/api/v1/scan/',
-            timeout=15, method='POST', json_body=urlscan_body,
-            extra_headers={'Content-Type': 'application/json'})
+            timeout=20, method='POST', json_body=urlscan_body,
+            extra_headers=us_headers)
         if r_us is not None and r_us.status_code in (200, 201):
             us_submit = r_us.json() if callable(getattr(r_us, 'json', None)) else {}
             us_uuid = us_submit.get('uuid', '')
             if us_uuid:
-                # Poll up to 3 times with 8-second gaps
+                # Poll up to 4 times with 10-second gaps
                 us_result = {}
-                for _ in range(3):
-                    _time.sleep(8)
+                for _ in range(4):
+                    _time.sleep(10)
                     r_res, _ = _fetch_url(
                         f'https://urlscan.io/api/v1/result/{us_uuid}/',
-                        timeout=10)
+                        timeout=12)
                     if r_res is not None and r_res.status_code == 200:
                         us_result = r_res.json() if callable(getattr(r_res, 'json', None)) else {}
                         break
@@ -4618,17 +4622,17 @@ def api_gsc_analyze():
                     links_list= list(us_result.get('lists', {}).get('linkDomains', []))[:10]
                     screenshot= us_result.get('task', {}).get('screenshotURL', '')
                     scores['urlscanio'] = {
-                        'malicious':   malicious,
-                        'score':       score,
-                        'categories':  categories,
-                        'brands':      brands,
-                        'page':        page_info,
-                        'ips':         ips_list,
-                        'external_urls': urls_list,
-                        'link_domains':links_list,
-                        'screenshot':  screenshot,
-                        'result_url':  f'https://urlscan.io/result/{us_uuid}/',
-                        'uuid':        us_uuid,
+                        'malicious':    malicious,
+                        'score':        score,
+                        'categories':   categories,
+                        'brands':       brands,
+                        'page':         page_info,
+                        'ips':          ips_list,
+                        'external_urls':urls_list,
+                        'link_domains': links_list,
+                        'screenshot':   screenshot,
+                        'result_url':   f'https://urlscan.io/result/{us_uuid}/',
+                        'uuid':         us_uuid,
                     }
                     if malicious:
                         _add('Security', 'critical',
@@ -4658,11 +4662,23 @@ def api_gsc_analyze():
                     scores['urlscanio'] = {'pending': True, 'uuid': us_uuid,
                                            'result_url': f'https://urlscan.io/result/{us_uuid}/'}
             else:
-                scores['urlscanio'] = {'error': 'No scan UUID returned'}
+                err_msg = us_submit.get('message', 'No scan UUID returned')
+                scores['urlscanio'] = {'error': err_msg}
         elif r_us is not None and r_us.status_code == 429:
-            scores['urlscanio'] = {'error': 'Rate limited (3 req/min free tier)'}
+            scores['urlscanio'] = {'error': 'Rate limited — try again in a few minutes'}
+        elif r_us is not None and r_us.status_code == 401:
+            scores['urlscanio'] = {'error': 'Invalid or missing URLSCAN_API_KEY'}
+        elif r_us is not None and r_us.status_code == 400:
+            body = {}
+            try:
+                body = r_us.json() if callable(getattr(r_us, 'json', None)) else {}
+            except Exception:
+                pass
+            scores['urlscanio'] = {'error': f"Bad request: {body.get('message', r_us.status_code)}"}
+        elif r_us is None:
+            scores['urlscanio'] = {'error': f'Connection failed: {us_err}'}
         else:
-            scores['urlscanio'] = {'error': 'URLScan.io unavailable'}
+            scores['urlscanio'] = {'error': f'HTTP {r_us.status_code}'}
     except Exception as e:
         scores['urlscanio'] = {'error': str(e)}
 
