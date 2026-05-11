@@ -9681,14 +9681,25 @@ function _gscRenderSummary(data) {
       + '</div>';
   }
 
-  // Sucuri antivirus tile
-  var sc = scores.sucuri;
-  if (sc && !sc.error) {
-    var scTileCol = sc.clean ? '#107c10' : '#a80000';
-    var scTileLabel = sc.clean ? 'Clean' : ((sc.malware||[]).length + ' threat' + ((sc.malware||[]).length !== 1 ? 's' : ''));
+  // VirusTotal URL scan tile
+  var usc = scores.url_scan;
+  if (usc && !usc.error) {
+    var uscCol = usc.malicious > 0 ? '#a80000' : usc.suspicious > 0 ? '#986f0b' : '#107c10';
+    var uscLabel = usc.malicious > 0 ? usc.malicious + ' malicious' : usc.suspicious > 0 ? usc.suspicious + ' suspicious' : 'Clean';
     tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
-      + '<div style="font-size:13px;font-weight:700;color:' + scTileCol + ';">' + scTileLabel + '</div>'
-      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">Antivirus</div>'
+      + '<div style="font-size:13px;font-weight:700;color:' + uscCol + ';">' + uscLabel + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">VT URL</div>'
+      + '</div>';
+  }
+
+  // URLScan.io tile
+  var usio = scores.urlscanio;
+  if (usio && !usio.error && !usio.pending) {
+    var usioCol = usio.malicious ? '#a80000' : usio.score > 0 ? '#986f0b' : '#107c10';
+    var usioLabel = usio.malicious ? 'Malicious' : usio.score > 0 ? 'Suspicious' : 'Clean';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:13px;font-weight:700;color:' + usioCol + ';">' + usioLabel + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">URLScan.io</div>'
       + '</div>';
   }
 
@@ -9742,7 +9753,8 @@ function _gscRenderSummary(data) {
     + '<a href="https://search.google.com/search-console/removals?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">Removals</a>'
     + '<a href="https://pagespeed.web.dev/report?url=https%3A%2F%2F' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">PageSpeed</a>'
     + '<a href="https://www.virustotal.com/gui/domain/' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">VirusTotal</a>'
-    + '<a href="https://sitecheck.sucuri.net/results/' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">Sucuri Scan</a>'
+    + '<a href="https://www.virustotal.com/gui/domain/' + encodeURIComponent(domain) + '/detection" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">VT URL Scan</a>'
+    + '<a href="https://urlscan.io/search/#page.domain:' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">URLScan.io</a>'
     + '</div>';
 
   // Search Analytics tables (queries + pages + devices + countries)
@@ -9896,52 +9908,90 @@ function _gscRenderSummary(data) {
     slWrap.innerHTML = '';
   }
 
-  // ── Sucuri Antivirus Scan panel ───────────────────────────────────────────
-  var scData = scores.sucuri;
-  var scWrap = document.getElementById('gsc-sucuri-panel');
-  if (!scWrap) {
-    scWrap = document.createElement('div');
-    scWrap.id = 'gsc-sucuri-panel';
-    scWrap.style.cssText = 'margin-bottom:16px;';
-    slWrap.parentNode.insertBefore(scWrap, slWrap.nextSibling);
+  // ── VirusTotal URL Scan panel ─────────────────────────────────────────────
+  var uscData = scores.url_scan;
+  var uscWrap = document.getElementById('gsc-urlscan-panel');
+  if (!uscWrap) {
+    uscWrap = document.createElement('div');
+    uscWrap.id = 'gsc-urlscan-panel';
+    uscWrap.style.cssText = 'margin-bottom:16px;';
+    slWrap.parentNode.insertBefore(uscWrap, slWrap.nextSibling);
   }
-  if (scData && !scData.error) {
-    var scClean = scData.clean;
-    var scMal   = scData.malware || [];
-    var scBl    = scData.blacklists || {};
-    var scOut   = scData.outdated  || [];
-    var scColor = scClean ? '#107c10' : '#a80000';
-    var scLabel = scClean ? 'Clean' : (scMal.length ? scMal.length + ' threat' + (scMal.length>1?'s':'') : 'Issues found');
-    var scHtml  = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-      + '<span style="font-size:12px;font-weight:600;color:#201f1e;">Antivirus / Malware Scan (Sucuri SiteCheck)</span>'
-      + '<span style="font-size:12px;font-weight:700;color:'+scColor+';">'+scLabel+'</span>'
+  if (uscData && !uscData.error) {
+    var uscClean = uscData.malicious === 0 && uscData.suspicious === 0;
+    var uscColor = uscData.malicious > 0 ? '#a80000' : uscData.suspicious > 0 ? '#986f0b' : '#107c10';
+    var uscLabel = uscData.malicious > 0
+      ? uscData.malicious + ' engine(s) flagged malicious'
+      : uscData.suspicious > 0 ? uscData.suspicious + ' engine(s) flagged suspicious' : 'Clean';
+    var uscHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+      + '<span style="font-size:12px;font-weight:600;color:#201f1e;">URL Scan — VirusTotal ('+(uscData.total_engines||0)+' engines)</span>'
+      + '<span style="font-size:12px;font-weight:700;color:'+uscColor+';">'+uscLabel+'</span>'
       + '</div>';
-    if (scMal.length) {
-      var mRows = scMal.map(function(m){
-        return '<tr><td>'+_esc(m.type||'Malware')+'</td><td style="font-size:11px;word-break:break-all;">'+_esc(m.file||m.details||'')+'</td></tr>';
-      }).join('');
-      scHtml += '<div style="font-size:11px;font-weight:600;color:#a80000;margin-bottom:4px;">Malware Detected</div>'
-        + '<div class="scroll-panel"><table><thead><tr><th>Type</th><th>Detail</th></tr></thead><tbody>'+mRows+'</tbody></table></div>';
+    if (uscData.flagged_by && uscData.flagged_by.length) {
+      uscHtml += '<div style="font-size:11px;color:#a80000;margin-bottom:6px;"><strong>Flagged by:</strong> '+_esc(uscData.flagged_by.join(', '))+'</div>';
     }
-    if (scOut.length) {
-      scHtml += '<div style="font-size:11px;color:#986f0b;margin-top:6px;"><strong>Outdated software:</strong> '+_esc(scOut.join(', '))+'</div>';
+    if (uscClean) {
+      uscHtml += '<div style="font-size:11px;color:#107c10;">No malicious content detected at '+_esc(uscData.url||'')+'</div>';
     }
-    var blStatus = scBl.status || '';
-    if (blStatus && blStatus.toLowerCase() !== 'not listed') {
-      var blEngines = Object.keys(scBl).filter(function(k){ return k !== 'status' && typeof scBl[k] === 'object' && scBl[k].status === 'listed'; });
-      if (blEngines.length) {
-        scHtml += '<div style="font-size:11px;color:#a80000;margin-top:6px;"><strong>Blacklisted by:</strong> '+_esc(blEngines.join(', '))+'</div>';
-      }
-    }
-    if (scClean) {
-      scHtml += '<div style="font-size:11px;color:#107c10;margin-top:4px;">No malware, injections, or blacklisting detected by Sucuri external scanner.</div>';
-    }
-    scHtml += '<div style="font-size:11px;color:#605e5c;margin-top:8px;">Full report: <a href="https://sitecheck.sucuri.net/results/'+_esc(data.domain)+'" target="_blank" style="color:#0078d4;">sitecheck.sucuri.net</a></div>';
-    scWrap.innerHTML = scHtml;
-  } else if (scData && scData.error) {
-    scWrap.innerHTML = '<div style="font-size:12px;color:#a19f9d;">Sucuri SiteCheck: '+_esc(scData.error)+'</div>';
+    uscHtml += '<div style="font-size:11px;color:#605e5c;margin-top:8px;">Full report: <a href="https://www.virustotal.com/gui/domain/'+_esc(data.domain)+'" target="_blank" style="color:#0078d4;">virustotal.com</a></div>';
+    uscWrap.innerHTML = uscHtml;
+  } else if (uscData && uscData.error) {
+    uscWrap.innerHTML = '<div style="font-size:12px;color:#a19f9d;">URL Scan: '+_esc(uscData.error)+'</div>';
   } else {
-    scWrap.innerHTML = '';
+    uscWrap.innerHTML = '';
+  }
+
+  // ── URLScan.io panel ──────────────────────────────────────────────────────
+  var usioData = scores.urlscanio;
+  var usioWrap = document.getElementById('gsc-urlscanio-panel');
+  if (!usioWrap) {
+    usioWrap = document.createElement('div');
+    usioWrap.id = 'gsc-urlscanio-panel';
+    usioWrap.style.cssText = 'margin-bottom:16px;';
+    uscWrap.parentNode.insertBefore(usioWrap, uscWrap.nextSibling);
+  }
+  if (usioData && !usioData.error) {
+    if (usioData.pending) {
+      usioWrap.innerHTML = '<div style="font-size:12px;color:#605e5c;">URLScan.io: Scan still processing — '
+        + '<a href="'+_esc(usioData.result_url||'')+'" target="_blank" style="color:#0078d4;">view result</a></div>';
+    } else {
+      var usioMal  = usioData.malicious;
+      var usioScore= usioData.score || 0;
+      var usioClean= !usioMal && usioScore === 0;
+      var usioColor= usioMal ? '#a80000' : usioScore > 0 ? '#986f0b' : '#107c10';
+      var usioLabel2= usioMal ? 'Malicious' : usioScore > 0 ? 'Suspicious (score '+usioScore+')' : 'Clean';
+      var usioHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+        + '<span style="font-size:12px;font-weight:600;color:#201f1e;">URLScan.io — Deep URL Inspection</span>'
+        + '<span style="font-size:12px;font-weight:700;color:'+usioColor+';">'+usioLabel2+'</span>'
+        + '</div>';
+      if (usioData.categories && usioData.categories.length) {
+        usioHtml += '<div style="font-size:11px;color:#a80000;margin-bottom:4px;"><strong>Categories:</strong> '+_esc(usioData.categories.join(', '))+'</div>';
+      }
+      var pg = usioData.page || {};
+      if (pg.ip || pg.server || pg.country) {
+        usioHtml += '<div style="font-size:11px;color:#605e5c;margin-bottom:4px;">'
+          + (pg.ip ? 'IP: <strong>'+_esc(pg.ip)+'</strong> ' : '')
+          + (pg.country ? '| Country: <strong>'+_esc(pg.country)+'</strong> ' : '')
+          + (pg.server ? '| Server: <strong>'+_esc(pg.server)+'</strong>' : '')
+          + '</div>';
+      }
+      if (usioData.link_domains && usioData.link_domains.length) {
+        usioHtml += '<div style="font-size:11px;color:#605e5c;margin-bottom:4px;"><strong>External domains linked:</strong> '
+          + _esc(usioData.link_domains.slice(0,8).join(', ')) + '</div>';
+      }
+      if (usioClean) {
+        usioHtml += '<div style="font-size:11px;color:#107c10;">No threats detected in URLScan.io deep inspection.</div>';
+      }
+      if (usioData.screenshot) {
+        usioHtml += '<div style="margin-top:8px;"><img src="'+_esc(usioData.screenshot)+'" style="max-width:220px;border:1px solid #edebe9;border-radius:4px;" alt="Screenshot"></div>';
+      }
+      usioHtml += '<div style="font-size:11px;color:#605e5c;margin-top:8px;">Full report: <a href="'+_esc(usioData.result_url||'')+'" target="_blank" style="color:#0078d4;">urlscan.io</a></div>';
+      usioWrap.innerHTML = usioHtml;
+    }
+  } else if (usioData && usioData.error) {
+    usioWrap.innerHTML = '<div style="font-size:12px;color:#a19f9d;">URLScan.io: '+_esc(usioData.error)+'</div>';
+  } else {
+    usioWrap.innerHTML = '';
   }
 }
 

@@ -3605,21 +3605,25 @@ def api_gsc_analyze():
         issues.append({'category': category, 'severity': severity, 'title': title,
                        'description': description, 'impact': impact, 'steps': steps})
 
-    def _fetch_url(url, timeout=12, allow_redirects=True, verify_ssl=True, method='GET', json_body=None, extra_headers=None):
+    def _fetch_url(url, timeout=12, allow_redirects=True, verify_ssl=True, method='GET', json_body=None, extra_headers=None, form_data=None):
         headers = {'User-Agent': _BROWSER_UA}
         if extra_headers:
             headers.update(extra_headers)
         try:
             if _HAS_REQUESTS:
                 if method == 'POST':
-                    r = _requests.post(url, json=json_body, headers=headers, timeout=timeout,
-                                       allow_redirects=allow_redirects, verify=verify_ssl)
+                    r = _requests.post(url, json=json_body, data=form_data, headers=headers,
+                                       timeout=timeout, allow_redirects=allow_redirects, verify=verify_ssl)
                 else:
                     r = _requests.get(url, headers=headers, timeout=timeout,
                                       allow_redirects=allow_redirects, verify=verify_ssl)
                 return r, None
             else:
-                req_data = _json.dumps(json_body).encode() if json_body else None
+                if form_data:
+                    req_data = _up_parse.urlencode(form_data).encode()
+                    headers['Content-Type'] = 'application/x-www-form-urlencoded'
+                else:
+                    req_data = _json.dumps(json_body).encode() if json_body else None
                 req = _up_req.Request(url, data=req_data, headers=headers, method=method)
                 with _up_req.urlopen(req, timeout=timeout) as r:
                     class _Resp:
@@ -4499,68 +4503,168 @@ def api_gsc_analyze():
     except Exception:
         pass
 
-    # ── 14. Sucuri SiteCheck (antivirus / malware scan) ───────────────────────
+    # ── 14. VirusTotal URL scan (antivirus / malware scan) ────────────────────
+    # Uses cached VT analysis — works even when Cloudflare blocks external crawlers
     try:
-        r_sucuri, _ = _fetch_url(
-            f'https://sitecheck.sucuri.net/api/v3/?scan={_up_parse.quote(domain, safe="")}',
-            timeout=20)
-        if r_sucuri is not None and r_sucuri.status_code == 200:
-            sd = r_sucuri.json() if callable(getattr(r_sucuri, 'json', None)) else {}
-            malware_list = sd.get('malware', [])
-            blacklists   = sd.get('blacklists', {})
-            outdated     = sd.get('system', {}).get('outdated', [])
-            bl_clean     = blacklists.get('status', '').lower() == 'not listed'
-            scan_clean   = not malware_list
-            scores['sucuri'] = {
-                'malware':    malware_list[:20],
-                'blacklists': blacklists,
-                'outdated':   outdated,
-                'clean':      scan_clean and bl_clean,
-            }
-            if malware_list:
-                for m in malware_list[:5]:
-                    mtype = m.get('type', 'Malware')
-                    mfile = m.get('file', m.get('details', ''))
+        import base64 as _b64
+        vt_key = os.environ.get('VIRUSTOTAL_API_KEY', '')
+        if vt_key:
+            url_b64 = _b64.urlsafe_b64encode(base_url.encode()).decode().rstrip('=')
+            r_vtu, _ = _fetch_url(
+                f'https://www.virustotal.com/api/v3/urls/{url_b64}',
+                timeout=15,
+                extra_headers={'x-apikey': vt_key})
+            if r_vtu is None or r_vtu.status_code == 404:
+                # No cached result — submit URL for fresh scan then read it
+                r_sub, _ = _fetch_url(
+                    'https://www.virustotal.com/api/v3/urls',
+                    timeout=15, method='POST',
+                    extra_headers={'x-apikey': vt_key},
+                    form_data={'url': base_url})
+                if r_sub is not None and r_sub.status_code == 200:
+                    sub_data = r_sub.json() if callable(getattr(r_sub, 'json', None)) else {}
+                    analysis_id = sub_data.get('data', {}).get('id', '')
+                    if analysis_id:
+                        import time as _time
+                        _time.sleep(5)
+                        r_vtu, _ = _fetch_url(
+                            f'https://www.virustotal.com/api/v3/analyses/{analysis_id}',
+                            timeout=15,
+                            extra_headers={'x-apikey': vt_key})
+            if r_vtu is not None and r_vtu.status_code == 200:
+                vtu_data = r_vtu.json() if callable(getattr(r_vtu, 'json', None)) else {}
+                attrs = vtu_data.get('data', {}).get('attributes', {})
+                # analyses endpoint returns stats directly; urls endpoint nests under last_analysis_stats
+                stats = attrs.get('last_analysis_stats') or attrs.get('stats', {})
+                results = attrs.get('last_analysis_results') or attrs.get('results', {})
+                mal_count  = stats.get('malicious', 0)
+                sus_count  = stats.get('suspicious', 0)
+                clean_count= stats.get('harmless', 0) + stats.get('undetected', 0)
+                total_eng  = sum(stats.values()) if stats else 0
+                mal_engines= [e for e, v in results.items()
+                               if isinstance(v, dict) and v.get('category') in ('malicious','suspicious')]
+                scores['url_scan'] = {
+                    'malicious':    mal_count,
+                    'suspicious':   sus_count,
+                    'clean':        clean_count,
+                    'total_engines':total_eng,
+                    'flagged_by':   mal_engines[:10],
+                    'url':          base_url,
+                }
+                if mal_count > 0:
                     _add('Security', 'critical',
-                         f'Malware detected on site: {mtype}',
-                         f'Sucuri SiteCheck found malware on {domain}.\nFile/detail: {mfile}',
-                         'Malware on your site can cause browsers and Google to block visitors, '
-                         'and triggers GSC Security Issues. Immediate cleanup is required.',
-                         ['Log in to cPanel File Manager and look for recently modified PHP files.',
-                          'Install the Sucuri Security plugin (free) for WordPress.',
-                          'Run a full scan at sitecheck.sucuri.net.',
-                          'After cleanup, request review in GSC → Security Issues.'])
-            if not bl_clean:
-                bl_engines = [k for k, v in blacklists.items() if isinstance(v, dict) and v.get('status') == 'listed']
-                _add('Security', 'critical',
-                     f'Site blacklisted by {len(bl_engines)} engine(s): {", ".join(bl_engines[:3])}',
-                     f'{domain} is on one or more security blacklists.',
-                     'Blacklisted domains are blocked by browsers and antivirus tools. '
-                     'Users will see warning pages instead of your site.',
-                     ['Remove the malware that triggered the listing.',
-                      'Submit removal requests to each blacklist authority.',
-                      'Check Google Safe Browsing status at transparencyreport.google.com.',
-                      'Request Google review in GSC → Security Issues.'])
-            if outdated:
-                outdated_str = ', '.join(str(o) for o in outdated[:5])
-                _add('Security', 'medium',
-                     f'Outdated software detected: {outdated_str}',
-                     f'Sucuri found outdated CMS/plugins/themes on {domain}: {outdated_str}',
-                     'Outdated software is the #1 cause of site hacks. Attackers exploit known CVEs.',
-                     ['Update WordPress core, plugins, and themes immediately.',
-                      'Enable automatic updates for minor versions.',
-                      'Use a managed WordPress host that auto-patches core.'])
-            if scan_clean and bl_clean:
-                _add('Security', 'info',
-                     'Sucuri SiteCheck: No malware or blacklisting found',
-                     f'External antivirus scan of {domain} found no malware, injections, or blacklisting.',
-                     'Site appears clean according to Sucuri\'s external scanner.',
-                     ['Re-scan weekly at sitecheck.sucuri.net.',
-                      'Install Sucuri Security plugin for continuous server-side monitoring.'])
+                         f'URL flagged as malicious by {mal_count} engine(s): {", ".join(mal_engines[:3])}',
+                         f'VirusTotal URL scan: {mal_count} security engine(s) flagged {base_url} as malicious.\n'
+                         f'Engines: {", ".join(mal_engines[:5])}',
+                         'Malicious URL flagging causes browsers and antivirus tools to block your site visitors '
+                         'and triggers Google Safe Browsing warnings.',
+                         ['Check cPanel File Manager for recently modified PHP files.',
+                          'Scan with a server-side tool (Wordfence, Sucuri plugin).',
+                          'Request a re-analysis at virustotal.com after cleanup.',
+                          'Submit for Google review in GSC → Security Issues.'])
+                elif sus_count > 0:
+                    _add('Security', 'high',
+                         f'URL flagged as suspicious by {sus_count} engine(s)',
+                         f'VirusTotal URL scan: {sus_count} engine(s) flagged {base_url} as suspicious.',
+                         'Suspicious flagging may warn visitors and reduce trust.',
+                         ['Review flagged engines at virustotal.com.',
+                          'Check for injected scripts or spammy content.',
+                          'Request re-analysis after any cleanup.'])
+                else:
+                    _add('Security', 'info',
+                         f'URL scan: Clean ({clean_count}/{total_eng} engines confirm safe)',
+                         f'VirusTotal URL scan found no malicious or suspicious content at {base_url}.',
+                         'Site URL has a clean reputation across major security engines.',
+                         ['Re-scan periodically at virustotal.com/gui/home/url.'])
+            else:
+                scores['url_scan'] = {'error': 'VirusTotal URL scan unavailable'}
         else:
-            scores['sucuri'] = {'error': 'Sucuri scan unavailable'}
+            scores['url_scan'] = {'error': 'No VirusTotal API key configured'}
     except Exception as e:
-        scores['sucuri'] = {'error': str(e)}
+        scores['url_scan'] = {'error': str(e)}
+
+    # ── 15. URLScan.io (free, no API key, deep URL inspection) ───────────────
+    try:
+        import time as _time
+        urlscan_body = {'url': base_url, 'visibility': 'public'}
+        r_us, _ = _fetch_url(
+            'https://urlscan.io/api/v1/scan/',
+            timeout=15, method='POST', json_body=urlscan_body,
+            extra_headers={'Content-Type': 'application/json'})
+        if r_us is not None and r_us.status_code in (200, 201):
+            us_submit = r_us.json() if callable(getattr(r_us, 'json', None)) else {}
+            us_uuid = us_submit.get('uuid', '')
+            if us_uuid:
+                # Poll up to 3 times with 8-second gaps
+                us_result = {}
+                for _ in range(3):
+                    _time.sleep(8)
+                    r_res, _ = _fetch_url(
+                        f'https://urlscan.io/api/v1/result/{us_uuid}/',
+                        timeout=10)
+                    if r_res is not None and r_res.status_code == 200:
+                        us_result = r_res.json() if callable(getattr(r_res, 'json', None)) else {}
+                        break
+                if us_result:
+                    verdicts  = us_result.get('verdicts', {})
+                    overall   = verdicts.get('overall', {})
+                    malicious = overall.get('malicious', False)
+                    score     = overall.get('score', 0)
+                    categories= overall.get('categories', [])
+                    brands    = overall.get('brands', [])
+                    page_info = us_result.get('page', {})
+                    ips_list  = list(us_result.get('lists', {}).get('ips', []))[:10]
+                    urls_list = list(us_result.get('lists', {}).get('urls', []))[:10]
+                    links_list= list(us_result.get('lists', {}).get('linkDomains', []))[:10]
+                    screenshot= us_result.get('task', {}).get('screenshotURL', '')
+                    scores['urlscanio'] = {
+                        'malicious':   malicious,
+                        'score':       score,
+                        'categories':  categories,
+                        'brands':      brands,
+                        'page':        page_info,
+                        'ips':         ips_list,
+                        'external_urls': urls_list,
+                        'link_domains':links_list,
+                        'screenshot':  screenshot,
+                        'result_url':  f'https://urlscan.io/result/{us_uuid}/',
+                        'uuid':        us_uuid,
+                    }
+                    if malicious:
+                        _add('Security', 'critical',
+                             f'URLScan.io: Site flagged as malicious (score {score})',
+                             f'URLScan.io analysis of {base_url} returned a malicious verdict.\n'
+                             f'Categories: {", ".join(categories)}\nBrands targeted: {", ".join(str(b) for b in brands)}',
+                             'A malicious verdict from URLScan.io indicates phishing, malware distribution, '
+                             'or brand impersonation on your site.',
+                             ['Review the full URLScan report for specific findings.',
+                              'Check cPanel File Manager for injected scripts.',
+                              'Scan WordPress with Wordfence or Sucuri plugin.',
+                              'Request Google review in GSC → Security Issues after cleanup.'])
+                    elif score > 0:
+                        _add('Security', 'medium',
+                             f'URLScan.io: Suspicious indicators detected (score {score})',
+                             f'URLScan.io found suspicious signals at {base_url}.',
+                             'Suspicious indicators may indicate compromised content or risky scripts.',
+                             ['Review the full URLScan report.',
+                              'Audit recently added third-party scripts and ads.'])
+                    else:
+                        _add('Security', 'info',
+                             'URLScan.io: No threats detected',
+                             f'URLScan.io deep inspection found no malicious content at {base_url}.',
+                             'Site passed URLScan.io analysis with a clean verdict.',
+                             [f'Full report: urlscan.io/result/{us_uuid}/'])
+                else:
+                    scores['urlscanio'] = {'pending': True, 'uuid': us_uuid,
+                                           'result_url': f'https://urlscan.io/result/{us_uuid}/'}
+            else:
+                scores['urlscanio'] = {'error': 'No scan UUID returned'}
+        elif r_us is not None and r_us.status_code == 429:
+            scores['urlscanio'] = {'error': 'Rate limited (3 req/min free tier)'}
+        else:
+            scores['urlscanio'] = {'error': 'URLScan.io unavailable'}
+    except Exception as e:
+        scores['urlscanio'] = {'error': str(e)}
 
     # ── Sort and return ────────────────────────────────────────────────────────
     sev_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3, 'info': 4}
