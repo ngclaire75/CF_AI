@@ -3388,9 +3388,9 @@ def _api_analytics_pci_inner():
         hosts[t]['high']     += min(out.count('HIGH'), 15)
         hosts[t]['medium']   += min(out.count('MEDIUM'), 15)
     panel4 = sorted(hosts.values(), key=lambda x: x['total'], reverse=True)[:25]
-    max_v  = max((h['total'] for h in panel4), default=1)
+    max_v  = max((h['total'] for h in panel4), default=1) or 1
     for h in panel4:
-        h['score'] = min(10.0, round(h['total'] / max(1, max_v) * 10, 1))
+        h['score'] = min(10.0, round(h['total'] / max_v * 10, 1))
         h['bar_pct'] = round(h['total'] / max_v * 100)
 
     # ── 5. Vulnerability summary by period ────────────────────────────────────
