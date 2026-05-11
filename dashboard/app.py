@@ -3418,6 +3418,497 @@ def api_geoip():
     return jsonify({'results': results})
 
 
+# ── Google Search Console / Domain Health Analysis ──────────────────────────
+@app.route('/api/gsc/analyze', methods=['POST'])
+def api_gsc_analyze():
+    """
+    Comprehensive domain health check.
+    Body: {domain, api_key?, access_token?}
+    Returns: {domain, base_url, issues, scores, total, summary}
+    """
+    import datetime as _dt
+    import socket as _sock
+
+    data         = request.get_json(force=True, silent=True) or {}
+    domain       = re.sub(r'^https?://', '', (data.get('domain') or '').strip().lower()).split('/')[0].strip()
+    api_key      = (data.get('api_key') or '').strip()
+    access_token = (data.get('access_token') or '').strip()
+
+    if not domain:
+        return jsonify({'error': 'domain is required'}), 400
+
+    base_url = f'https://{domain}'
+    issues: list = []
+    scores: dict = {}
+
+    def _add(category, severity, title, description, impact, steps):
+        issues.append({'category': category, 'severity': severity, 'title': title,
+                       'description': description, 'impact': impact, 'steps': steps})
+
+    def _fetch_url(url, timeout=12, allow_redirects=True, verify_ssl=True, method='GET', json_body=None, extra_headers=None):
+        headers = {'User-Agent': _BROWSER_UA}
+        if extra_headers:
+            headers.update(extra_headers)
+        try:
+            if _HAS_REQUESTS:
+                if method == 'POST':
+                    r = _requests.post(url, json=json_body, headers=headers, timeout=timeout,
+                                       allow_redirects=allow_redirects, verify=verify_ssl)
+                else:
+                    r = _requests.get(url, headers=headers, timeout=timeout,
+                                      allow_redirects=allow_redirects, verify=verify_ssl)
+                return r, None
+            else:
+                req_data = _json.dumps(json_body).encode() if json_body else None
+                req = _up_req.Request(url, data=req_data, headers=headers, method=method)
+                with _up_req.urlopen(req, timeout=timeout) as r:
+                    class _Resp:
+                        status_code = r.status
+                        text = r.read().decode('utf-8', errors='replace')
+                        history = []
+                        url = r.url
+                        def json(self): return _json.loads(self.text)
+                        @property
+                        def headers(self):
+                            return dict(r.headers)
+                    return _Resp(), None
+        except Exception as e:
+            return None, str(e)
+
+    # ── 1. HTTPS redirect ────────────────────────────────────────────────────
+    try:
+        r_http, err = _fetch_url(f'http://{domain}', timeout=8, allow_redirects=True, verify_ssl=False)
+        if r_http is not None:
+            final = getattr(r_http, 'url', '') or ''
+            if not final.startswith('https://'):
+                _add('Security', 'critical', 'HTTP not redirected to HTTPS',
+                     f'Visiting http://{domain} did not redirect to HTTPS. Final URL: {final or "unknown"}.',
+                     'Users may browse unencrypted, exposing credentials and data to interception.',
+                     ['Configure a 301 redirect from HTTP to HTTPS.',
+                      'Apache: RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]',
+                      'Nginx: return 301 https://$host$request_uri; in the HTTP server block.',
+                      'Cloudflare: enable "Always Use HTTPS" in SSL/TLS settings.'])
+            else:
+                hist = getattr(r_http, 'history', [])
+                if hist and getattr(hist[0], 'status_code', 0) == 302:
+                    _add('SEO', 'medium', 'HTTP to HTTPS redirect is temporary (302)',
+                         'The HTTP to HTTPS redirect uses a 302 (temporary) instead of 301 (permanent).',
+                         'Search engines may not pass full link equity through temporary redirects.',
+                         ['Change the redirect to use HTTP 301 (Moved Permanently).',
+                          'Apache: R=302 → R=301 in RewriteRule.',
+                          'Nginx: return 302 → return 301.'])
+    except Exception:
+        pass
+
+    # ── 2. SSL Certificate ────────────────────────────────────────────────────
+    try:
+        ctx = _ssl.create_default_context()
+        with _sock.create_connection((domain, 443), timeout=8) as sock:
+            with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
+                cert = ssock.getpeercert()
+                not_after = cert.get('notAfter', '')
+                if not_after:
+                    exp = _dt.datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')
+                    days_left = (exp - _dt.datetime.utcnow()).days
+                    if days_left < 0:
+                        _add('Security', 'critical', 'SSL certificate has expired',
+                             f'The SSL certificate expired on {not_after}.',
+                             'Browsers show a full-page security warning, blocking all visitors.',
+                             ['Renew the certificate immediately via your hosting provider.',
+                              'Let\'s Encrypt: run "certbot renew".',
+                              'Enable auto-renewal to prevent future expiration.'])
+                    elif days_left < 14:
+                        _add('Security', 'high', f'SSL certificate expires in {days_left} days',
+                             f'Certificate expires on {not_after}. Renewal is urgent.',
+                             'Unrenewed certificate causes browser warnings and blocks visitors.',
+                             [f'Renew immediately — {days_left} days remain.',
+                              'Run: certbot renew',
+                              'Check auto-renewal is configured.'])
+                    elif days_left < 30:
+                        _add('Security', 'medium', f'SSL certificate expires in {days_left} days',
+                             f'Certificate expires on {not_after}.',
+                             'Plan renewal soon to avoid downtime.',
+                             ['Renew within the next week.',
+                              'Enable auto-renewal (Let\'s Encrypt certbot supports this).'])
+                    else:
+                        scores['ssl_days'] = days_left
+
+                san_list = [s[1] for s in cert.get('subjectAltName', []) if s[0] == 'DNS']
+                covered = any(
+                    domain == s or (s.startswith('*.') and domain.endswith(s[2:]))
+                    for s in san_list
+                )
+                if not covered:
+                    _add('Security', 'high', 'SSL certificate does not cover this domain',
+                         f'Certificate SANs: {", ".join(san_list) or "none"}. Domain "{domain}" is not listed.',
+                         'Browsers show a hostname mismatch error to all visitors.',
+                         ['Issue a new certificate that includes this domain.',
+                          'Use a wildcard certificate (*.yourdomain.com).',
+                          'Verify the domain is in the CSR.'])
+                scores['ssl'] = {'valid': covered, 'san': san_list,
+                                 'days_left': (exp - _dt.datetime.utcnow()).days if not_after else None}
+    except _ssl.SSLCertVerificationError as e:
+        _add('Security', 'critical', 'SSL certificate verification failed',
+             f'SSL error: {e}',
+             'All visitors see a "Not Secure" warning. Traffic and trust are destroyed.',
+             ['Ensure the certificate is issued by a trusted CA.',
+              'Verify the certificate chain (intermediate certs) is correctly installed.',
+              'Use SSL Labs (ssllabs.com/ssltest) for a detailed report.'])
+    except Exception as e:
+        _add('Security', 'high', 'SSL/TLS connection failed',
+             f'Could not establish HTTPS connection to {domain}:443 — {e}',
+             'Site may not be reachable over HTTPS.',
+             [f'Verify DNS: nslookup {domain}',
+              'Confirm port 443 is open and a certificate is installed.',
+              'Check SSL configuration in your hosting control panel.'])
+
+    # ── 3. HTTP Security Headers ──────────────────────────────────────────────
+    r_main, err_main = _fetch_url(base_url, timeout=12)
+    if r_main is not None:
+        raw_hdrs = getattr(r_main, 'headers', {})
+        hdrs = {k.lower(): v for k, v in (raw_hdrs.items() if hasattr(raw_hdrs, 'items') else {}.items())}
+
+        if 'strict-transport-security' not in hdrs:
+            _add('Security', 'high', 'Missing HTTP Strict Transport Security (HSTS)',
+                 'The Strict-Transport-Security header is absent. Downgrade attacks (MITM) are possible.',
+                 'Attackers can strip HTTPS from connections. Not enforced by browsers.',
+                 ['Add: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload',
+                  'Nginx: add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;',
+                  'Apache: Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"',
+                  'After deploying, submit to hstspreload.org for browser preload list.'])
+        else:
+            hsts_val = hdrs['strict-transport-security']
+            if 'preload' not in hsts_val:
+                _add('Security', 'low', 'HSTS "preload" directive missing',
+                     f'HSTS is set ({hsts_val}) but "preload" is absent.',
+                     'First-time visitors are still vulnerable to downgrade attacks before HSTS kicks in.',
+                     ['Add "preload" to the HSTS header.',
+                      'Submit your domain to hstspreload.org.'])
+
+        if 'content-security-policy' not in hdrs:
+            _add('Security', 'high', 'Missing Content Security Policy (CSP)',
+                 'No Content-Security-Policy header found. XSS attacks are unrestricted.',
+                 'XSS can steal sessions, exfiltrate data, and execute arbitrary scripts.',
+                 ['Start with: Content-Security-Policy: default-src \'self\'',
+                  'Use report-only mode first: Content-Security-Policy-Report-Only: default-src \'self\'',
+                  'Reference: developer.mozilla.org/en-US/docs/Web/HTTP/CSP'])
+        else:
+            csp = hdrs['content-security-policy']
+            if "'unsafe-inline'" in csp:
+                _add('Security', 'medium', 'CSP allows unsafe-inline scripts',
+                     'The Content-Security-Policy includes \'unsafe-inline\', weakening XSS protection.',
+                     'Inline script injection can still execute, bypassing CSP.',
+                     ['Remove \'unsafe-inline\' and use nonces or hashes for inline scripts.',
+                      'Refactor inline JS into external files.',
+                      'Use: script-src \'nonce-{random_value}\''])
+            if "'unsafe-eval'" in csp:
+                _add('Security', 'medium', 'CSP allows unsafe-eval',
+                     'The CSP includes \'unsafe-eval\', permitting eval() and similar constructs.',
+                     'Enables dynamic code execution attackers can exploit.',
+                     ['Remove \'unsafe-eval\'. Refactor code using eval().',
+                      'Common in older jQuery plugins or AngularJS. Update to newer versions.'])
+
+        if 'x-frame-options' not in hdrs and 'content-security-policy' not in hdrs:
+            _add('Security', 'medium', 'Missing X-Frame-Options (clickjacking risk)',
+                 'No X-Frame-Options or CSP frame-ancestors directive. Site can be embedded in iframes.',
+                 'Clickjacking attacks can trick users into unintended actions.',
+                 ['Add: X-Frame-Options: SAMEORIGIN',
+                  'Or via CSP: frame-ancestors \'self\'',
+                  'Nginx: add_header X-Frame-Options "SAMEORIGIN" always;'])
+
+        if 'x-content-type-options' not in hdrs:
+            _add('Security', 'low', 'Missing X-Content-Type-Options header',
+                 'The X-Content-Type-Options: nosniff header is absent.',
+                 'Browsers may MIME-sniff responses, potentially executing uploaded files as scripts.',
+                 ['Add: X-Content-Type-Options: nosniff',
+                  'Nginx: add_header X-Content-Type-Options "nosniff" always;'])
+
+        if 'referrer-policy' not in hdrs:
+            _add('Security', 'low', 'Missing Referrer-Policy header',
+                 'No Referrer-Policy set. Full URLs (including query strings and tokens) may leak.',
+                 'Private parameters in URLs may be exposed to third-party sites via the Referer header.',
+                 ['Add: Referrer-Policy: strict-origin-when-cross-origin',
+                  'Nginx: add_header Referrer-Policy "strict-origin-when-cross-origin" always;'])
+
+        srv = hdrs.get('server', '')
+        if srv and any(x in srv.lower() for x in ['apache/', 'nginx/', 'php/', 'iis/']):
+            _add('Security', 'low', 'Server version disclosed in HTTP header',
+                 f'Server: {srv} — version information helps attackers target known exploits.',
+                 'Fingerprinting enables targeted exploitation of version-specific vulnerabilities.',
+                 ['Apache: set ServerTokens Prod and ServerSignature Off in httpd.conf.',
+                  'Nginx: add server_tokens off; to nginx.conf.',
+                  'Cloudflare automatically masks the Server header.'])
+
+        if 'x-powered-by' in hdrs:
+            _add('Security', 'low', 'X-Powered-By header reveals technology stack',
+                 f'X-Powered-By: {hdrs["x-powered-by"]} discloses backend technology.',
+                 'Attackers can target version-specific vulnerabilities.',
+                 ['PHP: add header_remove("X-Powered-By"); or expose_php = Off in php.ini.',
+                  'Express.js: app.disable("x-powered-by");',
+                  'Cloudflare strips this automatically.'])
+
+        if 'permissions-policy' not in hdrs and 'feature-policy' not in hdrs:
+            _add('Security', 'info', 'Missing Permissions-Policy header',
+                 'No Permissions-Policy header restricts browser feature access.',
+                 'Third-party scripts may access camera, microphone, or geolocation without restriction.',
+                 ['Add: Permissions-Policy: geolocation=(), microphone=(), camera=()',
+                  'Restrict only features you do not use on this site.'])
+
+        scores['headers'] = {
+            'hsts':  'strict-transport-security' in hdrs,
+            'csp':   'content-security-policy' in hdrs,
+            'xfo':   'x-frame-options' in hdrs or 'content-security-policy' in hdrs,
+            'xcto':  'x-content-type-options' in hdrs,
+            'rp':    'referrer-policy' in hdrs,
+        }
+    elif err_main:
+        _add('Security', 'medium', 'Could not fetch HTTP headers',
+             f'Failed to connect to {base_url}: {err_main}',
+             'Cannot verify security header configuration.',
+             [f'Ensure the domain is live: nslookup {domain}',
+              'Check that HTTPS is responding on port 443.'])
+
+    # ── 4. robots.txt ─────────────────────────────────────────────────────────
+    robots_sitemap = None
+    r_rob, _ = _fetch_url(f'{base_url}/robots.txt', timeout=8)
+    if r_rob is not None:
+        if r_rob.status_code == 200:
+            rob_text = getattr(r_rob, 'text', '')
+            for line in rob_text.splitlines():
+                if line.lower().startswith('sitemap:'):
+                    robots_sitemap = line.split(':', 1)[1].strip()
+                    break
+            disallowed = [l for l in rob_text.splitlines() if l.lower().startswith('disallow:')]
+            if any(l.strip().lower() == 'disallow: /' for l in disallowed):
+                _add('SEO', 'critical', 'robots.txt blocks all search engine crawling',
+                     '"Disallow: /" in robots.txt prevents all bots from indexing the site.',
+                     'The site will not appear in Google or any search engine results.',
+                     ['Remove or update the "Disallow: /" rule in robots.txt.',
+                      'If intentional, ensure this is only applied to specific user-agents.',
+                      'After fixing, submit a recrawl request in Google Search Console.'])
+            scores['robots'] = {'found': True, 'has_sitemap': bool(robots_sitemap), 'disallowed': len(disallowed)}
+        elif r_rob.status_code == 404:
+            _add('SEO', 'medium', 'robots.txt file not found (404)',
+                 f'No robots.txt was found at {base_url}/robots.txt.',
+                 'Crawlers get no guidance, potentially indexing admin pages or causing duplicate content.',
+                 ['Create robots.txt at the site root. Minimum content:',
+                  f'  User-agent: *\n  Disallow: /wp-admin/\n  Sitemap: {base_url}/sitemap.xml',
+                  'WordPress: the Yoast SEO plugin generates this automatically.'])
+            scores['robots'] = {'found': False}
+
+    # ── 5. sitemap.xml ────────────────────────────────────────────────────────
+    sitemap_url = robots_sitemap or f'{base_url}/sitemap.xml'
+    r_sit, _ = _fetch_url(sitemap_url, timeout=10)
+    if r_sit is not None:
+        sit_text = getattr(r_sit, 'text', '')
+        if r_sit.status_code == 200 and ('<urlset' in sit_text or '<sitemapindex' in sit_text):
+            url_count = sit_text.count('<url>')
+            scores['sitemap'] = {'found': True, 'url_count': url_count, 'url': sitemap_url}
+        elif r_sit.status_code == 404:
+            _add('SEO', 'medium', 'sitemap.xml not found (404)',
+                 f'No sitemap found at {sitemap_url}.',
+                 'Search engines must discover all pages by crawling links, missing content.',
+                 [f'Generate a sitemap and place it at {base_url}/sitemap.xml.',
+                  'WordPress: use Yoast SEO or All in One SEO to auto-generate.',
+                  'Add to robots.txt: Sitemap: ' + base_url + '/sitemap.xml',
+                  'Submit in Google Search Console under Sitemaps.'])
+            scores['sitemap'] = {'found': False}
+        else:
+            scores['sitemap'] = {'found': False, 'status': r_sit.status_code}
+    else:
+        scores['sitemap'] = {'found': False}
+
+    # ── 6. WWW canonicalization ────────────────────────────────────────────────
+    if not domain.startswith('www.') and _HAS_REQUESTS:
+        try:
+            r_www = _requests.get(f'https://www.{domain}', timeout=8, allow_redirects=True,
+                                   headers={'User-Agent': _BROWSER_UA}, verify=False)
+            final_www = getattr(r_www, 'url', '').rstrip('/')
+            if final_www == f'https://www.{domain}':
+                _add('SEO', 'medium', 'www and non-www both serve content (no canonical redirect)',
+                     f'Both https://{domain} and https://www.{domain} serve content without redirecting.',
+                     'Duplicate content dilutes PageRank. Google may index the wrong version.',
+                     ['Choose one canonical form (www or non-www) and 301-redirect the other.',
+                      'In Google Search Console: Settings > Preferred Domain.',
+                      f'Add canonical tag: <link rel="canonical" href="{base_url}"/>',
+                      'Cloudflare: use a redirect rule to enforce the canonical URL.'])
+        except Exception:
+            pass
+
+    # ── 7. Google Safe Browsing ────────────────────────────────────────────────
+    if api_key:
+        try:
+            sb_body = {
+                'client': {'clientId': 'cf-ai-dashboard', 'clientVersion': '1.0'},
+                'threatInfo': {
+                    'threatTypes': ['MALWARE', 'SOCIAL_ENGINEERING', 'UNWANTED_SOFTWARE',
+                                    'POTENTIALLY_HARMFUL_APPLICATION'],
+                    'platformTypes': ['ANY_PLATFORM'],
+                    'threatEntryTypes': ['URL'],
+                    'threatEntries': [{'url': base_url}, {'url': f'http://{domain}'}],
+                },
+            }
+            r_sb, err_sb = _fetch_url(
+                f'https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}',
+                timeout=10, method='POST', json_body=sb_body)
+            if r_sb is not None:
+                sb_data = r_sb.json() if callable(getattr(r_sb, 'json', None)) else {}
+                matches = sb_data.get('matches', [])
+                scores['safe_browsing'] = {'checked': True, 'threats': len(matches)}
+                for m in matches:
+                    ttype = m.get('threatType', 'Unknown')
+                    _add('Security', 'critical', f'Safe Browsing: {ttype} detected',
+                         f'Google flagged {domain} for {ttype}. URL: {m.get("threat", {}).get("url", domain)}',
+                         'Chrome, Firefox, and Safari show a red warning page blocking all visitors.',
+                         ['Check Google Search Console Security Issues section.',
+                          'Scan with Sucuri SiteCheck (sitecheck.sucuri.net).',
+                          'Clean malware: check recently modified files, remove injected code.',
+                          'After cleanup, request review in Google Search Console.'])
+                if not matches:
+                    _add('Security', 'info', 'Safe Browsing: No threats detected',
+                         f'{domain} is not in Google Safe Browsing threat database.',
+                         'Site is clean according to Google\'s malware and phishing list.',
+                         ['Monitor regularly — Safe Browsing status can change.',
+                          'Enable email alerts in Google Search Console.'])
+            elif err_sb:
+                scores['safe_browsing'] = {'checked': False, 'error': err_sb}
+        except Exception as e:
+            scores['safe_browsing'] = {'checked': False, 'error': str(e)}
+
+    # ── 8. PageSpeed Insights ──────────────────────────────────────────────────
+    if api_key:
+        try:
+            psi_url = (f'https://www.googleapis.com/pagespeedonline/v5/runPagespeed'
+                       f'?url={_up_parse.quote(base_url, safe="")}&key={api_key}'
+                       f'&category=performance&category=seo&category=best-practices'
+                       f'&category=accessibility&strategy=mobile')
+            r_psi, err_psi = _fetch_url(psi_url, timeout=35)
+            if r_psi is not None:
+                psi_data = r_psi.json() if callable(getattr(r_psi, 'json', None)) else {}
+                cats = psi_data.get('lighthouseResult', {}).get('categories', {})
+                psi_scores = {}
+                for ck, cv in cats.items():
+                    s = cv.get('score')
+                    if s is not None:
+                        psi_scores[ck] = round(s * 100)
+                scores['pagespeed'] = psi_scores
+
+                cat_map = {'performance': 'Performance', 'seo': 'SEO',
+                           'best-practices': 'Best Practices', 'accessibility': 'Accessibility'}
+                for ck, clabel in cat_map.items():
+                    sc = psi_scores.get(ck)
+                    if sc is None or sc >= 90:
+                        continue
+                    sev = 'high' if sc < 50 else 'medium' if sc < 70 else 'low'
+                    audits = psi_data.get('lighthouseResult', {}).get('audits', {})
+                    refs   = cats.get(ck, {}).get('auditRefs', [])
+                    failing = []
+                    for ref in refs:
+                        a = audits.get(ref.get('id', ''), {})
+                        if a.get('score') is not None and a.get('score') < 0.9 and a.get('title'):
+                            failing.append(a['title'])
+                    failing_str = '; '.join(failing[:5]) or 'See PageSpeed Insights for details.'
+                    cat_out = 'Performance' if ck == 'performance' else 'SEO' if ck == 'seo' else 'Best Practices'
+                    impact_str = {
+                        'performance': 'Low scores hurt Core Web Vitals rankings and user conversion.',
+                        'seo':         'Google uses SEO score directly as a ranking factor.',
+                        'best-practices': 'Best practice failures can introduce security and compatibility issues.',
+                        'accessibility': 'Low accessibility may violate WCAG guidelines and legal requirements.',
+                    }.get(ck, 'Affects user experience and search ranking.')
+                    _add(cat_out, sev, f'PageSpeed {clabel}: {sc}/100',
+                         f'Google PageSpeed (mobile) rated {clabel} at {sc}/100. Top issues: {failing_str}',
+                         impact_str,
+                         ['Run PageSpeed Insights at pagespeed.web.dev for full report.',
+                          'Performance: compress images, enable caching, minify CSS/JS, use a CDN.',
+                          'SEO: verify meta tags, structured data, and mobile-friendliness.',
+                          'Accessibility: add alt text, increase contrast, improve keyboard navigation.'])
+        except Exception as e:
+            scores['pagespeed'] = {'error': str(e)}
+
+    # ── 9. GSC URL Inspection ──────────────────────────────────────────────────
+    if access_token:
+        try:
+            insp_body = {'inspectionUrl': base_url, 'siteUrl': f'https://{domain}/'}
+            r_insp, err_insp = _fetch_url(
+                'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
+                timeout=15, method='POST', json_body=insp_body,
+                extra_headers={'Authorization': f'Bearer {access_token}'})
+            if r_insp is not None:
+                insp_data = r_insp.json() if callable(getattr(r_insp, 'json', None)) else {}
+                res  = insp_data.get('inspectionResult', {})
+                idx  = res.get('indexStatusResult', {})
+                verdict  = idx.get('verdict', '')
+                coverage = idx.get('coverageState', '')
+                crawled  = idx.get('lastCrawlTime', '')[:10] if idx.get('lastCrawlTime') else 'never'
+                scores['gsc'] = {'verdict': verdict, 'coverageState': coverage, 'lastCrawl': crawled}
+
+                if verdict == 'FAIL':
+                    _add('SEO', 'critical', f'GSC: URL not indexed ({coverage})',
+                         f'URL Inspection verdict: FAIL. Coverage: {coverage}. Last crawled: {crawled}.',
+                         'Page does not appear in Google search results at all.',
+                         ['Check Coverage State in Search Console (Crawl anomaly, Redirect error, Soft 404).',
+                          'If blocked by robots.txt: update to allow Googlebot.',
+                          'If noindex tag: remove <meta name="robots" content="noindex">.',
+                          'Use "Request Indexing" after fixing.'])
+                elif verdict == 'NEUTRAL':
+                    _add('SEO', 'medium', f'GSC: Indexing uncertain ({coverage})',
+                         f'Verdict: NEUTRAL. Coverage: {coverage}.',
+                         'Page may not be fully indexed or may have coverage issues.',
+                         ['Review Coverage in Search Console.',
+                          'Submit URL for indexing via Request Indexing.',
+                          'Check crawl budget if the site is large.'])
+                elif verdict == 'PASS':
+                    _add('SEO', 'info', 'GSC: URL is indexed by Google',
+                         f'Indexed. Last crawled: {crawled}. Coverage: {coverage}.',
+                         'Page is in Google\'s index and can appear in results.',
+                         ['Monitor Search Console Performance for clicks/impressions.',
+                          'Watch for any coverage warnings over time.'])
+
+                if res.get('ampResult', {}).get('verdict') == 'FAIL':
+                    _add('SEO', 'medium', 'AMP page errors detected',
+                         'AMP verdict: FAIL. AMP pages with errors are excluded from AMP treatment.',
+                         'AMP pages won\'t get Google\'s mobile carousel or fast-loading badge.',
+                         ['Review AMP errors in Search Console AMP report.',
+                          'Validate at validator.ampproject.org.'])
+
+                if res.get('richResultsResult', {}).get('verdict') == 'FAIL':
+                    _add('SEO', 'medium', 'Rich results / structured data errors',
+                         'Structured data errors detected. Rich results will not appear.',
+                         'Products, reviews, FAQs won\'t show as rich snippets in search.',
+                         ['Review Rich Results report in Search Console.',
+                          'Validate at search.google.com/test/rich-results.',
+                          'Fix JSON-LD or microdata markup issues.'])
+            elif err_insp:
+                scores['gsc'] = {'error': err_insp}
+                _add('SEO', 'info', 'GSC URL Inspection could not run',
+                     f'Error: {err_insp}',
+                     'Indexing status unverified.',
+                     ['Verify the access token is valid and not expired.',
+                      'The site must be verified in Google Search Console.',
+                      'Generate a token with "webmasters.readonly" scope via OAuth 2.0.'])
+        except Exception as e:
+            scores['gsc'] = {'error': str(e)}
+
+    # ── Sort and return ────────────────────────────────────────────────────────
+    sev_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3, 'info': 4}
+    issues.sort(key=lambda x: sev_order.get(x['severity'], 5))
+
+    return jsonify({
+        'domain':   domain,
+        'base_url': base_url,
+        'issues':   issues,
+        'scores':   scores,
+        'total':    len(issues),
+        'summary': {
+            'critical': sum(1 for i in issues if i['severity'] == 'critical'),
+            'high':     sum(1 for i in issues if i['severity'] == 'high'),
+            'medium':   sum(1 for i in issues if i['severity'] == 'medium'),
+            'low':      sum(1 for i in issues if i['severity'] == 'low'),
+            'info':     sum(1 for i in issues if i['severity'] == 'info'),
+        },
+    })
+
+
 @app.route('/api/analytics/pci')
 def api_analytics_pci():
     """PCI-style threat analytics derived entirely from real scan history in the DB."""

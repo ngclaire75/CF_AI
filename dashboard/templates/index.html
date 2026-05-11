@@ -1845,6 +1845,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <button class="sb-item" id="sb-chatbot" onclick="sbNav('chatbot',this)">
       <span class="sb-label">AI Chatbot</span>
     </button>
+    <button class="sb-item" id="sb-gsc" onclick="sbNav('gsc',this)">
+      <span class="sb-label">Search Console</span>
+    </button>
 
     <div class="sb-divider"></div>
 
@@ -2363,6 +2366,79 @@ Export Power BI
     </div>
   </div>
   </div><!-- /page-chatbot -->
+
+  <!-- ══ SEARCH CONSOLE / DOMAIN HEALTH PAGE ══════════════════════════════ -->
+  <div id="page-gsc" class="page-section" style="display:none">
+  <section class="section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Domain Health &amp; Search Console</div>
+        <div class="sec-desc">Analyze any domain for security headers, SSL, SEO, indexing, and performance issues.</div>
+      </div>
+    </div>
+
+    <!-- Credentials form -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:11px;font-weight:600;color:#605e5c;margin-bottom:4px;">Domain</div>
+          <input id="gsc-domain" type="text" placeholder="example.com"
+            style="width:100%;border:1px solid #c8c6c4;border-radius:4px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;"
+            onkeydown="if(event.key==='Enter')gscAnalyze()">
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:11px;font-weight:600;color:#605e5c;margin-bottom:4px;">Google API Key <span style="font-weight:400;color:#a19f9d;">(optional — Safe Browsing + PageSpeed)</span></div>
+          <input id="gsc-apikey" type="password" placeholder="AIza..."
+            style="width:100%;border:1px solid #c8c6c4;border-radius:4px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;">
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:11px;font-weight:600;color:#605e5c;margin-bottom:4px;">GSC OAuth Token <span style="font-weight:400;color:#a19f9d;">(optional — URL Inspection)</span></div>
+          <input id="gsc-token" type="password" placeholder="ya29..."
+            style="width:100%;border:1px solid #c8c6c4;border-radius:4px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;">
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button onclick="gscAnalyze()"
+            style="height:36px;padding:0 20px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+            Analyze
+          </button>
+          <button onclick="gscClear()"
+            style="height:36px;padding:0 14px;background:none;color:#605e5c;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;cursor:pointer;font-family:inherit;">
+            Clear
+          </button>
+        </div>
+      </div>
+      <div id="gsc-saved-indicator" style="display:none;margin-top:8px;font-size:11px;color:#107c10;">
+        Credentials restored — running analysis...
+      </div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="gsc-loading" style="display:none;padding:32px;text-align:center;color:#605e5c;font-size:13px;">
+      Analyzing <span id="gsc-loading-domain" style="font-weight:600;"></span>...
+    </div>
+
+    <!-- Summary bar -->
+    <div id="gsc-summary-bar" style="display:none;margin-bottom:16px;">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <div style="font-size:13px;font-weight:600;color:#201f1e;" id="gsc-domain-label"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="gsc-severity-badges"></div>
+        <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap;" id="gsc-score-tiles"></div>
+      </div>
+    </div>
+
+    <!-- Issues list -->
+    <div id="gsc-issues-wrap" style="display:none;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;" id="gsc-cat-filters"></div>
+      <div id="gsc-issues-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+
+    <!-- Empty / error -->
+    <div id="gsc-empty" style="display:none;padding:32px;text-align:center;color:#a19f9d;font-size:13px;">
+      Enter a domain above and click Analyze.
+    </div>
+    <div id="gsc-error" style="display:none;padding:16px;background:#fde7e9;border-radius:6px;font-size:13px;color:#a80000;"></div>
+  </section>
+  </div><!-- /page-gsc -->
 
   <!-- ══ PRIORITY ACTIONS PAGE ═════════════════════════════════════════════ -->
   <div id="page-priority" class="page-section" style="display:none">
@@ -3850,6 +3926,7 @@ Load Logs
 // ── SPA Sidebar Navigation ────────────────────────────────────────────────────
 var _PAGE_TITLES = {
   'chatbot':       'AI Chatbot',
+  'gsc':           'Domain Health & Search Console',
   'dashboard':     'Security Dashboard',
   'observability': 'Unified Observability',
   'signals':       'Security Signals',
@@ -3907,6 +3984,7 @@ function sbNav(section, el) {
   if (section === 'threatanalytics') loadThreatAnalytics();
   if (section === 'securescore')   loadSecureScore();
   if (section === 'priority')      loadMaintenanceStatus();
+  if (section === 'gsc')           loadGscPage();
 }
 
 function toggleSidebar() {
@@ -9358,6 +9436,251 @@ function loadThreatIntel() {
       if (wrapEl) wrapEl.style.display = '';
       if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#a80000;font-size:12px;">Error loading threat intelligence: ' + _esc(String(e)) + '</td></tr>';
     });
+}
+
+// ── Google Search Console / Domain Health ─────────────────────────────────────
+var _gscAllIssues = [];
+var _gscActiveCat = 'All';
+
+function _gscSaveCreds() {
+  var d = (document.getElementById('gsc-domain') || {}).value || '';
+  var k = (document.getElementById('gsc-apikey') || {}).value || '';
+  var t = (document.getElementById('gsc-token') || {}).value || '';
+  if (d) {
+    try { localStorage.setItem('cfai_gsc_creds', JSON.stringify({domain:d, api_key:k, access_token:t})); } catch(e){}
+  }
+}
+
+function _gscRestoreCreds() {
+  try {
+    var raw = localStorage.getItem('cfai_gsc_creds');
+    if (!raw) return false;
+    var c = JSON.parse(raw);
+    if (c.domain) { document.getElementById('gsc-domain').value = c.domain || ''; }
+    if (c.api_key) { document.getElementById('gsc-apikey').value = c.api_key || ''; }
+    if (c.access_token) { document.getElementById('gsc-token').value = c.access_token || ''; }
+    return !!c.domain;
+  } catch(e) { return false; }
+}
+
+function loadGscPage() {
+  var hasCreds = _gscRestoreCreds();
+  if (hasCreds) {
+    document.getElementById('gsc-saved-indicator').style.display = '';
+    document.getElementById('gsc-empty').style.display = 'none';
+    gscAnalyze(true);
+  } else {
+    document.getElementById('gsc-empty').style.display = '';
+    document.getElementById('gsc-saved-indicator').style.display = 'none';
+  }
+}
+
+function gscAnalyze(isAutoLoad) {
+  var domain = (document.getElementById('gsc-domain').value || '').trim();
+  var apiKey  = (document.getElementById('gsc-apikey').value || '').trim();
+  var token   = (document.getElementById('gsc-token').value || '').trim();
+  if (!domain) { alert('Please enter a domain name.'); return; }
+
+  _gscSaveCreds();
+
+  // Show loading state
+  document.getElementById('gsc-loading-domain').textContent = domain;
+  document.getElementById('gsc-loading').style.display = '';
+  document.getElementById('gsc-summary-bar').style.display = 'none';
+  document.getElementById('gsc-issues-wrap').style.display = 'none';
+  document.getElementById('gsc-empty').style.display = 'none';
+  document.getElementById('gsc-error').style.display = 'none';
+
+  fetch('/api/gsc/analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({domain: domain, api_key: apiKey, access_token: token}),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    document.getElementById('gsc-loading').style.display = 'none';
+    document.getElementById('gsc-saved-indicator').style.display = 'none';
+    if (data.error) {
+      document.getElementById('gsc-error').textContent = 'Error: ' + data.error;
+      document.getElementById('gsc-error').style.display = '';
+      return;
+    }
+    _gscAllIssues = data.issues || [];
+    _gscActiveCat = 'All';
+    _gscRenderSummary(data);
+    _gscRenderCatFilters(data.issues);
+    _gscRenderIssues('All');
+  })
+  .catch(function(e) {
+    document.getElementById('gsc-loading').style.display = 'none';
+    document.getElementById('gsc-saved-indicator').style.display = 'none';
+    document.getElementById('gsc-error').textContent = 'Request failed: ' + String(e);
+    document.getElementById('gsc-error').style.display = '';
+  });
+}
+
+function gscClear() {
+  try { localStorage.removeItem('cfai_gsc_creds'); } catch(e){}
+  ['gsc-domain','gsc-apikey','gsc-token'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('gsc-summary-bar').style.display = 'none';
+  document.getElementById('gsc-issues-wrap').style.display = 'none';
+  document.getElementById('gsc-error').style.display = 'none';
+  document.getElementById('gsc-saved-indicator').style.display = 'none';
+  document.getElementById('gsc-empty').style.display = '';
+  _gscAllIssues = [];
+}
+
+function _gscRenderSummary(data) {
+  var sum = data.summary || {};
+  var scores = data.scores || {};
+
+  document.getElementById('gsc-domain-label').textContent = data.domain;
+
+  // Severity badges
+  var badges = document.getElementById('gsc-severity-badges');
+  var sevCfg = [
+    {k:'critical', label:'Critical', bg:'#fde7e9', col:'#a80000'},
+    {k:'high',     label:'High',     bg:'#fff4ce', col:'#7a4f00'},
+    {k:'medium',   label:'Medium',   bg:'#eff6fc', col:'#004578'},
+    {k:'low',      label:'Low',      bg:'#f3f2f1', col:'#323130'},
+    {k:'info',     label:'Info',     bg:'#e9f8ee', col:'#107c10'},
+  ];
+  badges.innerHTML = sevCfg.map(function(s){
+    var n = sum[s.k] || 0;
+    if (!n) return '';
+    return '<span style="background:' + s.bg + ';color:' + s.col + ';font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;cursor:pointer;" onclick="_gscFilterSev(\'' + s.k + '\')">' + n + ' ' + s.label + '</span>';
+  }).join('');
+
+  // Score tiles
+  var tiles = document.getElementById('gsc-score-tiles');
+  var tileHtml = '';
+
+  var psi = scores.pagespeed || {};
+  var psiMap = {performance:'Perf', seo:'SEO', 'best-practices':'Best Practice', accessibility:'A11y'};
+  var psiCol = function(n){ return n >= 90 ? '#107c10' : n >= 70 ? '#986f0b' : '#a80000'; };
+  Object.keys(psiMap).forEach(function(k){
+    var n = psi[k];
+    if (n == null) return;
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:18px;font-weight:700;color:' + psiCol(n) + ';">' + n + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">' + psiMap[k] + '</div>'
+      + '</div>';
+  });
+
+  var ssl = scores.ssl || {};
+  if (ssl.valid != null) {
+    var sslDays = scores.ssl_days;
+    var sslCol = ssl.valid ? (sslDays != null && sslDays < 30 ? '#986f0b' : '#107c10') : '#a80000';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:14px;font-weight:700;color:' + sslCol + ';">' + (ssl.valid ? (sslDays != null ? sslDays + 'd' : 'OK') : 'FAIL') + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">SSL</div>'
+      + '</div>';
+  }
+
+  var hdrs = scores.headers || {};
+  if (Object.keys(hdrs).length) {
+    var hdrPass = Object.values(hdrs).filter(Boolean).length;
+    var hdrTotal = Object.keys(hdrs).length;
+    var hdrCol = hdrPass === hdrTotal ? '#107c10' : hdrPass >= 3 ? '#986f0b' : '#a80000';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:14px;font-weight:700;color:' + hdrCol + ';">' + hdrPass + '/' + hdrTotal + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">Headers</div>'
+      + '</div>';
+  }
+
+  var gsc = scores.gsc || {};
+  if (gsc.verdict) {
+    var gscCol = gsc.verdict === 'PASS' ? '#107c10' : gsc.verdict === 'FAIL' ? '#a80000' : '#986f0b';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:14px;font-weight:700;color:' + gscCol + ';">' + gsc.verdict + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">GSC Index</div>'
+      + '</div>';
+  }
+
+  var sb = scores.safe_browsing || {};
+  if (sb.checked) {
+    var sbCol = sb.threats > 0 ? '#a80000' : '#107c10';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:14px;font-weight:700;color:' + sbCol + ';">' + (sb.threats > 0 ? sb.threats + ' threat' + (sb.threats > 1 ? 's' : '') : 'Clean') + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">Safe Browsing</div>'
+      + '</div>';
+  }
+
+  tiles.innerHTML = tileHtml;
+  document.getElementById('gsc-summary-bar').style.display = '';
+}
+
+function _gscRenderCatFilters(issues) {
+  var cats = ['All'];
+  (issues || []).forEach(function(i){ if (cats.indexOf(i.category) === -1) cats.push(i.category); });
+  var el = document.getElementById('gsc-cat-filters');
+  el.innerHTML = cats.map(function(c){
+    return '<button onclick="_gscSetCat(\'' + c + '\')" id="gsc-cat-' + c.replace(/\s/g,'_') + '" '
+      + 'style="padding:4px 14px;border-radius:20px;border:1px solid #c8c6c4;background:' + (c==='All'?'#0078d4':'#fff') + ';'
+      + 'color:' + (c==='All'?'#fff':'#323130') + ';font-size:12px;cursor:pointer;font-family:inherit;">'
+      + c + '</button>';
+  }).join('');
+}
+
+function _gscSetCat(cat) {
+  _gscActiveCat = cat;
+  document.querySelectorAll('#gsc-cat-filters button').forEach(function(b){
+    var active = b.textContent === cat;
+    b.style.background = active ? '#0078d4' : '#fff';
+    b.style.color = active ? '#fff' : '#323130';
+  });
+  _gscRenderIssues(cat);
+}
+
+function _gscFilterSev(sev) {
+  _gscActiveCat = 'All';
+  document.querySelectorAll('#gsc-cat-filters button').forEach(function(b){
+    b.style.background = b.textContent === 'All' ? '#0078d4' : '#fff';
+    b.style.color = b.textContent === 'All' ? '#fff' : '#323130';
+  });
+  var filtered = _gscAllIssues.filter(function(i){ return i.severity === sev; });
+  _gscDoRender(filtered);
+}
+
+function _gscRenderIssues(cat) {
+  var filtered = cat === 'All' ? _gscAllIssues : _gscAllIssues.filter(function(i){ return i.category === cat; });
+  _gscDoRender(filtered);
+}
+
+function _gscDoRender(issues) {
+  var sevCfg = {
+    critical: {bg:'#fde7e9', col:'#a80000', border:'#f1b3b7'},
+    high:     {bg:'#fff4ce', col:'#7a4f00', border:'#f0d080'},
+    medium:   {bg:'#eff6fc', col:'#004578', border:'#b0d0f0'},
+    low:      {bg:'#f3f2f1', col:'#323130', border:'#c8c6c4'},
+    info:     {bg:'#e9f8ee', col:'#107c10', border:'#9fd9ae'},
+  };
+  var html = '';
+  (issues || []).forEach(function(issue) {
+    var sc = sevCfg[issue.severity] || sevCfg.info;
+    var stepsHtml = (issue.steps || []).map(function(s){
+      // Preserve multi-line steps (e.g., robots.txt example)
+      return '<li style="margin-bottom:3px;white-space:pre-wrap;">' + _esc(s) + '</li>';
+    }).join('');
+    html += '<div style="background:#fff;border:1px solid #edebe9;border-left:4px solid ' + sc.border + ';border-radius:6px;padding:16px 18px;">'
+      + '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">'
+      + '<span style="background:' + sc.bg + ';color:' + sc.col + ';font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;white-space:nowrap;margin-top:1px;">' + issue.severity.toUpperCase() + '</span>'
+      + '<span style="font-size:10px;color:#8a8886;border:1px solid #edebe9;padding:2px 7px;border-radius:3px;white-space:nowrap;margin-top:1px;">' + _esc(issue.category) + '</span>'
+      + '<span style="font-size:13px;font-weight:600;color:#201f1e;">' + _esc(issue.title) + '</span>'
+      + '</div>'
+      + '<div style="font-size:12px;color:#605e5c;margin-bottom:8px;">' + _esc(issue.description) + '</div>'
+      + '<div style="font-size:12px;margin-bottom:8px;"><strong style="color:#201f1e;">Impact:</strong> <span style="color:#605e5c;">' + _esc(issue.impact) + '</span></div>'
+      + (stepsHtml ? '<details style="font-size:12px;"><summary style="cursor:pointer;font-weight:600;color:#0078d4;margin-bottom:6px;user-select:none;">How to fix</summary>'
+        + '<ol style="margin:0;padding-left:18px;color:#323130;line-height:1.7;">' + stepsHtml + '</ol></details>' : '')
+      + '</div>';
+  });
+
+  if (!html) {
+    html = '<div style="padding:32px;text-align:center;color:#a19f9d;font-size:13px;">No issues in this category.</div>';
+  }
+
+  document.getElementById('gsc-issues-list').innerHTML = html;
+  document.getElementById('gsc-issues-wrap').style.display = '';
 }
 </script>
 </body>
