@@ -1427,10 +1427,13 @@ def _build_template_context() -> dict:
 
 @app.route('/api/scan/<int:scan_id>')
 def api_scan(scan_id):
-    row = db.get_scan(scan_id)
-    if not row:
-        abort(404)
-    return jsonify(enrich(row))
+    try:
+        row = db.get_scan(scan_id)
+        if not row:
+            return jsonify({'error': f'Scan #{scan_id} not found'}), 404
+        return jsonify(enrich(row))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/stats')
@@ -2726,7 +2729,7 @@ def api_priority_maintenance():
 
     cf_token = _strip_env_prefix(os.environ.get('CF_API_TOKEN', '').strip())
     if not cf_token:
-        return jsonify({'error': 'CF_API_TOKEN not set in .env — cannot control Cloudflare settings'}), 500
+        return jsonify({'ok': False, 'error': 'CF_API_TOKEN not set in .env — open your .env file and add: CF_API_TOKEN=your_token_here (get it from dash.cloudflare.com/profile/api-tokens)'}), 200
 
     def _cf_get(path):
         c, b = _cf_request(path, cf_token, timeout=15)

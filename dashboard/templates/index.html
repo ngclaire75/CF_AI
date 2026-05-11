@@ -5737,6 +5737,7 @@ function openDetailsModal(id) {
   fetch('/api/scan/' + id)
     .then(function(r){ return r.json(); })
     .then(function(s) {
+      if (s.error) { document.getElementById('mbody').innerHTML = '<p style="color:#dc2626;padding:20px;">Scan not found: ' + esc(s.error) + '</p>'; return; }
       document.getElementById('mtitle').textContent = 'Scan Details: ' + s.target;
       document.getElementById('msub').textContent   = s.agent_label + '  |  Scan #' + s.id + '  |  ' + (s.display_date || '');
 
@@ -5986,6 +5987,7 @@ function openModal(id) {
   fetch('/api/scan/'+id)
     .then(function(r){ return r.json(); })
     .then(function(s) {
+      if (s.error) { document.getElementById('mbody').innerHTML = '<p style="color:#dc2626;padding:20px;">Scan not found: ' + esc(s.error) + '</p>'; return; }
       document.getElementById('mtitle').textContent = 'Security Report: '+s.target;
       document.getElementById('msub').textContent   = s.agent_label+'  |  Scan #'+s.id;
 
