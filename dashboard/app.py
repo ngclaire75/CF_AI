@@ -3249,6 +3249,37 @@ def api_inventories_cpanel_plugins():
     return jsonify({'plugins': plugins, 'total': len(plugins), 'source': 'cpanel'})
 
 
+@app.route('/api/geoip')
+def api_geoip():
+    """Batch IP-to-country lookup via ip-api.com. Pass ?ips=1.2.3.4,5.6.7.8"""
+    import json as _j, urllib.request as _req2
+    raw = (request.args.get('ips') or '').strip()
+    if not raw:
+        return jsonify({'results': {}})
+    unique_ips = list(dict.fromkeys(i.strip() for i in raw.split(',') if i.strip()))[:100]
+    # Clean masked IPs like 1.2.3.x → 1.2.3.0 for geolocation (country level still works)
+    clean = [ip.replace('.x', '.0') for ip in unique_ips]
+    batch = [{'query': ip, 'fields': 'country,countryCode,status'} for ip in clean]
+    results = {}
+    try:
+        req = _req2.Request(
+            'http://ip-api.com/batch?fields=country,countryCode,status',
+            data=_j.dumps(batch).encode(),
+            headers={'Content-Type': 'application/json', 'User-Agent': _BROWSER_UA},
+        )
+        with _req2.urlopen(req, timeout=8) as r:
+            data = _j.loads(r.read().decode())
+        for orig, row in zip(unique_ips, data):
+            if row.get('status') == 'success':
+                results[orig] = {'country': row.get('country', ''), 'code': row.get('countryCode', '')}
+            else:
+                results[orig] = {'country': '', 'code': ''}
+    except Exception:
+        for ip in unique_ips:
+            results[ip] = {'country': '', 'code': ''}
+    return jsonify({'results': results})
+
+
 @app.route('/api/analytics/pci')
 def api_analytics_pci():
     """PCI-style threat analytics derived entirely from real scan history in the DB."""

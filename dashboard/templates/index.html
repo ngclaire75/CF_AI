@@ -3318,12 +3318,13 @@ Load Logs
             <th>Username</th>
             <th>Event</th>
             <th>IP Address</th>
+            <th>Country</th>
             <th>Severity</th>
             <th>Target</th>
           </tr>
         </thead>
         <tbody id="pl-tbody">
-          <tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Select a target and click "Load Logs" to view WordPress plugin activity.</td></tr>
+          <tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Select a target and click "Load Logs" to view WordPress plugin activity.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4734,7 +4735,7 @@ function runPluginLogsPage() {
   var target = (document.getElementById('pl-target-sel') || {}).value || '';
   var tbody = document.getElementById('pl-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#605e5c;">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#605e5c;">Loading...</td></tr>';
   document.getElementById('pl-count').textContent = '';
 
   var allLogs = [];
@@ -4816,7 +4817,7 @@ function runPluginLogsPage() {
         if (!targets.length) {
           Promise.all(promises).then(function(){
             if (!allLogs.length)
-              tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a19f9d;font-style:italic;">No events found. Run a scan or connect via Log Explorer → Hostinger/MySQL tab.</td></tr>';
+              tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#a19f9d;font-style:italic;">No events found. Run a scan or connect via Log Explorer → Hostinger/MySQL tab.</td></tr>';
             else
               _renderPluginLogs(allLogs);
           });
@@ -4840,27 +4841,45 @@ function _renderPluginLogs(logs) {
   var countEl = document.getElementById('pl-count');
   if (!tbody) return;
   if (!logs.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No events found. Go to <strong>Log Explorer → cPanel</strong> tab and click "Fetch via Database" to load live events, or use the <strong>Hostinger / MySQL</strong> tab for direct MySQL access.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No events found. Go to <strong>Log Explorer → cPanel</strong> tab and click "Fetch via Database" to load live events, or use the <strong>Hostinger / MySQL</strong> tab for direct MySQL access.</td></tr>';
     if (countEl) countEl.textContent = '';
     return;
   }
   // Sort newest first
   logs.sort(function(a,b){ return (b.timestamp||'').localeCompare(a.timestamp||''); });
   if (countEl) countEl.textContent = logs.length + ' entries';
-  var html = logs.map(function(l) {
+  var html = logs.map(function(l, idx) {
     var sev = l.severity || 'INFO';
     var sevStyle = sev === 'HIGH' ? 'color:#a80000;font-weight:600;' : sev === 'MEDIUM' ? 'color:#986f0b;font-weight:500;' : 'color:#107c10;';
     var ts = _utcToLocal(l.timestamp || '');
+    var ip = (l.ip || '').trim();
     return '<tr>' +
       '<td style="white-space:nowrap;font-family:monospace;font-size:11px;">' + _esc(ts) + '</td>' +
       '<td>' + _esc(l.user || '—') + '</td>' +
       '<td>' + _esc(l.event || '—') + '</td>' +
-      '<td style="font-family:monospace;font-size:11px;">' + _esc(l.ip || '—') + '</td>' +
+      '<td style="font-family:monospace;font-size:11px;">' + _esc(ip || '—') + '</td>' +
+      '<td class="geo-cell" data-ip="' + _esc(ip) + '" style="font-size:11px;color:#605e5c;">—</td>' +
       '<td style="' + sevStyle + '">' + _esc(sev) + '</td>' +
       '<td style="color:#605e5c;font-size:11px;">' + _esc(l._target || l.target || '—') + '</td>' +
       '</tr>';
   }).join('');
   tbody.innerHTML = html;
+
+  // Async country lookup — collect unique IPs then fill cells
+  var ipSet = {};
+  logs.forEach(function(l){ if (l.ip && /\d/.test(l.ip)) ipSet[l.ip.trim()] = 1; });
+  var ips = Object.keys(ipSet);
+  if (!ips.length) return;
+  fetch('/api/geoip?ips=' + ips.map(encodeURIComponent).join(','))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var results = d.results || {};
+      tbody.querySelectorAll('.geo-cell').forEach(function(cell){
+        var ip = cell.dataset.ip;
+        var info = results[ip];
+        if (info && info.country) cell.textContent = info.country;
+      });
+    }).catch(function(){});
 }
 
 /* ── Risk + domain filter (scan history) ── */
