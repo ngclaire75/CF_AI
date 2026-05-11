@@ -3283,6 +3283,17 @@ def api_geoip():
 @app.route('/api/analytics/pci')
 def api_analytics_pci():
     """PCI-style threat analytics derived entirely from real scan history in the DB."""
+    try:
+        return _api_analytics_pci_inner()
+    except Exception as _e:
+        import traceback as _tb
+        return jsonify({'error': str(_e), 'detail': _tb.format_exc()[-600:],
+                        'mitigation_severity': [], 'compliance_keyword': [],
+                        'most_vulnerable': [], 'vuln_summary': [], 'top_failures': [],
+                        'trends': {'labels': [], 'vulnerabilities': [], 'compliance': []},
+                        'config_summary': {}, 'meta': {'total_scans': 0, 'total_targets': 0, 'last_updated': ''}})
+
+def _api_analytics_pci_inner():
     import json as _j
     from datetime import datetime, timedelta
 
