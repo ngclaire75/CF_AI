@@ -2209,12 +2209,17 @@ def api_logs_wp_cpanel_db():
         f"  $pdo = new PDO('mysql:host={db_host};dbname={db_name};charset=utf8','{db_user}','{db_pass}');\n"
         "  $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);\n"
         f"  $p = '{table_pfx}';\n"
+        "  $kc = 'key_name';\n"
+        "  try {\n"
+        "    $desc = $pdo->query(\"DESCRIBE {$p}simple_history_contexts\")->fetchAll(PDO::FETCH_COLUMN);\n"
+        "    if (!in_array('key_name', $desc) && in_array('key', $desc)) { $kc = '`key`'; }\n"
+        "  } catch(Exception $_e) {}\n"
         "  $rows = $pdo->query(\n"
         "    \"SELECT h.id, h.date, h.logger, h.level, h.message,\n"
         "     COALESCE((SELECT value FROM {$p}simple_history_contexts\n"
-        "       WHERE history_id=h.id AND key_name='_user_login' LIMIT 1),'') AS user_login,\n"
+        "       WHERE history_id=h.id AND {$kc}='_user_login' LIMIT 1),'') AS user_login,\n"
         "     COALESCE((SELECT value FROM {$p}simple_history_contexts\n"
-        "       WHERE history_id=h.id AND key_name='_server_remote_addr' LIMIT 1),'') AS ip\n"
+        "       WHERE history_id=h.id AND {$kc}='_server_remote_addr' LIMIT 1),'') AS ip\n"
         f"    FROM {table_pfx}simple_history h ORDER BY h.id DESC LIMIT {limit}\"\n"
         "  )->fetchAll(PDO::FETCH_ASSOC);\n"
         "  header('Content-Type: application/json');\n"
@@ -2342,16 +2347,25 @@ def api_logs_wp_mysql_direct():
             ctx_table = f'{table_pfx}simple_history_contexts'
             cur.execute("SHOW TABLES LIKE %s", (sh_table,))
             if cur.fetchone():
+                # Auto-detect key column name: older Simple History uses 'key_name', newer uses 'key'
+                key_col = 'key_name'
+                try:
+                    cur.execute(f"DESCRIBE {ctx_table}")
+                    ctx_cols = [r['Field'] for r in cur.fetchall()]
+                    if 'key_name' not in ctx_cols and 'key' in ctx_cols:
+                        key_col = '`key`'
+                except Exception:
+                    pass
                 cur.execute(f"""
                     SELECT
                         h.id, h.date, h.logger, h.level, h.message,
                         COALESCE(
                             (SELECT value FROM {ctx_table}
-                             WHERE history_id = h.id AND key_name = '_user_login' LIMIT 1), ''
+                             WHERE history_id = h.id AND {key_col} = '_user_login' LIMIT 1), ''
                         ) AS user_login,
                         COALESCE(
                             (SELECT value FROM {ctx_table}
-                             WHERE history_id = h.id AND key_name = '_server_remote_addr' LIMIT 1), ''
+                             WHERE history_id = h.id AND {key_col} = '_server_remote_addr' LIMIT 1), ''
                         ) AS ip
                     FROM {sh_table} h
                     ORDER BY h.id DESC
