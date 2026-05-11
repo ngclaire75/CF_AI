@@ -3419,6 +3419,12 @@ def api_geoip():
 
 
 # ── Google Search Console / Domain Health Analysis ──────────────────────────
+@app.route('/api/gsc/config')
+def api_gsc_config():
+    """Return whether GOOGLE_API_KEY is configured in .env (does not expose the key)."""
+    return jsonify({'has_google_key': bool(os.environ.get('GOOGLE_API_KEY', '').strip())})
+
+
 @app.route('/api/gsc/analyze', methods=['POST'])
 def api_gsc_analyze():
     """
@@ -3431,7 +3437,8 @@ def api_gsc_analyze():
 
     data         = request.get_json(force=True, silent=True) or {}
     domain       = re.sub(r'^https?://', '', (data.get('domain') or '').strip().lower()).split('/')[0].strip()
-    api_key      = (data.get('api_key') or '').strip()
+    # Fall back to .env GOOGLE_API_KEY if the user didn't supply one in the form
+    api_key      = (data.get('api_key') or '').strip() or os.environ.get('GOOGLE_API_KEY', '').strip()
     access_token = (data.get('access_token') or '').strip()
 
     if not domain:

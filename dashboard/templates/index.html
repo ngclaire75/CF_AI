@@ -9464,6 +9464,15 @@ function _gscRestoreCreds() {
 }
 
 function loadGscPage() {
+  // Check if GOOGLE_API_KEY is set in .env and update placeholder accordingly
+  fetch('/api/gsc/config').then(function(r){ return r.json(); }).then(function(cfg){
+    var keyInput = document.getElementById('gsc-apikey');
+    if (cfg.has_google_key) {
+      keyInput.placeholder = 'Configured from .env';
+      keyInput.style.color = '#107c10';
+    }
+  }).catch(function(){});
+
   var hasCreds = _gscRestoreCreds();
   if (hasCreds) {
     document.getElementById('gsc-saved-indicator').style.display = '';
