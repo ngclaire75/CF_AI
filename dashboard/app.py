@@ -4375,6 +4375,193 @@ def api_gsc_analyze():
         except Exception as e:
             scores['virustotal'] = {'error': str(e)}
 
+    # ── 13. Suspicious Link Scanner ───────────────────────────────────────────────
+    # Collect ALL links found during crawl and apply heuristic + SB checks
+    try:
+        _SUSPICIOUS_EXTS = {'.exe','.msi','.bat','.cmd','.ps1','.vbs','.jar',
+                            '.scr','.pif','.com','.hta','.apk','.dmg','.pkg',
+                            '.deb','.rpm','.iso','.img','.torrent'}
+        _SUSPICIOUS_TLDS = {'.tk','.ml','.ga','.cf','.gq','.pw','.top','.xyz',
+                            '.click','.download','.zip','.mov'}
+        _URL_SHORTENERS  = {'bit.ly','tinyurl.com','t.co','goo.gl','ow.ly',
+                            'is.gd','buff.ly','adf.ly','bc.vc','sh.st'}
+        _IP_PAT = re.compile(r'https?://(\d{1,3}\.){3}\d{1,3}')
+
+        # Gather all links from all crawled pages
+        all_links: list = []
+        pages_to_scan = [base_url] + (list(scores.get('search_analytics', {})
+                         .get('top_pages', [{}]))[:4] if access_token else [])
+
+        for scan_url in pages_to_scan:
+            pg_url = scan_url if isinstance(scan_url, str) else scan_url.get('page', '')
+            if not pg_url:
+                continue
+            r_pg2, _ = _fetch_url(pg_url, timeout=8)
+            if r_pg2 is None:
+                continue
+            pg_html2 = getattr(r_pg2, 'text', '')
+            lp2 = re.compile(r'href=["\']([^"\'#\s]{8,})["\']', re.I)
+            for href in lp2.findall(pg_html2):
+                if href.startswith('http') and domain not in href:
+                    all_links.append({'url': href, 'found_on': pg_url})
+
+        # Deduplicate by URL
+        seen_urls: set = set()
+        unique_links = []
+        for lk in all_links:
+            if lk['url'] not in seen_urls:
+                seen_urls.add(lk['url'])
+                unique_links.append(lk)
+
+        suspicious_found: list = []
+
+        for lk in unique_links:
+            u = lk['url']
+            reasons = []
+            parsed_u = _up_parse.urlparse(u)
+            ext = '.' + u.split('.')[-1].split('?')[0].lower() if '.' in u.split('/')[-1] else ''
+            link_domain = parsed_u.netloc.lower().replace('www.', '')
+            tld = '.' + link_domain.split('.')[-1] if '.' in link_domain else ''
+
+            if ext in _SUSPICIOUS_EXTS:
+                reasons.append(f'direct download link ({ext})')
+            if _IP_PAT.match(u):
+                reasons.append('links to IP address instead of domain')
+            if link_domain in _URL_SHORTENERS:
+                reasons.append(f'URL shortener ({link_domain}) — destination unknown')
+            if tld in _SUSPICIOUS_TLDS:
+                reasons.append(f'suspicious TLD ({tld}) — commonly used for malware')
+
+            if reasons:
+                suspicious_found.append({
+                    'url': u, 'found_on': lk['found_on'], 'reasons': reasons
+                })
+
+        # Safe Browsing check on all unique external links
+        if api_key and unique_links:
+            sb3_entries = [{'url': lk['url']} for lk in unique_links[:200]]
+            sb3_body = {
+                'client': {'clientId': 'cf-ai-dashboard', 'clientVersion': '1.0'},
+                'threatInfo': {
+                    'threatTypes': ['MALWARE','SOCIAL_ENGINEERING',
+                                    'UNWANTED_SOFTWARE','POTENTIALLY_HARMFUL_APPLICATION'],
+                    'platformTypes': ['ANY_PLATFORM'],
+                    'threatEntryTypes': ['URL'],
+                    'threatEntries': sb3_entries,
+                },
+            }
+            r_sb3, _ = _fetch_url(
+                f'https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}',
+                timeout=15, method='POST', json_body=sb3_body)
+            if r_sb3 is not None and r_sb3.status_code == 200:
+                sb3_data = r_sb3.json() if callable(getattr(r_sb3, 'json', None)) else {}
+                for m in sb3_data.get('matches', []):
+                    turl3  = m.get('threat', {}).get('url', '')
+                    ttype3 = m.get('threatType', 'Unknown')
+                    # Find which page it was on
+                    found_on3 = next((lk['found_on'] for lk in unique_links if lk['url'] == turl3), base_url)
+                    suspicious_found.append({
+                        'url': turl3, 'found_on': found_on3,
+                        'reasons': [f'Google Safe Browsing: {ttype3}'],
+                        'google_flagged': True,
+                    })
+
+        scores['suspicious_links'] = {
+            'total': len(suspicious_found),
+            'links': suspicious_found[:50],
+            'pages_scanned': len(pages_to_scan),
+            'links_checked': len(unique_links),
+        }
+
+        # Add issues for each suspicious link
+        for sl in suspicious_found[:10]:
+            is_google = sl.get('google_flagged', False)
+            sev = 'critical' if is_google else ('high' if any('download' in r or 'Safe Browsing' in r for r in sl['reasons']) else 'medium')
+            _add('Security',
+                 sev,
+                 ('Google Safe Browsing: Harmful link detected' if is_google
+                  else f'Suspicious outbound link: {", ".join(sl["reasons"])}'),
+                 f'URL: {sl["url"]}\nFound on: {sl["found_on"]}\nReason: {"; ".join(sl["reasons"])}',
+                 'Malicious or suspicious outbound links can trigger GSC Security Issues warnings, '
+                 'Google Safe Browsing browser warnings, and damage site reputation.',
+                 ['Remove or replace this link immediately.',
+                  'If you didn\'t add this link, your site may be hacked — scan with Sucuri SiteCheck.',
+                  'Check recently modified files in cPanel File Manager.',
+                  'After cleanup, request review in Google Search Console Security Issues.'])
+
+        if suspicious_found:
+            # Update safe_browsing tile count
+            sb_existing = scores.get('safe_browsing', {})
+            sb_existing['threats'] = sb_existing.get('threats', 0) + sum(
+                1 for s in suspicious_found if s.get('google_flagged'))
+            scores['safe_browsing'] = sb_existing
+
+    except Exception:
+        pass
+
+    # ── 14. Sucuri SiteCheck (antivirus / malware scan) ───────────────────────
+    try:
+        r_sucuri, _ = _fetch_url(
+            f'https://sitecheck.sucuri.net/api/v3/?scan={_up_parse.quote(domain, safe="")}',
+            timeout=20)
+        if r_sucuri is not None and r_sucuri.status_code == 200:
+            sd = r_sucuri.json() if callable(getattr(r_sucuri, 'json', None)) else {}
+            malware_list = sd.get('malware', [])
+            blacklists   = sd.get('blacklists', {})
+            outdated     = sd.get('system', {}).get('outdated', [])
+            bl_clean     = blacklists.get('status', '').lower() == 'not listed'
+            scan_clean   = not malware_list
+            scores['sucuri'] = {
+                'malware':    malware_list[:20],
+                'blacklists': blacklists,
+                'outdated':   outdated,
+                'clean':      scan_clean and bl_clean,
+            }
+            if malware_list:
+                for m in malware_list[:5]:
+                    mtype = m.get('type', 'Malware')
+                    mfile = m.get('file', m.get('details', ''))
+                    _add('Security', 'critical',
+                         f'Malware detected on site: {mtype}',
+                         f'Sucuri SiteCheck found malware on {domain}.\nFile/detail: {mfile}',
+                         'Malware on your site can cause browsers and Google to block visitors, '
+                         'and triggers GSC Security Issues. Immediate cleanup is required.',
+                         ['Log in to cPanel File Manager and look for recently modified PHP files.',
+                          'Install the Sucuri Security plugin (free) for WordPress.',
+                          'Run a full scan at sitecheck.sucuri.net.',
+                          'After cleanup, request review in GSC → Security Issues.'])
+            if not bl_clean:
+                bl_engines = [k for k, v in blacklists.items() if isinstance(v, dict) and v.get('status') == 'listed']
+                _add('Security', 'critical',
+                     f'Site blacklisted by {len(bl_engines)} engine(s): {", ".join(bl_engines[:3])}',
+                     f'{domain} is on one or more security blacklists.',
+                     'Blacklisted domains are blocked by browsers and antivirus tools. '
+                     'Users will see warning pages instead of your site.',
+                     ['Remove the malware that triggered the listing.',
+                      'Submit removal requests to each blacklist authority.',
+                      'Check Google Safe Browsing status at transparencyreport.google.com.',
+                      'Request Google review in GSC → Security Issues.'])
+            if outdated:
+                outdated_str = ', '.join(str(o) for o in outdated[:5])
+                _add('Security', 'medium',
+                     f'Outdated software detected: {outdated_str}',
+                     f'Sucuri found outdated CMS/plugins/themes on {domain}: {outdated_str}',
+                     'Outdated software is the #1 cause of site hacks. Attackers exploit known CVEs.',
+                     ['Update WordPress core, plugins, and themes immediately.',
+                      'Enable automatic updates for minor versions.',
+                      'Use a managed WordPress host that auto-patches core.'])
+            if scan_clean and bl_clean:
+                _add('Security', 'info',
+                     'Sucuri SiteCheck: No malware or blacklisting found',
+                     f'External antivirus scan of {domain} found no malware, injections, or blacklisting.',
+                     'Site appears clean according to Sucuri\'s external scanner.',
+                     ['Re-scan weekly at sitecheck.sucuri.net.',
+                      'Install Sucuri Security plugin for continuous server-side monitoring.'])
+        else:
+            scores['sucuri'] = {'error': 'Sucuri scan unavailable'}
+    except Exception as e:
+        scores['sucuri'] = {'error': str(e)}
+
     # ── Sort and return ────────────────────────────────────────────────────────
     sev_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3, 'info': 4}
     issues.sort(key=lambda x: sev_order.get(x['severity'], 5))

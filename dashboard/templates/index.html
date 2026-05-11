@@ -9670,6 +9670,28 @@ function _gscRenderSummary(data) {
       + '</div>';
   }
 
+  // Suspicious links tile
+  var sl = scores.suspicious_links;
+  if (sl && sl.links_checked > 0) {
+    var slTileCol = sl.total > 0 ? '#a80000' : '#107c10';
+    var slTileLabel = sl.total > 0 ? sl.total + ' link' + (sl.total > 1 ? 's' : '') : 'Clean';
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:13px;font-weight:700;color:' + slTileCol + ';">' + slTileLabel + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">Susp. Links</div>'
+      + '</div>';
+  }
+
+  // Sucuri antivirus tile
+  var sc = scores.sucuri;
+  if (sc && !sc.error) {
+    var scTileCol = sc.clean ? '#107c10' : '#a80000';
+    var scTileLabel = sc.clean ? 'Clean' : ((sc.malware||[]).length + ' threat' + ((sc.malware||[]).length !== 1 ? 's' : ''));
+    tileHtml += '<div style="background:#fff;border:1px solid #edebe9;border-radius:6px;padding:8px 14px;text-align:center;min-width:70px;">'
+      + '<div style="font-size:13px;font-weight:700;color:' + scTileCol + ';">' + scTileLabel + '</div>'
+      + '<div style="font-size:10px;color:#605e5c;margin-top:1px;">Antivirus</div>'
+      + '</div>';
+  }
+
   // Core Web Vitals tiles
   var cwv = scores.cwv || {};
   var cwvColMap = {'good':'#107c10','needs-improvement':'#986f0b','poor':'#a80000'};
@@ -9720,6 +9742,7 @@ function _gscRenderSummary(data) {
     + '<a href="https://search.google.com/search-console/removals?resource_id=' + encDomain + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">Removals</a>'
     + '<a href="https://pagespeed.web.dev/report?url=https%3A%2F%2F' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">PageSpeed</a>'
     + '<a href="https://www.virustotal.com/gui/domain/' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">VirusTotal</a>'
+    + '<a href="https://sitecheck.sucuri.net/results/' + encodeURIComponent(domain) + '" target="_blank" style="padding:4px 12px;background:#f3f2f1;color:#323130;border-radius:4px;font-weight:600;text-decoration:none;">Sucuri Scan</a>'
     + '</div>';
 
   // Search Analytics tables (queries + pages + devices + countries)
@@ -9828,6 +9851,97 @@ function _gscRenderSummary(data) {
       + '</tr></thead><tbody>'+smRows+'</tbody></table></div>';
   } else {
     smWrap.innerHTML = '';
+  }
+
+  // ── Suspicious Links panel ────────────────────────────────────────────────
+  var slData = scores.suspicious_links;
+  var slWrap = document.getElementById('gsc-suspicious-links-panel');
+  if (!slWrap) {
+    slWrap = document.createElement('div');
+    slWrap.id = 'gsc-suspicious-links-panel';
+    slWrap.style.cssText = 'margin-bottom:16px;';
+    smWrap.parentNode.insertBefore(slWrap, smWrap.nextSibling);
+  }
+  if (slData && (slData.links_checked > 0 || slData.total > 0)) {
+    var slLinks = slData.links || [];
+    var slHdr = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+      + '<span style="font-size:12px;font-weight:600;color:#201f1e;">Suspicious Link Scanner</span>'
+      + '<span style="font-size:11px;color:#605e5c;">'
+      + (slData.pages_scanned||0) + ' pages · '
+      + (slData.links_checked||0) + ' links checked · '
+      + '<span style="font-weight:700;color:' + (slData.total > 0 ? '#a80000' : '#107c10') + ';">'
+      + slData.total + ' flagged</span></span></div>';
+    if (slLinks.length) {
+      var slRows = slLinks.map(function(lk){
+        var isGoogle = lk.google_flagged;
+        var badge = isGoogle
+          ? '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">GOOGLE FLAGGED</span>'
+          : '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">HEURISTIC</span>';
+        var slug = (lk.found_on||'').replace(/^https?:\/\/[^\/]+/,'') || '/';
+        return '<tr>'
+          + '<td style="font-size:11px;word-break:break-all;max-width:220px;"><a href="'+_esc(lk.url)+'" target="_blank" style="color:#0078d4;">'+_esc(lk.url.length>60?lk.url.slice(0,60)+'…':lk.url)+'</a></td>'
+          + '<td style="font-size:11px;color:#605e5c;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc(lk.found_on||'')+'">'+_esc(slug)+'</td>'
+          + '<td style="font-size:11px;">'+_esc((lk.reasons||[]).join('; '))+'</td>'
+          + '<td>'+badge+'</td>'
+          + '</tr>';
+      }).join('');
+      slWrap.innerHTML = slHdr
+        + '<div class="scroll-panel"><table><thead><tr>'
+        + '<th>Suspicious URL</th><th>Found on</th><th>Reason</th><th>Type</th>'
+        + '</tr></thead><tbody>'+slRows+'</tbody></table></div>';
+    } else {
+      slWrap.innerHTML = slHdr + '<div style="font-size:12px;color:#107c10;padding:6px 0;">No suspicious outbound links detected.</div>';
+    }
+  } else {
+    slWrap.innerHTML = '';
+  }
+
+  // ── Sucuri Antivirus Scan panel ───────────────────────────────────────────
+  var scData = scores.sucuri;
+  var scWrap = document.getElementById('gsc-sucuri-panel');
+  if (!scWrap) {
+    scWrap = document.createElement('div');
+    scWrap.id = 'gsc-sucuri-panel';
+    scWrap.style.cssText = 'margin-bottom:16px;';
+    slWrap.parentNode.insertBefore(scWrap, slWrap.nextSibling);
+  }
+  if (scData && !scData.error) {
+    var scClean = scData.clean;
+    var scMal   = scData.malware || [];
+    var scBl    = scData.blacklists || {};
+    var scOut   = scData.outdated  || [];
+    var scColor = scClean ? '#107c10' : '#a80000';
+    var scLabel = scClean ? 'Clean' : (scMal.length ? scMal.length + ' threat' + (scMal.length>1?'s':'') : 'Issues found');
+    var scHtml  = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+      + '<span style="font-size:12px;font-weight:600;color:#201f1e;">Antivirus / Malware Scan (Sucuri SiteCheck)</span>'
+      + '<span style="font-size:12px;font-weight:700;color:'+scColor+';">'+scLabel+'</span>'
+      + '</div>';
+    if (scMal.length) {
+      var mRows = scMal.map(function(m){
+        return '<tr><td>'+_esc(m.type||'Malware')+'</td><td style="font-size:11px;word-break:break-all;">'+_esc(m.file||m.details||'')+'</td></tr>';
+      }).join('');
+      scHtml += '<div style="font-size:11px;font-weight:600;color:#a80000;margin-bottom:4px;">Malware Detected</div>'
+        + '<div class="scroll-panel"><table><thead><tr><th>Type</th><th>Detail</th></tr></thead><tbody>'+mRows+'</tbody></table></div>';
+    }
+    if (scOut.length) {
+      scHtml += '<div style="font-size:11px;color:#986f0b;margin-top:6px;"><strong>Outdated software:</strong> '+_esc(scOut.join(', '))+'</div>';
+    }
+    var blStatus = scBl.status || '';
+    if (blStatus && blStatus.toLowerCase() !== 'not listed') {
+      var blEngines = Object.keys(scBl).filter(function(k){ return k !== 'status' && typeof scBl[k] === 'object' && scBl[k].status === 'listed'; });
+      if (blEngines.length) {
+        scHtml += '<div style="font-size:11px;color:#a80000;margin-top:6px;"><strong>Blacklisted by:</strong> '+_esc(blEngines.join(', '))+'</div>';
+      }
+    }
+    if (scClean) {
+      scHtml += '<div style="font-size:11px;color:#107c10;margin-top:4px;">No malware, injections, or blacklisting detected by Sucuri external scanner.</div>';
+    }
+    scHtml += '<div style="font-size:11px;color:#605e5c;margin-top:8px;">Full report: <a href="https://sitecheck.sucuri.net/results/'+_esc(data.domain)+'" target="_blank" style="color:#0078d4;">sitecheck.sucuri.net</a></div>';
+    scWrap.innerHTML = scHtml;
+  } else if (scData && scData.error) {
+    scWrap.innerHTML = '<div style="font-size:12px;color:#a19f9d;">Sucuri SiteCheck: '+_esc(scData.error)+'</div>';
+  } else {
+    scWrap.innerHTML = '';
   }
 }
 
