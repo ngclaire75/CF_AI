@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context
+from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect
 import dashboard.db as db
 from dashboard.remediations import REMEDIATIONS
 
@@ -3419,10 +3419,162 @@ def api_geoip():
 
 
 # ── Google Search Console / Domain Health Analysis ──────────────────────────
+
+_GOOGLE_CLIENT_ID     = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+_GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
+_GSC_TOKEN_FILE       = Path(__file__).parent.parent / '.gsc_token.json'
+_GSC_REDIRECT_URI     = 'http://localhost:8888/auth/google/callback'
+_GSC_SCOPES           = 'https://www.googleapis.com/auth/webmasters.readonly'
+
+
+def _gsc_load_tokens() -> dict:
+    try:
+        if _GSC_TOKEN_FILE.exists():
+            return _json.loads(_GSC_TOKEN_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        pass
+    return {}
+
+
+def _gsc_save_tokens(tokens: dict) -> None:
+    try:
+        _GSC_TOKEN_FILE.write_text(_json.dumps(tokens), encoding='utf-8')
+    except Exception:
+        pass
+
+
+def _gsc_get_access_token() -> str:
+    """Return a valid access token, refreshing via refresh_token if needed."""
+    import time as _t
+    tokens = _gsc_load_tokens()
+    if not tokens.get('refresh_token'):
+        return ''
+    # Return cached token if still valid (5-min buffer)
+    if tokens.get('access_token') and tokens.get('expires_at', 0) > _t.time() + 300:
+        return tokens['access_token']
+    # Refresh
+    try:
+        if not (_GOOGLE_CLIENT_ID and _GOOGLE_CLIENT_SECRET):
+            return ''
+        if _HAS_REQUESTS:
+            r = _requests.post('https://oauth2.googleapis.com/token', data={
+                'client_id':     _GOOGLE_CLIENT_ID,
+                'client_secret': _GOOGLE_CLIENT_SECRET,
+                'refresh_token': tokens['refresh_token'],
+                'grant_type':    'refresh_token',
+            }, timeout=10)
+            data = r.json()
+        else:
+            body = _up_parse.urlencode({
+                'client_id':     _GOOGLE_CLIENT_ID,
+                'client_secret': _GOOGLE_CLIENT_SECRET,
+                'refresh_token': tokens['refresh_token'],
+                'grant_type':    'refresh_token',
+            }).encode()
+            req = _up_req.Request('https://oauth2.googleapis.com/token', data=body)
+            with _up_req.urlopen(req, timeout=10) as resp:
+                data = _json.loads(resp.read())
+        if 'access_token' in data:
+            tokens['access_token'] = data['access_token']
+            tokens['expires_at']   = _t.time() + data.get('expires_in', 3600)
+            _gsc_save_tokens(tokens)
+            return tokens['access_token']
+    except Exception:
+        pass
+    return ''
+
+
+@app.route('/auth/google')
+def auth_google():
+    """Redirect user to Google OAuth consent screen."""
+    if not (_GOOGLE_CLIENT_ID and _GOOGLE_CLIENT_SECRET):
+        return jsonify({'error': 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not configured in .env'}), 500
+    params = _up_parse.urlencode({
+        'client_id':     _GOOGLE_CLIENT_ID,
+        'redirect_uri':  _GSC_REDIRECT_URI,
+        'response_type': 'code',
+        'scope':         _GSC_SCOPES,
+        'access_type':   'offline',
+        'prompt':        'consent',
+    })
+    return redirect(f'https://accounts.google.com/o/oauth2/v2/auth?{params}')
+
+
+@app.route('/auth/google/callback')
+def auth_google_callback():
+    """Exchange OAuth code for tokens and save refresh token."""
+    import time as _t
+    code  = request.args.get('code', '')
+    error = request.args.get('error', '')
+    if error:
+        return f'''<html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+            <h2 style="color:#a80000;">Authorization Failed</h2><p>{error}</p>
+            <script>if(window.opener){{window.opener.postMessage({{type:"gsc_auth_fail",error:"{error}"}},"*");setTimeout(function(){{window.close();}},3000);}}</script>
+        </body></html>'''
+    if not code:
+        return '<html><body><p>No authorization code received.</p></html>', 400
+    try:
+        if _HAS_REQUESTS:
+            r = _requests.post('https://oauth2.googleapis.com/token', data={
+                'client_id':     _GOOGLE_CLIENT_ID,
+                'client_secret': _GOOGLE_CLIENT_SECRET,
+                'code':          code,
+                'grant_type':    'authorization_code',
+                'redirect_uri':  _GSC_REDIRECT_URI,
+            }, timeout=10)
+            data = r.json()
+        else:
+            body = _up_parse.urlencode({
+                'client_id':     _GOOGLE_CLIENT_ID,
+                'client_secret': _GOOGLE_CLIENT_SECRET,
+                'code':          code,
+                'grant_type':    'authorization_code',
+                'redirect_uri':  _GSC_REDIRECT_URI,
+            }).encode()
+            req = _up_req.Request('https://oauth2.googleapis.com/token', data=body)
+            with _up_req.urlopen(req, timeout=10) as resp:
+                data = _json.loads(resp.read())
+        if 'refresh_token' not in data:
+            return f'<html><body style="font-family:sans-serif;padding:40px;"><h2>Error</h2><p>No refresh token returned. Try revoking access at accounts.google.com/permissions and reconnecting.</p><p>{data}</p></body></html>', 400
+        _gsc_save_tokens({
+            'access_token':  data.get('access_token', ''),
+            'refresh_token': data['refresh_token'],
+            'expires_at':    _t.time() + data.get('expires_in', 3600),
+        })
+        return '''<html><body style="font-family:sans-serif;padding:40px;text-align:center;background:#f5f6fa;">
+            <div style="max-width:400px;margin:0 auto;background:#fff;padding:40px;border-radius:12px;border:1px solid #edebe9;">
+            <div style="font-size:48px;margin-bottom:16px;">&#10003;</div>
+            <h2 style="color:#107c10;margin-bottom:8px;">Google Search Console Connected!</h2>
+            <p style="color:#605e5c;">Your dashboard now has permanent access to GSC data.<br>You can close this window.</p>
+            </div>
+            <script>
+                if(window.opener){window.opener.postMessage({type:"gsc_auth_success"},"*");setTimeout(function(){window.close();},2500);}
+            </script>
+        </body></html>'''
+    except Exception as e:
+        return f'<html><body style="font-family:sans-serif;padding:40px;"><h2>Token Exchange Failed</h2><p>{e}</p></body></html>', 500
+
+
+@app.route('/api/gsc/disconnect', methods=['POST'])
+def api_gsc_disconnect():
+    """Remove stored GSC tokens."""
+    try:
+        if _GSC_TOKEN_FILE.exists():
+            _GSC_TOKEN_FILE.unlink()
+    except Exception:
+        pass
+    return jsonify({'ok': True})
+
+
 @app.route('/api/gsc/config')
 def api_gsc_config():
-    """Return whether GOOGLE_API_KEY is configured in .env (does not expose the key)."""
-    return jsonify({'has_google_key': bool(os.environ.get('GOOGLE_API_KEY', '').strip())})
+    """Return auth and config status (no keys exposed)."""
+    token = _gsc_get_access_token()
+    return jsonify({
+        'has_google_key': bool(os.environ.get('GOOGLE_API_KEY', '').strip()),
+        'gsc_connected':  bool(token),
+        'has_oauth_creds': bool(_GOOGLE_CLIENT_ID and _GOOGLE_CLIENT_SECRET),
+    })
 
 
 @app.route('/api/gsc/analyze', methods=['POST'])
@@ -3439,7 +3591,8 @@ def api_gsc_analyze():
     domain       = re.sub(r'^https?://', '', (data.get('domain') or '').strip().lower()).split('/')[0].strip()
     # Fall back to .env GOOGLE_API_KEY if the user didn't supply one in the form
     api_key      = (data.get('api_key') or '').strip() or os.environ.get('GOOGLE_API_KEY', '').strip()
-    access_token = (data.get('access_token') or '').strip()
+    # Fall back to stored OAuth token if no manual token provided
+    access_token = (data.get('access_token') or '').strip() or _gsc_get_access_token()
 
     if not domain:
         return jsonify({'error': 'domain is required'}), 400
@@ -3895,6 +4048,87 @@ def api_gsc_analyze():
                       'Generate a token with "webmasters.readonly" scope via OAuth 2.0.'])
         except Exception as e:
             scores['gsc'] = {'error': str(e)}
+
+    # ── 10. Search Analytics (top queries, CTR issues) ────────────────────────
+    if access_token:
+        import datetime as _dt2
+        try:
+            end_date   = _dt2.date.today()
+            start_date = end_date - _dt2.timedelta(days=28)
+            site_enc   = _up_parse.quote(f'{base_url}/', safe='')
+            r_sa, _    = _fetch_url(
+                f'https://www.googleapis.com/webmasters/v3/sites/{site_enc}/searchAnalytics/query',
+                method='POST', timeout=15,
+                extra_headers={'Authorization': f'Bearer {access_token}'},
+                json_body={
+                    'startDate': str(start_date), 'endDate': str(end_date),
+                    'dimensions': ['query'], 'rowLimit': 10, 'type': 'web',
+                },
+            )
+            if r_sa is not None and r_sa.status_code == 200:
+                rows = (r_sa.json() if callable(getattr(r_sa, 'json', None)) else {}).get('rows', [])
+                scores['search_analytics'] = {
+                    'period': f'{start_date} to {end_date}',
+                    'top_queries': [
+                        {'query': r['keys'][0], 'clicks': int(r.get('clicks', 0)),
+                         'impressions': int(r.get('impressions', 0)),
+                         'ctr': round(r.get('ctr', 0) * 100, 1),
+                         'position': round(r.get('position', 0), 1)}
+                        for r in rows if r.get('keys')
+                    ],
+                }
+                for row in rows:
+                    if row.get('impressions', 0) > 100 and row.get('ctr', 0) < 0.02:
+                        q = row['keys'][0] if row.get('keys') else '(unknown)'
+                        _add('SEO', 'medium', f'Low CTR on "{q}"',
+                             f'"{q}" gets {int(row.get("impressions",0))} impressions but only '
+                             f'{row.get("ctr",0)*100:.1f}% CTR (avg position: {row.get("position",0):.1f}).',
+                             'Users see the result but don\'t click — title/description may be uncompelling.',
+                             ['Rewrite the page meta title to be more specific and compelling.',
+                              'Improve the meta description to state the value proposition clearly.',
+                              'Add rich snippets (reviews, FAQ) to increase SERP real estate.',
+                              'Check if search intent matches your page content.'])
+            elif r_sa is not None and r_sa.status_code == 403:
+                scores['search_analytics'] = {'error': 'Permission denied — ensure site is verified in GSC and OAuth scope is webmasters.readonly'}
+            elif r_sa is not None:
+                scores['search_analytics'] = {'error': f'HTTP {r_sa.status_code}'}
+        except Exception as e:
+            scores['search_analytics'] = {'error': str(e)}
+
+    # ── 11. Sitemaps (via GSC API) ─────────────────────────────────────────────
+    if access_token:
+        try:
+            site_enc  = _up_parse.quote(f'{base_url}/', safe='')
+            r_sm, _   = _fetch_url(
+                f'https://www.googleapis.com/webmasters/v3/sites/{site_enc}/sitemaps',
+                timeout=10, extra_headers={'Authorization': f'Bearer {access_token}'},
+            )
+            if r_sm is not None and r_sm.status_code == 200:
+                sitemaps = (r_sm.json() if callable(getattr(r_sm, 'json', None)) else {}).get('sitemap', [])
+                scores['gsc_sitemaps'] = [
+                    {'path': s.get('path', ''), 'lastSubmitted': s.get('lastSubmitted', ''),
+                     'isPending': s.get('isPending', False), 'errors': s.get('errors', '0'),
+                     'warnings': s.get('warnings', '0'),
+                     'urlCount': sum(c.get('submitted', 0) for c in s.get('contents', []))}
+                    for s in sitemaps
+                ]
+                for sm in sitemaps:
+                    if str(sm.get('errors', '0')) != '0':
+                        _add('SEO', 'high', f'Sitemap errors: {sm.get("path", "")}',
+                             f'Sitemap has {sm.get("errors","?")} error(s) in Google Search Console.',
+                             'Google cannot crawl URLs in this sitemap, reducing index coverage.',
+                             ['Open Search Console → Sitemaps to see specific errors.',
+                              'Common issues: unreachable URLs, redirect chains, noindex pages in sitemap.',
+                              'Fix and resubmit.'])
+                if not sitemaps:
+                    _add('SEO', 'medium', 'No sitemaps submitted to Google Search Console',
+                         'No sitemaps found in this GSC property.',
+                         'Google must discover all pages via crawl links, likely missing content.',
+                         [f'Submit your sitemap in Search Console → Sitemaps.',
+                          f'Generate one at {base_url}/sitemap.xml if needed.',
+                          'WordPress: Yoast SEO auto-generates and submits sitemaps.'])
+        except Exception as e:
+            scores['gsc_sitemaps'] = {'error': str(e)}
 
     # ── Sort and return ────────────────────────────────────────────────────────
     sev_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3, 'info': 4}

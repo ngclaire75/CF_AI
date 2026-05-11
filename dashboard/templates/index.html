@@ -2407,6 +2407,16 @@ Export Power BI
           </button>
         </div>
       </div>
+      <!-- GSC OAuth connection bar -->
+      <div style="display:flex;align-items:center;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #edebe9;">
+        <div id="gsc-auth-status" style="font-size:12px;color:#a19f9d;">Checking Google Search Console connection...</div>
+        <button id="gsc-connect-btn" onclick="gscConnect()" style="display:none;height:30px;padding:0 14px;background:#4285f4;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">
+          Connect Google Search Console
+        </button>
+        <button id="gsc-disconnect-btn" onclick="gscDisconnect()" style="display:none;height:30px;padding:0 10px;background:none;color:#a80000;border:1px solid #f1b3b7;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;">
+          Disconnect
+        </button>
+      </div>
       <div id="gsc-saved-indicator" style="display:none;margin-top:8px;font-size:11px;color:#107c10;">
         Credentials restored — running analysis...
       </div>
@@ -9464,14 +9474,31 @@ function _gscRestoreCreds() {
 }
 
 function loadGscPage() {
-  // Check if GOOGLE_API_KEY is set in .env and update placeholder accordingly
   fetch('/api/gsc/config').then(function(r){ return r.json(); }).then(function(cfg){
     var keyInput = document.getElementById('gsc-apikey');
     if (cfg.has_google_key) {
       keyInput.placeholder = 'Configured from .env';
       keyInput.style.color = '#107c10';
     }
-  }).catch(function(){});
+    var statusEl  = document.getElementById('gsc-auth-status');
+    var connectEl = document.getElementById('gsc-connect-btn');
+    var discEl    = document.getElementById('gsc-disconnect-btn');
+    if (cfg.gsc_connected) {
+      statusEl.innerHTML  = '<span style="color:#107c10;font-weight:600;">Google Search Console connected</span> — Search Analytics, Sitemaps &amp; URL Inspection active';
+      connectEl.style.display = 'none';
+      discEl.style.display    = '';
+    } else if (cfg.has_oauth_creds) {
+      statusEl.textContent    = 'Google Search Console not connected — connect to unlock Search Analytics, Sitemaps & URL Inspection.';
+      connectEl.style.display = '';
+      discEl.style.display    = 'none';
+    } else {
+      statusEl.textContent    = 'Google OAuth not configured.';
+      connectEl.style.display = 'none';
+      discEl.style.display    = 'none';
+    }
+  }).catch(function(){
+    document.getElementById('gsc-auth-status').textContent = '';
+  });
 
   var hasCreds = _gscRestoreCreds();
   if (hasCreds) {
@@ -9482,6 +9509,23 @@ function loadGscPage() {
     document.getElementById('gsc-empty').style.display = '';
     document.getElementById('gsc-saved-indicator').style.display = 'none';
   }
+}
+
+function gscConnect() {
+  var popup = window.open('/auth/google', 'gsc_auth', 'width=520,height=620,left=200,top=100');
+  window.addEventListener('message', function _onMsg(e) {
+    if (e.data && e.data.type === 'gsc_auth_success') {
+      window.removeEventListener('message', _onMsg);
+      loadGscPage();
+    } else if (e.data && e.data.type === 'gsc_auth_fail') {
+      window.removeEventListener('message', _onMsg);
+      alert('Google authorization failed: ' + (e.data.error || 'unknown error'));
+    }
+  });
+}
+
+function gscDisconnect() {
+  fetch('/api/gsc/disconnect', {method:'POST'}).then(function(){ loadGscPage(); });
 }
 
 function gscAnalyze(isAutoLoad) {
@@ -9617,6 +9661,68 @@ function _gscRenderSummary(data) {
 
   tiles.innerHTML = tileHtml;
   document.getElementById('gsc-summary-bar').style.display = '';
+
+  // Search Analytics table
+  var sa = scores.search_analytics || {};
+  var saWrap = document.getElementById('gsc-search-analytics');
+  if (!saWrap) {
+    saWrap = document.createElement('div');
+    saWrap.id = 'gsc-search-analytics';
+    saWrap.style.cssText = 'margin-bottom:16px;';
+    var issWrap = document.getElementById('gsc-issues-wrap');
+    issWrap.parentNode.insertBefore(saWrap, issWrap);
+  }
+  if (sa.top_queries && sa.top_queries.length) {
+    var rows = sa.top_queries.map(function(q){
+      var posCol = q.position <= 3 ? '#107c10' : q.position <= 10 ? '#986f0b' : '#a80000';
+      var ctrCol = q.ctr >= 5 ? '#107c10' : q.ctr >= 2 ? '#986f0b' : '#a80000';
+      return '<tr>'
+        + '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc(q.query)+'">'+_esc(q.query)+'</td>'
+        + '<td style="text-align:right;">'+q.clicks+'</td>'
+        + '<td style="text-align:right;">'+q.impressions+'</td>'
+        + '<td style="text-align:right;color:'+ctrCol+';font-weight:600;">'+q.ctr+'%</td>'
+        + '<td style="text-align:right;color:'+posCol+';font-weight:600;">#'+q.position+'</td>'
+        + '</tr>';
+    }).join('');
+    saWrap.innerHTML = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:6px;">Search Analytics — last 28 days <span style="font-weight:400;color:#a19f9d;">('+_esc(sa.period)+')</span></div>'
+      + '<div class="scroll-panel"><table><thead><tr>'
+      + '<th>Query</th><th style="text-align:right;">Clicks</th><th style="text-align:right;">Impressions</th>'
+      + '<th style="text-align:right;">CTR</th><th style="text-align:right;">Position</th>'
+      + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  } else if (sa.error) {
+    saWrap.innerHTML = '<div style="font-size:12px;color:#a19f9d;">Search Analytics: '+_esc(sa.error)+'</div>';
+  } else {
+    saWrap.innerHTML = '';
+  }
+
+  // Sitemaps
+  var smList = scores.gsc_sitemaps;
+  var smWrap = document.getElementById('gsc-sitemaps-panel');
+  if (!smWrap) {
+    smWrap = document.createElement('div');
+    smWrap.id = 'gsc-sitemaps-panel';
+    smWrap.style.cssText = 'margin-bottom:16px;';
+    saWrap.parentNode.insertBefore(smWrap, saWrap.nextSibling);
+  }
+  if (Array.isArray(smList) && smList.length) {
+    var smRows = smList.map(function(s){
+      var errCol = s.errors !== '0' ? 'color:#a80000;font-weight:600;' : 'color:#107c10;';
+      return '<tr>'
+        + '<td style="font-size:11px;word-break:break-all;">'+_esc(s.path)+'</td>'
+        + '<td style="text-align:right;">'+_esc(String(s.urlCount||0))+'</td>'
+        + '<td style="text-align:right;'+errCol+'">'+_esc(String(s.errors))+'</td>'
+        + '<td style="text-align:right;">'+_esc(String(s.warnings))+'</td>'
+        + '<td style="font-size:11px;color:#605e5c;">'+_esc((s.lastSubmitted||'').slice(0,10))+'</td>'
+        + '</tr>';
+    }).join('');
+    smWrap.innerHTML = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:6px;">Sitemaps in Google Search Console</div>'
+      + '<div class="scroll-panel"><table><thead><tr>'
+      + '<th>Sitemap</th><th style="text-align:right;">URLs</th><th style="text-align:right;">Errors</th>'
+      + '<th style="text-align:right;">Warnings</th><th>Last Submitted</th>'
+      + '</tr></thead><tbody>'+smRows+'</tbody></table></div>';
+  } else {
+    smWrap.innerHTML = '';
+  }
 }
 
 function _gscRenderCatFilters(issues) {

@@ -68,6 +68,7 @@ screenshots/
 .env
 secrets.json
 api_keys.json
+.gsc_token.json
 
 # Database
 *.db
