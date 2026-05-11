@@ -1841,6 +1841,13 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
   <nav class="sb-nav">
 
+    <div class="sb-nav-label">AI Assistant</div>
+    <button class="sb-item" id="sb-chatbot" onclick="sbNav('chatbot',this)">
+      <span class="sb-label">AI Chatbot</span>
+    </button>
+
+    <div class="sb-divider"></div>
+
     <div class="sb-nav-label">Overview</div>
     <button class="sb-item active" id="sb-dashboard" onclick="sbNav('dashboard',this)">
       <span class="sb-label">Dashboard</span>
@@ -2319,6 +2326,43 @@ Export Power BI
   </section>
 
   </div><!-- /page-vulns -->
+
+  <!-- ══ AI CHATBOT PAGE ══════════════════════════════════════════════════ -->
+  <div id="page-chatbot" class="page-section" style="display:none">
+  <div style="display:flex;flex-direction:column;height:100%;max-width:860px;margin:0 auto;padding:24px 24px 0;">
+    <div style="margin-bottom:16px;">
+      <div style="font-size:20px;font-weight:600;color:#201f1e;">AI Chatbot</div>
+      <div style="font-size:12px;color:#605e5c;margin-top:2px;">Ask anything — CVE analysis, scan results, dashboard features, security advice.</div>
+    </div>
+
+    <!-- Chat messages area -->
+    <div id="chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:16px;min-height:0;max-height:calc(100vh - 260px);">
+      <div id="chat-welcome" style="background:#f3f2f1;border-radius:6px;padding:16px 18px;font-size:13px;color:#323130;line-height:1.6;">
+        <strong>Welcome to CyberINK AI.</strong><br>
+        You can ask me to:<br>
+        &bull; Evaluate a CVE (e.g. <em>Explain CVE-2024-1234</em>)<br>
+        &bull; Interpret scan findings (e.g. <em>What does HIGH risk mean?</em>)<br>
+        &bull; Explain any dashboard feature<br>
+        &bull; Provide security hardening advice
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div style="border-top:1px solid #e1dfdd;padding:14px 0 20px;display:flex;gap:10px;align-items:flex-end;">
+      <textarea id="chat-input" placeholder="Ask anything about security or this dashboard…"
+        style="flex:1;resize:none;border:1px solid #c8c6c4;border-radius:4px;padding:10px 12px;font-size:13px;font-family:inherit;line-height:1.5;outline:none;min-height:44px;max-height:140px;overflow-y:auto;"
+        rows="1" onkeydown="chatKeydown(event)" oninput="chatAutoResize(this)"></textarea>
+      <button id="chat-send-btn" onclick="chatSend()"
+        style="height:44px;padding:0 20px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;">
+        Send
+      </button>
+      <button onclick="chatClear()"
+        style="height:44px;padding:0 14px;background:none;color:#605e5c;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;cursor:pointer;font-family:inherit;">
+        Clear
+      </button>
+    </div>
+  </div>
+  </div><!-- /page-chatbot -->
 
   <!-- ══ PRIORITY ACTIONS PAGE ═════════════════════════════════════════════ -->
   <div id="page-priority" class="page-section" style="display:none">
@@ -3805,6 +3849,7 @@ Load Logs
 
 // ── SPA Sidebar Navigation ────────────────────────────────────────────────────
 var _PAGE_TITLES = {
+  'chatbot':       'AI Chatbot',
   'dashboard':     'Security Dashboard',
   'observability': 'Unified Observability',
   'signals':       'Security Signals',
@@ -8448,6 +8493,130 @@ function _invRender() {
 }
 
 function invFilter() { _invRender(); }
+
+/* ═══════════════════════════════════════════════════════
+   AI CHATBOT
+   ═══════════════════════════════════════════════════════ */
+var _chatHistory = [];
+
+function chatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
+}
+
+function chatAutoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+
+function chatClear() {
+  _chatHistory = [];
+  var msgs = document.getElementById('chat-messages');
+  if (!msgs) return;
+  msgs.innerHTML = '<div id="chat-welcome" style="background:#f3f2f1;border-radius:6px;padding:16px 18px;font-size:13px;color:#323130;line-height:1.6;"><strong>Conversation cleared.</strong> Ask me anything.</div>';
+}
+
+function _chatAppend(role, text, id) {
+  var msgs = document.getElementById('chat-messages');
+  if (!msgs) return null;
+  var welcome = document.getElementById('chat-welcome');
+  if (welcome) welcome.remove();
+  var isUser = role === 'user';
+  var div = document.createElement('div');
+  if (id) div.id = id;
+  div.style.cssText = [
+    'max-width:85%', 'padding:10px 14px', 'border-radius:6px',
+    'font-size:13px', 'line-height:1.6', 'white-space:pre-wrap', 'word-break:break-word',
+    isUser ? 'align-self:flex-end;background:#0078d4;color:#fff;margin-left:auto'
+           : 'align-self:flex-start;background:#f3f2f1;color:#201f1e;'
+  ].join(';');
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function _chatRenderMarkdown(text) {
+  // Minimal markdown: bold, code blocks, inline code, bullets
+  return text
+    .replace(/```[\s\S]*?```/g, function(m){ return '<pre style="background:#1e1e1e;color:#d4d4d4;padding:10px 12px;border-radius:4px;overflow-x:auto;font-size:12px;margin:4px 0;">' + _esc(m.slice(3, m.lastIndexOf('```')).replace(/^\w+\n/,'')) + '</pre>'; })
+    .replace(/`([^`]+)`/g, '<code style="background:#e8e6e3;padding:1px 4px;border-radius:2px;font-size:12px;">$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^[-*] (.+)$/gm, '<div style="margin-left:12px;">&bull; $1</div>')
+    .replace(/\n/g, '<br>');
+}
+
+function chatSend() {
+  var input = document.getElementById('chat-input');
+  var btn   = document.getElementById('chat-send-btn');
+  var msg   = (input ? input.value : '').trim();
+  if (!msg) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  btn.disabled = true; btn.textContent = 'Sending…';
+
+  _chatAppend('user', msg);
+  _chatHistory.push({role: 'user', content: msg});
+
+  // Create AI response bubble
+  var welcome = document.getElementById('chat-welcome');
+  if (welcome) welcome.remove();
+  var msgs  = document.getElementById('chat-messages');
+  var aiDiv = document.createElement('div');
+  var aiId  = 'chat-ai-' + Date.now();
+  aiDiv.id  = aiId;
+  aiDiv.style.cssText = 'max-width:85%;padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.6;align-self:flex-start;background:#f3f2f1;color:#201f1e;word-break:break-word;';
+  aiDiv.innerHTML = '<span style="color:#605e5c;font-size:12px;">Thinking…</span>';
+  msgs.appendChild(aiDiv);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  var fullText = '';
+
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: msg, history: _chatHistory.slice(0, -1)})
+  }).then(function(r) {
+    if (!r.ok) return r.json().then(function(d){ throw new Error(d.error || 'HTTP ' + r.status); });
+    var reader = r.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    function read() {
+      reader.read().then(function(result) {
+        if (result.done) {
+          btn.disabled = false; btn.textContent = 'Send';
+          if (fullText) _chatHistory.push({role: 'assistant', content: fullText});
+          return;
+        }
+        buffer += decoder.decode(result.value, {stream: true});
+        var lines = buffer.split('\n');
+        buffer = lines.pop();
+        lines.forEach(function(line) {
+          if (!line.startsWith('data: ')) return;
+          var payload = line.slice(6).trim();
+          if (payload === '[DONE]') return;
+          try {
+            var d = JSON.parse(payload);
+            if (d.error) { aiDiv.innerHTML = '<span style="color:#a80000;">' + _esc(d.error) + '</span>'; return; }
+            if (d.text) {
+              fullText += d.text;
+              aiDiv.innerHTML = _chatRenderMarkdown(fullText);
+              msgs.scrollTop = msgs.scrollHeight;
+            }
+          } catch(e) {}
+        });
+        read();
+      }).catch(function(e) {
+        btn.disabled = false; btn.textContent = 'Send';
+        aiDiv.innerHTML = '<span style="color:#a80000;">Stream error: ' + _esc(String(e)) + '</span>';
+      });
+    }
+    read();
+  }).catch(function(e) {
+    btn.disabled = false; btn.textContent = 'Send';
+    aiDiv.innerHTML = '<span style="color:#a80000;">Error: ' + _esc(String(e)) + '</span>';
+  });
+}
 
 function _getInvPluginDomain() {
   try { return localStorage.getItem('cfai_inv_plugin_domain') || ''; } catch(e) { return ''; }

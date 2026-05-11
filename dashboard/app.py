@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flask import Flask, render_template, jsonify, abort, request
+from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context
 import dashboard.db as db
 from dashboard.remediations import REMEDIATIONS
 
@@ -3284,6 +3284,107 @@ def api_inventories_cpanel_plugins():
             post_data={'files': f'/{wp_dir}/{script_name}'})
 
     return jsonify({'plugins': plugins, 'total': len(plugins), 'source': 'cpanel'})
+
+
+@app.route('/api/chat', methods=['POST'])
+def api_chat():
+    """AI Chatbot — streams a Claude response via SSE. Body: {message, history:[{role,content}]}"""
+    data    = request.get_json(force=True, silent=True) or {}
+    message = (data.get('message') or '').strip()
+    history = data.get('history') or []
+
+    if not message:
+        return jsonify({'error': 'message is required'}), 400
+
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+    if not api_key:
+        return jsonify({'error': 'ANTHROPIC_API_KEY not configured in .env'}), 500
+
+    try:
+        import anthropic as _ant
+    except ImportError:
+        return jsonify({'error': 'anthropic package not installed — run: pip install anthropic'}), 500
+
+    # Build context-aware system prompt
+    try:
+        stats = db.get_stats()
+    except Exception:
+        stats = {}
+    total_scans   = stats.get('total_scans', 0)
+    total_targets = stats.get('total_targets', 0)
+
+    system_prompt = f"""You are CyberINK AI, an expert security intelligence assistant built into the CyberINK Security Intelligence dashboard.
+
+Current dashboard context:
+- Total scans in database: {total_scans}
+- Unique targets monitored: {total_targets}
+
+Dashboard pages you can explain:
+- Dashboard: Security posture overview, KPIs, live risk scores
+- Secure Score: Security score based on real scan findings
+- Threat Analytics: PCI-style threat analytics from scan history
+- Incidents: Security incident tracking and management
+- Security Signals: Real-time threat signals and alerts
+- Event Timeline: Chronological security event timeline
+- MITRE ATT&CK: Attack technique mapping from scan findings
+- Priority Actions: Critical actions requiring immediate attention, with Cloudflare site-lock
+- Recommendations: AI-generated security improvement suggestions
+- Remediation: SOC-style remediation workflow
+- Weaknesses: CVE and vulnerability catalog by severity
+- Inventories: Plugin, software, and scanned-site inventory
+- Security Analytics: Historical scan analytics and trends
+- Observability: Unified monitoring across all targets
+- Log Explorer: Live log analysis via SSH, WordPress Admin, cPanel, or MySQL
+- User Activity Logs: WordPress admin actions and login history
+- Network Monitor: Port and service monitoring
+- Connect & Scan: Launch AI security scans with various agents
+
+AI agents available for scanning:
+- API Security Tester (apit): REST API vulnerability testing
+- WordPress Security (wpsc): Deep WordPress security audit
+- Info Gathering (info): OSINT and reconnaissance
+- Network Scanner (netscan): Port scanning and service enumeration
+- Vulnerability Scanner (vulnscan): CVE and weakness detection
+
+You can help users:
+1. Evaluate any CVE — explain CVSS score, affected systems, impact, exploitation, and remediation steps
+2. Interpret scan findings and security alerts
+3. Explain any dashboard feature or workflow
+4. Provide security best practices and hardening recommendations
+5. Answer general cybersecurity questions
+6. Help prioritize remediation based on risk and exploitability
+
+Be concise, accurate, and actionable. Use markdown for structure. For CVEs always include: severity, affected versions, attack vector, and concrete fix steps."""
+
+    messages = []
+    for h in (history or [])[-20:]:
+        role    = (h.get('role') or '').strip()
+        content = (h.get('content') or '').strip()
+        if role in ('user', 'assistant') and content:
+            messages.append({'role': role, 'content': content})
+    messages.append({'role': 'user', 'content': message})
+
+    client = _ant.Anthropic(api_key=api_key)
+
+    def _generate():
+        try:
+            with client.messages.stream(
+                model='claude-haiku-4-5-20251001',
+                max_tokens=1500,
+                system=system_prompt,
+                messages=messages,
+            ) as stream:
+                for text in stream.text_stream:
+                    yield f"data: {_json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {_json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(
+        stream_with_context(_generate()),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
 
 
 @app.route('/api/geoip')
