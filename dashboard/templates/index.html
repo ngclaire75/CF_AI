@@ -3844,7 +3844,7 @@ function sbNav(section, el) {
   if (section === 'mitre')         loadMitreCoverage();
   if (section === 'incidents')     loadIncidents();
   if (section === 'history')       loadHistoryPage();
-  if (section === 'pluginlogs')    loadPluginLogsPage();
+  if (section === 'pluginlogs')    loadPluginLogsPage(); // restores saved target + auto-loads
   if (section === 'logexplorer')   _checkMysqlSavedIndicator();
   if (section === 'vulns')         _tiAutoLoad();
   if (section === 'weaknesses')    loadWeaknesses();
@@ -4713,27 +4713,57 @@ function clearAllScans() {
    PLUGIN LOGS PAGE JS
    ═══════════════════════════════════════════════════════ */
 function loadPluginLogsPage() {
-  // Populate target selector from scan history
+  // Populate target selector from scan history, then restore saved selection and auto-load
   var sel = document.getElementById('pl-target-sel');
   if (!sel) return;
+
+  // Add cPanel / MySQL targets so they appear even without a scan
+  var extraTargets = [];
+  var cpCreds = _getCpanelCreds();
+  if (cpCreds && cpCreds.url) extraTargets.push(cpCreds.url.replace(/^https?:\/\//,'').replace(/\/$/,''));
+  var mysCreds = _getMysqlCreds();
+  if (mysCreds && mysCreds.db_name) extraTargets.push(mysCreds.db_name);
+
   fetch('/api/scans/recent?limit=500')
     .then(function(r){ return r.json(); })
     .then(function(d) {
       var scans = d.scans || d || [];
-      var targets = [];
       var seen = {};
-      scans.forEach(function(s) { if (s.target && !seen[s.target]) { seen[s.target] = 1; targets.push(s.target); } });
+      var targets = [];
+      scans.forEach(function(s) { if (s.target && !seen[s.target]) { seen[s.target]=1; targets.push(s.target); } });
+      extraTargets.forEach(function(t) { if (t && !seen[t]) { seen[t]=1; targets.push(t); } });
       targets.sort();
       sel.innerHTML = '<option value="">All targets</option>' +
         targets.map(function(t){ return '<option value="'+_esc(t)+'">'+_esc(t)+'</option>'; }).join('');
+
+      // Restore previously selected target
+      var saved = _getUalTarget();
+      if (saved) {
+        sel.value = saved;
+        if (sel.value !== saved) {
+          // saved target not in list yet — add it
+          var opt = document.createElement('option');
+          opt.value = saved; opt.textContent = saved; opt.selected = true;
+          sel.appendChild(opt);
+        }
+        runPluginLogsPage(); // auto-load with saved target
+      }
     })
     .catch(function(){});
+}
+
+function _getUalTarget() {
+  try { return localStorage.getItem('cfai_ual_target') || ''; } catch(e) { return ''; }
+}
+function _saveUalTarget(t) {
+  try { if (t) localStorage.setItem('cfai_ual_target', t); else localStorage.removeItem('cfai_ual_target'); } catch(e) {}
 }
 
 function runPluginLogsPage() {
   var target = (document.getElementById('pl-target-sel') || {}).value || '';
   var tbody = document.getElementById('pl-tbody');
   if (!tbody) return;
+  _saveUalTarget(target); // persist the selected target
   tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#605e5c;">Loading...</td></tr>';
   document.getElementById('pl-count').textContent = '';
 
@@ -4844,6 +4874,14 @@ function _renderPluginLogs(logs) {
     if (countEl) countEl.textContent = '';
     return;
   }
+  // Deduplicate by timestamp+user+event (merge with any cached previous load)
+  var seen = {};
+  var deduped = [];
+  logs.forEach(function(l) {
+    var k = (l.timestamp||'') + '|' + (l.user||'') + '|' + (l.event||'').slice(0,60);
+    if (!seen[k]) { seen[k] = 1; deduped.push(l); }
+  });
+  logs = deduped;
   // Sort newest first
   logs.sort(function(a,b){ return (b.timestamp||'').localeCompare(a.timestamp||''); });
   if (countEl) countEl.textContent = logs.length + ' entries';
