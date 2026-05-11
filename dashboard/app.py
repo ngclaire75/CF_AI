@@ -2214,14 +2214,23 @@ def api_logs_wp_cpanel_db():
         "    $desc = $pdo->query(\"DESCRIBE {$p}simple_history_contexts\")->fetchAll(PDO::FETCH_COLUMN);\n"
         "    if (!in_array('key_name', $desc) && in_array('key', $desc)) { $kc = '`key`'; }\n"
         "  } catch(Exception $_e) {}\n"
-        "  $rows = $pdo->query(\n"
-        "    \"SELECT h.id, h.date, h.logger, h.level, h.message,\n"
-        "     COALESCE((SELECT value FROM {$p}simple_history_contexts\n"
-        "       WHERE history_id=h.id AND {$kc}='_user_login' LIMIT 1),'') AS user_login,\n"
-        "     COALESCE((SELECT value FROM {$p}simple_history_contexts\n"
-        "       WHERE history_id=h.id AND {$kc}='_server_remote_addr' LIMIT 1),'') AS ip\n"
-        f"    FROM {table_pfx}simple_history h ORDER BY h.id DESC LIMIT {limit}\"\n"
-        "  )->fetchAll(PDO::FETCH_ASSOC);\n"
+        f"  $rows = $pdo->query(\"SELECT id, date, logger, level, message FROM {table_pfx}simple_history ORDER BY id DESC LIMIT {limit}\")->fetchAll(PDO::FETCH_ASSOC);\n"
+        "  if ($rows) {\n"
+        "    $ids = array_column($rows, 'id');\n"
+        "    $ph  = implode(',', array_fill(0, count($ids), '?'));\n"
+        "    $st  = $pdo->prepare(\"SELECT history_id, {$kc} AS k, value FROM {$p}simple_history_contexts WHERE history_id IN ($ph)\");\n"
+        "    $st->execute($ids);\n"
+        "    $ctxMap = [];\n"
+        "    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $c) { $ctxMap[$c['history_id']][$c['k']] = $c['value']; }\n"
+        "    foreach ($rows as &$row) {\n"
+        "      $ctx = isset($ctxMap[$row['id']]) ? $ctxMap[$row['id']] : [];\n"
+        "      $msg = $row['message'];\n"
+        "      foreach ($ctx as $k => $v) { if ($k[0] !== '_') { $msg = str_replace('{' . $k . '}', $v, $msg); } }\n"
+        "      $row['message']    = $msg;\n"
+        "      $row['user_login'] = isset($ctx['_user_login']) ? $ctx['_user_login'] : '';\n"
+        "      $row['ip']         = isset($ctx['_server_remote_addr']) ? $ctx['_server_remote_addr'] : '';\n"
+        "    }\n"
+        "  }\n"
         "  header('Content-Type: application/json');\n"
         "  echo json_encode(['ok'=>true,'source'=>'wp_db','events'=>$rows]);\n"
         "} catch(Exception $e) {\n"
@@ -2357,32 +2366,38 @@ def api_logs_wp_mysql_direct():
                 except Exception:
                     pass
                 cur.execute(f"""
-                    SELECT
-                        h.id, h.date, h.logger, h.level, h.message,
-                        COALESCE(
-                            (SELECT value FROM {ctx_table}
-                             WHERE history_id = h.id AND {key_col} = '_user_login' LIMIT 1), ''
-                        ) AS user_login,
-                        COALESCE(
-                            (SELECT value FROM {ctx_table}
-                             WHERE history_id = h.id AND {key_col} = '_server_remote_addr' LIMIT 1), ''
-                        ) AS ip
-                    FROM {sh_table} h
-                    ORDER BY h.id DESC
+                    SELECT id, date, logger, level, message
+                    FROM {sh_table}
+                    ORDER BY id DESC
                     LIMIT %s
                 """, (limit,))
-                for row in cur.fetchall():
-                    msg = str(row.get('message') or row.get('logger') or '')
-                    if not msg: continue
-                    events.append({
-                        'timestamp': str(row.get('date') or ''),
-                        'user':      str(row.get('user_login') or '—'),
-                        'event':     msg[:120],
-                        'ip':        str(row.get('ip') or ''),
-                        'severity':  'HIGH' if any(k in msg.lower() for k in ('fail','block','attack','brute','invalid')) else 'INFO',
-                        'status':    'failed' if any(k in msg.lower() for k in ('fail','block','denied','invalid')) else 'success',
-                        'source':    'Simple History',
-                    })
+                rows = cur.fetchall()
+                if rows:
+                    ids = [r['id'] for r in rows]
+                    fmt = ','.join(['%s'] * len(ids))
+                    cur.execute(
+                        f"SELECT history_id, {key_col} AS k, value FROM {ctx_table} WHERE history_id IN ({fmt})",
+                        ids
+                    )
+                    ctx_map: dict = {}
+                    for c in cur.fetchall():
+                        ctx_map.setdefault(c['history_id'], {})[c['k']] = c['value']
+                    for row in rows:
+                        ctx  = ctx_map.get(row['id'], {})
+                        msg  = str(row.get('message') or row.get('logger') or '')
+                        for k, v in ctx.items():
+                            if k and k[0] != '_':
+                                msg = msg.replace('{' + k + '}', str(v))
+                        if not msg: continue
+                        events.append({
+                            'timestamp': str(row.get('date') or ''),
+                            'user':      str(ctx.get('_user_login') or '—'),
+                            'event':     msg[:200],
+                            'ip':        str(ctx.get('_server_remote_addr') or ''),
+                            'severity':  'HIGH' if any(k in msg.lower() for k in ('fail','block','attack','brute','invalid')) else 'INFO',
+                            'status':    'failed' if any(k in msg.lower() for k in ('fail','block','denied','invalid')) else 'success',
+                            'source':    'Simple History',
+                        })
                 source = 'Simple History'
 
             # ── 2. Wordfence wp_wfLogins (fallback / supplement) ──────────────
