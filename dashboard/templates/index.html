@@ -1848,6 +1848,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <button class="sb-item" id="sb-gsc" onclick="sbNav('gsc',this)">
       <span class="sb-label">Search Console</span>
     </button>
+    <button class="sb-item" id="sb-filescan" onclick="sbNav('filescan',this)">
+      <span class="sb-label">File Scanner</span>
+    </button>
 
     <div class="sb-divider"></div>
 
@@ -2449,6 +2452,50 @@ Export Power BI
     <div id="gsc-error" style="display:none;padding:16px;background:#fde7e9;border-radius:6px;font-size:13px;color:#a80000;"></div>
   </section>
   </div><!-- /page-gsc -->
+
+  <!-- ══ FILE SCANNER PAGE ════════════════════════════════════════════════ -->
+  <div id="page-filescan" class="page-section" style="display:none">
+  <section class="section">
+    <div class="sec-title">WordPress File Scanner</div>
+    <div style="font-size:13px;color:#605e5c;margin-bottom:16px;">
+      Automatically checks for malware, PHP files in uploads, modified core files, and suspicious plugins — powered by Wordfence DB + WordPress REST API.
+    </div>
+
+    <!-- Form -->
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+      <div style="flex:1;min-width:220px;">
+        <label style="font-size:12px;font-weight:600;color:#323130;display:block;margin-bottom:4px;">Site URL</label>
+        <input id="fs-site-url" type="text" placeholder="https://servicebrankas.com"
+          style="width:100%;padding:7px 10px;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <button onclick="fsRun()" style="padding:7px 20px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer;font-weight:600;">Scan Now</button>
+      <button onclick="fsClear()" style="padding:7px 14px;background:#f3f2f1;color:#323130;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;cursor:pointer;">Clear</button>
+    </div>
+
+    <!-- Status -->
+    <div id="fs-loading" style="display:none;font-size:13px;color:#605e5c;padding:8px 0;">Scanning… this may take 15–30 seconds.</div>
+    <div id="fs-error"   style="display:none;padding:12px;background:#fde7e9;border-radius:6px;font-size:13px;color:#a80000;margin-bottom:12px;"></div>
+
+    <!-- Results -->
+    <div id="fs-results" style="display:none;">
+      <!-- Summary bar -->
+      <div id="fs-summary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+      <!-- Wordfence issues -->
+      <div id="fs-wf-panel"  style="margin-bottom:16px;"></div>
+      <!-- Modified core files -->
+      <div id="fs-mods-panel" style="margin-bottom:16px;"></div>
+      <!-- PHP in uploads -->
+      <div id="fs-uploads-panel" style="margin-bottom:16px;"></div>
+      <!-- Active plugins -->
+      <div id="fs-plugins-panel" style="margin-bottom:16px;"></div>
+    </div>
+
+    <div id="fs-empty" style="padding:32px;text-align:center;color:#a19f9d;font-size:13px;">
+      Enter the WordPress site URL above and click Scan Now.
+    </div>
+  </section>
+  </div><!-- /page-filescan -->
 
   <!-- ══ PRIORITY ACTIONS PAGE ═════════════════════════════════════════════ -->
   <div id="page-priority" class="page-section" style="display:none">
@@ -3937,6 +3984,7 @@ Load Logs
 var _PAGE_TITLES = {
   'chatbot':       'AI Chatbot',
   'gsc':           'Domain Health & Search Console',
+  'filescan':      'WordPress File Scanner',
   'dashboard':     'Security Dashboard',
   'observability': 'Unified Observability',
   'signals':       'Security Signals',
@@ -3995,6 +4043,7 @@ function sbNav(section, el) {
   if (section === 'securescore')   loadSecureScore();
   if (section === 'priority')      loadMaintenanceStatus();
   if (section === 'gsc')           loadGscPage();
+  if (section === 'filescan')      loadFileScanPage();
 }
 
 function toggleSidebar() {
@@ -9446,6 +9495,196 @@ function loadThreatIntel() {
       if (wrapEl) wrapEl.style.display = '';
       if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#a80000;font-size:12px;">Error loading threat intelligence: ' + _esc(String(e)) + '</td></tr>';
     });
+}
+
+// ── WordPress File Scanner ────────────────────────────────────────────────────
+function loadFileScanPage() {
+  var saved = localStorage.getItem('cfai_filescan_url');
+  if (saved) document.getElementById('fs-site-url').value = saved;
+}
+
+function fsClear() {
+  document.getElementById('fs-site-url').value = '';
+  document.getElementById('fs-results').style.display = 'none';
+  document.getElementById('fs-error').style.display = 'none';
+  document.getElementById('fs-empty').style.display = '';
+  localStorage.removeItem('cfai_filescan_url');
+}
+
+function fsRun() {
+  var url = (document.getElementById('fs-site-url').value || '').trim();
+  if (!url) { alert('Enter a site URL first.'); return; }
+  if (!url.startsWith('http')) url = 'https://' + url;
+  localStorage.setItem('cfai_filescan_url', url);
+
+  document.getElementById('fs-empty').style.display = 'none';
+  document.getElementById('fs-error').style.display = 'none';
+  document.getElementById('fs-results').style.display = 'none';
+  document.getElementById('fs-loading').style.display = '';
+
+  fetch('/api/wp/filescan', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({site_url: url})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    document.getElementById('fs-loading').style.display = 'none';
+    if (data.error) {
+      document.getElementById('fs-error').textContent = data.error;
+      document.getElementById('fs-error').style.display = '';
+      return;
+    }
+    _fsRender(data);
+    document.getElementById('fs-results').style.display = '';
+    document.getElementById('fs-empty').style.display = 'none';
+  })
+  .catch(function(e){
+    document.getElementById('fs-loading').style.display = 'none';
+    document.getElementById('fs-error').textContent = 'Request failed: ' + e;
+    document.getElementById('fs-error').style.display = '';
+  });
+}
+
+function _fsRender(data) {
+  var sum = data.summary || {};
+
+  // Summary bar
+  var sumHtml = '';
+  var sevCfg = [
+    {k:'critical', label:'Critical', bg:'#fde7e9', col:'#a80000'},
+    {k:'high',     label:'High',     bg:'#fff4ce', col:'#7a4f00'},
+    {k:'medium',   label:'Medium',   bg:'#eff6fc', col:'#004578'},
+    {k:'info',     label:'Info',     bg:'#e9f8ee', col:'#107c10'},
+  ];
+  sevCfg.forEach(function(s){
+    var n = sum[s.k] || 0;
+    if (!n) return;
+    sumHtml += '<span style="background:'+s.bg+';color:'+s.col+';font-size:11px;font-weight:700;padding:3px 12px;border-radius:12px;">'+n+' '+s.label+'</span>';
+  });
+  if (data.last_scan) sumHtml += '<span style="font-size:11px;color:#605e5c;margin-left:8px;">Last Wordfence scan: '+_esc(data.last_scan)+'</span>';
+  if (!data.db_connected) sumHtml += '<span style="font-size:11px;color:#986f0b;background:#fff4ce;padding:3px 10px;border-radius:10px;">DB not connected — configure WP_DB_* in .env for deeper results</span>';
+  document.getElementById('fs-summary').innerHTML = sumHtml;
+
+  // ── PHP files in uploads ────────────────────────────────────────────────
+  var upPanel = document.getElementById('fs-uploads-panel');
+  var upFiles = data.upload_php_files || [];
+  if (upFiles.length) {
+    var upRows = upFiles.map(function(f){
+      return '<tr><td style="font-size:11px;word-break:break-all;color:#a80000;font-weight:600;">'+_esc(f)+'</td></tr>';
+    }).join('');
+    upPanel.innerHTML = '<div style="background:#fde7e9;border:1px solid #f1b3b7;border-radius:6px;padding:12px 16px;">'
+      + '<div style="font-size:13px;font-weight:700;color:#a80000;margin-bottom:8px;">⚠ PHP files found in uploads/ — likely malware ('+upFiles.length+')</div>'
+      + '<div style="font-size:12px;color:#323130;margin-bottom:8px;">PHP files should NEVER exist in the uploads folder. These must be deleted immediately.</div>'
+      + '<div class="scroll-panel"><table><thead><tr><th>File Path</th></tr></thead><tbody>'+upRows+'</tbody></table></div>'
+      + '<div style="font-size:11px;color:#605e5c;margin-top:8px;">Delete via cPanel File Manager → public_html → wp-content → uploads → find and delete each file.</div>'
+      + '</div>';
+  } else {
+    upPanel.innerHTML = '<div style="background:#e9f8ee;border:1px solid #9fd4a3;border-radius:6px;padding:10px 16px;font-size:13px;color:#107c10;font-weight:600;">'
+      + '✓ No PHP files found in uploads/ — clean</div>';
+  }
+
+  // ── Wordfence issues ────────────────────────────────────────────────────
+  var wfPanel = document.getElementById('fs-wf-panel');
+  var wfIssues = data.wordfence_issues || [];
+  if (wfIssues.length) {
+    var sevColors = {critical:'#a80000', high:'#7a4f00', medium:'#004578', info:'#107c10'};
+    var sevBgs    = {critical:'#fde7e9', high:'#fff4ce', medium:'#eff6fc', info:'#e9f8ee'};
+    var wfRows = wfIssues.map(function(i){
+      var c = sevColors[i.severity]||'#323130';
+      var b = sevBgs[i.severity]||'#f3f2f1';
+      return '<tr>'
+        + '<td><span style="background:'+b+';color:'+c+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">'+i.severity.toUpperCase()+'</span></td>'
+        + '<td style="font-size:12px;font-weight:600;">'+_esc(i.short)+'</td>'
+        + '<td style="font-size:11px;color:#605e5c;max-width:300px;">'+_esc((i.detail||'').slice(0,120))+'</td>'
+        + '</tr>';
+    }).join('');
+    wfPanel.innerHTML = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:6px;">Wordfence Security Issues ('+wfIssues.length+')</div>'
+      + '<div class="scroll-panel"><table><thead><tr><th>Severity</th><th>Issue</th><th>Detail</th></tr></thead><tbody>'+wfRows+'</tbody></table></div>';
+  } else if (data.db_connected) {
+    wfPanel.innerHTML = '<div style="font-size:12px;color:#107c10;">✓ Wordfence: No active security issues found</div>';
+  } else {
+    wfPanel.innerHTML = '';
+  }
+
+  // ── Modified core files ─────────────────────────────────────────────────
+  var modPanel = document.getElementById('fs-mods-panel');
+  var modFiles = (data.modified_files || []).filter(function(f){ return f.is_core && f.changed; });
+  if (modFiles.length) {
+    var modRows = modFiles.map(function(f){
+      return '<tr><td style="font-size:11px;word-break:break-all;color:#a80000;">'+_esc(f.file)+'</td><td style="font-size:11px;color:#a80000;font-weight:600;">Modified</td></tr>';
+    }).join('');
+    modPanel.innerHTML = '<div style="font-size:12px;font-weight:600;color:#a80000;margin-bottom:6px;">WordPress Core Files Modified ('+modFiles.length+') — possible hack</div>'
+      + '<div class="scroll-panel"><table><thead><tr><th>File</th><th>Status</th></tr></thead><tbody>'+modRows+'</tbody></table></div>'
+      + '<div style="font-size:11px;color:#605e5c;margin-top:6px;">Core WordPress files should never be modified. Reinstall WordPress core via Dashboard → Updates → Re-install.</div>';
+  } else if (data.db_connected) {
+    modPanel.innerHTML = '<div style="font-size:12px;color:#107c10;">✓ No modified WordPress core files detected</div>';
+  } else {
+    modPanel.innerHTML = '';
+  }
+
+  // ── Active plugins ──────────────────────────────────────────────────────
+  var plPanel = document.getElementById('fs-plugins-panel');
+  var plugins = data.plugins || [];
+  if (plugins.length) {
+    var plRows = plugins.map(function(p){
+      return '<tr><td style="font-size:12px;font-weight:600;">'+_esc(p.slug)+'</td><td style="font-size:11px;color:#605e5c;">'+_esc(p.path)+'</td></tr>';
+    }).join('');
+    plPanel.innerHTML = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:6px;">Active Plugins ('+plugins.length+') — verify all are known</div>'
+      + '<div class="scroll-panel"><table><thead><tr><th>Plugin</th><th>Path</th></tr></thead><tbody>'+plRows+'</tbody></table></div>';
+  } else {
+    plPanel.innerHTML = '';
+  }
+
+  // ── Recently modified files (from mu-plugin deep scan) ─────────────────
+  var modRecentPanel = document.createElement('div');
+  modRecentPanel.id = 'fs-recent-panel';
+  modRecentPanel.style.cssText = 'margin-bottom:16px;';
+  var recentFiles = data.recent_modified || [];
+  if (data.plugin_installed && recentFiles.length) {
+    var _SUSP_EXT = ['php','exe','bat','sh','cmd','py'];
+    var rRows = recentFiles.map(function(f){
+      var isSusp = _SUSP_EXT.indexOf((f.ext||'').toLowerCase()) !== -1;
+      var rowStyle = isSusp ? 'color:#a80000;font-weight:600;' : '';
+      return '<tr style="'+rowStyle+'">'
+        + '<td style="font-size:11px;word-break:break-all;">'+_esc(f.file)+'</td>'
+        + '<td style="font-size:11px;white-space:nowrap;">'+_esc(f.modified)+'</td>'
+        + '<td style="font-size:11px;">'+_esc(f.ext)+'</td>'
+        + '<td style="font-size:11px;">'+(f.size ? Math.round(f.size/1024)+'KB' : '')+'</td>'
+        + '<td>'+(isSusp ? '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">SUSPICIOUS</span>' : '')+'</td>'
+        + '</tr>';
+    }).join('');
+    modRecentPanel.innerHTML = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:6px;">'
+      + 'Recently Modified Files — last 7 days ('+recentFiles.length+')</div>'
+      + '<div class="scroll-panel"><table><thead><tr>'
+      + '<th>File</th><th>Modified</th><th>Ext</th><th>Size</th><th>Flag</th>'
+      + '</tr></thead><tbody>'+rRows+'</tbody></table></div>';
+  } else if (data.plugin_installed) {
+    modRecentPanel.innerHTML = '<div style="font-size:12px;color:#107c10;">✓ No recently modified suspicious files in wp-content (last 7 days)</div>';
+  }
+  document.getElementById('fs-results').appendChild(modRecentPanel);
+
+  // ── Site info (from mu-plugin) ──────────────────────────────────────────
+  if (data.plugin_installed && (data.wp_version || data.php_version)) {
+    var infoDiv = document.createElement('div');
+    infoDiv.style.cssText = 'font-size:11px;color:#605e5c;margin-bottom:12px;';
+    infoDiv.innerHTML = (data.wp_version ? 'WordPress <strong>'+_esc(data.wp_version)+'</strong> ' : '')
+      + (data.php_version ? '| PHP <strong>'+_esc(data.php_version)+'</strong>' : '')
+      + (data.scan_time ? ' | Scanned at '+_esc(data.scan_time) : '');
+    document.getElementById('fs-results').appendChild(infoDiv);
+  }
+
+  // ── mu-plugin install notice (if not yet installed) ────────────────────
+  if (!data.plugin_installed) {
+    var muNotice = document.createElement('div');
+    muNotice.style.cssText = 'background:#eff6fc;border:1px solid #c7e0f4;border-radius:6px;padding:12px 16px;margin-top:12px;font-size:12px;color:#004578;';
+    muNotice.innerHTML = '<strong>Enable deep file scanning</strong> — scans all upload year/month folders, detects recently modified PHP, shows WP &amp; PHP version.<br><br>'
+      + '<strong>Step 1:</strong> <a href="/api/wp/filescan-plugin" style="color:#0078d4;font-weight:600;">Download cfai-scanner.php</a><br>'
+      + '<strong>Step 2:</strong> In cPanel File Manager → go to <code>public_html/wp-content/mu-plugins/</code><br>'
+      + '<strong>Step 3:</strong> Upload the file (no activation needed — mu-plugins run automatically)<br>'
+      + '<strong>Step 4:</strong> Click Scan Now again';
+    document.getElementById('fs-results').appendChild(muNotice);
+  }
 }
 
 // ── Google Search Console / Domain Health ─────────────────────────────────────

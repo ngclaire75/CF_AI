@@ -4702,6 +4702,285 @@ def api_gsc_analyze():
     })
 
 
+@app.route('/api/wp/filescan', methods=['POST'])
+def api_wp_filescan():
+    """Scan WordPress site for malware, suspicious files, and recent modifications.
+    Reads from Wordfence DB tables + WordPress REST API. No extra plugin needed."""
+    try:
+        data = request.get_json(silent=True) or {}
+        site_url = (data.get('site_url') or '').strip().rstrip('/')
+        if not site_url:
+            return jsonify({'error': 'site_url is required'}), 400
+        if not site_url.startswith('http'):
+            site_url = 'https://' + site_url
+
+        db_host  = os.environ.get('WP_DB_HOST', '')
+        db_port  = int(os.environ.get('WP_DB_PORT', 3306))
+        db_name  = os.environ.get('WP_DB_NAME', '')
+        db_user  = os.environ.get('WP_DB_USER', '')
+        db_pass  = os.environ.get('WP_DB_PASS', '')
+        db_pfx   = os.environ.get('WP_DB_PREFIX', 'wp_')
+
+        results = {
+            'site_url':        site_url,
+            'wordfence_issues': [],
+            'modified_files':   [],
+            'upload_php_files': [],
+            'plugins':          [],
+            'last_scan':        None,
+            'db_connected':     False,
+            'summary': {'critical': 0, 'high': 0, 'medium': 0, 'info': 0},
+        }
+
+        # ── MySQL / Wordfence ─────────────────────────────────────────────────
+        if db_host and db_name and db_user:
+            try:
+                import pymysql, pymysql.cursors
+                conn = pymysql.connect(
+                    host=db_host, port=db_port, user=db_user, password=db_pass,
+                    database=db_name, charset='utf8mb4', connect_timeout=10,
+                    cursorclass=pymysql.cursors.DictCursor)
+                results['db_connected'] = True
+
+                with conn.cursor() as cur:
+                    # ── Wordfence issues (malware, suspicious files) ──────────
+                    wf_issues_tbl = f'{db_pfx}wfIssues'
+                    try:
+                        cur.execute(
+                            f"SELECT type, severity, shortMsg, longMsg, data, lastUpdated "
+                            f"FROM {wf_issues_tbl} WHERE status != 'deleted' "
+                            f"ORDER BY severity DESC LIMIT 100")
+                        for row in cur.fetchall():
+                            sev_num = int(row.get('severity') or 0)
+                            sev = 'critical' if sev_num >= 100 else 'high' if sev_num >= 50 else 'medium' if sev_num >= 10 else 'info'
+                            results['summary'][sev] = results['summary'].get(sev, 0) + 1
+                            results['wordfence_issues'].append({
+                                'type':     row.get('type', ''),
+                                'severity': sev,
+                                'short':    row.get('shortMsg', ''),
+                                'detail':   row.get('longMsg', ''),
+                                'updated':  str(row.get('lastUpdated', '')),
+                            })
+                    except Exception:
+                        pass
+
+                    # ── Wordfence file modifications ──────────────────────────
+                    wf_filemods_tbl = f'{db_pfx}wfFileMods'
+                    try:
+                        cur.execute(
+                            f"SELECT filename, filenameMD5, oldMD5, newMD5, isCoreFile "
+                            f"FROM {wf_filemods_tbl} "
+                            f"ORDER BY isCoreFile DESC LIMIT 200")
+                        for row in cur.fetchall():
+                            fname = row.get('filename', '')
+                            is_core = bool(row.get('isCoreFile'))
+                            results['modified_files'].append({
+                                'file':     fname,
+                                'is_core':  is_core,
+                                'changed':  row.get('oldMD5') != row.get('newMD5'),
+                            })
+                            if is_core:
+                                results['summary']['high'] = results['summary'].get('high', 0) + 1
+                    except Exception:
+                        pass
+
+                    # ── PHP files in uploads (via Wordfence scan data) ────────
+                    wf_scanner_tbl = f'{db_pfx}wfScanners'
+                    try:
+                        cur.execute(
+                            f"SELECT filename FROM {wf_scanner_tbl} "
+                            f"WHERE filename LIKE '%/uploads/%.php' LIMIT 50")
+                        for row in cur.fetchall():
+                            results['upload_php_files'].append(row.get('filename', ''))
+                            results['summary']['critical'] = results['summary'].get('critical', 0) + 1
+                    except Exception:
+                        pass
+
+                    # ── Last Wordfence scan time ──────────────────────────────
+                    try:
+                        opts_tbl = f'{db_pfx}options'
+                        cur.execute(
+                            f"SELECT option_value FROM {opts_tbl} "
+                            f"WHERE option_name = 'wordfence_lastScanCompleted' LIMIT 1")
+                        row = cur.fetchone()
+                        if row and row.get('option_value'):
+                            import datetime as _dt
+                            ts = int(row['option_value'])
+                            results['last_scan'] = _dt.datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M UTC')
+                    except Exception:
+                        pass
+
+                    # ── Active plugins from DB ────────────────────────────────
+                    try:
+                        opts_tbl = f'{db_pfx}options'
+                        cur.execute(
+                            f"SELECT option_value FROM {opts_tbl} "
+                            f"WHERE option_name = 'active_plugins' LIMIT 1")
+                        row = cur.fetchone()
+                        if row:
+                            raw = str(row.get('option_value') or '')
+                            plugin_paths = re.findall(r'"([\w/.-]+\.php)"', raw)
+                            for path in plugin_paths:
+                                slug = path.split('/')[0]
+                                results['plugins'].append({'slug': slug, 'path': path})
+                    except Exception:
+                        pass
+
+                conn.close()
+            except Exception as e:
+                results['db_error'] = str(e)
+
+        # ── CyberINK mu-plugin deep scan (if installed) ──────────────────────
+        cfai_token = os.environ.get('CFAI_FILESCAN_TOKEN', '')
+        plugin_url = f'{site_url}/wp-json/cfai/v1/filescan'
+        try:
+            import urllib.request as _ur2, json as _js2
+            req2 = _ur2.Request(plugin_url, headers={
+                'User-Agent': 'Mozilla/5.0',
+                'X-CFAI-Token': cfai_token,
+            })
+            with _ur2.urlopen(req2, timeout=20) as resp2:
+                plugin_data = _js2.loads(resp2.read().decode('utf-8', errors='replace'))
+                results['plugin_installed'] = True
+                results['wp_version']  = plugin_data.get('wp_version', '')
+                results['php_version'] = plugin_data.get('php_version', '')
+                results['scan_time']   = plugin_data.get('scan_time', '')
+                for f in plugin_data.get('php_in_uploads', []):
+                    if f not in results['upload_php_files']:
+                        results['upload_php_files'].append(f)
+                        results['summary']['critical'] = results['summary'].get('critical', 0) + 1
+                results['recent_modified'] = plugin_data.get('recent_modified', [])
+                # Flag any non-.php recent files with suspicious extensions
+                _SUSP = {'.exe','.bat','.sh','.cmd','.js','.py'}
+                for fm in results['recent_modified']:
+                    if fm.get('ext','') in _SUSP:
+                        results['summary']['high'] = results['summary'].get('high', 0) + 1
+        except Exception:
+            results['plugin_installed'] = False
+
+        # ── WordPress REST API — detect PHP in uploads via media endpoint ─────
+        if not results.get('plugin_installed'):
+            try:
+                import urllib.request as _ur, json as _js3
+                media_url = f"{site_url}/wp-json/wp/v2/media?mime_type=application/x-php&per_page=20"
+                req = _ur.Request(media_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with _ur.urlopen(req, timeout=8) as resp:
+                    media = _js3.loads(resp.read().decode('utf-8', errors='replace'))
+                    for m in (media or []):
+                        src = m.get('source_url', '')
+                        if src and '.php' in src.lower():
+                            if src not in results['upload_php_files']:
+                                results['upload_php_files'].append(src)
+                                results['summary']['critical'] = results['summary'].get('critical', 0) + 1
+            except Exception:
+                pass
+
+        return jsonify(results)
+
+    except Exception as e:
+        import traceback as _tb
+        return jsonify({'error': str(e), 'detail': _tb.format_exc()[-400:]}), 500
+
+
+@app.route('/api/wp/filescan-plugin')
+def api_wp_filescan_plugin():
+    """Return a ready-to-upload WordPress mu-plugin that exposes a secure file-scan REST endpoint."""
+    token = os.environ.get('CFAI_FILESCAN_TOKEN', '')
+    if not token:
+        import secrets
+        token = secrets.token_hex(24)
+    plugin_code = f'''<?php
+/**
+ * Plugin Name: CyberINK File Scanner
+ * Description: Secure REST endpoint for CyberINK dashboard file scanning.
+ * Version: 1.0
+ * — Drop this file into wp-content/mu-plugins/ (no activation needed)
+ */
+if ( ! defined( 'ABSPATH' ) ) exit;
+
+add_action( 'rest_api_init', function () {{
+    register_rest_route( 'cfai/v1', '/filescan', array(
+        'methods'             => 'GET',
+        'callback'            => 'cfai_filescan_handler',
+        'permission_callback' => '__return_true',
+    ));
+}});
+
+function cfai_filescan_handler( $request ) {{
+    $token = $request->get_header( 'X-CFAI-Token' );
+    if ( $token !== '{token}' ) {{
+        return new WP_Error( 'forbidden', 'Invalid token', array( 'status' => 403 ) );
+    }}
+
+    $upload_dir  = wp_upload_dir();
+    $upload_base = $upload_dir['basedir'];
+    $results     = array(
+        'php_in_uploads'   => array(),
+        'recent_modified'  => array(),
+        'wp_version'       => get_bloginfo('version'),
+        'php_version'      => PHP_VERSION,
+        'scan_time'        => date('Y-m-d H:i:s'),
+    );
+
+    // Scan uploads recursively for PHP files
+    $iter = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator( $upload_base, RecursiveDirectoryIterator::SKIP_DOTS )
+    );
+    $cutoff = time() - (90 * 86400); // files modified in last 90 days
+    foreach ( $iter as $file ) {{
+        if ( ! $file->isFile() ) continue;
+        $path = $file->getPathname();
+        $ext  = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+        // Flag PHP files in uploads (always suspicious)
+        if ( $ext === 'php' ) {{
+            $results['php_in_uploads'][] = str_replace( $upload_base, '/uploads', $path );
+        }}
+        // Flag recently modified non-image files in uploads
+        if ( $file->getMTime() > $cutoff && ! in_array($ext, ['jpg','jpeg','png','gif','webp','svg','pdf','mp4','mp3','zip']) ) {{
+            $results['recent_modified'][] = array(
+                'file'     => str_replace( $upload_base, '/uploads', $path ),
+                'modified' => date('Y-m-d H:i', $file->getMTime()),
+                'size'     => $file->getSize(),
+                'ext'      => $ext,
+            );
+        }}
+    }}
+
+    // Check wp-content for recently modified PHP (outside uploads)
+    $wc_dir = WP_CONTENT_DIR;
+    $wc_iter = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator( $wc_dir, RecursiveDirectoryIterator::SKIP_DOTS )
+    );
+    $recent_cutoff = time() - (7 * 86400); // last 7 days
+    foreach ( $wc_iter as $file ) {{
+        if ( ! $file->isFile() ) continue;
+        $path = $file->getPathname();
+        if ( strpos($path, '/uploads/') !== false ) continue; // already covered
+        if ( strpos($path, '/wflogs/') !== false ) continue;
+        $ext = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+        if ( $ext === 'php' && $file->getMTime() > $recent_cutoff ) {{
+            $results['recent_modified'][] = array(
+                'file'     => str_replace( $wc_dir, '/wp-content', $path ),
+                'modified' => date('Y-m-d H:i', $file->getMTime()),
+                'size'     => $file->getSize(),
+                'ext'      => $ext,
+            );
+        }}
+    }}
+
+    // Sort recent_modified by date desc, limit 50
+    usort( $results['recent_modified'], function($a,$b){{ return strcmp($b['modified'], $a['modified']); }} );
+    $results['recent_modified'] = array_slice( $results['recent_modified'], 0, 50 );
+
+    return rest_ensure_response( $results );
+}}
+'''
+    from flask import Response
+    resp = Response(plugin_code, mimetype='application/octet-stream')
+    resp.headers['Content-Disposition'] = 'attachment; filename="cfai-scanner.php"'
+    return resp
+
+
 @app.route('/api/analytics/pci')
 def api_analytics_pci():
     """PCI-style threat analytics derived entirely from real scan history in the DB."""
