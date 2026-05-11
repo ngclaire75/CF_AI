@@ -3895,9 +3895,30 @@ def api_gsc_analyze():
         except Exception:
             pass
 
-    # ── 7. Google Safe Browsing ────────────────────────────────────────────────
+    # ── 7. Google Safe Browsing + link crawl (detects "Links to harmful downloads") ──
     if api_key:
         try:
+            # Collect URLs: domain itself + all outgoing links from homepage
+            urls_to_check = [base_url, f'http://{domain}']
+            if r_main is not None:
+                try:
+                    html_text = getattr(r_main, 'text', '')
+                    link_pat = re.compile(r'href=["\']([^"\'#\s]{6,})["\']', re.I)
+                    for href in link_pat.findall(html_text)[:80]:
+                        if href.startswith('http'):
+                            urls_to_check.append(href)
+                        elif href.startswith('/'):
+                            urls_to_check.append(base_url + href)
+                    seen: set = set()
+                    deduped = []
+                    for u in urls_to_check:
+                        if u not in seen:
+                            seen.add(u)
+                            deduped.append(u)
+                    urls_to_check = deduped[:100]
+                except Exception:
+                    pass
+
             sb_body = {
                 'client': {'clientId': 'cf-ai-dashboard', 'clientVersion': '1.0'},
                 'threatInfo': {
@@ -3905,31 +3926,54 @@ def api_gsc_analyze():
                                     'POTENTIALLY_HARMFUL_APPLICATION'],
                     'platformTypes': ['ANY_PLATFORM'],
                     'threatEntryTypes': ['URL'],
-                    'threatEntries': [{'url': base_url}, {'url': f'http://{domain}'}],
+                    'threatEntries': [{'url': u} for u in urls_to_check],
                 },
             }
             r_sb, err_sb = _fetch_url(
                 f'https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}',
-                timeout=10, method='POST', json_body=sb_body)
+                timeout=15, method='POST', json_body=sb_body)
             if r_sb is not None:
                 sb_data = r_sb.json() if callable(getattr(r_sb, 'json', None)) else {}
                 matches = sb_data.get('matches', [])
-                scores['safe_browsing'] = {'checked': True, 'threats': len(matches)}
+                threat_details = [
+                    {'url': m.get('threat', {}).get('url', ''),
+                     'type': m.get('threatType', ''),
+                     'platform': m.get('platformType', '')}
+                    for m in matches
+                ]
+                scores['safe_browsing'] = {
+                    'checked': True, 'threats': len(matches),
+                    'urls_checked': len(urls_to_check),
+                    'threat_details': threat_details,
+                }
+                # Group by threat type
+                threat_types: dict = {}
                 for m in matches:
                     ttype = m.get('threatType', 'Unknown')
-                    _add('Security', 'critical', f'Safe Browsing: {ttype} detected',
-                         f'Google flagged {domain} for {ttype}. URL: {m.get("threat", {}).get("url", domain)}',
-                         'Chrome, Firefox, and Safari show a red warning page blocking all visitors.',
-                         ['Check Google Search Console Security Issues section.',
+                    turl  = m.get('threat', {}).get('url', domain)
+                    threat_types.setdefault(ttype, []).append(turl)
+                for ttype, t_urls in threat_types.items():
+                    is_link = any(
+                        not u.startswith(base_url) and not u.startswith(f'http://{domain}')
+                        for u in t_urls
+                    )
+                    title = (f'Safe Browsing: Links to {ttype.replace("_"," ").title()}'
+                             if is_link else f'Safe Browsing: {ttype.replace("_"," ").title()} detected')
+                    _add('Security', 'critical', title,
+                         f'Google flagged {len(t_urls)} URL(s) for {ttype}:\n' +
+                         '\n'.join(f'  - {u}' for u in t_urls[:5]),
+                         'Chrome/Firefox/Safari show a full red warning page. GSC flags this as a Security Issue.',
+                         ['Remove or fix the harmful links/content immediately.',
+                          'Check Google Search Console Security Issues for the full list.',
                           'Scan with Sucuri SiteCheck (sitecheck.sucuri.net).',
-                          'Clean malware: check recently modified files, remove injected code.',
-                          'After cleanup, request review in Google Search Console.'])
+                          'After cleanup, click "Request Review" in GSC Security Issues.'])
                 if not matches:
-                    _add('Security', 'info', 'Safe Browsing: No threats detected',
-                         f'{domain} is not in Google Safe Browsing threat database.',
-                         'Site is clean according to Google\'s malware and phishing list.',
+                    _add('Security', 'info',
+                         f'Safe Browsing: Clean ({len(urls_to_check)} URLs checked)',
+                         f'No threats found across {len(urls_to_check)} URLs including all outgoing links.',
+                         'Site and its outgoing links are clean per Google Safe Browsing.',
                          ['Monitor regularly — Safe Browsing status can change.',
-                          'Enable email alerts in Google Search Console.'])
+                          'Enable Security Issue email alerts in Google Search Console.'])
             elif err_sb:
                 scores['safe_browsing'] = {'checked': False, 'error': err_sb}
         except Exception as e:
