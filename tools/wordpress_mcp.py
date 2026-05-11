@@ -51,6 +51,14 @@ except ImportError:
     _HAS_CLOUDSCRAPER = False
 
 # ── External scraping API keys (optional — unlocks Cloudflare JS challenges) ─
+# Ensure .env is loaded so API keys are available even when run without run.sh
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    import pathlib as _pl
+    _load_dotenv(_pl.Path(__file__).parent.parent / '.env', override=False)
+except ImportError:
+    pass
+
 _SCRAPER_API_KEY  = os.environ.get('SCRAPER_API_KEY', '')   # scraperapi.com
 _ZENROWS_API_KEY  = os.environ.get('ZENROWS_API_KEY', '')   # zenrows.com
 _SCRAPINGBEE_KEY  = os.environ.get('SCRAPINGBEE_API_KEY', '')

@@ -3,6 +3,14 @@ from __future__ import annotations
 import ipaddress
 import json as _json
 import os
+
+# Load .env from project root before anything else reads os.environ
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    import pathlib as _pl
+    _load_dotenv(_pl.Path(__file__).parent.parent / '.env', override=False)
+except ImportError:
+    pass
 import re
 import sys
 import time as _time
@@ -2313,57 +2321,149 @@ def api_logs_wp_mysql_direct():
     events, source, note = [], 'none', ''
     try:
         with conn.cursor() as cur:
+            # ── 1. Simple History (preferred) ──────────────────────────────────
             sh_table  = f'{table_pfx}simple_history'
             ctx_table = f'{table_pfx}simple_history_contexts'
-
-            # Verify Simple History table exists
             cur.execute("SHOW TABLES LIKE %s", (sh_table,))
-            if not cur.fetchone():
-                return jsonify({'error': f'Table {sh_table} not found — is Simple History plugin installed and active?'}), 404
+            if cur.fetchone():
+                cur.execute(f"""
+                    SELECT
+                        h.id, h.date, h.logger, h.level, h.message,
+                        COALESCE(
+                            (SELECT value FROM {ctx_table}
+                             WHERE history_id = h.id AND key_name = '_user_login' LIMIT 1), ''
+                        ) AS user_login,
+                        COALESCE(
+                            (SELECT value FROM {ctx_table}
+                             WHERE history_id = h.id AND key_name = '_server_remote_addr' LIMIT 1), ''
+                        ) AS ip
+                    FROM {sh_table} h
+                    ORDER BY h.id DESC
+                    LIMIT %s
+                """, (limit,))
+                for row in cur.fetchall():
+                    msg = str(row.get('message') or row.get('logger') or '')
+                    if not msg: continue
+                    events.append({
+                        'timestamp': str(row.get('date') or ''),
+                        'user':      str(row.get('user_login') or '—'),
+                        'event':     msg[:120],
+                        'ip':        str(row.get('ip') or ''),
+                        'severity':  'HIGH' if any(k in msg.lower() for k in ('fail','block','attack','brute','invalid')) else 'INFO',
+                        'status':    'failed' if any(k in msg.lower() for k in ('fail','block','denied','invalid')) else 'success',
+                        'source':    'Simple History',
+                    })
+                source = 'Simple History'
 
-            cur.execute(f"""
-                SELECT
-                    h.id, h.date, h.logger, h.level, h.message,
-                    COALESCE(
-                        (SELECT value FROM {ctx_table}
-                         WHERE history_id = h.id AND key_name = '_user_login' LIMIT 1), ''
-                    ) AS user_login,
-                    COALESCE(
-                        (SELECT value FROM {ctx_table}
-                         WHERE history_id = h.id AND key_name = '_server_remote_addr' LIMIT 1), ''
-                    ) AS ip
-                FROM {sh_table} h
-                ORDER BY h.id DESC
-                LIMIT %s
-            """, (limit,))
+            # ── 2. Wordfence wp_wfLogins (fallback / supplement) ──────────────
+            wf_logins = f'{table_pfx}wfLogins'
+            cur.execute("SHOW TABLES LIKE %s", (wf_logins,))
+            if cur.fetchone():
+                cur.execute(f"""
+                    SELECT username, IP, ctime, status, hitCount
+                    FROM {wf_logins}
+                    ORDER BY ctime DESC
+                    LIMIT %s
+                """, (limit,))
+                for row in cur.fetchall():
+                    import datetime as _dt
+                    ts = row.get('ctime') or 0
+                    try:
+                        ts_str = _dt.datetime.utcfromtimestamp(int(ts)).strftime('%Y-%m-%d %H:%M:%S')
+                    except Exception:
+                        ts_str = str(ts)
+                    ip_bytes = row.get('IP') or b''
+                    try:
+                        import socket as _sock
+                        ip_str = _sock.inet_ntoa(ip_bytes[:4]) if isinstance(ip_bytes, (bytes, bytearray)) and len(ip_bytes) >= 4 else str(ip_bytes)
+                    except Exception:
+                        ip_str = str(ip_bytes)
+                    status = str(row.get('status') or '')
+                    failed = status in ('0', 'blocked') or not status
+                    events.append({
+                        'timestamp': ts_str,
+                        'user':      str(row.get('username') or '—'),
+                        'event':     'Login blocked' if failed else 'Login allowed',
+                        'ip':        ip_str,
+                        'severity':  'HIGH' if failed else 'INFO',
+                        'status':    'failed' if failed else 'success',
+                        'source':    'Wordfence',
+                    })
+                if not source or source == 'none':
+                    source = 'Wordfence'
 
-            rows = cur.fetchall()
-            for row in rows:
-                msg = str(row.get('message') or row.get('logger') or '')
-                if not msg:
-                    continue
-                events.append({
-                    'timestamp': str(row.get('date') or ''),
-                    'user':      str(row.get('user_login') or '—'),
-                    'event':     msg[:120],
-                    'ip':        str(row.get('ip') or ''),
-                    'severity':  ('HIGH' if any(k in msg.lower()
-                                   for k in ('fail', 'block', 'attack', 'brute', 'invalid'))
-                                  else 'INFO'),
-                    'status':    ('failed' if any(k in msg.lower()
-                                   for k in ('fail', 'block', 'denied', 'invalid'))
-                                  else 'success'),
-                    'source': 'mysql_direct',
-                })
-            source = 'mysql_direct'
+            # ── 3. Wordfence wp_wfBlockedIPLog (blocked IPs) ──────────────────
+            wf_blocked = f'{table_pfx}wfBlockedIPLog'
+            cur.execute("SHOW TABLES LIKE %s", (wf_blocked,))
+            if cur.fetchone():
+                cur.execute(f"""
+                    SELECT IP, reason, ctime, unixday
+                    FROM {wf_blocked}
+                    ORDER BY unixday DESC, ctime DESC
+                    LIMIT %s
+                """, (min(limit, 50),))
+                for row in cur.fetchall():
+                    import datetime as _dt
+                    ts = row.get('ctime') or 0
+                    try:
+                        ts_str = _dt.datetime.utcfromtimestamp(int(ts)).strftime('%Y-%m-%d %H:%M:%S')
+                    except Exception:
+                        ts_str = str(ts)
+                    ip_bytes = row.get('IP') or b''
+                    try:
+                        import socket as _sock
+                        ip_str = _sock.inet_ntoa(ip_bytes[:4]) if isinstance(ip_bytes, (bytes, bytearray)) and len(ip_bytes) >= 4 else str(ip_bytes)
+                    except Exception:
+                        ip_str = str(ip_bytes)
+                    events.append({
+                        'timestamp': ts_str,
+                        'user':      '—',
+                        'event':     f'IP Blocked: {(row.get("reason") or "")[:80]}',
+                        'ip':        ip_str,
+                        'severity':  'HIGH',
+                        'status':    'blocked',
+                        'source':    'Wordfence Blocked',
+                    })
+
+            # ── 4. Wordfence wp_wfIssues (malware/scan issues) ────────────────
+            wf_issues = f'{table_pfx}wfIssues'
+            cur.execute("SHOW TABLES LIKE %s", (wf_issues,))
+            if cur.fetchone():
+                cur.execute(f"""
+                    SELECT severity, description, ctime
+                    FROM {wf_issues}
+                    ORDER BY ctime DESC
+                    LIMIT %s
+                """, (min(limit, 30),))
+                for row in cur.fetchall():
+                    import datetime as _dt
+                    ts = row.get('ctime') or 0
+                    try:
+                        ts_str = _dt.datetime.utcfromtimestamp(int(ts)).strftime('%Y-%m-%d %H:%M:%S')
+                    except Exception:
+                        ts_str = str(ts)
+                    sev_val = int(row.get('severity') or 0)
+                    sev = 'CRITICAL' if sev_val >= 100 else ('HIGH' if sev_val >= 50 else 'MEDIUM')
+                    events.append({
+                        'timestamp': ts_str,
+                        'user':      '—',
+                        'event':     f'Security Issue: {(row.get("description") or "")[:100]}',
+                        'ip':        '—',
+                        'severity':  sev,
+                        'status':    'issue',
+                        'source':    'Wordfence Scan',
+                    })
+
+            if not events:
+                note = 'No login data found. Install Simple History or Wordfence on WordPress to capture real login events.'
+
     except Exception as e:
         note = f'Query error: {e}'
     finally:
         conn.close()
 
-    if not events and not note:
-        note = 'No Simple History events found. Is the plugin installed and active?'
-
+    # Sort all events newest-first
+    events.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
@@ -2925,6 +3025,82 @@ def api_inventories_logins():
             break
 
     return jsonify({'logins': logins[:limit], 'total': len(logins)})
+
+
+@app.route('/api/inventories/mysql-plugins', methods=['POST'])
+def api_inventories_mysql_plugins():
+    """Read active WordPress plugins from wp_options.active_plugins via direct MySQL."""
+    data      = request.get_json(force=True, silent=True) or {}
+    db_host   = (data.get('db_host') or '').strip()
+    db_port   = int(data.get('db_port') or 3306)
+    db_name   = (data.get('db_name') or '').strip()
+    db_user   = (data.get('db_user') or '').strip()
+    db_pass   = (data.get('db_pass') or '').strip()
+    table_pfx = (data.get('table_prefix') or 'wp_').strip()
+
+    if not db_host or not db_name or not db_user:
+        return jsonify({'error': 'db_host, db_name, and db_user are required'}), 400
+
+    try:
+        import pymysql, pymysql.cursors
+    except ImportError:
+        return jsonify({'error': 'pymysql not installed — run: pip install pymysql'}), 500
+
+    try:
+        conn = pymysql.connect(
+            host=db_host, port=db_port, user=db_user, password=db_pass,
+            database=db_name, charset='utf8mb4', connect_timeout=15,
+            cursorclass=pymysql.cursors.DictCursor,
+        )
+    except Exception as e:
+        return jsonify({'error': f'MySQL connection failed: {e}'}), 500
+
+    plugins = []
+    try:
+        with conn.cursor() as cur:
+            opts_table = f'{table_pfx}options'
+            # Read active_plugins (PHP serialized array of plugin paths)
+            cur.execute(f"SELECT option_value FROM {opts_table} WHERE option_name = 'active_plugins' LIMIT 1")
+            row = cur.fetchone()
+            if row:
+                raw = str(row.get('option_value') or '')
+                # Parse plugin paths from PHP serialized string: s:XX:"plugin/plugin.php"
+                plugin_paths = re.findall(r'"([\w/-]+\.php)"', raw)
+                for path in plugin_paths:
+                    slug = path.split('/')[0]
+                    plugins.append({'name': slug, 'path': path, 'status': 'active', 'version': '', 'source': 'mysql'})
+
+            # Try to get versions from update data
+            cur.execute(f"SELECT option_value FROM {opts_table} WHERE option_name = 'update_plugins' LIMIT 1")
+            upd_row = cur.fetchone()
+            if upd_row:
+                upd_raw = str(upd_row.get('option_value') or '')
+                for p in plugins:
+                    m = re.search(r'"' + re.escape(p['path']) + r'"[^}]*?"new_version"\s*;s:\d+:"([^"]+)"', upd_raw)
+                    if m:
+                        p['version'] = m.group(1)
+
+            # Also read Wordfence plugin detection if available
+            wf_known = f'{table_pfx}wfKnownFileMeta'
+            cur.execute("SHOW TABLES LIKE %s", (wf_known,))
+            if cur.fetchone():
+                cur.execute(f"SELECT data FROM {wf_known} WHERE type='plugin' LIMIT 200")
+                for r in cur.fetchall():
+                    try:
+                        import json as _jj
+                        d = _jj.loads(r.get('data') or '{}')
+                        slug = d.get('slug') or ''
+                        ver  = d.get('version') or ''
+                        if slug and not any(p['name'] == slug for p in plugins):
+                            plugins.append({'name': slug, 'path': '', 'status': 'detected', 'version': ver, 'source': 'wordfence'})
+                    except Exception:
+                        pass
+    except Exception as e:
+        return jsonify({'error': f'Query error: {e}', 'plugins': []}), 500
+    finally:
+        conn.close()
+
+    return jsonify({'plugins': plugins, 'total': len(plugins)})
 
 
 @app.route('/api/analytics/pci')

@@ -3192,7 +3192,10 @@ Export Power BI
         <div class="le-hint">
           Get credentials from <strong>Hostinger hPanel → Databases → MySQL Databases</strong>.<br>
           Enable remote access: <strong>hPanel → Databases → Remote MySQL → add your VPS IP</strong>.<br>
-          Works with any host that supports Remote MySQL. Reads <strong>Simple History</strong> tables directly — no WordPress auth needed.
+          Reads <strong>Simple History</strong>, <strong>Wordfence</strong> login/block/issue tables automatically.<br>
+          After a successful connection, <strong>User Activity Logs</strong> and <strong>Plugin Inventory</strong> will auto-load from your database.
+          <span id="le-mysql-saved-indicator" style="display:none;margin-left:8px;padding:2px 8px;background:#dff6dd;border-radius:4px;color:#107c10;font-weight:600;font-size:11px;">MySQL credentials saved</span>
+          <button onclick="_clearMysqlCreds()" style="margin-left:8px;padding:2px 8px;border:1px solid #c8c6c4;background:#fff;border-radius:4px;cursor:pointer;font-size:11px;color:#605e5c;">Clear saved</button>
         </div>
       </div>
       <div id="le-hostinger-loading" style="display:none;padding:16px;color:#605e5c;font-size:12px;">Connecting to MySQL…</div>
@@ -3840,6 +3843,7 @@ function sbNav(section, el) {
   if (section === 'incidents')     loadIncidents();
   if (section === 'history')       loadHistoryPage();
   if (section === 'pluginlogs')    loadPluginLogsPage();
+  if (section === 'logexplorer')   _checkMysqlSavedIndicator();
   if (section === 'vulns')         _tiAutoLoad();
   if (section === 'weaknesses')    loadWeaknesses();
   if (section === 'recommendations') loadRecommendations();
@@ -4732,6 +4736,7 @@ function runPluginLogsPage() {
   document.getElementById('pl-count').textContent = '';
 
   var allLogs = [];
+  var promises = [];
 
   // Source 1: WP-LOG entries from scan output
   function _fetchWpLogs(t, cb) {
@@ -4741,23 +4746,43 @@ function runPluginLogsPage() {
       .catch(function(){ cb(null, []); });
   }
 
-  // Source 2: Agent-detected login events
+  // Source 2: Agent-detected login events from scan history
   var loginUrl = '/api/inventories/logins' + (target ? '?target=' + encodeURIComponent(target) : '');
   var loginP = fetch(loginUrl)
     .then(function(r){ return r.json(); })
     .then(function(d){
       (d.logins || []).forEach(function(l){
-        var sev = l.risk || (l.event && /fail|block|attack|brute|invalid/i.test(l.event) ? 'HIGH' : 'INFO');
+        var sev = l.risk || (/fail|block|attack|brute|invalid/i.test(l.event||'') ? 'HIGH' : 'INFO');
         allLogs.push({ timestamp: l.date, user: l.user, event: l.event,
-                       ip: l.ip, severity: sev,
-                       _target: l.target, source: 'agent' });
+                       ip: l.ip, severity: sev, _target: l.target, source: 'scan' });
       });
     }).catch(function(){});
+  promises.push(loginP);
+
+  // Source 3: MySQL / Hostinger (auto-load if credentials saved from Log Explorer)
+  var mysqlCreds = _getMysqlCreds();
+  if (mysqlCreds) {
+    var mysqlP = fetch('/api/logs/wp-mysql-direct', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({}, mysqlCreds, {limit: 200}))
+    }).then(function(r){ return r.json(); })
+    .then(function(d){
+      (d.events || []).forEach(function(e){
+        allLogs.push({ timestamp: e.timestamp, user: e.user, event: e.event,
+                       ip: e.ip, severity: e.severity, _target: mysqlCreds.db_name,
+                       source: e.source || 'MySQL' });
+      });
+    }).catch(function(){});
+    promises.push(mysqlP);
+  }
 
   if (target) {
-    Promise.all([loginP, new Promise(function(res){
+    var wpLogP = new Promise(function(res){
       _fetchWpLogs(target, function(err, logs){ allLogs = allLogs.concat(logs); res(); });
-    })]).then(function(){ _renderPluginLogs(allLogs); });
+    });
+    promises.push(wpLogP);
+    Promise.all(promises).then(function(){ _renderPluginLogs(allLogs); });
   } else {
     fetch('/api/scans/recent?limit=200')
       .then(function(r){ return r.json(); })
@@ -4766,17 +4791,24 @@ function runPluginLogsPage() {
         var targets = [];
         var seen = {};
         scans.forEach(function(s){ if (s.target && !seen[s.target]) { seen[s.target]=1; targets.push(s.target); } });
+        // No targets from scans — but still render MySQL data if we have it
         if (!targets.length) {
-          tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a19f9d;font-style:italic;">No targets found. Run a scan first.</td></tr>';
+          Promise.all(promises).then(function(){
+            if (!allLogs.length)
+              tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a19f9d;font-style:italic;">No events found. Run a scan or connect via Log Explorer → Hostinger/MySQL tab.</td></tr>';
+            else
+              _renderPluginLogs(allLogs);
+          });
           return;
         }
         var done = 0;
-        function _maybeRender() { done++; if (done >= targets.length + 1) _renderPluginLogs(allLogs); }
-        loginP.then(_maybeRender);
+        var total = targets.length + promises.length;
+        function _maybeRender() { done++; if (done >= total) _renderPluginLogs(allLogs); }
+        promises.forEach(function(p){ p.then(_maybeRender).catch(_maybeRender); });
         targets.slice(0, 20).forEach(function(t) {
           _fetchWpLogs(t, function(err, logs){ allLogs = allLogs.concat(logs); _maybeRender(); });
         });
-        if (targets.length > 20) done += (targets.length - 20); // skip excess
+        if (targets.length > 20) done += (targets.length - 20);
       })
       .catch(function(){ tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#a80000;">Failed to load target list.</td></tr>'; });
   }
@@ -7226,25 +7258,21 @@ function runHostingerMysql() {
       tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#7a5c00;font-size:12px;">' + _esc(d.note) + '</td></tr>';
       return;
     }
+    // Save credentials so other pages (User Activity Logs, Plugin Inventory) can auto-load
+    try {
+      localStorage.setItem('cfai_mysql_creds', JSON.stringify({
+        db_host: host, db_port: parseInt(port), db_name: name,
+        db_user: user, db_pass: pass, table_prefix: prefix
+      }));
+    } catch(ex) {}
     var events = d.events || [];
     stats.textContent = events.length + ' event(s) loaded from MySQL' + (d.total > events.length ? ' (showing ' + events.length + ' of ' + d.total + ')' : '');
     stats.style.display = 'block';
     if (!events.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No Simple History events found. Install the Simple History plugin on WordPress and re-fetch.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">' + _esc(d.note || 'No events found. Install Simple History or Wordfence plugin on WordPress.') + '</td></tr>';
       return;
     }
-    tbody.innerHTML = events.map(function(e){
-      var sevColor = e.severity === 'HIGH' ? '#a80000' : '#374151';
-      var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#' + _esc(e.ip) + '" target="_blank" style="color:#0078d4;font-family:monospace;">' + _esc(e.ip) + '</a>' : _esc(e.ip||'—');
-      return '<tr style="border-bottom:1px solid #f3f2f1;">' +
-        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
-        '<td style="padding:7px 12px;font-weight:600;">' + _esc(e.user||'—') + '</td>' +
-        '<td style="padding:7px 12px;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(e.event||'') + '">' + _esc(e.event||'—') + '</td>' +
-        '<td style="padding:7px 12px;">' + ip + '</td>' +
-        '<td style="padding:7px 12px;color:' + sevColor + ';font-size:11px;font-weight:600;">' + _esc(e.severity||'—') + '</td>' +
-        '<td style="padding:7px 12px;font-size:11px;color:#605e5c;">' + _esc(e.source||'—') + '</td>' +
-        '</tr>';
-    }).join('');
+    tbody.innerHTML = _renderMysqlEventRows(events);
   }).catch(function(e){
     btn.disabled = false; btn.textContent = 'Fetch via MySQL';
     loading.style.display = 'none';
@@ -7252,6 +7280,38 @@ function runHostingerMysql() {
     stat.textContent = 'Request failed: ' + e;
     tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#a80000;font-size:12px;">Connection error.</td></tr>';
   });
+}
+
+function _renderMysqlEventRows(events) {
+  return events.map(function(e){
+    var sevColor = e.severity==='HIGH'||e.severity==='CRITICAL' ? '#a80000' : e.severity==='MEDIUM' ? '#986f0b' : '#374151';
+    var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#'+_esc(e.ip)+'" target="_blank" style="color:#0078d4;font-family:monospace;">'+_esc(e.ip)+'</a>' : _esc(e.ip||'—');
+    return '<tr style="border-bottom:1px solid #f3f2f1;">' +
+      '<td style="padding:7px 12px;font-size:11px;color:#605e5c;white-space:nowrap;">'+_esc(e.timestamp||'—')+'</td>' +
+      '<td style="padding:7px 12px;font-weight:600;">'+_esc(e.user||'—')+'</td>' +
+      '<td style="padding:7px 12px;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc(e.event||'')+'">'+_esc(e.event||'—')+'</td>' +
+      '<td style="padding:7px 12px;">'+ip+'</td>' +
+      '<td style="padding:7px 12px;color:'+sevColor+';font-size:11px;font-weight:600;">'+_esc(e.severity||'—')+'</td>' +
+      '<td style="padding:7px 12px;font-size:11px;color:#605e5c;">'+_esc(e.source||'—')+'</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function _getMysqlCreds() {
+  try { return JSON.parse(localStorage.getItem('cfai_mysql_creds') || 'null'); }
+  catch(e) { return null; }
+}
+
+function _clearMysqlCreds() {
+  localStorage.removeItem('cfai_mysql_creds');
+  var ind = document.getElementById('le-mysql-saved-indicator');
+  if (ind) ind.style.display = 'none';
+  alert('MySQL credentials cleared.');
+}
+
+function _checkMysqlSavedIndicator() {
+  var ind = document.getElementById('le-mysql-saved-indicator');
+  if (ind) ind.style.display = _getMysqlCreds() ? 'inline' : 'none';
 }
 
 function renderWpEvents(events, source, note, total) {
@@ -8168,16 +8228,33 @@ function loadInventories() {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading...</td></tr>';
 
-  // Plugins come from the persistent DB (server-parsed after every scan)
+  // Plugins from persistent DB (scan-detected)
+  var pluginsFromScan = [];
   var pluginsP = fetch('/api/inventories/plugins')
     .then(function(r){ return r.json(); })
     .then(function(d) {
-      _invData.plugins = (d.plugins || []).map(function(p) {
-        return { name: p.name, type: p.target || p.plugin_type || 'Plugin', version: p.version || '',
+      pluginsFromScan = (d.plugins || []).map(function(p) {
+        return { name: p.name, type: p.plugin_type || 'Plugin', version: p.version || '',
                  targets: [p.target], risk: p.vulnerable ? 'HIGH' : 'INFO',
-                 status: p.status, updated: (p.updated_at || '').slice(0,10) };
+                 status: p.status, updated: (p.updated_at || '').slice(0,10), source: 'scan' };
       });
     }).catch(function(){});
+
+  // Plugins from MySQL/Hostinger (auto-load if credentials saved)
+  var mysqlCreds = _getMysqlCreds();
+  var mysqlPluginsP = mysqlCreds
+    ? fetch('/api/inventories/mysql-plugins', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(mysqlCreds)
+      }).then(function(r){ return r.json(); })
+      .then(function(d) {
+        return (d.plugins || []).map(function(p) {
+          return { name: p.name, type: 'WordPress Plugin', version: p.version || '',
+                   targets: [mysqlCreds.db_name], risk: 'INFO',
+                   status: p.status || 'active', updated: '', source: 'MySQL' };
+        });
+      }).catch(function(){ return []; })
+    : Promise.resolve([]);
 
   // Software and targets parsed client-side from scan output
   var scansP = fetch('/api/scans/recent?limit=500')
@@ -8203,7 +8280,19 @@ function loadInventories() {
       _invData.targets  = Object.values(tgt);
     }).catch(function(){});
 
-  Promise.all([pluginsP, scansP]).then(function(){ _invRender(); });
+  Promise.all([pluginsP, mysqlPluginsP, scansP]).then(function(res) {
+    var mysqlPlugins = res[1] || [];
+    // Merge scan-detected and MySQL plugins (MySQL overrides scan if same name)
+    var merged = {};
+    pluginsFromScan.forEach(function(p){ merged[p.name.toLowerCase()] = p; });
+    mysqlPlugins.forEach(function(p){
+      var k = p.name.toLowerCase();
+      if (!merged[k]) merged[k] = p;
+      else { merged[k].source = 'scan+MySQL'; if (p.version) merged[k].version = p.version; }
+    });
+    _invData.plugins = Object.values(merged);
+    _invRender();
+  });
 }
 
 function _invRender() {

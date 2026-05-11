@@ -14,6 +14,14 @@ Or mount inside any ASGI host.
 """
 from __future__ import annotations
 
+# Load .env from project root before anything else reads os.environ
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    import pathlib as _pl
+    _load_dotenv(_pl.Path(__file__).parent.parent / '.env', override=False)
+except ImportError:
+    pass
+
 import asyncio
 import json
 import os
