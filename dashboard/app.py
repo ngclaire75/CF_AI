@@ -3898,6 +3898,180 @@ def api_grafana_probe():
     return jsonify(out)
 
 
+@app.route('/api/grafana/install', methods=['POST'])
+@login_required
+def api_grafana_install():
+    """Write + launch an elevated PowerShell script that installs Grafana,
+    Prometheus, and Windows Exporter on the local machine."""
+    import subprocess, tempfile, os as _os
+
+    script = r"""
+# CyberINK — Grafana Auto-Setup
+$ProgressPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Continue'
+function Step($m){ Write-Host "==> $m" -ForegroundColor Cyan }
+
+New-Item -ItemType Directory -Force "C:\monitoring\data" | Out-Null
+
+# ── Windows Exporter ──────────────────────────────────────────────────────────
+Step "Checking Windows Exporter..."
+$svc = Get-Service "windows_exporter" -ErrorAction SilentlyContinue
+if (-not $svc) {
+    Step "Downloading Windows Exporter..."
+    $we = Invoke-RestMethod "https://api.github.com/repos/prometheus-community/windows_exporter/releases/latest"
+    $url = ($we.assets | Where-Object { $_.name -like "*amd64.msi" }).browser_download_url
+    Invoke-WebRequest -Uri $url -OutFile "C:\monitoring\we.msi"
+    Step "Installing Windows Exporter (port 9182)..."
+    Start-Process msiexec.exe -Wait -ArgumentList "/i C:\monitoring\we.msi /quiet"
+} else { Step "Windows Exporter already installed" }
+
+# ── Prometheus ────────────────────────────────────────────────────────────────
+Step "Checking Prometheus..."
+$pd = Get-ChildItem "C:\monitoring\prometheus-*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $pd) {
+    Step "Downloading Prometheus..."
+    $p = Invoke-RestMethod "https://api.github.com/repos/prometheus/prometheus/releases/latest"
+    $url = ($p.assets | Where-Object { $_.name -like "*windows-amd64.zip" }).browser_download_url
+    Invoke-WebRequest -Uri $url -OutFile "C:\monitoring\prom.zip"
+    Expand-Archive "C:\monitoring\prom.zip" "C:\monitoring" -Force
+    Remove-Item "C:\monitoring\prom.zip"
+    $pd = Get-ChildItem "C:\monitoring\prometheus-*" -Directory | Select-Object -First 1
+}
+$exe = Join-Path $pd.FullName "prometheus.exe"
+$yml = Join-Path $pd.FullName "prometheus.yml"
+@"
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: 'windows'
+    static_configs:
+      - targets: ['localhost:9182']
+"@ | Set-Content $yml
+Get-Process prometheus -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Step "Starting Prometheus (port 9090)..."
+Start-Process $exe -ArgumentList "--config.file=`"$yml`" --storage.tsdb.path=`"C:\monitoring\data`"" -WindowStyle Hidden
+
+# ── Grafana ───────────────────────────────────────────────────────────────────
+Step "Checking Grafana..."
+$gf = Get-Service "Grafana" -ErrorAction SilentlyContinue
+if (-not $gf) {
+    Step "Installing Grafana via winget..."
+    winget install GrafanaLabs.Grafana --accept-source-agreements --accept-package-agreements --silent
+}
+$iniCandidates = @(
+    "C:\Program Files\GrafanaLabs\grafana\conf\grafana.ini",
+    "C:\Program Files (x86)\GrafanaLabs\grafana\conf\grafana.ini"
+)
+foreach ($ini in $iniCandidates) {
+    if (Test-Path $ini) {
+        $c = Get-Content $ini -Raw
+        if ($c -notmatch 'allow_embedding\s*=\s*true') {
+            Add-Content $ini "`n[auth.anonymous]`nenabled = true`norg_name = Main Org.`norg_role = Viewer`n`n[security]`nallow_embedding = true"
+            Step "Grafana embedding enabled in $ini"
+        }
+        break
+    }
+}
+try { Restart-Service Grafana -ErrorAction Stop; Step "Grafana restarted" }
+catch { Start-Service Grafana -ErrorAction SilentlyContinue }
+
+# ── Wait for Grafana ──────────────────────────────────────────────────────────
+Step "Waiting for Grafana to be ready..."
+$ok = $false
+for ($i=0; $i -lt 30; $i++) {
+    Start-Sleep 3
+    try {
+        $r = Invoke-WebRequest "http://localhost:3000/api/health" -UseBasicParsing -TimeoutSec 2
+        if ($r.StatusCode -eq 200) { $ok = $true; break }
+    } catch {}
+}
+
+if ($ok) {
+    Step "Grafana is up! Adding Prometheus data source..."
+    $cred = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("admin:admin"))
+    $hdr  = @{Authorization="Basic $cred"; "Content-Type"="application/json"}
+    $ds   = '{"name":"Prometheus","type":"prometheus","url":"http://localhost:9090","access":"proxy","isDefault":true}'
+    try { Invoke-RestMethod "http://localhost:3000/api/datasources" -Method Post -Headers $hdr -Body $ds -ErrorAction SilentlyContinue } catch {}
+    Write-Host "`n[OK] Setup complete — switch back to CyberINK." -ForegroundColor Green
+} else {
+    Write-Host "`n[WARN] Grafana did not start in time. Check http://localhost:3000 manually." -ForegroundColor Yellow
+}
+pause
+"""
+
+    path = _os.path.join(tempfile.gettempdir(), 'cfai_grafana_setup.ps1')
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(script)
+
+    try:
+        subprocess.Popen(
+            ['powershell', '-Command',
+             f'Start-Process powershell -Verb RunAs -ArgumentList \'-ExecutionPolicy Bypass -File "{path}"\''],
+            shell=False
+        )
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/grafana/configure', methods=['POST'])
+@login_required
+def api_grafana_configure():
+    """Auto-configure Grafana: ensure Prometheus data source exists, import dashboards."""
+    import requests as _req
+    data     = request.get_json(silent=True) or {}
+    gf_url   = data.get('grafana_url', 'http://localhost:3000').rstrip('/')
+    gf_user  = data.get('gf_user', 'admin')
+    gf_pass  = data.get('gf_pass', 'admin')
+    prom_url = data.get('prometheus_url', 'http://localhost:9090').rstrip('/')
+    auth     = (gf_user, gf_pass)
+    done     = []
+
+    # Ensure Prometheus data source
+    try:
+        existing = _req.get(f'{gf_url}/api/datasources/name/Prometheus', auth=auth, timeout=5)
+        if existing.status_code == 404:
+            body = {'name': 'Prometheus', 'type': 'prometheus', 'url': prom_url,
+                    'access': 'proxy', 'isDefault': True}
+            r = _req.post(f'{gf_url}/api/datasources', json=body, auth=auth, timeout=5)
+            if r.status_code in (200, 409):
+                done.append('data_source')
+        else:
+            done.append('data_source')
+    except Exception:
+        pass
+
+    # Import recommended dashboards from grafana.com
+    dash_ids = [1860, 13391, 14031]   # Node Exporter Full, Network Overview, Network Traffic
+    ds_uid = None
+    try:
+        ds = _req.get(f'{gf_url}/api/datasources/name/Prometheus', auth=auth, timeout=5).json()
+        ds_uid = ds.get('uid', '')
+    except Exception:
+        pass
+
+    imported = []
+    for dash_id in dash_ids:
+        try:
+            raw = _req.get(f'https://grafana.com/api/dashboards/{dash_id}/revisions/latest/download',
+                           timeout=10).json()
+            raw['id'] = None
+            payload = {
+                'dashboard': raw,
+                'overwrite': True,
+                'inputs': [{'name': '__DS_PROMETHEUS', 'type': 'datasource',
+                            'pluginId': 'prometheus', 'value': ds_uid or 'Prometheus'}]
+            }
+            r = _req.post(f'{gf_url}/api/dashboards/import', json=payload, auth=auth, timeout=15)
+            if r.status_code == 200:
+                imported.append(dash_id)
+        except Exception:
+            pass
+
+    done.append(f'imported {len(imported)} dashboards')
+    return jsonify({'ok': True, 'done': done, 'dashboards_imported': imported})
+
+
 @app.route('/api/inventories/plugins')
 def api_inventories_plugins():
     """Return all plugins detected across scans, optionally filtered by target."""

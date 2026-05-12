@@ -1196,6 +1196,10 @@ tr.hidden-r { display: none; }
   box-shadow:0 0 0 0 rgba(16,185,129,.4);
   animation:pulse-dot 2s infinite;
 }
+@keyframes pulse {
+  0%,100% { opacity:1; }
+  50%      { opacity:.35; }
+}
 @keyframes pulse-dot {
   0%   { box-shadow:0 0 0 0 rgba(16,185,129,.4); }
   70%  { box-shadow:0 0 0 6px rgba(16,185,129,0); }
@@ -3753,7 +3757,10 @@ Load Logs
         </div>
         <div class="sec-desc">Live server metrics, traffic &amp; uptime via Prometheus + Node Exporter — topology diagrams rendered directly in Grafana</div>
       </div>
-      <button onclick="gfToggleSetup()" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;">Setup Guide</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="gfAutoSetup()" id="gf-autosetup-btn" style="background:#2563eb;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">&#9889; Auto-Setup</button>
+        <button onclick="gfToggleSetup()" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;">Manual Guide</button>
+      </div>
     </div>
 
     <!-- Inputs -->
@@ -3763,6 +3770,17 @@ Load Logs
       <input type="text" id="gf-user"        placeholder="Grafana user"     value="admin" style="max-width:100px;">
       <input type="password" id="gf-pass"    placeholder="Grafana password" value="admin" style="max-width:120px;">
       <button class="btn btn-sm" onclick="runGrafanaMonitor()" id="gf-run-btn" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:7px 18px;white-space:nowrap;">&#9654; Connect &amp; Monitor</button>
+    </div>
+
+    <!-- Auto-setup progress -->
+    <div id="gf-autosetup-bar" style="display:none;margin-bottom:12px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1d4ed8;">
+      <div style="font-weight:600;margin-bottom:6px;">&#9889; Installing Grafana + Prometheus + Windows Exporter…</div>
+      <div id="gf-autosetup-status">A setup window has opened — <strong>accept the UAC (admin) prompt</strong> to allow installation. CyberINK will auto-connect once Grafana is ready.</div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+        <div id="gf-autosetup-dot" style="width:8px;height:8px;border-radius:50%;background:#2563eb;animation:pulse 1.2s infinite;flex-shrink:0;"></div>
+        <span id="gf-autosetup-poll">Waiting for Grafana to come online…</span>
+        <button onclick="gfStopPoll()" style="margin-left:auto;background:none;border:1px solid #93c5fd;border-radius:5px;padding:2px 10px;color:#1d4ed8;cursor:pointer;font-size:11px;font-family:inherit;">Cancel</button>
+      </div>
     </div>
 
     <!-- Loading / error -->
@@ -9064,6 +9082,104 @@ function invTab(name, btn) {
 // ── Grafana Monitor ────────────────────────────────────────────────────────────
 var _gfData = null;
 var _gfSetupOpen = false;
+var _gfPollTimer = null;
+var _gfPollCount = 0;
+
+function gfAutoSetup() {
+  var gfUrl   = (document.getElementById('gf-grafana-url') || {}).value || 'http://localhost:3000';
+  var promUrl = (document.getElementById('gf-prom-url')    || {}).value || 'http://localhost:9090';
+  var gfUser  = (document.getElementById('gf-user')        || {}).value || 'admin';
+  var gfPass  = (document.getElementById('gf-pass')        || {}).value || 'admin';
+  var bar     = document.getElementById('gf-autosetup-bar');
+  var btn     = document.getElementById('gf-autosetup-btn');
+
+  if (bar) bar.style.display = '';
+  if (btn) { btn.disabled = true; btn.textContent = '⚙ Installing…'; }
+
+  fetch('/api/grafana/install', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({grafana_url: gfUrl, prometheus_url: promUrl})
+  }).then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (!d.ok) {
+      var el = document.getElementById('gf-autosetup-status');
+      if (el) el.textContent = 'Launch failed: ' + (d.error || 'unknown error');
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+      return;
+    }
+    // Start polling for Grafana to come online
+    _gfPollCount = 0;
+    _gfStartPoll(gfUrl, promUrl, gfUser, gfPass);
+  }).catch(function(e) {
+    var el = document.getElementById('gf-autosetup-status');
+    if (el) el.textContent = 'Error: ' + String(e);
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+  });
+}
+
+function _gfStartPoll(gfUrl, promUrl, gfUser, gfPass) {
+  gfStopPoll();
+  _gfPollTimer = setInterval(function() {
+    _gfPollCount++;
+    var pollEl = document.getElementById('gf-autosetup-poll');
+    if (pollEl) pollEl.textContent = 'Waiting for Grafana… (' + (_gfPollCount * 5) + 's elapsed)';
+
+    fetch('/api/grafana/probe', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({grafana_url: gfUrl, prometheus_url: promUrl, gf_user: gfUser, gf_pass: gfPass})
+    }).then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.grafana && d.grafana.running) {
+        gfStopPoll();
+        var pollEl = document.getElementById('gf-autosetup-poll');
+        if (pollEl) pollEl.textContent = 'Grafana is online — configuring data source and dashboards…';
+        // Auto-configure
+        fetch('/api/grafana/configure', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({grafana_url: gfUrl, prometheus_url: promUrl, gf_user: gfUser, gf_pass: gfPass})
+        }).then(function(r){ return r.json(); })
+        .then(function(cfg) {
+          var bar = document.getElementById('gf-autosetup-bar');
+          var btn = document.getElementById('gf-autosetup-btn');
+          var statusEl = document.getElementById('gf-autosetup-status');
+          var pollEl = document.getElementById('gf-autosetup-poll');
+          var dot = document.getElementById('gf-autosetup-dot');
+          if (dot) { dot.style.background = '#22c55e'; dot.style.animation = 'none'; }
+          var imp = (cfg.dashboards_imported || []).length;
+          if (statusEl) statusEl.textContent = 'Setup complete!';
+          if (pollEl) pollEl.textContent = 'Prometheus data source configured · ' + imp + ' dashboard' + (imp !== 1 ? 's' : '') + ' imported. Connecting…';
+          if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+          // Auto-connect
+          setTimeout(function() {
+            if (bar) bar.style.display = 'none';
+            runGrafanaMonitor();
+          }, 2000);
+        }).catch(function() {
+          // Still connect even if configure fails
+          setTimeout(function() {
+            var bar = document.getElementById('gf-autosetup-bar');
+            if (bar) bar.style.display = 'none';
+            var btn = document.getElementById('gf-autosetup-btn');
+            if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+            runGrafanaMonitor();
+          }, 1500);
+        });
+      }
+    }).catch(function(){});
+
+    if (_gfPollCount > 60) { // 5 min timeout
+      gfStopPoll();
+      var el = document.getElementById('gf-autosetup-poll');
+      if (el) el.textContent = 'Timed out. Open http://localhost:3000 to check Grafana manually.';
+      var btn = document.getElementById('gf-autosetup-btn');
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+    }
+  }, 5000);
+}
+
+function gfStopPoll() {
+  if (_gfPollTimer) { clearInterval(_gfPollTimer); _gfPollTimer = null; }
+}
 
 function gfToggleSetup() {
   _gfSetupOpen = !_gfSetupOpen;
