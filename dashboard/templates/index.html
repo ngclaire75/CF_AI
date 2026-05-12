@@ -3829,8 +3829,8 @@ Load Logs
     </div>
     <div class="mdef-tbl-wrap" id="inv-wrap">
       <table class="mdef-tbl" id="inv-tbl">
-        <thead><tr><th>Name</th><th>Type</th><th>Version</th><th>Detected on</th><th>Risk</th></tr></thead>
-        <tbody id="inv-tbody"><tr><td colspan="5" class="mdef-empty">Click Refresh to enumerate software from scan outputs.</td></tr></tbody>
+        <thead><tr><th>Name</th><th>Type</th><th>Version</th><th>Detected on</th><th>Risk</th><th>Flag</th></tr></thead>
+        <tbody id="inv-tbody"><tr><td colspan="6" class="mdef-empty">Click Refresh to enumerate software from scan outputs.</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -8686,24 +8686,63 @@ function _invRender() {
   var data = _invData[_invTab] || [];
   var q = (document.getElementById('inv-filter').value || '').toLowerCase();
   if (q) data = data.filter(function(r){ return (r.name||'').toLowerCase().indexOf(q) >= 0 || (r.version||'').toLowerCase().indexOf(q) >= 0 || (r.targets||[]).join(' ').toLowerCase().indexOf(q) >= 0; });
-  if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No ' + _invTab + ' detected yet. Run a scan to auto-populate.</td></tr>'; return; }
-  tbody.innerHTML = data.map(function(r) {
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="6" class="mdef-empty">No ' + _invTab + ' detected yet. Run a scan to auto-populate.</td></tr>'; return; }
+  var invStatuses = JSON.parse(localStorage.getItem('cfai_inv_statuses') || '{}');
+  tbody.innerHTML = data.map(function(r, idx) {
+    var invKey = (r.name || '') + '@' + (r.targets||[]).join(',');
+    var status = invStatuses[invKey] || 'none';
     var namePart = _esc(r.name);
     if (r.vulnerable) namePart += ' <span style="background:#a80000;color:#fff;font-size:9px;padding:1px 4px;border-radius:2px;font-weight:700;vertical-align:middle;">VULNERABLE</span>';
     var statusBadge = r.status && r.status !== 'active'
       ? ' <span style="background:#e8e6e3;color:#605e5c;font-size:9px;padding:1px 4px;border-radius:2px;">' + _esc(r.status) + '</span>'
       : '';
-    return '<tr>'
+    var invFlagBadges = {
+      suspicious: '<span id="invbadge-'+idx+'" style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
+      safe:       '<span id="invbadge-'+idx+'" style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
+      outdated:   '<span id="invbadge-'+idx+'" style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">OUTDATED</span>',
+      fp:         '<span id="invbadge-'+idx+'" style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE POSITIVE</span>',
+      none:       '<span id="invbadge-'+idx+'"></span>',
+    };
+    var badgeHtml  = (invFlagBadges[status] || invFlagBadges.none);
+    var selectHtml = '<select onchange="_invSetStatus(this,\''+invKey.replace(/'/g,"\\'")+'\',' +idx+')" '
+      + 'style="font-size:11px;border:1px solid #c8c6c4;border-radius:4px;padding:2px 4px;cursor:pointer;background:#fff;">'
+      + '<option value="none"'       +(status==='none'?' selected':'')+'>— Flag —</option>'
+      + '<option value="safe"'       +(status==='safe'?' selected':'')+'>Safe</option>'
+      + '<option value="suspicious"' +(status==='suspicious'?' selected':'')+'>Suspicious</option>'
+      + '<option value="outdated"'   +(status==='outdated'?' selected':'')+'>Outdated</option>'
+      + '<option value="fp"'         +(status==='fp'?' selected':'')+'>False Positive</option>'
+      + '</select>';
+    var rowBg = status==='suspicious' ? 'background:#fffbfb;' : status==='safe' ? 'background:#f8fff9;' : '';
+    return '<tr id="invrow-'+idx+'" style="'+rowBg+'">'
       + '<td style="font-weight:500;">' + namePart + statusBadge + '</td>'
       + '<td style="color:#605e5c;font-size:11px;">' + _esc(r.type) + '</td>'
       + '<td style="font-family:monospace;font-size:11px;">' + _esc(r.version || '—') + '</td>'
       + '<td style="color:#605e5c;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc((r.targets||[]).join(', ')) + '">' + _esc((r.targets||[]).join(', ').slice(0,60)) + '</td>'
       + '<td>' + _sevBars(r.risk) + '</td>'
+      + '<td style="white-space:nowrap;">' + badgeHtml + ' ' + selectHtml + '</td>'
       + '</tr>';
   }).join('');
 }
 
 function invFilter() { _invRender(); }
+
+function _invSetStatus(sel, invKey, idx) {
+  var status = sel.value;
+  var statuses = JSON.parse(localStorage.getItem('cfai_inv_statuses') || '{}');
+  if (status === 'none') { delete statuses[invKey]; } else { statuses[invKey] = status; }
+  localStorage.setItem('cfai_inv_statuses', JSON.stringify(statuses));
+  var row   = document.getElementById('invrow-'  + idx);
+  var badge = document.getElementById('invbadge-' + idx);
+  var badgeMap = {
+    suspicious: {bg:'#fde7e9', col:'#a80000', label:'SUSPICIOUS'},
+    safe:       {bg:'#e9f8ee', col:'#107c10', label:'SAFE'},
+    outdated:   {bg:'#fff4ce', col:'#7a4f00', label:'OUTDATED'},
+    fp:         {bg:'#f3f2f1', col:'#605e5c', label:'FALSE POSITIVE'},
+  };
+  var b = badgeMap[status];
+  if (badge) { badge.textContent = b ? b.label : ''; badge.style.background = b ? b.bg : ''; badge.style.color = b ? b.col : ''; }
+  if (row)   { row.style.background = status==='suspicious' ? '#fffbfb' : status==='safe' ? '#f8fff9' : ''; }
+}
 
 /* ═══════════════════════════════════════════════════════
    AI CHATBOT
