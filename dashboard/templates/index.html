@@ -5127,13 +5127,6 @@ function loadPluginLogsPage() {
   var sel = document.getElementById('pl-target-sel');
   if (!sel) return;
 
-  // Add cPanel / MySQL targets so they appear even without a scan
-  var extraTargets = [];
-  var cpCreds = _getCpanelCreds();
-  if (cpCreds && cpCreds.url) extraTargets.push(cpCreds.url.replace(/^https?:\/\//,'').replace(/\/$/,''));
-  var mysCreds = _getMysqlCreds();
-  if (mysCreds && mysCreds.db_name) extraTargets.push(mysCreds.db_name);
-
   fetch('/api/scans/recent?limit=500')
     .then(function(r){ return r.json(); })
     .then(function(d) {
@@ -5141,7 +5134,6 @@ function loadPluginLogsPage() {
       var seen = {};
       var targets = [];
       scans.forEach(function(s) { if (s.target && !seen[s.target]) { seen[s.target]=1; targets.push(s.target); } });
-      extraTargets.forEach(function(t) { if (t && !seen[t]) { seen[t]=1; targets.push(t); } });
       targets.sort();
       sel.innerHTML = '<option value="">All targets</option>' +
         targets.map(function(t){ return '<option value="'+_esc(t)+'">'+_esc(t)+'</option>'; }).join('');
@@ -7912,6 +7904,7 @@ function runHostingerMysql() {
     // Save credentials so other pages (User Activity Logs, Plugin Inventory) can auto-load
     try {
       localStorage.setItem('cfai_mysql_creds', JSON.stringify({
+        _owner: USER_NAME,
         db_host: host, db_port: parseInt(port), db_name: name,
         db_user: user, db_pass: pass, table_prefix: prefix
       }));
@@ -7954,8 +7947,13 @@ function _renderMysqlEventRows(events) {
 }
 
 function _getMysqlCreds() {
-  try { return JSON.parse(localStorage.getItem('cfai_mysql_creds') || 'null'); }
-  catch(e) { return null; }
+  try {
+    var c = JSON.parse(localStorage.getItem('cfai_mysql_creds') || 'null');
+    if (!c) return null;
+    // New creds: must match owner. Legacy creds (no _owner): only admins may use.
+    if (c._owner ? c._owner !== USER_NAME : USER_ROLE !== 'admin') return null;
+    return c;
+  } catch(e) { return null; }
 }
 
 function _clearMysqlCreds() {
@@ -7970,8 +7968,12 @@ function _checkMysqlSavedIndicator() {
   if (ind) ind.style.display = _getMysqlCreds() ? 'inline' : 'none';
 }
 function _getCpanelCreds() {
-  try { return JSON.parse(localStorage.getItem('cfai_cpanel_creds') || 'null'); }
-  catch(e) { return null; }
+  try {
+    var c = JSON.parse(localStorage.getItem('cfai_cpanel_creds') || 'null');
+    if (!c) return null;
+    if (c._owner ? c._owner !== USER_NAME : USER_ROLE !== 'admin') return null;
+    return c;
+  } catch(e) { return null; }
 }
 function _clearCpanelCreds() {
   localStorage.removeItem('cfai_cpanel_creds');
@@ -8040,6 +8042,7 @@ function runWpCpanelDb() {
       // Save cPanel creds so Inventories page can auto-load without re-entering
       try {
         localStorage.setItem('cfai_cpanel_creds', JSON.stringify({
+          _owner: USER_NAME,
           url: url, cp_host: host, cp_user: user, cp_pass: pass,
           cp_token: token, wp_dir: dir
         }));
@@ -9215,17 +9218,6 @@ function _invPopulateDomains() {
   if (!sel) return;
   var seen = {};
   var domains = [];
-
-  // Add cPanel / MySQL connected domains first
-  var cp = _getCpanelCreds();
-  if (cp && cp.url) { var d = cp.url.replace(/^https?:\/\//,'').replace(/\/$/,''); if (!seen[d]) { seen[d]=1; domains.push(d); } }
-  var my = _getMysqlCreds();
-  if (my && my.db_name && !seen[my.db_name]) { seen[my.db_name]=1; domains.push(my.db_name); }
-
-  // Add domains from already-loaded plugin data
-  (_invData.plugins || []).forEach(function(p) {
-    (p.targets || []).forEach(function(t) { if (t && !seen[t]) { seen[t]=1; domains.push(t); } });
-  });
 
   fetch('/api/scans/recent?limit=500')
     .then(function(r){ return r.json(); })
@@ -10414,7 +10406,7 @@ function _gscSaveCreds() {
   var k = (document.getElementById('gsc-apikey') || {}).value || '';
   var t = (document.getElementById('gsc-token') || {}).value || '';
   if (d) {
-    try { localStorage.setItem('cfai_gsc_creds', JSON.stringify({domain:d, api_key:k, access_token:t})); } catch(e){}
+    try { localStorage.setItem('cfai_gsc_creds', JSON.stringify({_owner: USER_NAME, domain:d, api_key:k, access_token:t})); } catch(e){}
   }
 }
 
@@ -10423,6 +10415,7 @@ function _gscRestoreCreds() {
     var raw = localStorage.getItem('cfai_gsc_creds');
     if (!raw) return false;
     var c = JSON.parse(raw);
+    if (c._owner ? c._owner !== USER_NAME : USER_ROLE !== 'admin') return false;
     if (c.domain) { document.getElementById('gsc-domain').value = c.domain || ''; }
     if (c.api_key) { document.getElementById('gsc-apikey').value = c.api_key || ''; }
     if (c.access_token) { document.getElementById('gsc-token').value = c.access_token || ''; }
