@@ -1428,7 +1428,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 .sb-search-wrap input{background:#3b3a39!important;border-color:#504e4c!important;color:#c8c6c4!important;border-radius:2px!important;}
 .sb-search-wrap input::placeholder{color:#797673!important;}
 .sb-search-wrap input:focus{border-color:#0078d4!important;}
-.topbar{background:#1b1a19!important;border-bottom:1px solid #3b3a39!important;box-shadow:none!important;height:48px!important;min-height:48px!important;padding:0 20px!important;}
+.topbar{background:#1b1a19!important;border-bottom:1px solid #3b3a39!important;box-shadow:none!important;height:48px!important;min-height:48px!important;padding:0 20px!important;display:flex!important;align-items:center!important;}
+#topbar-ai-pill:hover{background:rgba(255,255,255,.13)!important;border-color:rgba(96,165,250,.5)!important;}
+#topbar-ai-pill:focus-within{background:rgba(255,255,255,.13)!important;border-color:#60a5fa!important;}
 .topbar-title{font-size:14px!important;font-weight:600!important;color:#fff!important;}
 .btn-topbar{border-radius:2px!important;font-size:12px!important;height:28px!important;padding:0 10px!important;gap:4px!important;color:#c8c6c4!important;border-color:#504e4c!important;background:transparent!important;}
 .btn-topbar:hover{background:rgba(255,255,255,.08)!important;color:#fff!important;}
@@ -1956,6 +1958,15 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <div class="topbar-left">
       <span class="topbar-title" id="topbar-title">Dashboard</span>
     </div>
+
+    <!-- ── AI Search pill ──────────────────────────────────────── -->
+    <div id="topbar-ai-pill" onclick="topbarAiFocus()" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:0 14px 0 10px;height:32px;min-width:260px;max-width:420px;flex:1;margin:0 24px;cursor:text;transition:background .15s,border .15s;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+      <input id="topbar-ai-input" type="text" placeholder="Ask AI about this site…" onkeydown="topbarAiKeydown(event)" style="flex:1;background:transparent;border:none;outline:none;font-size:12px;color:#fff;font-family:inherit;min-width:0;" />
+      <span style="font-size:11px;font-weight:600;color:#60a5fa;white-space:nowrap;letter-spacing:.3px;">AI Search</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </div>
+
     <div class="topbar-right">
       <div id="topbar-dashboard-actions" style="display:none;">
       </div>
@@ -8748,6 +8759,22 @@ function _invSetStatus(sel, invKey, idx) {
    AI CHATBOT
    ═══════════════════════════════════════════════════════ */
 var _chatHistory = [];
+
+function topbarAiFocus() {
+  document.getElementById('topbar-ai-input').focus();
+}
+
+function topbarAiKeydown(e) {
+  if (e.key !== 'Enter') return;
+  var q = (document.getElementById('topbar-ai-input').value || '').trim();
+  if (!q) return;
+  // Navigate to chatbot and pre-fill + submit
+  sbNav('chatbot', document.getElementById('sb-chatbot'));
+  var chatInput = document.getElementById('chat-input');
+  if (chatInput) { chatInput.value = q; chatAutoResize(chatInput); }
+  document.getElementById('topbar-ai-input').value = '';
+  setTimeout(chatSend, 80); // slight delay so chatbot panel is visible first
+}
 
 function chatKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
