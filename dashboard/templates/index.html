@@ -5467,9 +5467,16 @@ function qaShowStatus(msg, type) {
   s.textContent = msg;
 }
 
+function _qaCleanDomain(raw) {
+  return (raw || '').trim().replace(/^https?:\/\//i, '').split('/')[0].split('?')[0].toLowerCase();
+}
+
 function qaLoadStatus() {
-  var domain = (document.getElementById('qa-domain').value || '').trim();
+  var raw    = (document.getElementById('qa-domain').value || '').trim();
+  var domain = _qaCleanDomain(raw);
   if (!domain) { qaShowStatus('Enter a domain name first.', 'warn'); return; }
+  // Normalise the input field to just the hostname
+  document.getElementById('qa-domain').value = domain;
   qaShowStatus('Loading…', 'info');
   var tog = document.getElementById('qa-uam-toggle');
   if (tog) { tog.checked = false; tog.disabled = true; }
@@ -5496,7 +5503,7 @@ function qaLoadStatus() {
 }
 
 function qaToggleAttackMode(chk) {
-  var domain = (document.getElementById('qa-domain').value || '').trim();
+  var domain = _qaCleanDomain(document.getElementById('qa-domain').value);
   if (!domain) {
     qaShowStatus('Load a domain status first.', 'warn');
     chk.checked = !chk.checked;
