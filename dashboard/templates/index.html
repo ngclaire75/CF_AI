@@ -12223,9 +12223,10 @@ function ptLoadDemo() {
     };
   }
 
-  // Inject into state, re-render list, then auto-select
+  // Inject into state, re-render list, recalculate KPIs (demo excluded), then auto-select
   _ptEngagements = demo;
   _ptRenderList();
+  _ptUpdateKpis();   // recalculates with the demo excluded (id 9999 filtered out)
   ptSelectEngagement(9999);
 }
 
@@ -12242,8 +12243,10 @@ function _ptFetchEngagements() {
 }
 
 function _ptUpdateKpis() {
-  document.getElementById('pt-kpi-total').textContent = _ptEngagements.length;
-  document.getElementById('pt-kpi-done').textContent  = _ptEngagements.filter(function(e){ return e.status === 'completed'; }).length;
+  // Exclude the ephemeral demo engagement (id 9999) from all KPI counts
+  var real = _ptEngagements.filter(function(e){ return e.id !== 9999; });
+  document.getElementById('pt-kpi-total').textContent = real.length;
+  document.getElementById('pt-kpi-done').textContent  = real.filter(function(e){ return e.status === 'completed'; }).length;
   // findings counts require fetching scans — leave as dash for now
 }
 
@@ -12474,8 +12477,11 @@ function ptLoadFindings(eid) {
     });
     var sevOrder = { critical:0, high:1, medium:2, low:3, info:4 };
     findings.sort(function(a,b){ return (sevOrder[a.severity]||99) - (sevOrder[b.severity]||99); });
-    document.getElementById('pt-kpi-critical').textContent = findings.filter(function(f){ return f.severity === 'critical'; }).length;
-    document.getElementById('pt-kpi-high').textContent     = findings.filter(function(f){ return f.severity === 'high'; }).length;
+    // Never let demo data (eid 9999) pollute the real KPI banner
+    if (eid !== 9999) {
+      document.getElementById('pt-kpi-critical').textContent = findings.filter(function(f){ return f.severity === 'critical'; }).length;
+      document.getElementById('pt-kpi-high').textContent     = findings.filter(function(f){ return f.severity === 'high'; }).length;
+    }
     if (!body) return;
     if (!findings.length) {
       body.innerHTML = '<div style="color:#a19f9d;font-size:13px;padding:24px;text-align:center;">No findings yet. Run scans first.</div>';
