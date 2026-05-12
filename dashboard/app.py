@@ -3259,7 +3259,8 @@ def api_priority_maintenance():
     """Toggle Cloudflare maintenance mode (security_level=under_attack) for a domain."""
     import json as _j
     data      = request.get_json(force=True, silent=True) or {}
-    domain    = (data.get('domain') or '').strip().lower().lstrip('https://').lstrip('http://').rstrip('/')
+    _raw_domain = (data.get('domain') or '').strip()
+    domain      = re.sub(r'^https?://', '', _raw_domain, flags=re.I).split('/')[0].rstrip('.').lower()
     action    = (data.get('action') or 'enable').lower()
     reason    = (data.get('reason') or 'Security issue under investigation').strip()
 
