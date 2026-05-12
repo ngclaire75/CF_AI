@@ -3496,11 +3496,12 @@ Load Logs
             <th>IP Address</th>
             <th>Country</th>
             <th>Severity</th>
+            <th>Flag</th>
             <th>Target</th>
           </tr>
         </thead>
         <tbody id="pl-tbody">
-          <tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Select a target and click "Load Logs" to view WordPress plugin activity.</td></tr>
+          <tr><td colspan="8" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">Select a target and click "Load Logs" to view WordPress plugin activity.</td></tr>
         </tbody>
       </table>
     </div>
@@ -5059,7 +5060,7 @@ function _renderPluginLogs(logs) {
   var countEl = document.getElementById('pl-count');
   if (!tbody) return;
   if (!logs.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No events found. Go to <strong>Log Explorer → cPanel</strong> tab and click "Fetch via Database" to load live events, or use the <strong>Hostinger / MySQL</strong> tab for direct MySQL access.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:#a19f9d;font-size:12px;font-style:italic;">No events found. Go to <strong>Log Explorer → cPanel</strong> tab and click "Fetch via Database" to load live events, or use the <strong>Hostinger / MySQL</strong> tab for direct MySQL access.</td></tr>';
     if (countEl) countEl.textContent = '';
     return;
   }
@@ -5074,18 +5075,42 @@ function _renderPluginLogs(logs) {
   // Sort newest first
   logs.sort(function(a,b){ return (b.timestamp||'').localeCompare(a.timestamp||''); });
   if (countEl) countEl.textContent = logs.length + ' entries';
+  var _plStatuses = JSON.parse(localStorage.getItem('cfai_log_statuses') || '{}');
+  var _plFlagBadges = {
+    suspicious: '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
+    blocked:    '<span style="background:#a80000;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
+    safe:       '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
+    watchlist:  '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
+    fp:         '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE +VE</span>',
+  };
   var html = logs.map(function(l, idx) {
     var sev = l.severity || 'INFO';
     var sevStyle = sev === 'HIGH' ? 'color:#a80000;font-weight:600;' : sev === 'MEDIUM' ? 'color:#986f0b;font-weight:500;' : 'color:#107c10;';
     var ts = _utcToLocal(l.timestamp || '');
     var ip = (l.ip || '').trim();
-    return '<tr>' +
+    var logKey    = (l.user||'')+'|'+(ip||'')+'|'+(l.timestamp||'')+'|'+idx;
+    var logStatus = _plStatuses[logKey] || 'none';
+    var rowBg = logStatus==='blocked'?'background:#fff5f5;':logStatus==='suspicious'?'background:#fffbfb;':logStatus==='safe'?'background:#f8fff9;':'';
+    var escapedKey = logKey.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    var flagCell = '<div style="display:flex;align-items:center;gap:4px;">'
+      + '<span id="plbadge-'+idx+'">' + (_plFlagBadges[logStatus]||'') + '</span>'
+      + '<select onchange="_plSetStatus(this,\''+escapedKey+'\','+idx+')" '
+      + 'style="font-size:10px;border:1px solid #e5e7eb;border-radius:4px;padding:2px 3px;cursor:pointer;background:#fff;max-width:90px;">'
+      + '<option value="none"'       +(logStatus==='none'?' selected':'')+'>— Flag</option>'
+      + '<option value="suspicious"' +(logStatus==='suspicious'?' selected':'')+'>Suspicious</option>'
+      + '<option value="watchlist"'  +(logStatus==='watchlist'?' selected':'')+'>Watchlist</option>'
+      + '<option value="blocked"'    +(logStatus==='blocked'?' selected':'')+'>Block User</option>'
+      + '<option value="safe"'       +(logStatus==='safe'?' selected':'')+'>Safe</option>'
+      + '<option value="fp"'         +(logStatus==='fp'?' selected':'')+'>False +ve</option>'
+      + '</select></div>';
+    return '<tr id="plrow-'+idx+'" style="'+rowBg+'">' +
       '<td style="white-space:nowrap;font-family:monospace;font-size:11px;">' + _esc(ts) + '</td>' +
       '<td>' + _esc(l.user || '—') + '</td>' +
       '<td>' + _esc(l.event || '—') + '</td>' +
       '<td style="font-family:monospace;font-size:11px;">' + _esc(ip || '—') + '</td>' +
       '<td class="geo-cell" data-ip="' + _esc(ip) + '" style="font-size:11px;color:#605e5c;">—</td>' +
       '<td style="' + sevStyle + '">' + _esc(sev) + '</td>' +
+      '<td>' + flagCell + '</td>' +
       '<td style="color:#605e5c;font-size:11px;">' + _esc(l._target || l.target || '—') + '</td>' +
       '</tr>';
   }).join('');
@@ -9558,6 +9583,24 @@ function _fsSetStatus(sel, fileKey, idx) {
 function _fsClearDismissed() {
   localStorage.removeItem('cfai_fs_statuses');
   fsRun();
+}
+
+function _plSetStatus(sel, logKey, idx) {
+  var status = sel.value;
+  var statuses = JSON.parse(localStorage.getItem('cfai_log_statuses') || '{}');
+  statuses[logKey] = status;
+  localStorage.setItem('cfai_log_statuses', JSON.stringify(statuses));
+  var badge = document.getElementById('plbadge-'+idx);
+  var row   = document.getElementById('plrow-'+idx);
+  var flagBadges = {
+    suspicious: '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
+    blocked:    '<span style="background:#a80000;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
+    safe:       '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
+    watchlist:  '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
+    fp:         '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE +VE</span>',
+  };
+  if (badge) badge.innerHTML = flagBadges[status] || '';
+  if (row) row.style.background = status==='blocked'?'#fff5f5':status==='suspicious'?'#fffbfb':status==='safe'?'#f8fff9':'';
 }
 
 function _logSetStatus(sel, logKey, idx) {
