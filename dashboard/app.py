@@ -3851,6 +3851,52 @@ def api_events_ingest_scan():
     return jsonify({'ok': True, 'events_created': count, 'target': target})
 
 
+# ── Grafana reverse proxy (makes Grafana embeddable via ngrok / any remote URL) ──
+@app.route('/grafana-proxy/', defaults={'path': ''})
+@app.route('/grafana-proxy/<path:path>')
+@login_required
+def grafana_proxy(path):
+    """Proxy all Grafana traffic through CyberINK so it works behind ngrok."""
+    import requests as _req, base64 as _b64
+    from flask import Response, stream_with_context
+
+    gf_base = os.environ.get('GRAFANA_URL', 'http://localhost:3000').rstrip('/')
+    target  = f"{gf_base}/{path}"
+    qs      = request.query_string.decode('utf-8')
+    if qs:
+        target = f"{target}?{qs}"
+
+    skip_req = {'host', 'content-length', 'transfer-encoding', 'connection'}
+    fwd = {k: v for k, v in request.headers if k.lower() not in skip_req}
+    # Always pass Grafana admin credentials so anonymous-access setting doesn't matter
+    fwd['Authorization'] = 'Basic ' + _b64.b64encode(b'admin:admin').decode()
+
+    try:
+        resp = _req.request(
+            method  = request.method,
+            url     = target,
+            headers = fwd,
+            data    = request.get_data(),
+            stream  = True,
+            timeout = 30,
+            allow_redirects = True,
+        )
+        # Strip headers that block embedding
+        drop = {'content-encoding', 'content-length', 'transfer-encoding',
+                'connection', 'x-frame-options', 'content-security-policy'}
+        resp_headers = [(k, v) for k, v in resp.raw.headers.items()
+                        if k.lower() not in drop]
+
+        return Response(
+            stream_with_context(resp.iter_content(chunk_size=16384)),
+            status       = resp.status_code,
+            headers      = resp_headers,
+            content_type = resp.headers.get('Content-Type', 'application/octet-stream'),
+        )
+    except Exception as exc:
+        return f'Grafana proxy error: {exc}', 502
+
+
 # ── Grafana / Prometheus probe ─────────────────────────────────────────────────
 @app.route('/api/grafana/probe', methods=['POST'])
 @login_required
@@ -4042,8 +4088,8 @@ foreach ($ini in $iniCandidates) {
     if (Test-Path $ini) {
         $c = Get-Content $ini -Raw
         if ($c -notmatch 'allow_embedding\s*=\s*true') {
-            Add-Content $ini "`n[auth.anonymous]`nenabled = true`norg_name = Main Org.`norg_role = Viewer`n`n[security]`nallow_embedding = true"
-            Step "Grafana embedding enabled in $ini"
+            Add-Content $ini "`n[auth.anonymous]`nenabled = true`norg_name = Main Org.`norg_role = Viewer`n`n[security]`nallow_embedding = true`n`n[server]`nserve_from_sub_path = true"
+            Step "Grafana embedding + sub-path proxy enabled in $ini"
         }
         break
     }
@@ -4088,6 +4134,59 @@ Read-Host
             shell=False
         )
         return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/grafana/patch-ini', methods=['POST'])
+@login_required
+def api_grafana_patch_ini():
+    """Patch grafana.ini on an existing install to enable anonymous access + embedding."""
+    import subprocess
+    script = r"""
+$candidates = @(
+    "C:\Program Files\GrafanaLabs\grafana\conf\grafana.ini",
+    "C:\Program Files (x86)\GrafanaLabs\grafana\conf\grafana.ini"
+)
+$patched = $false
+foreach ($ini in $candidates) {
+    if (Test-Path $ini) {
+        $c = Get-Content $ini -Raw
+        $add = ""
+        if ($c -notmatch '\[auth\.anonymous\]') {
+            $add += "`n[auth.anonymous]`nenabled = true`norg_name = Main Org.`norg_role = Viewer`n"
+        }
+        if ($c -notmatch 'allow_embedding\s*=\s*true') {
+            $add += "`n[security]`nallow_embedding = true`n"
+        }
+        if ($c -notmatch 'serve_from_sub_path\s*=\s*true') {
+            $add += "`n[server]`nserve_from_sub_path = true`n"
+        }
+        if ($add -ne "") {
+            Add-Content $ini $add
+        }
+        Restart-Service Grafana -ErrorAction SilentlyContinue
+        Start-Sleep 3
+        Write-Host "OK:$ini"
+        $patched = $true
+        break
+    }
+}
+if (-not $patched) { Write-Host "ERR:grafana.ini not found" }
+"""
+    import base64 as _b64, subprocess
+    encoded = _b64.b64encode(script.encode('utf-16-le')).decode('ascii')
+    try:
+        result = subprocess.run(
+            ['powershell', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
+            capture_output=True, text=True, timeout=20
+        )
+        out = (result.stdout + result.stderr).strip()
+        if 'OK:' in out:
+            return jsonify({'ok': True, 'msg': 'grafana.ini patched and Grafana restarted.'})
+        if 'ERR:' in out:
+            return jsonify({'ok': False, 'error': out})
+        return jsonify({'ok': True, 'msg': out or 'Done.'})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 
