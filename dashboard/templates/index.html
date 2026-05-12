@@ -9609,7 +9609,6 @@ function _gfRenderMetrics(d, promUrl) {
     var col  = _gfColor(c.key, v);
     var pct  = (c.key.endsWith('_pct') && v !== undefined) ? Math.min(v, 100) : 0;
     return '<div class="gf-metric-card">' +
-      '<div class="gf-metric-icon">' + c.icon + '</div>' +
       '<div class="gf-metric-val" style="color:' + (v !== undefined ? col : '#9ca3af') + ';">' + vStr + '</div>' +
       '<div class="gf-metric-lbl">' + c.lbl + '</div>' +
       (pct ? '<div class="gf-metric-bar"><div class="gf-metric-fill" style="width:' + pct + '%;background:' + col + ';"></div></div>' : '') +
