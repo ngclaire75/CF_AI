@@ -1207,6 +1207,43 @@ tr.hidden-r { display: none; }
 }
 .live-badge { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#10b981; }
 
+/* ── Pentest Engagements ── */
+.pt-btn { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:5px;border:1px solid #d1d5db;background:#fff;color:#374151;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .12s; }
+.pt-btn:hover { background:#f3f4f6; }
+.pt-btn-primary { background:#0078d4;border-color:#0078d4;color:#fff; }
+.pt-btn-primary:hover { background:#006cbe; }
+.pt-btn-danger  { background:#a80000;border-color:#a80000;color:#fff; }
+.pt-btn-danger:hover  { background:#870000; }
+.pt-btn:disabled { opacity:.5;cursor:not-allowed; }
+.pt-label { display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;margin-bottom:5px; }
+.pt-input { width:100%;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;font-family:inherit;outline:none;transition:border-color .12s;resize:vertical; }
+.pt-input:focus { border-color:#0078d4; }
+.pt-input select { appearance:none; }
+.pt-auth-tab { padding:4px 10px;border-radius:4px;border:1px solid #d1d5db;background:#fff;font-size:11px;font-weight:600;cursor:pointer;color:#6b7280;font-family:inherit;transition:all .12s; }
+.pt-auth-tab.active { background:#0078d4;border-color:#0078d4;color:#fff; }
+.pt-auth-tab:hover:not(.active) { background:#f3f4f6; }
+.pt-eng-card { background:#fff;border:1px solid #edebe9;border-radius:8px;padding:12px 14px;cursor:pointer;transition:border-color .12s,box-shadow .12s; }
+.pt-eng-card:hover { border-color:#0078d4;box-shadow:0 0 0 1px #0078d4; }
+.pt-eng-card.active { border-color:#0078d4;background:#eff6ff;box-shadow:0 0 0 1px #0078d4; }
+.pt-status-pill { display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px; }
+.pt-status-pending   { background:#fef3c7;color:#92400e; }
+.pt-status-active    { background:#dbeafe;color:#1e40af; }
+.pt-status-completed { background:#d1fae5;color:#065f46; }
+.pt-target-row { display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:6px; }
+.pt-target-url { flex:1;font-size:12px;font-weight:600;color:#111827;word-break:break-all; }
+.pt-scan-status { font-size:11px;padding:2px 8px;border-radius:3px;font-weight:700; }
+.pt-scan-idle    { background:#f3f4f6;color:#6b7280; }
+.pt-scan-running { background:#dbeafe;color:#1e40af; }
+.pt-scan-done    { background:#d1fae5;color:#065f46; }
+.pt-scan-error   { background:#fee2e2;color:#991b1b; }
+.pt-finding-row { border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;margin-bottom:6px; }
+.pt-sev { display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase; }
+.pt-sev-critical { background:#fee2e2;color:#991b1b; }
+.pt-sev-high     { background:#ffedd5;color:#9a3412; }
+.pt-sev-medium   { background:#fef3c7;color:#92400e; }
+.pt-sev-low      { background:#d1fae5;color:#065f46; }
+.pt-sev-info     { background:#dbeafe;color:#1e40af; }
+
 /* ── Timeline loading skeleton ── */
 @keyframes shimmer { from{background-position:200% 0;} to{background-position:-200% 0;} }
 .skeleton {
@@ -1977,6 +2014,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     </button>
     <button class="sb-item" id="sb-history" onclick="sbNav('history',this)">
       <span class="sb-label">Security analytics</span>
+    </button>
+    <button class="sb-item" id="sb-pentest" onclick="sbNav('pentest',this)">
+      <span class="sb-label">Pentest Engagements</span>
     </button>
 
     {% if current_user.role == 'admin' %}
@@ -4228,8 +4268,172 @@ sudo systemctl start  prometheus prometheus-node-exporter</div>
   </div>
   </div><!-- /page-securescore -->
 
+  <!-- ══ PENTEST ENGAGEMENTS PAGE ════════════════════════════════════════════ -->
+  <div id="page-pentest" class="page-section" style="display:none">
+  <div class="mdef-page">
+
+    <div class="mdef-page-title">Pentest Engagements</div>
+
+    <!-- KPI banner -->
+    <div class="mdef-banner" id="pt-banner">
+      <div class="mdef-kpi mdef-kpi-blue"><div class="mdef-kpi-val" id="pt-kpi-total">—</div><div class="mdef-kpi-label">Engagements</div></div>
+      <div class="mdef-kpi" style="border-left:3px solid #a80000;"><div class="mdef-kpi-val" id="pt-kpi-critical">—</div><div class="mdef-kpi-label">Critical findings</div></div>
+      <div class="mdef-kpi" style="border-left:3px solid #986f0b;"><div class="mdef-kpi-val" id="pt-kpi-high">—</div><div class="mdef-kpi-label">High findings</div></div>
+      <div class="mdef-kpi" style="border-left:3px solid #107c10;"><div class="mdef-kpi-val" id="pt-kpi-done">—</div><div class="mdef-kpi-label">Completed</div></div>
+    </div>
+
+    <!-- Two-column layout: engagement list + detail panel -->
+    <div style="display:flex;gap:16px;align-items:flex-start;margin-top:16px;">
+
+      <!-- Left: engagement list -->
+      <div style="width:300px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span style="font-size:13px;font-weight:700;color:#201f1e;">Engagements</span>
+          <button class="pt-btn pt-btn-primary" onclick="ptOpenNewModal()">+ New</button>
+        </div>
+        <div id="pt-eng-list" style="display:flex;flex-direction:column;gap:8px;">
+          <div style="color:#a19f9d;font-size:13px;padding:24px;text-align:center;">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Right: detail panel -->
+      <div style="flex:1;min-width:0;" id="pt-detail-panel">
+        <div style="color:#a19f9d;font-size:13px;padding:48px;text-align:center;background:#f9f9f9;border:1px solid #edebe9;border-radius:8px;">
+          Select an engagement to view details, run scans, and generate reports.
+        </div>
+      </div>
+
+    </div><!-- /two-col -->
+  </div><!-- /mdef-page -->
+  </div><!-- /page-pentest -->
+
   </div><!-- /page-content -->
 </div><!-- /main-shell -->
+
+<!-- ── Pentest New Engagement Modal ─────────────────────────────────────────── -->
+<div id="pt-modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)ptCloseModal()">
+  <div class="modal-box" style="max-width:620px;">
+    <div class="modal-hd">
+      <div><div class="modal-title">New Pentest Engagement</div></div>
+      <button class="modal-close" onclick="ptCloseModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:20px 24px 24px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;">
+        <div style="grid-column:1/-1">
+          <label class="pt-label">Engagement name</label>
+          <input class="pt-input" id="pt-f-name" type="text" placeholder="e.g. Q2 2026 Web App Pentest">
+        </div>
+        <div>
+          <label class="pt-label">Client / project</label>
+          <input class="pt-input" id="pt-f-client" type="text" placeholder="Client name or internal project">
+        </div>
+        <div>
+          <label class="pt-label">Urgency</label>
+          <select class="pt-input" id="pt-f-urgency">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <div>
+          <label class="pt-label">Deadline (optional)</label>
+          <input class="pt-input" id="pt-f-deadline" type="date">
+        </div>
+        <div style="grid-column:1/-1">
+          <label class="pt-label">Scope — web URLs (one per line)</label>
+          <textarea class="pt-input" id="pt-f-urls" rows="3" placeholder="https://example.com&#10;https://api.example.com/v2&#10;https://admin.example.com"></textarea>
+          <div style="font-size:11px;color:#8a8886;margin-top:4px;">OWASP WSTG web + API tests will run against each URL.</div>
+        </div>
+        <div style="grid-column:1/-1">
+          <label class="pt-label">Scope — IP ranges (one per line)</label>
+          <textarea class="pt-input" id="pt-f-ips" rows="2" placeholder="192.168.1.0/24&#10;10.0.0.5"></textarea>
+          <div style="font-size:11px;color:#8a8886;margin-top:4px;">Network port/service enumeration will run against these.</div>
+        </div>
+
+        <!-- Auth section -->
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8a8886;margin-bottom:10px;">Authentication (optional)</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+            <button class="pt-auth-tab active" id="pt-at-none"    onclick="ptAuthTab('none')">None</button>
+            <button class="pt-auth-tab"        id="pt-at-bearer"  onclick="ptAuthTab('bearer')">Bearer token</button>
+            <button class="pt-auth-tab"        id="pt-at-apikey"  onclick="ptAuthTab('apikey')">API key</button>
+            <button class="pt-auth-tab"        id="pt-at-oidc"    onclick="ptAuthTab('oidc')">OIDC / SSO</button>
+            <button class="pt-auth-tab"        id="pt-at-basic"   onclick="ptAuthTab('basic')">Basic auth</button>
+            <button class="pt-auth-tab"        id="pt-at-custom"  onclick="ptAuthTab('custom')">Custom headers</button>
+          </div>
+          <!-- bearer -->
+          <div id="pt-auth-bearer" style="display:none">
+            <label class="pt-label">Bearer token</label>
+            <input class="pt-input" id="pt-f-bearer" type="text" placeholder="eyJhbGci...">
+          </div>
+          <!-- apikey -->
+          <div id="pt-auth-apikey" style="display:none">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label class="pt-label">Header name</label>
+                <input class="pt-input" id="pt-f-apikey-name" type="text" placeholder="X-API-Key">
+              </div>
+              <div>
+                <label class="pt-label">Key value</label>
+                <input class="pt-input" id="pt-f-apikey-val" type="text" placeholder="sk-...">
+              </div>
+            </div>
+          </div>
+          <!-- oidc -->
+          <div id="pt-auth-oidc" style="display:none">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+              <div>
+                <label class="pt-label">OIDC token endpoint</label>
+                <input class="pt-input" id="pt-f-oidc-ep" type="text" placeholder="https://auth.example.com/token">
+              </div>
+              <div>
+                <label class="pt-label">Client ID</label>
+                <input class="pt-input" id="pt-f-oidc-cid" type="text" placeholder="client_id">
+              </div>
+              <div>
+                <label class="pt-label">Client secret</label>
+                <input class="pt-input" id="pt-f-oidc-sec" type="text" placeholder="client_secret">
+              </div>
+              <div>
+                <label class="pt-label">Scope</label>
+                <input class="pt-input" id="pt-f-oidc-scope" type="text" placeholder="openid profile" value="openid profile">
+              </div>
+            </div>
+          </div>
+          <!-- basic -->
+          <div id="pt-auth-basic" style="display:none">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label class="pt-label">Username</label>
+                <input class="pt-input" id="pt-f-basic-user" type="text" placeholder="admin">
+              </div>
+              <div>
+                <label class="pt-label">Password</label>
+                <input class="pt-input" id="pt-f-basic-pass" type="password" placeholder="••••••••">
+              </div>
+            </div>
+          </div>
+          <!-- custom -->
+          <div id="pt-auth-custom" style="display:none">
+            <label class="pt-label">Custom headers (one per line, format: Name: Value)</label>
+            <textarea class="pt-input" id="pt-f-custom-hdrs" rows="3" placeholder="X-Custom-Token: abc123&#10;X-Tenant-ID: my-org"></textarea>
+          </div>
+        </div>
+
+        <div style="grid-column:1/-1">
+          <label class="pt-label">Notes</label>
+          <textarea class="pt-input" id="pt-f-notes" rows="2" placeholder="Scope exclusions, special instructions, compliance requirements…"></textarea>
+        </div>
+      </div><!-- /grid -->
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+        <button class="pt-btn" onclick="ptCloseModal()">Cancel</button>
+        <button class="pt-btn pt-btn-primary" onclick="ptCreateEngagement()">Create engagement</button>
+      </div>
+      <div id="pt-modal-err" style="display:none;color:#a80000;font-size:12px;margin-top:8px;"></div>
+    </div>
+  </div>
+</div>
 
 <!-- ── Report Modal ────────────────────────────────────────────────────────── -->
 <!-- ── Security Insights modal ── -->
@@ -4357,6 +4561,7 @@ var _PAGE_TITLES = {
   'threatanalytics':'Threat Analytics',
   'securescore':   'Secure Score',
   'usermgmt':      'User Management',
+  'pentest':       'Pentest Engagements',
 };
 
 var _currentPage = 'dashboard';
@@ -4402,6 +4607,7 @@ function sbNav(section, el) {
   if (section === 'gsc')           loadGscPage();
   if (section === 'filescan')      loadFileScanPage();
   if (section === 'usermgmt')      loadUserMgmt();
+  if (section === 'pentest')       loadPentestPage();
 }
 
 function toggleSidebar() {
@@ -11527,6 +11733,376 @@ function _gscDoRender(issues) {
 
   document.getElementById('gsc-issues-list').innerHTML = html;
   document.getElementById('gsc-issues-wrap').style.display = '';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PENTEST ENGAGEMENTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+var _ptEngagements = [];
+var _ptSelectedId  = null;
+var _ptScanPollers = {};   // eid -> {jobId, intervalId}
+var _ptAuthMode    = 'none';
+
+function loadPentestPage() {
+  _ptFetchEngagements();
+}
+
+function _ptFetchEngagements() {
+  fetch('/api/pentest/engagements').then(function(r){ return r.json(); }).then(function(data) {
+    _ptEngagements = data.engagements || [];
+    _ptRenderList();
+    _ptUpdateKpis();
+    if (_ptSelectedId) {
+      var e = _ptEngagements.find(function(x){ return x.id === _ptSelectedId; });
+      if (e) _ptRenderDetail(e);
+    }
+  }).catch(function(){ document.getElementById('pt-eng-list').innerHTML = '<div style="color:#a80000;font-size:12px;padding:16px;">Failed to load engagements.</div>'; });
+}
+
+function _ptUpdateKpis() {
+  document.getElementById('pt-kpi-total').textContent = _ptEngagements.length;
+  document.getElementById('pt-kpi-done').textContent  = _ptEngagements.filter(function(e){ return e.status === 'completed'; }).length;
+  // findings counts require fetching scans — leave as dash for now
+}
+
+function _ptRenderList() {
+  var el = document.getElementById('pt-eng-list');
+  if (!_ptEngagements.length) {
+    el.innerHTML = '<div style="color:#a19f9d;font-size:12px;padding:24px;text-align:center;">No engagements yet. Click + New to start.</div>';
+    return;
+  }
+  el.innerHTML = _ptEngagements.map(function(e) {
+    var urgClr = e.urgency === 'critical' ? '#a80000' : e.urgency === 'high' ? '#986f0b' : '#374151';
+    var active  = e.id === _ptSelectedId ? ' active' : '';
+    return '<div class="pt-eng-card' + active + '" onclick="ptSelectEngagement(' + e.id + ')">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:4px;">'
+      + '<span style="font-size:13px;font-weight:700;color:#201f1e;line-height:1.3;">' + _esc(e.name) + '</span>'
+      + '<span class="pt-status-pill pt-status-' + e.status + '">' + e.status + '</span>'
+      + '</div>'
+      + (e.client ? '<div style="font-size:11px;color:#6b7280;margin-bottom:4px;">' + _esc(e.client) + '</div>' : '')
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<span style="font-size:11px;font-weight:700;color:' + urgClr + ';">' + e.urgency.toUpperCase() + '</span>'
+      + (e.deadline ? '<span style="font-size:11px;color:#6b7280;">Due ' + e.deadline + '</span>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function ptSelectEngagement(eid) {
+  _ptSelectedId = eid;
+  _ptRenderList();
+  var eng = _ptEngagements.find(function(x){ return x.id === eid; });
+  if (eng) _ptRenderDetail(eng);
+}
+
+function _ptRenderDetail(eng) {
+  var panel = document.getElementById('pt-detail-panel');
+  var urlList  = (eng.scope_urls  || []).join('\n');
+  var ipList   = (eng.scope_ips   || []).join('\n');
+  var authCfg  = eng.auth_config  || {};
+
+  var html = '<div style="background:#fff;border:1px solid #edebe9;border-radius:10px;padding:20px 24px;">';
+
+  // Header
+  html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">'
+    + '<div>'
+    + '<div style="font-size:18px;font-weight:700;color:#201f1e;margin-bottom:2px;">' + _esc(eng.name) + '</div>'
+    + (eng.client ? '<div style="font-size:12px;color:#6b7280;">' + _esc(eng.client) + '</div>' : '')
+    + '</div>'
+    + '<div style="display:flex;gap:8px;align-items:center;">'
+    + '<span class="pt-status-pill pt-status-' + eng.status + '" style="font-size:11px;">' + eng.status + '</span>'
+    + (eng.status !== 'completed' ? '<button class="pt-btn pt-btn-primary" onclick="ptMarkDone(' + eng.id + ')">Mark complete</button>' : '')
+    + '<button class="pt-btn" onclick="ptOpenReport(' + eng.id + ')">Report</button>'
+    + '<button class="pt-btn pt-btn-danger" onclick="ptDeleteEngagement(' + eng.id + ')">Delete</button>'
+    + '</div>'
+    + '</div>';
+
+  // Tabs
+  html += '<div style="display:flex;gap:0;border-bottom:1px solid #edebe9;margin-bottom:16px;" id="pt-tabs-' + eng.id + '">'
+    + '<button class="pt-tab active" id="pt-tab-targets-' + eng.id + '" onclick="ptTab(' + eng.id + ',\'targets\')">Targets</button>'
+    + '<button class="pt-tab" id="pt-tab-findings-' + eng.id + '" onclick="ptTab(' + eng.id + ',\'findings\')">Findings</button>'
+    + '<button class="pt-tab" id="pt-tab-info-' + eng.id + '" onclick="ptTab(' + eng.id + ',\'info\')">Scope &amp; Info</button>'
+    + '</div>';
+
+  // Tab content container
+  html += '<div id="pt-tabcontent-' + eng.id + '">';
+
+  // Targets tab (active by default)
+  html += _ptRenderTargetsTab(eng, true);
+
+  // Findings tab (hidden)
+  html += '<div id="pt-panel-findings-' + eng.id + '" style="display:none"><div style="color:#a19f9d;font-size:13px;padding:24px;text-align:center;">Click "Load findings" to aggregate results from all scans.</div>'
+    + '<div style="text-align:center;margin-bottom:12px;"><button class="pt-btn pt-btn-primary" onclick="ptLoadFindings(' + eng.id + ')">Load findings</button></div>'
+    + '<div id="pt-findings-body-' + eng.id + '"></div>'
+    + '</div>';
+
+  // Info tab (hidden)
+  html += '<div id="pt-panel-info-' + eng.id + '" style="display:none">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">'
+    + '<div><span style="color:#6b7280;font-weight:700;">Urgency: </span><span>' + eng.urgency + '</span></div>'
+    + '<div><span style="color:#6b7280;font-weight:700;">Deadline: </span><span>' + (eng.deadline || '—') + '</span></div>'
+    + '</div>'
+    + (urlList ? '<div style="margin-top:12px;"><div class="pt-label" style="margin-bottom:6px;">Web URL scope</div><pre style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;word-break:break-all;">' + _esc(urlList) + '</pre></div>' : '')
+    + (ipList  ? '<div style="margin-top:12px;"><div class="pt-label" style="margin-bottom:6px;">IP / network scope</div><pre style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;">' + _esc(ipList) + '</pre></div>' : '')
+    + (eng.notes ? '<div style="margin-top:12px;"><div class="pt-label" style="margin-bottom:6px;">Notes</div><div style="font-size:13px;color:#374151;white-space:pre-wrap;">' + _esc(eng.notes) + '</div></div>' : '')
+    + (authCfg.type && authCfg.type !== 'none' ? '<div style="margin-top:12px;"><span style="color:#6b7280;font-weight:700;">Auth: </span><span style="font-size:12px;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:3px;">' + authCfg.type + '</span></div>' : '')
+    + '</div>';
+
+  html += '</div>';  // /tabcontent
+  html += '</div>';  // /card
+  panel.innerHTML = html;
+
+  // Inline tab style
+  panel.querySelectorAll('.pt-tab').forEach(function(btn) {
+    btn.style.cssText = 'padding:8px 16px;border:none;background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:#6b7280;border-bottom:2px solid transparent;font-family:inherit;transition:all .12s;margin-bottom:-1px;';
+  });
+  var activeTab = panel.querySelector('.pt-tab.active');
+  if (activeTab) { activeTab.style.color = '#0078d4'; activeTab.style.borderBottomColor = '#0078d4'; }
+}
+
+function _ptRenderTargetsTab(eng, visible) {
+  var urls = eng.scope_urls || [];
+  var ips  = eng.scope_ips  || [];
+  var allTargets = urls.concat(ips);
+  var display = visible ? '' : 'display:none';
+
+  var html = '<div id="pt-panel-targets-' + eng.id + '" style="' + display + '">';
+
+  if (!allTargets.length) {
+    html += '<div style="color:#a19f9d;font-size:13px;padding:24px;text-align:center;">No targets defined. Edit the engagement to add URLs or IP ranges.</div>';
+  } else {
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+      + '<span style="font-size:12px;color:#6b7280;">' + allTargets.length + ' target' + (allTargets.length !== 1 ? 's' : '') + '</span>'
+      + '<button class="pt-btn pt-btn-primary" onclick="ptScanAll(' + eng.id + ')">Scan all targets</button>'
+      + '</div>';
+    allTargets.forEach(function(t) {
+      var tid = 'pt-tgt-' + eng.id + '-' + _ptHashStr(t);
+      var isIp = ips.indexOf(t) !== -1;
+      html += '<div class="pt-target-row" id="' + tid + '">'
+        + '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:' + (isIp ? '#f3f4f6' : '#dbeafe') + ';color:' + (isIp ? '#374151' : '#1e40af') + ';flex-shrink:0;">' + (isIp ? 'IP' : 'URL') + '</span>'
+        + '<span class="pt-target-url">' + _esc(t) + '</span>'
+        + '<span class="pt-scan-status pt-scan-idle" id="' + tid + '-status">Idle</span>'
+        + '<button class="pt-btn" style="padding:4px 8px;font-size:11px;" onclick="ptScanTarget(' + eng.id + ',\'' + _esc(t) + '\',\'' + tid + '\')">Scan</button>'
+        + '</div>';
+    });
+  }
+  html += '</div>';
+  return html;
+}
+
+function _ptHashStr(s) {
+  var h = 0;
+  for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+  return Math.abs(h).toString(36);
+}
+
+function ptTab(eid, tab) {
+  ['targets','findings','info'].forEach(function(t) {
+    var p = document.getElementById('pt-panel-' + t + '-' + eid);
+    var b = document.getElementById('pt-tab-' + t + '-' + eid);
+    if (!p || !b) return;
+    var active = t === tab;
+    p.style.display = active ? '' : 'none';
+    b.classList.toggle('active', active);
+    b.style.color = active ? '#0078d4' : '#6b7280';
+    b.style.borderBottomColor = active ? '#0078d4' : 'transparent';
+  });
+}
+
+function ptScanTarget(eid, target, rowId) {
+  var statusEl = document.getElementById(rowId + '-status');
+  if (statusEl) { statusEl.className = 'pt-scan-status pt-scan-running'; statusEl.textContent = 'Scanning…'; }
+  fetch('/api/pentest/engagements/' + eid + '/scan-target', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target: target })
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.job_id) {
+      _ptPollScan(eid, d.job_id, rowId, statusEl);
+    } else {
+      if (statusEl) { statusEl.className = 'pt-scan-status pt-scan-error'; statusEl.textContent = 'Error'; }
+    }
+  }).catch(function() {
+    if (statusEl) { statusEl.className = 'pt-scan-status pt-scan-error'; statusEl.textContent = 'Error'; }
+  });
+}
+
+function _ptPollScan(eid, jobId, rowId, statusEl) {
+  var key = eid + '-' + rowId;
+  if (_ptScanPollers[key]) clearInterval(_ptScanPollers[key]);
+  _ptScanPollers[key] = setInterval(function() {
+    fetch('/api/pentest/jobs/' + jobId).then(function(r){ return r.json(); }).then(function(d) {
+      if (d.status === 'done' || d.status === 'error') {
+        clearInterval(_ptScanPollers[key]);
+        delete _ptScanPollers[key];
+        if (statusEl) {
+          statusEl.className = 'pt-scan-status ' + (d.status === 'done' ? 'pt-scan-done' : 'pt-scan-error');
+          statusEl.textContent = d.status === 'done' ? 'Done' : 'Error';
+        }
+      }
+    }).catch(function(){});
+  }, 4000);
+}
+
+function ptScanAll(eid) {
+  var eng = _ptEngagements.find(function(x){ return x.id === eid; });
+  if (!eng) return;
+  var all = (eng.scope_urls || []).concat(eng.scope_ips || []);
+  all.forEach(function(t) {
+    var tid = 'pt-tgt-' + eid + '-' + _ptHashStr(t);
+    ptScanTarget(eid, t, tid);
+  });
+}
+
+function ptLoadFindings(eid) {
+  var body = document.getElementById('pt-findings-body-' + eid);
+  if (body) body.innerHTML = '<div style="color:#6b7280;font-size:12px;padding:16px;text-align:center;">Loading…</div>';
+  fetch('/api/pentest/engagements/' + eid + '/scans').then(function(r){ return r.json(); }).then(function(d) {
+    var scans = d.scans || [];
+    // Build flat findings list from each scan's recs + risk level
+    var findings = [];
+    scans.forEach(function(s) {
+      var risk = (s.risk || 'info').toLowerCase();
+      var recs = s.recs || [];
+      if (!recs.length && s.output) {
+        // Fallback: show a summary row
+        findings.push({ severity: risk, title: 'Scan result', description: (s.output || '').slice(0, 300), target: s.target });
+      } else {
+        recs.forEach(function(r) {
+          findings.push({ severity: risk, title: r, description: '', target: s.target });
+        });
+      }
+    });
+    var sevOrder = { critical:0, high:1, medium:2, low:3, info:4 };
+    findings.sort(function(a,b){ return (sevOrder[a.severity]||99) - (sevOrder[b.severity]||99); });
+    document.getElementById('pt-kpi-critical').textContent = findings.filter(function(f){ return f.severity === 'critical'; }).length;
+    document.getElementById('pt-kpi-high').textContent     = findings.filter(function(f){ return f.severity === 'high'; }).length;
+    if (!body) return;
+    if (!findings.length) {
+      body.innerHTML = '<div style="color:#a19f9d;font-size:13px;padding:24px;text-align:center;">No findings yet. Run scans first.</div>';
+      return;
+    }
+    body.innerHTML = findings.map(function(f) {
+      var sev = (f.severity || 'info').toLowerCase();
+      return '<div class="pt-finding-row">'
+        + '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">'
+        + '<span class="pt-sev pt-sev-' + sev + '">' + sev.toUpperCase() + '</span>'
+        + '<span style="font-size:12px;color:#6b7280;">' + _esc(f.target || '') + '</span>'
+        + '</div>'
+        + '<div style="font-size:13px;font-weight:600;color:#201f1e;margin-bottom:4px;">' + _esc(f.title || 'Finding') + '</div>'
+        + (f.description ? '<div style="font-size:12px;color:#605e5c;">' + _esc(f.description) + '</div>' : '')
+        + '</div>';
+    }).join('');
+  }).catch(function() {
+    if (body) body.innerHTML = '<div style="color:#a80000;font-size:12px;padding:16px;">Failed to load scans.</div>';
+  });
+}
+
+function ptOpenReport(eid) {
+  window.open('/api/pentest/engagements/' + eid + '/report', '_blank');
+}
+
+function ptMarkDone(eid) {
+  fetch('/api/pentest/engagements/' + eid + '/status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'completed' })
+  }).then(function(){ _ptFetchEngagements(); });
+}
+
+function ptDeleteEngagement(eid) {
+  if (!confirm('Delete this engagement and all associated data? This cannot be undone.')) return;
+  fetch('/api/pentest/engagements/' + eid, { method: 'DELETE' }).then(function() {
+    _ptSelectedId = null;
+    document.getElementById('pt-detail-panel').innerHTML = '<div style="color:#a19f9d;font-size:13px;padding:48px;text-align:center;background:#f9f9f9;border:1px solid #edebe9;border-radius:8px;">Select an engagement to view details.</div>';
+    _ptFetchEngagements();
+  });
+}
+
+// ── New Engagement Modal ──────────────────────────────────────────────────────
+
+function ptOpenNewModal() {
+  document.getElementById('pt-modal-bg').style.display = 'flex';
+  ptAuthTab('none');
+}
+
+function ptCloseModal() {
+  document.getElementById('pt-modal-bg').style.display = 'none';
+  document.getElementById('pt-modal-err').style.display = 'none';
+}
+
+function ptAuthTab(mode) {
+  _ptAuthMode = mode;
+  ['none','bearer','apikey','oidc','basic','custom'].forEach(function(m) {
+    var tab  = document.getElementById('pt-at-' + m);
+    var pane = document.getElementById('pt-auth-' + m);
+    if (tab) tab.classList.toggle('active', m === mode);
+    if (pane) pane.style.display = m === mode && mode !== 'none' ? '' : 'none';
+  });
+}
+
+function ptCreateEngagement() {
+  var name = (document.getElementById('pt-f-name').value || '').trim();
+  if (!name) { _ptShowErr('Engagement name is required.'); return; }
+
+  var urls = (document.getElementById('pt-f-urls').value || '').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+  var ips  = (document.getElementById('pt-f-ips').value  || '').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+
+  var authCfg = { type: _ptAuthMode };
+  if (_ptAuthMode === 'bearer') { authCfg.token = document.getElementById('pt-f-bearer').value.trim(); }
+  if (_ptAuthMode === 'apikey') { authCfg.header = document.getElementById('pt-f-apikey-name').value.trim(); authCfg.value = document.getElementById('pt-f-apikey-val').value.trim(); }
+  if (_ptAuthMode === 'oidc')   { authCfg.token_url = document.getElementById('pt-f-oidc-ep').value.trim(); authCfg.client_id = document.getElementById('pt-f-oidc-cid').value.trim(); authCfg.client_secret = document.getElementById('pt-f-oidc-sec').value.trim(); authCfg.scope = document.getElementById('pt-f-oidc-scope').value.trim(); }
+  if (_ptAuthMode === 'basic')  { authCfg.username = document.getElementById('pt-f-basic-user').value.trim(); authCfg.password = document.getElementById('pt-f-basic-pass').value; }
+  if (_ptAuthMode === 'custom') {
+    var hdrs = {};
+    (document.getElementById('pt-f-custom-hdrs').value || '').split('\n').forEach(function(line) {
+      var idx = line.indexOf(':');
+      if (idx > 0) { hdrs[line.slice(0, idx).trim()] = line.slice(idx + 1).trim(); }
+    });
+    authCfg.headers = hdrs;
+  }
+
+  var payload = {
+    name:        name,
+    client:      (document.getElementById('pt-f-client').value   || '').trim(),
+    scope_urls:  urls,
+    scope_ips:   ips,
+    auth_config: authCfg,
+    urgency:     document.getElementById('pt-f-urgency').value,
+    deadline:    document.getElementById('pt-f-deadline').value,
+    notes:       (document.getElementById('pt-f-notes').value    || '').trim()
+  };
+
+  fetch('/api/pentest/engagements', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.error) { _ptShowErr(d.error); return; }
+    ptCloseModal();
+    _ptClearForm();
+    _ptFetchEngagements();
+    if (d.id) setTimeout(function(){ ptSelectEngagement(d.id); }, 400);
+  }).catch(function(){ _ptShowErr('Request failed. Please try again.'); });
+}
+
+function _ptClearForm() {
+  ['pt-f-name','pt-f-client','pt-f-urls','pt-f-ips','pt-f-notes','pt-f-bearer',
+   'pt-f-apikey-name','pt-f-apikey-val','pt-f-oidc-ep','pt-f-oidc-cid','pt-f-oidc-sec',
+   'pt-f-basic-user','pt-f-basic-pass','pt-f-custom-hdrs'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('pt-f-oidc-scope').value = 'openid profile';
+  document.getElementById('pt-f-urgency').value    = 'normal';
+  ptAuthTab('none');
+}
+
+function _ptShowErr(msg) {
+  var e = document.getElementById('pt-modal-err');
+  e.textContent = msg;
+  e.style.display = '';
 }
 </script>
 </body>

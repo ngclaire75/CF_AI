@@ -769,6 +769,9 @@ def admin_delete_user(username):
 # ── In-memory scan job store (Connect Your Website feature) ──────────────────
 _scan_jobs: dict = {}
 
+# ── Pentest engagement background jobs ────────────────────────────────────────
+_jobs: dict = {}
+
 _JOB_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'jobs')
 
 def _job_persist(job_id: str, job: dict) -> None:
@@ -4080,6 +4083,288 @@ def api_grafana_configure():
 
     done.append(f'imported {len(imported)} dashboards')
     return jsonify({'ok': True, 'done': done, 'dashboards_imported': imported})
+
+
+# ── Pentest Engagement ─────────────────────────────────────────────────────────
+
+@app.route('/api/pentest/engagements', methods=['GET'])
+@login_required
+def api_pentest_list():
+    uf = _cu_filter()
+    return jsonify({'engagements': db.get_engagements(username=uf)})
+
+
+@app.route('/api/pentest/engagements', methods=['POST'])
+@login_required
+def api_pentest_create():
+    d = request.get_json(silent=True) or {}
+    eid = db.create_engagement(
+        name       = d.get('name', 'Unnamed Engagement'),
+        client     = d.get('client', ''),
+        scope_urls = d.get('scope_urls', []),
+        scope_ips  = d.get('scope_ips', []),
+        auth_config= d.get('auth_config', {}),
+        urgency    = d.get('urgency', 'normal'),
+        deadline   = d.get('deadline', ''),
+        notes      = d.get('notes', ''),
+        username   = _cu_username()
+    )
+    return jsonify({'ok': True, 'id': eid})
+
+
+@app.route('/api/pentest/engagements/<int:eid>', methods=['DELETE'])
+@login_required
+def api_pentest_delete(eid):
+    db.delete_engagement(eid)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/pentest/engagements/<int:eid>/status', methods=['POST'])
+@login_required
+def api_pentest_set_status(eid):
+    d = request.get_json(silent=True) or {}
+    status = d.get('status', 'pending')
+    if status not in ('pending', 'active', 'completed'):
+        return jsonify({'error': 'Invalid status'}), 400
+    db.update_engagement_status(eid, status)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/pentest/engagements/<int:eid>/scans', methods=['GET'])
+@login_required
+def api_pentest_scans(eid):
+    scans = db.get_engagement_scans(eid)
+    return jsonify({'scans': [enrich(s) for s in scans]})
+
+
+@app.route('/api/pentest/engagements/<int:eid>/scan-target', methods=['POST'])
+@login_required
+def api_pentest_scan_target(eid):
+    """Queue a background scan for one target in the engagement."""
+    eng = db.get_engagement(eid)
+    if not eng:
+        return jsonify({'error': 'Engagement not found'}), 404
+
+    d          = request.get_json(silent=True) or {}
+    target     = d.get('target', '').strip()
+    agent_type = d.get('agent_type', 'pentest')
+    model      = d.get('model', os.environ.get('CAI_MODEL', 'claude-sonnet-4-6'))
+
+    if not target:
+        return jsonify({'error': 'target required'}), 400
+
+    auth  = eng.get('auth_config', {})
+    atype = auth.get('type', 'none')
+    creds = {
+        'auth_type':     atype,
+        'bearer_token':  auth.get('token', '') if atype == 'bearer' else '',
+        'api_key':       auth.get('value', '') if atype == 'apikey' else '',
+        'api_key_header':auth.get('header', 'X-API-Key'),
+        'basic_user':    auth.get('username', '') if atype == 'basic' else '',
+        'basic_pass':    auth.get('password', '') if atype == 'basic' else '',
+        'custom_headers':auth.get('headers', {}) if atype == 'custom' else {},
+        'oidc_token_url':auth.get('token_url', '') if atype == 'oidc' else '',
+        'oidc_client_id':auth.get('client_id', '') if atype == 'oidc' else '',
+        'oidc_secret':   auth.get('client_secret', '') if atype == 'oidc' else '',
+        'oidc_scope':    auth.get('scope', 'openid profile') if atype == 'oidc' else '',
+    }
+
+    import uuid, threading
+    job_id = str(uuid.uuid4())[:8]
+
+    def _run(job_id, target, agent_type, model, eng_id, creds, username):
+        import time
+        t0     = time.time()
+        output = ''
+        try:
+            from dashboard.agents import run_agent
+            auth_note = ''
+            if creds.get('bearer_token'):
+                auth_note += f'\n[AUTH] Bearer token provided — test authenticated endpoints.\n'
+            if creds.get('api_key'):
+                ak = creds["api_key"]
+                auth_note += f'\n[AUTH] API key ({creds["api_key_header"]}): {ak[:8]}*** — include in API requests.\n'
+            if creds.get('basic_user'):
+                auth_note += f'\n[AUTH] Basic auth user: {creds["basic_user"]} — test authenticated endpoints.\n'
+            if creds.get('oidc_token_url'):
+                auth_note += f'\n[OIDC] Token URL: {creds["oidc_token_url"]} client_id: {creds["oidc_client_id"]} — test OIDC/SSO flows.\n'
+            if creds.get('custom_headers'):
+                auth_note += f'\n[HEADERS] Custom headers: {creds["custom_headers"]}\n'
+            output = run_agent(target=target, agent_type=agent_type, model=model,
+                               extra_context=auth_note)
+        except Exception as e:
+            output = f'[ERROR] {e}'
+
+        sid = db.save_scan(target=target, agent_type=agent_type, model=model,
+                           status='ok', latency_s=time.time()-t0,
+                           output=str(output)[:60000], username=username)
+        with __import__('sqlite3').connect(db.DB_PATH) as con:
+            con.execute('UPDATE scans SET engagement_id=? WHERE id=?', (eng_id, sid))
+            con.commit()
+        db.update_engagement_status(eng_id, 'running')
+        _jobs[job_id] = {'status': 'done', 'scan_id': sid, 'target': target}
+
+    _jobs[job_id] = {'status': 'running', 'target': target}
+    t = threading.Thread(target=_run,
+                         args=(job_id, target, agent_type, model, eid, creds, _cu_username()),
+                         daemon=True)
+    t.start()
+    return jsonify({'ok': True, 'job_id': job_id})
+
+
+@app.route('/api/pentest/jobs/<job_id>', methods=['GET'])
+@login_required
+def api_pentest_job_poll(job_id):
+    job = _jobs.get(job_id)
+    if not job:
+        return jsonify({'status': 'unknown'}), 404
+    return jsonify(job)
+
+
+@app.route('/api/pentest/engagements/<int:eid>/report', methods=['GET'])
+@login_required
+def api_pentest_report(eid):
+    """Generate a professional HTML pentest report for the engagement."""
+    import re as _re, json as _json
+    eng   = db.get_engagement(eid)
+    if not eng:
+        return 'Engagement not found', 404
+    scans = db.get_engagement_scans(eid)
+
+    sev_pat = _re.compile(
+        r'(CRITICAL|HIGH|MEDIUM|LOW|INFO)\s*[-–:]\s*(.+)', _re.IGNORECASE)
+    cve_pat = _re.compile(r'CVE-\d{4}-\d+', _re.IGNORECASE)
+    rec_pat = _re.compile(
+        r'(?:RECOMMENDATION|REMEDIATION|FIX|MITIGATION)[:\s]+(.+)', _re.IGNORECASE)
+
+    findings = []
+    cve_set  = set()
+    sev_counts = {'CRITICAL':0,'HIGH':0,'MEDIUM':0,'LOW':0,'INFO':0}
+
+    for s in scans:
+        out = s.get('output','')
+        for m in sev_pat.finditer(out):
+            sev = m.group(1).upper()
+            sev_counts[sev] = sev_counts.get(sev, 0) + 1
+            findings.append({'target': s['target'], 'severity': sev,
+                              'detail': m.group(2).strip()[:200],
+                              'agent': s['agent_type']})
+        for c in cve_pat.findall(out):
+            cve_set.add(c.upper())
+
+    sev_color = {'CRITICAL':'#7f0000','HIGH':'#a80000','MEDIUM':'#986f0b',
+                 'LOW':'#1e3a8a','INFO':'#374151'}
+
+    scope_urls = eng.get('scope_urls', [])
+    scope_ips  = eng.get('scope_ips',  [])
+    all_targets = scope_urls + scope_ips
+
+    rows = ''
+    for f in sorted(findings, key=lambda x: ['CRITICAL','HIGH','MEDIUM','LOW','INFO'].index(x['severity']) if x['severity'] in ['CRITICAL','HIGH','MEDIUM','LOW','INFO'] else 99):
+        col = sev_color.get(f['severity'], '#374151')
+        rows += f'<tr><td>{f["target"]}</td><td style="color:{col};font-weight:700;">{f["severity"]}</td><td>{f["detail"]}</td><td>{f["agent"]}</td></tr>'
+
+    scan_rows = ''
+    for s in scans:
+        status_col = '#16a34a' if s.get('status')=='ok' else '#dc2626'
+        scan_rows += f'<tr><td>{s["target"]}</td><td>{s["agent_type"]}</td><td style="color:{status_col};">{s.get("status","—")}</td><td>{(s.get("created_at",""))[:16]}</td><td>{s.get("latency_s",0):.1f}s</td></tr>'
+
+    total_findings = len(findings)
+    risk_level = 'CRITICAL' if sev_counts['CRITICAL'] else 'HIGH' if sev_counts['HIGH'] else 'MEDIUM' if sev_counts['MEDIUM'] else 'LOW'
+    risk_color = sev_color.get(risk_level, '#374151')
+
+    html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pentest Report — {eng["name"]}</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:#1d1d1f;background:#fff;padding:40px}}
+  h1{{font-size:26px;font-weight:800;color:#1d1d1f;margin-bottom:4px}}
+  h2{{font-size:15px;font-weight:700;color:#1d1d1f;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #e5e7eb}}
+  h3{{font-size:13px;font-weight:700;color:#374151;margin:16px 0 6px}}
+  .meta{{color:#6b7280;font-size:12px;margin-bottom:32px}}
+  .kpi-bar{{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap}}
+  .kpi{{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 20px;min-width:120px;text-align:center}}
+  .kpi-val{{font-size:28px;font-weight:800}}
+  .kpi-lbl{{font-size:11px;color:#6b7280;margin-top:3px;text-transform:uppercase;letter-spacing:.4px}}
+  .risk-badge{{display:inline-block;padding:4px 14px;border-radius:4px;font-weight:700;font-size:13px;color:#fff;background:{risk_color};margin-bottom:24px}}
+  table{{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px}}
+  th{{background:#f3f4f6;padding:8px 12px;text-align:left;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#6b7280;border-bottom:2px solid #e5e7eb}}
+  td{{padding:8px 12px;border-bottom:1px solid #f3f4f6;vertical-align:top}}
+  tr:hover td{{background:#fafafa}}
+  .scope-pill{{display:inline-block;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:4px;padding:2px 10px;margin:2px;font-size:11px;font-family:monospace}}
+  .cve-pill{{display:inline-block;background:#fef3c7;border:1px solid #fde68a;color:#92400e;border-radius:4px;padding:2px 8px;margin:2px;font-size:11px;font-family:monospace}}
+  .footer{{margin-top:40px;padding-top:16px;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:11px;text-align:center}}
+  @media print{{body{{padding:20px}} .no-print{{display:none}}}}
+</style>
+</head>
+<body>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+  <div>
+    <h1>Penetration Test Report</h1>
+    <div class="meta">
+      Engagement: <strong>{eng["name"]}</strong> &nbsp;|&nbsp;
+      Client: <strong>{eng.get("client","—")}</strong> &nbsp;|&nbsp;
+      Urgency: <strong>{eng.get("urgency","normal").upper()}</strong> &nbsp;|&nbsp;
+      Deadline: <strong>{eng.get("deadline","—") or "—"}</strong> &nbsp;|&nbsp;
+      Generated: <strong>{__import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}</strong>
+    </div>
+  </div>
+  <button class="no-print" onclick="window.print()" style="padding:8px 18px;background:#1d1d1f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Print / Save PDF</button>
+</div>
+
+<div class="risk-badge">Overall Risk: {risk_level}</div>
+
+<div class="kpi-bar">
+  <div class="kpi"><div class="kpi-val" style="color:{sev_color["CRITICAL"]}">{sev_counts["CRITICAL"]}</div><div class="kpi-lbl">Critical</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:{sev_color["HIGH"]}">{sev_counts["HIGH"]}</div><div class="kpi-lbl">High</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:{sev_color["MEDIUM"]}">{sev_counts["MEDIUM"]}</div><div class="kpi-lbl">Medium</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:{sev_color["LOW"]}">{sev_counts["LOW"]}</div><div class="kpi-lbl">Low</div></div>
+  <div class="kpi"><div class="kpi-val">{len(scans)}</div><div class="kpi-lbl">Scans Run</div></div>
+  <div class="kpi"><div class="kpi-val">{total_findings}</div><div class="kpi-lbl">Findings</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#92400e;">{len(cve_set)}</div><div class="kpi-lbl">CVEs</div></div>
+</div>
+
+<h2>Scope</h2>
+<h3>Web Targets</h3>
+{''.join(f'<span class="scope-pill">{t}</span>' for t in scope_urls) or '<em style="color:#9ca3af;">None defined</em>'}
+<h3 style="margin-top:10px;">Network / IP Targets</h3>
+{''.join(f'<span class="scope-pill">{t}</span>' for t in scope_ips) or '<em style="color:#9ca3af;">None defined</em>'}
+{'<h3 style="margin-top:10px;">CVEs Referenced</h3>' + "".join(f'<span class="cve-pill">{c}</span>' for c in sorted(cve_set)) if cve_set else ""}
+
+<h2>Executive Summary</h2>
+<p style="line-height:1.7;color:#374151;">
+This penetration test covered <strong>{len(all_targets)} target(s)</strong> across web applications and network infrastructure.
+A total of <strong>{total_findings} findings</strong> were identified across <strong>{len(scans)} scan(s)</strong>,
+with an overall risk rating of <strong style="color:{risk_color};">{risk_level}</strong>.
+{f'<strong>{sev_counts["CRITICAL"]} critical</strong> and ' if sev_counts["CRITICAL"] else ""}
+{f'<strong>{sev_counts["HIGH"]} high-severity</strong> issues require immediate attention.' if sev_counts["HIGH"] or sev_counts["CRITICAL"] else "No critical or high-severity issues were identified."}
+{f'{len(cve_set)} known CVE(s) were referenced in the findings.' if cve_set else ""}
+</p>
+{f'<p style="margin-top:8px;line-height:1.7;color:#374151;"><strong>Notes:</strong> {eng.get("notes","")}</p>' if eng.get("notes") else ""}
+
+<h2>Findings</h2>
+{"<table><thead><tr><th>Target</th><th>Severity</th><th>Finding</th><th>Agent</th></tr></thead><tbody>" + rows + "</tbody></table>" if findings else '<p style="color:#9ca3af;font-style:italic;">No structured findings extracted — review raw scan outputs below.</p>'}
+
+<h2>Scans Performed</h2>
+<table><thead><tr><th>Target</th><th>Agent</th><th>Status</th><th>Date</th><th>Duration</th></tr></thead>
+<tbody>{scan_rows or "<tr><td colspan=5 style='color:#9ca3af;'>No scans completed yet.</td></tr>"}</tbody></table>
+
+<h2>Methodology</h2>
+<p style="line-height:1.7;color:#374151;">
+Tests were conducted using the OWASP Web Security Testing Guide (WSTG) methodology, covering:
+Information Gathering, Configuration &amp; Deployment, Identity Management, Authentication,
+Authorization, Session Management, Input Validation, Error Handling, Cryptography,
+Business Logic, Client-Side, and API Security (OWASP API Top 10).
+Network tests covered open port discovery, service enumeration, and CVE correlation.
+</p>
+
+<div class="footer">CyberINK Pentest Report &nbsp;|&nbsp; {eng["name"]} &nbsp;|&nbsp; Confidential</div>
+</body></html>'''
+
+    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 
 @app.route('/api/inventories/plugins')

@@ -128,7 +128,103 @@ def init_db():
             con.commit()
         except Exception:
             pass
+
+        # ── Pentest Engagements ───────────────────────────────────────────────
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS engagements (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                name        TEXT NOT NULL,
+                client      TEXT DEFAULT '',
+                scope_urls  TEXT DEFAULT '[]',
+                scope_ips   TEXT DEFAULT '[]',
+                auth_config TEXT DEFAULT '{}',
+                urgency     TEXT DEFAULT 'normal',
+                deadline    TEXT DEFAULT '',
+                status      TEXT DEFAULT 'pending',
+                notes       TEXT DEFAULT '',
+                username    TEXT DEFAULT ''
+            )
+        ''')
+        try:
+            con.execute('ALTER TABLE scans ADD COLUMN engagement_id INTEGER DEFAULT NULL')
+            con.commit()
+        except Exception:
+            pass
         con.commit()
+
+
+# ── Engagement CRUD ───────────────────────────────────────────────────────────
+
+def create_engagement(*, name, client='', scope_urls=None, scope_ips=None,
+                      auth_config=None, urgency='normal', deadline='',
+                      notes='', username='') -> int:
+    import json
+    with _connect() as con:
+        cur = con.execute(
+            'INSERT INTO engagements (name,client,scope_urls,scope_ips,auth_config,urgency,deadline,notes,username) '
+            'VALUES (?,?,?,?,?,?,?,?,?)',
+            (name, client,
+             json.dumps(scope_urls or []),
+             json.dumps(scope_ips   or []),
+             json.dumps(auth_config or {}),
+             urgency, deadline, notes, username)
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def get_engagements(username=None):
+    import json
+    with _connect() as con:
+        if username:
+            rows = con.execute(
+                'SELECT * FROM engagements WHERE username=? ORDER BY created_at DESC', (username,)
+            ).fetchall()
+        else:
+            rows = con.execute('SELECT * FROM engagements ORDER BY created_at DESC').fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        for f in ('scope_urls', 'scope_ips', 'auth_config'):
+            try: d[f] = json.loads(d[f])
+            except Exception: d[f] = [] if f != 'auth_config' else {}
+        out.append(d)
+    return out
+
+
+def get_engagement(eid) -> dict | None:
+    import json
+    with _connect() as con:
+        row = con.execute('SELECT * FROM engagements WHERE id=?', (eid,)).fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    for f in ('scope_urls', 'scope_ips', 'auth_config'):
+        try: d[f] = json.loads(d[f])
+        except Exception: d[f] = [] if f != 'auth_config' else {}
+    return d
+
+
+def update_engagement_status(eid, status):
+    with _connect() as con:
+        con.execute('UPDATE engagements SET status=? WHERE id=?', (status, eid))
+        con.commit()
+
+
+def delete_engagement(eid):
+    with _connect() as con:
+        con.execute('UPDATE scans SET engagement_id=NULL WHERE engagement_id=?', (eid,))
+        con.execute('DELETE FROM engagements WHERE id=?', (eid,))
+        con.commit()
+
+
+def get_engagement_scans(eid):
+    with _connect() as con:
+        rows = con.execute(
+            'SELECT * FROM scans WHERE engagement_id=? ORDER BY created_at DESC', (eid,)
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def save_scan(*, target, agent_type, model='', status='ok',
