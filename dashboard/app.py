@@ -493,6 +493,71 @@ def logout():
     session.clear()
     return redirect(url_for('login_page'))
 
+def _admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        u = session.get('user')
+        if not u:
+            return jsonify({'error': 'Not authenticated'}), 401
+        if u.get('role') != 'admin':
+            return jsonify({'error': 'Admin access required'}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/api/admin/users', methods=['GET'])
+@_admin_required
+def admin_list_users():
+    users = _load_users()
+    return jsonify({'users': [{'username': k, 'role': v['role']} for k, v in users.items()]})
+
+@app.route('/api/admin/users', methods=['POST'])
+@_admin_required
+def admin_create_user():
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    role     = data.get('role', 'user')
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+    if len(password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    if role not in ('admin', 'user'):
+        return jsonify({'error': 'Invalid role'}), 400
+    users = _load_users()
+    if username in users:
+        return jsonify({'error': 'Username already taken'}), 409
+    users[username] = {'password': generate_password_hash(password), 'role': role}
+    _save_users(users)
+    return jsonify({'ok': True})
+
+@app.route('/api/admin/users/<username>/role', methods=['POST'])
+@_admin_required
+def admin_set_role(username):
+    data = request.get_json() or {}
+    new_role = data.get('role')
+    if new_role not in ('admin', 'user'):
+        return jsonify({'error': 'Invalid role'}), 400
+    users = _load_users()
+    if username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    if username == session['user']['username'] and new_role != 'admin':
+        return jsonify({'error': 'Cannot demote yourself'}), 400
+    users[username]['role'] = new_role
+    _save_users(users)
+    return jsonify({'ok': True})
+
+@app.route('/api/admin/users/<username>', methods=['DELETE'])
+@_admin_required
+def admin_delete_user(username):
+    if username == session['user']['username']:
+        return jsonify({'error': 'Cannot delete yourself'}), 400
+    users = _load_users()
+    if username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    del users[username]
+    _save_users(users)
+    return jsonify({'ok': True})
+
 # ── In-memory scan job store (Connect Your Website feature) ──────────────────
 _scan_jobs: dict = {}
 

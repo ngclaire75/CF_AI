@@ -1937,6 +1937,14 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       <span class="sb-label">Security analytics</span>
     </button>
 
+    {% if current_user.role == 'admin' %}
+    <div class="sb-divider"></div>
+    <div class="sb-nav-label">Administration</div>
+    <button class="sb-item" id="sb-usermgmt" onclick="sbNav('usermgmt',this)">
+      <span class="sb-label">User management</span>
+    </button>
+    {% endif %}
+
   </nav>
 
   <!-- Sidebar footer -->
@@ -2928,6 +2936,50 @@ Export Power BI
   </div><!-- /csa-layout -->
 
   </div><!-- /page-history -->
+
+  <!-- ══ USER MANAGEMENT PAGE (admin only) ══════════════════════════════════ -->
+  <div id="page-usermgmt" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">User Management</div>
+    <div class="mdef-toolbar" style="gap:10px;">
+      <button class="mdef-toolbar-btn primary" onclick="loadUserMgmt()">Refresh</button>
+      <button class="mdef-toolbar-btn" onclick="showInviteUser()" id="um-invite-btn">+ Invite User</button>
+    </div>
+
+    <!-- Invite form (hidden by default) -->
+    <div id="um-invite-form" style="display:none;background:#fff;border:1px solid #e1dfdd;border-radius:6px;padding:20px 24px;margin:0 20px 16px;max-width:420px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:#1b1a19;">Create new user</div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:11px;font-weight:600;color:#605e5c;display:block;margin-bottom:4px;">USERNAME</label>
+        <input id="um-new-username" type="text" placeholder="username" style="width:100%;border:1px solid #c8c6c4;border-radius:4px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;">
+      </div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:11px;font-weight:600;color:#605e5c;display:block;margin-bottom:4px;">PASSWORD</label>
+        <input id="um-new-password" type="password" placeholder="Min 6 characters" style="width:100%;border:1px solid #c8c6c4;border-radius:4px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:11px;font-weight:600;color:#605e5c;display:block;margin-bottom:4px;">ROLE</label>
+        <select id="um-new-role" style="width:100%;border:1px solid #c8c6c4;border-radius:4px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;background:#fff;">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="umCreateUser()" style="padding:7px 18px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer;font-weight:600;">Create</button>
+        <button onclick="document.getElementById('um-invite-form').style.display='none'" style="padding:7px 14px;background:#f3f2f1;color:#323130;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;cursor:pointer;">Cancel</button>
+      </div>
+      <div id="um-invite-error" style="display:none;margin-top:10px;font-size:12px;color:#a80000;"></div>
+    </div>
+
+    <div style="padding:0 20px 20px;">
+      <div id="um-error" style="display:none;color:#a80000;font-size:13px;margin-bottom:12px;"></div>
+      <table class="mdef-tbl" id="um-tbl" style="background:#fff;">
+        <thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
+        <tbody id="um-tbody"><tr><td colspan="3" class="mdef-empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  </div><!-- /page-usermgmt -->
 
   <!-- ══ OBSERVABILITY PAGE ════════════════════════════════════════════════ -->
   <div id="page-observability" class="page-section" style="display:none">
@@ -4051,6 +4103,7 @@ var _PAGE_TITLES = {
   'eventtimeline': 'Event Timeline',
   'threatanalytics':'Threat Analytics',
   'securescore':   'Secure Score',
+  'usermgmt':      'User Management',
 };
 
 var _currentPage = 'dashboard';
@@ -4095,6 +4148,7 @@ function sbNav(section, el) {
   if (section === 'priority')      loadMaintenanceStatus();
   if (section === 'gsc')           loadGscPage();
   if (section === 'filescan')      loadFileScanPage();
+  if (section === 'usermgmt')      loadUserMgmt();
 }
 
 function toggleSidebar() {
@@ -9689,6 +9743,77 @@ function loadThreatIntel() {
 // ── WordPress File Scanner ────────────────────────────────────────────────────
 function loadFileScanPage() {
   document.getElementById('fs-site-url').value = '';
+}
+
+/* ══ USER MANAGEMENT ══════════════════════════════════════════════════════ */
+function loadUserMgmt() {
+  var tbody = document.getElementById('um-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="3" class="mdef-empty">Loading…</td></tr>';
+  fetch('/api/admin/users')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) { tbody.innerHTML = '<tr><td colspan="3" class="mdef-empty" style="color:#a80000;">'+_esc(d.error)+'</td></tr>'; return; }
+      var users = d.users || [];
+      if (!users.length) { tbody.innerHTML = '<tr><td colspan="3" class="mdef-empty">No users found.</td></tr>'; return; }
+      tbody.innerHTML = users.map(function(u){
+        var isAdmin = u.role === 'admin';
+        var isSelf  = u.username === USER_NAME;
+        var roleBadge = isAdmin
+          ? '<span style="background:rgba(37,99,235,.12);color:#2563eb;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid rgba(37,99,235,.25);">ADMIN</span>'
+          : '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid #c8c6c4;">USER</span>';
+        var actions = isSelf ? '<span style="font-size:11px;color:#9ca3af;">current session</span>' : (
+          '<button onclick="umSetRole(\''+_esc(u.username)+'\',\''+(isAdmin?'user':'admin')+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;margin-right:6px;">'+(isAdmin?'Demote to User':'Promote to Admin')+'</button>'
+          + '<button onclick="umDeleteUser(\''+_esc(u.username)+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #f1b3b7;border-radius:4px;background:#fde7e9;color:#a80000;cursor:pointer;">Delete</button>'
+        );
+        return '<tr><td style="font-weight:500;">'+_esc(u.username)+'</td><td>'+roleBadge+'</td><td>'+actions+'</td></tr>';
+      }).join('');
+    })
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="3" class="mdef-empty" style="color:#a80000;">Failed to load users.</td></tr>'; });
+}
+
+function umSetRole(username, newRole) {
+  if (!confirm('Change '+username+' to '+newRole+'?')) return;
+  fetch('/api/admin/users/'+encodeURIComponent(username)+'/role', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({role: newRole})
+  }).then(function(r){ return r.json(); })
+    .then(function(d){ if (d.error) alert(d.error); else loadUserMgmt(); })
+    .catch(function(){ alert('Request failed.'); });
+}
+
+function umDeleteUser(username) {
+  if (!confirm('Delete user "'+username+'"? This cannot be undone.')) return;
+  fetch('/api/admin/users/'+encodeURIComponent(username), {method:'DELETE'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if (d.error) alert(d.error); else loadUserMgmt(); })
+    .catch(function(){ alert('Request failed.'); });
+}
+
+function showInviteUser() {
+  document.getElementById('um-invite-form').style.display = '';
+  document.getElementById('um-new-username').value = '';
+  document.getElementById('um-new-password').value = '';
+  document.getElementById('um-new-role').value = 'user';
+  document.getElementById('um-invite-error').style.display = 'none';
+}
+
+function umCreateUser() {
+  var username = (document.getElementById('um-new-username').value || '').trim();
+  var password = document.getElementById('um-new-password').value || '';
+  var role     = document.getElementById('um-new-role').value || 'user';
+  var errEl    = document.getElementById('um-invite-error');
+  if (!username || !password) { errEl.textContent = 'Username and password are required.'; errEl.style.display=''; return; }
+  fetch('/api/admin/users', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({username: username, password: password, role: role})
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) { errEl.textContent = d.error; errEl.style.display=''; return; }
+      document.getElementById('um-invite-form').style.display = 'none';
+      loadUserMgmt();
+    })
+    .catch(function(){ errEl.textContent = 'Request failed.'; errEl.style.display=''; });
 }
 
 function _fsSetStatus(sel, fileKey, idx) {
