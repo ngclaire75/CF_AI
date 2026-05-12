@@ -3996,17 +3996,22 @@ if ($ok) {
 } else {
     Write-Host "`n[WARN] Grafana did not start in time. Check http://localhost:3000 manually." -ForegroundColor Yellow
 }
-pause
+Write-Host "`nPress Enter to close this window..."
+Read-Host
 """
 
-    path = _os.path.join(tempfile.gettempdir(), 'cfai_grafana_setup.ps1')
+    # Save to a path with no spaces so -File argument works reliably
+    import os as _os
+    script_dir = r'C:\monitoring'
+    _os.makedirs(script_dir, exist_ok=True)
+    path = r'C:\monitoring\cfai_setup.ps1'
     with open(path, 'w', encoding='utf-8') as f:
         f.write(script)
 
     try:
         subprocess.Popen(
             ['powershell', '-Command',
-             f'Start-Process powershell -Verb RunAs -ArgumentList \'-ExecutionPolicy Bypass -File "{path}"\''],
+             f'Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File C:\\monitoring\\cfai_setup.ps1"'],
             shell=False
         )
         return jsonify({'ok': True})
