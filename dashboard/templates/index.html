@@ -3758,7 +3758,7 @@ Load Logs
         <div class="sec-desc">Live server metrics, traffic &amp; uptime via Prometheus + Node Exporter — topology diagrams rendered directly in Grafana</div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button onclick="gfAutoSetup()" id="gf-autosetup-btn" style="background:#2563eb;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">&#9889; Auto-Setup</button>
+        <button onclick="gfAutoSetup()" id="gf-autosetup-btn" style="background:#2563eb;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;">Auto-Setup</button>
         <button onclick="gfToggleSetup()" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;">Manual Guide</button>
       </div>
     </div>
@@ -9104,7 +9104,7 @@ function gfAutoSetup() {
     if (!d.ok) {
       var el = document.getElementById('gf-autosetup-status');
       if (el) el.textContent = 'Launch failed: ' + (d.error || 'unknown error');
-      if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Auto-Setup'; }
       return;
     }
     // Start polling for Grafana to come online
@@ -9113,7 +9113,7 @@ function gfAutoSetup() {
   }).catch(function(e) {
     var el = document.getElementById('gf-autosetup-status');
     if (el) el.textContent = 'Error: ' + String(e);
-    if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Auto-Setup'; }
   });
 }
 
@@ -9148,7 +9148,7 @@ function _gfStartPoll(gfUrl, promUrl, gfUser, gfPass) {
           var imp = (cfg.dashboards_imported || []).length;
           if (statusEl) statusEl.textContent = 'Setup complete!';
           if (pollEl) pollEl.textContent = 'Prometheus data source configured · ' + imp + ' dashboard' + (imp !== 1 ? 's' : '') + ' imported. Connecting…';
-          if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+          if (btn) { btn.disabled = false; btn.textContent = 'Auto-Setup'; }
           // Auto-connect
           setTimeout(function() {
             if (bar) bar.style.display = 'none';
@@ -9160,7 +9160,7 @@ function _gfStartPoll(gfUrl, promUrl, gfUser, gfPass) {
             var bar = document.getElementById('gf-autosetup-bar');
             if (bar) bar.style.display = 'none';
             var btn = document.getElementById('gf-autosetup-btn');
-            if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+            if (btn) { btn.disabled = false; btn.textContent = 'Auto-Setup'; }
             runGrafanaMonitor();
           }, 1500);
         });
@@ -9172,7 +9172,7 @@ function _gfStartPoll(gfUrl, promUrl, gfUser, gfPass) {
       var el = document.getElementById('gf-autosetup-poll');
       if (el) el.textContent = 'Timed out. Open http://localhost:3000 to check Grafana manually.';
       var btn = document.getElementById('gf-autosetup-btn');
-      if (btn) { btn.disabled = false; btn.textContent = '⚡ Auto-Setup'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Auto-Setup'; }
     }
   }, 5000);
 }
