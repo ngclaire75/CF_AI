@@ -2469,7 +2469,8 @@ Export Power BI
           style="width:100%;padding:7px 10px;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;box-sizing:border-box;">
       </div>
       <button onclick="fsRun()" style="padding:7px 20px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer;font-weight:600;">Scan Now</button>
-      <button onclick="fsClear()" style="padding:7px 14px;background:#f3f2f1;color:#323130;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;cursor:pointer;">Clear</button>
+      <button onclick="fsClearResults()" style="padding:7px 14px;background:#f3f2f1;color:#323130;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;cursor:pointer;">Clear Results</button>
+      <button onclick="fsClear()" style="padding:7px 14px;background:#fff;color:#605e5c;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;cursor:pointer;">Clear All</button>
       <div id="fs-bulk-bar" style="display:none;margin-left:auto;gap:6px;flex-wrap:wrap;align-items:center;">
         <span style="font-size:11px;color:#605e5c;font-weight:600;">Mark all as:</span>
         <button onclick="_fsMarkAll('ok')"         style="font-size:11px;padding:3px 10px;background:#e9f8ee;color:#107c10;border:1px solid #9fd4a3;border-radius:4px;cursor:pointer;font-weight:600;">Known Safe</button>
@@ -3498,7 +3499,7 @@ Load Logs
         <button onclick="_plMarkAll('safe')"       style="font-size:11px;padding:3px 10px;background:#e9f8ee;color:#107c10;border:1px solid #9fd4a3;border-radius:4px;cursor:pointer;font-weight:600;">Safe</button>
         <button onclick="_plMarkAll('suspicious')" style="font-size:11px;padding:3px 10px;background:#fde7e9;color:#a80000;border:1px solid #f1b3b7;border-radius:4px;cursor:pointer;font-weight:600;">Suspicious</button>
         <button onclick="_plMarkAll('watchlist')"  style="font-size:11px;padding:3px 10px;background:#fff4ce;color:#7a4f00;border:1px solid #f0d080;border-radius:4px;cursor:pointer;font-weight:600;">Watchlist</button>
-        <button onclick="_plMarkAll('fp')"         style="font-size:11px;padding:3px 10px;background:#f3f2f1;color:#605e5c;border:1px solid #c8c6c4;border-radius:4px;cursor:pointer;font-weight:600;">False +ve</button>
+        <button onclick="_plMarkAll('fp')"         style="font-size:11px;padding:3px 10px;background:#f3f2f1;color:#605e5c;border:1px solid #c8c6c4;border-radius:4px;cursor:pointer;font-weight:600;">False Positive</button>
         <button onclick="_plMarkAll('none')"       style="font-size:11px;padding:3px 10px;background:#fff;color:#323130;border:1px solid #c8c6c4;border-radius:4px;cursor:pointer;">Clear All</button>
       </div>
     </div>
@@ -5119,7 +5120,7 @@ function _renderPluginLogs(logs) {
       + '<option value="watchlist"'  +(logStatus==='watchlist'?' selected':'')+'>Watchlist</option>'
       + '<option value="blocked"'    +(logStatus==='blocked'?' selected':'')+'>Block User</option>'
       + '<option value="safe"'       +(logStatus==='safe'?' selected':'')+'>Safe</option>'
-      + '<option value="fp"'         +(logStatus==='fp'?' selected':'')+'>False +ve</option>'
+      + '<option value="fp"'         +(logStatus==='fp'?' selected':'')+'>False Positive</option>'
       + '</select></div>';
     return '<tr id="plrow-'+idx+'" style="'+rowBg+'">' +
       '<td style="white-space:nowrap;font-family:monospace;font-size:11px;">' + _esc(ts) + '</td>' +
@@ -6250,7 +6251,7 @@ function openWpLogsModal(target) {
           + '<option value="watchlist"'  +(logStatus==='watchlist'?' selected':'')+'>Watchlist</option>'
           + '<option value="blocked"'    +(logStatus==='blocked'?' selected':'')+'>Block User</option>'
           + '<option value="safe"'       +(logStatus==='safe'?' selected':'')+'>Safe</option>'
-          + '<option value="fp"'         +(logStatus==='fp'?' selected':'')+'>False +ve</option>'
+          + '<option value="fp"'         +(logStatus==='fp'?' selected':'')+'>False Positive</option>'
           + '</select></div>';
         html += '<tr id="logrow-'+idx+'" style="'+rowBg+'">'+
           '<td style="white-space:nowrap;font-size:11px;color:#6b7280;">'+esc(l.timestamp||'--')+'</td>'+
@@ -9603,12 +9604,13 @@ function _fsSetStatus(sel, fileKey, idx) {
 
 function _fsClearDismissed() {
   localStorage.removeItem('cfai_fs_statuses');
-  fsRun();
+  if (_fsLastData) { _fsRender(_fsLastData); document.getElementById('fs-bulk-bar').style.display = 'flex'; }
 }
 
 // ── Bulk action helpers ───────────────────────────────────────────────────────
 var _plCurrentLogs   = []; // track keys for bulk ops
-var _fsCurrentFiles  = []; // track keys for bulk ops
+var _fsCurrentFiles  = []; // {key, idx} pairs for bulk ops
+var _fsLastData      = null; // cache last scan result for clear/reset
 
 function _plMarkAll(status) {
   var statuses = JSON.parse(localStorage.getItem('cfai_log_statuses') || '{}');
@@ -9619,9 +9621,23 @@ function _plMarkAll(status) {
 
 function _fsMarkAll(status) {
   var statuses = JSON.parse(localStorage.getItem('cfai_fs_statuses') || '{}');
-  _fsCurrentFiles.forEach(function(key){ statuses[key] = status; });
+  var badgeStyles = {
+    suspicious: {bg:'#fde7e9', col:'#a80000', label:'SUSPICIOUS'},
+    malware:    {bg:'#a80000', col:'#fff',    label:'MALWARE'},
+    dismissed:  {bg:'#f3f2f1', col:'#a19f9d', label:'DISMISSED'},
+    ok:         {bg:'#e9f8ee', col:'#107c10', label:'KNOWN SAFE'},
+  };
+  var s = badgeStyles[status] || badgeStyles.ok;
+  _fsCurrentFiles.forEach(function(item){
+    statuses[item.key] = status;
+    var row   = document.getElementById('fsrow-'  + item.idx);
+    var badge = document.getElementById('fsbadge-' + item.idx);
+    var sel   = row && row.querySelector('select');
+    if (badge) { badge.textContent = s.label; badge.style.background = s.bg; badge.style.color = s.col; }
+    if (row)   { row.style.opacity = status === 'dismissed' ? '0.4' : '1'; row.style.color = (status==='suspicious'||status==='malware') ? '#a80000' : ''; row.style.fontWeight = (status==='suspicious'||status==='malware') ? '600' : ''; }
+    if (sel)   sel.value = status;
+  });
   localStorage.setItem('cfai_fs_statuses', JSON.stringify(statuses));
-  fsRun(); // re-render with new statuses
 }
 
 function _plSetStatus(sel, logKey, idx) {
@@ -9636,7 +9652,7 @@ function _plSetStatus(sel, logKey, idx) {
     blocked:    '<span style="background:#a80000;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
     safe:       '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
     watchlist:  '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
-    fp:         '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE +VE</span>',
+    fp:         '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE POSITIVE</span>',
   };
   if (badge) badge.innerHTML = flagBadges[status] || '';
   if (row) row.style.background = status==='blocked'?'#fff5f5':status==='suspicious'?'#fffbfb':status==='safe'?'#f8fff9':'';
@@ -9654,7 +9670,7 @@ function _logSetStatus(sel, logKey, idx) {
     blocked:    '<span style="background:#a80000;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
     safe:       '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
     watchlist:  '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
-    fp:         '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE +VE</span>',
+    fp:         '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE POSITIVE</span>',
   };
   if (badge) badge.innerHTML = flagBadges[status] || '';
   if (row) {
@@ -9662,11 +9678,18 @@ function _logSetStatus(sel, logKey, idx) {
   }
 }
 
-function fsClear() {
-  document.getElementById('fs-site-url').value = '';
+function fsClearResults() {
+  _fsLastData = null;
+  _fsCurrentFiles = [];
   document.getElementById('fs-results').style.display = 'none';
   document.getElementById('fs-error').style.display = 'none';
+  document.getElementById('fs-bulk-bar').style.display = 'none';
   document.getElementById('fs-empty').style.display = '';
+}
+
+function fsClear() {
+  document.getElementById('fs-site-url').value = '';
+  fsClearResults();
   localStorage.removeItem('cfai_filescan_url');
 }
 
@@ -9694,6 +9717,7 @@ function fsRun() {
       document.getElementById('fs-error').style.display = '';
       return;
     }
+    _fsLastData = data;
     _fsRender(data);
     document.getElementById('fs-results').style.display = '';
     document.getElementById('fs-empty').style.display = 'none';
@@ -9809,7 +9833,7 @@ function _fsRender(data) {
     var rRows = recentFiles.map(function(f, idx){
       var isSusp = _SUSP_EXT.indexOf((f.ext||'').toLowerCase()) !== -1;
       var fileKey = f.file;
-      _fsCurrentFiles.push(fileKey); // track for bulk ops
+      _fsCurrentFiles.push({key: fileKey, idx: idx}); // track for bulk ops
       var status  = _fsStatuses[fileKey] || (isSusp ? 'suspicious' : 'ok');
       if (status === 'suspicious') flaggedCount++;
       var rowOpacity = status === 'dismissed' ? '0.4' : '1';
