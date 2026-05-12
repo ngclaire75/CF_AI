@@ -3593,18 +3593,26 @@ def api_cf_attack_mode():
         c_get, sl_now = _req('GET', f'/zones/{zone_id}/settings/security_level')
         prev = (sl_now.get('result') or {}).get('value', 'medium')
         if prev == 'under_attack':
-            prev = 'medium'  # already under_attack — nothing to save
+            prev = 'medium'
         sc, resp = _req('PATCH', f'/zones/{zone_id}/settings/security_level',
                         {'value': 'under_attack'})
-        if sc in (200, 201):
+        # Cloudflare always returns HTTP 200 — must check success field in body
+        cf_ok = resp.get('success', False)
+        new_level = (resp.get('result') or {}).get('value', '')
+        if cf_ok and new_level == 'under_attack':
             db.enable_maintenance(domain, zone_id=zone_id,
                                   cf_rule_id=f'sl:{prev}',
                                   prev_level=prev, reason='Under Attack Mode toggled from dashboard')
             return jsonify({'ok': True, 'enabled': True, 'zone': zone_name,
-                'message': f'Under Attack Mode ENABLED on {zone_name}. All visitors see a JS challenge.'})
-        err = ((resp.get('errors') or [{}])[0]).get('message', f'HTTP {sc}')
-        if sc in (401, 403):
-            err = 'Token needs Zone Settings:Edit permission (dash.cloudflare.com/profile/api-tokens).'
+                'message': f'Under Attack Mode ENABLED on {zone_name}. All visitors now see a JS challenge — open the site in incognito to confirm.'})
+        # Extract real error from Cloudflare response
+        errs = resp.get('errors') or []
+        err  = errs[0].get('message', '') if errs and isinstance(errs[0], dict) else str(errs[0]) if errs else ''
+        if not err:
+            err = f'Cloudflare did not apply the change (HTTP {sc}, success={resp.get("success")})'
+        if sc in (401, 403) or 'permission' in err.lower() or 'not allowed' in err.lower():
+            err = ('Token permission denied. Go to dash.cloudflare.com/profile/api-tokens, '
+                   'edit your token and add Zone → Zone Settings: Edit permission.')
         return jsonify({'ok': False, 'error': err}), 200
     else:
         # Restore previous level
@@ -3612,10 +3620,18 @@ def api_cf_attack_mode():
         prev  = (maint or {}).get('previous_security_level', 'medium') or 'medium'
         if prev == 'under_attack':
             prev = 'medium'
-        sc, _ = _req('PATCH', f'/zones/{zone_id}/settings/security_level', {'value': prev})
+        sc, resp = _req('PATCH', f'/zones/{zone_id}/settings/security_level', {'value': prev})
+        cf_ok = resp.get('success', False)
         db.disable_maintenance(domain)
+        restored = (resp.get('result') or {}).get('value', prev)
+        if cf_ok:
+            return jsonify({'ok': True, 'enabled': False, 'zone': zone_name,
+                'message': f'Under Attack Mode DISABLED on {zone_name}. Security level restored to "{restored}".'})
+        # Even if CF fails, clear our DB record and report
+        errs = resp.get('errors') or []
+        err  = errs[0].get('message', f'HTTP {sc}') if errs and isinstance(errs[0], dict) else f'HTTP {sc}'
         return jsonify({'ok': True, 'enabled': False, 'zone': zone_name,
-            'message': f'Under Attack Mode DISABLED on {zone_name}. Security level restored to "{prev}".'})
+            'message': f'Disabled in dashboard (CF returned: {err}). Check security level in Cloudflare dashboard.'})
 
 
 # ══ Security Operations ══════════════════════════════════════════════════════
