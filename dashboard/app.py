@@ -3799,6 +3799,105 @@ def api_events_ingest_scan():
     return jsonify({'ok': True, 'events_created': count, 'target': target})
 
 
+# ── Grafana / Prometheus probe ─────────────────────────────────────────────────
+@app.route('/api/grafana/probe', methods=['POST'])
+@login_required
+def api_grafana_probe():
+    import requests as _req
+    data        = request.get_json(silent=True) or {}
+    grafana_url = data.get('grafana_url', 'http://localhost:3000').rstrip('/')
+    prom_url    = data.get('prometheus_url', 'http://localhost:9090').rstrip('/')
+    gf_user     = data.get('gf_user', 'admin')
+    gf_pass     = data.get('gf_pass', 'admin')
+
+    out = {
+        'grafana':       {'running': False, 'version': '', 'url': grafana_url,
+                          'embed_ok': False, 'dashboards': []},
+        'prometheus':    {'running': False, 'url': prom_url},
+        'node_exporter': {'running': False},
+        'targets': [], 'metrics': {}, 'alerts': []
+    }
+
+    # Grafana health + dashboard list
+    try:
+        r = _req.get(f'{grafana_url}/api/health', timeout=4, auth=(gf_user, gf_pass))
+        if r.status_code == 200:
+            out['grafana']['running'] = True
+            out['grafana']['version'] = r.json().get('version', '')
+    except Exception:
+        pass
+
+    if out['grafana']['running']:
+        try:
+            r = _req.get(f'{grafana_url}/api/search?type=dash-db&limit=20',
+                         timeout=4, auth=(gf_user, gf_pass))
+            if r.status_code == 200:
+                out['grafana']['dashboards'] = [
+                    {'uid': d.get('uid', ''), 'title': d.get('title', ''),
+                     'url': d.get('url', ''), 'tags': d.get('tags', [])}
+                    for d in r.json()[:10]
+                ]
+        except Exception:
+            pass
+        # Check if anonymous embedding works (no auth)
+        try:
+            r = _req.get(f'{grafana_url}/api/health', timeout=3)
+            out['grafana']['embed_ok'] = r.status_code == 200
+        except Exception:
+            pass
+
+    # Prometheus targets
+    try:
+        r = _req.get(f'{prom_url}/api/v1/targets', timeout=4)
+        if r.status_code == 200:
+            out['prometheus']['running'] = True
+            active = r.json().get('data', {}).get('activeTargets', [])
+            out['targets'] = [
+                {'job': t.get('labels', {}).get('job', ''),
+                 'instance': t.get('labels', {}).get('instance', ''),
+                 'health': t.get('health', 'unknown')}
+                for t in active
+            ]
+            out['node_exporter']['running'] = any(
+                'node' in t.get('labels', {}).get('job', '').lower()
+                for t in active
+            )
+    except Exception:
+        pass
+
+    # Prometheus instant metrics
+    if out['prometheus']['running']:
+        queries = {
+            'cpu_pct':    '100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)',
+            'mem_pct':    '(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100',
+            'disk_pct':   '(1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100',
+            'net_rx_bps': 'sum(irate(node_network_receive_bytes_total[5m]))',
+            'net_tx_bps': 'sum(irate(node_network_transmit_bytes_total[5m]))',
+            'uptime_s':   'node_time_seconds - node_boot_time_seconds',
+        }
+        for key, q in queries.items():
+            try:
+                r = _req.get(f'{prom_url}/api/v1/query', params={'query': q}, timeout=4)
+                res = r.json().get('data', {}).get('result', [])
+                if res:
+                    out['metrics'][key] = float(res[0]['value'][1])
+            except Exception:
+                pass
+        try:
+            r = _req.get(f'{prom_url}/api/v1/alerts', timeout=4)
+            alerts = r.json().get('data', {}).get('alerts', [])
+            out['alerts'] = [
+                {'name': a.get('labels', {}).get('alertname', ''),
+                 'state': a.get('state', ''),
+                 'severity': a.get('labels', {}).get('severity', 'info')}
+                for a in alerts[:10]
+            ]
+        except Exception:
+            pass
+
+    return jsonify(out)
+
+
 @app.route('/api/inventories/plugins')
 def api_inventories_plugins():
     """Return all plugins detected across scans, optionally filtered by target."""

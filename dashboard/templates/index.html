@@ -1045,6 +1045,36 @@ tr.hidden-r { display: none; }
 .net-tx { color:#2563eb; font-weight:600; }
 .net-rx { color:#10b981; font-weight:600; }
 
+/* ── Grafana Monitor ── */
+.gf-status-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.gf-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; border:1px solid; }
+.gf-chip-up   { background:#f0fdf4; border-color:#86efac; color:#16a34a; }
+.gf-chip-down { background:#fef2f2; border-color:#fca5a5; color:#dc2626; }
+.gf-chip-info { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+.gf-metrics-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:14px; }
+.gf-metric-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; }
+.gf-metric-icon { font-size:15px; margin-bottom:4px; }
+.gf-metric-val  { font-size:20px; font-weight:700; color:#1d1d1f; line-height:1; }
+.gf-metric-lbl  { font-size:10px; color:#9ca3af; margin-top:3px; text-transform:uppercase; letter-spacing:.3px; }
+.gf-metric-bar  { height:3px; background:#f3f4f6; border-radius:2px; margin-top:7px; }
+.gf-metric-fill { height:100%; border-radius:2px; transition:width .6s; }
+.gf-embed-wrap  { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; margin-bottom:14px; }
+.gf-embed-hdr   { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid #f3f4f6; font-size:12px; font-weight:600; color:#374151; }
+.gf-dash-list   { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; margin-bottom:14px; }
+.gf-dash-card   { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; font-size:12px; cursor:pointer; transition:border-color .15s; }
+.gf-dash-card:hover { border-color:#2563eb; }
+.gf-targets-list { max-height:220px; overflow-y:auto; }
+.gf-target-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid #f9fafb; font-size:11px; }
+.gf-target-row:last-child { border-bottom:none; }
+.gf-alert-item { padding:7px 12px; border-radius:6px; font-size:12px; margin-bottom:5px; }
+.gf-alert-firing  { background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; }
+.gf-alert-pending { background:#fffbeb; border:1px solid #fde68a; color:#92400e; }
+.gf-setup-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px 20px; margin-top:4px; }
+.gf-setup-step { display:flex; gap:12px; margin-bottom:12px; }
+.gf-setup-num { width:20px; height:20px; background:#1e3a8a; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; margin-top:2px; }
+.gf-setup-cmd { background:#1d1d1f; color:#d1fae5; border-radius:6px; padding:8px 12px; font-size:11px; font-family:monospace; margin-top:5px; white-space:pre-wrap; }
+.gf-rec-dash { display:inline-flex; align-items:center; gap:5px; padding:4px 12px; background:#1e3a8a; color:#93c5fd; border-radius:5px; font-size:11px; font-weight:600; cursor:pointer; border:none; font-family:inherit; margin-right:6px; margin-top:6px; }
+
 /* ── APM / Monitor section card improvements ── */
 .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
 .sec-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
@@ -3712,6 +3742,134 @@ Load Logs
     </div>
     <div id="nm-loading" style="display:none;padding:20px;text-align:center;color:#6b7280;">Scanning network…</div>
     <div id="nm-error" style="display:none;padding:16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;"></div>
+  </section>
+
+  <!-- ── Grafana Monitor (No SSH Required) ──────────────────────────────────── -->
+  <section class="section" id="grafana-monitor-section" style="margin-top:16px;">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Grafana Monitor
+          <span style="font-size:11px;background:#1e3a8a;color:#93c5fd;border-radius:4px;padding:2px 8px;margin-left:8px;font-weight:600;vertical-align:middle;">NO SSH REQUIRED</span>
+        </div>
+        <div class="sec-desc">Live server metrics, traffic &amp; uptime via Prometheus + Node Exporter — topology diagrams rendered directly in Grafana</div>
+      </div>
+      <button onclick="gfToggleSetup()" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;">Setup Guide</button>
+    </div>
+
+    <!-- Inputs -->
+    <div class="log-form" style="margin-bottom:12px;">
+      <input type="text" id="gf-grafana-url" placeholder="Grafana URL  e.g. http://localhost:3000" value="http://localhost:3000" style="max-width:260px;">
+      <input type="text" id="gf-prom-url"    placeholder="Prometheus URL  e.g. http://localhost:9090" value="http://localhost:9090" style="max-width:260px;">
+      <input type="text" id="gf-user"        placeholder="Grafana user"     value="admin" style="max-width:100px;">
+      <input type="password" id="gf-pass"    placeholder="Grafana password" value="admin" style="max-width:120px;">
+      <button class="btn btn-sm" onclick="runGrafanaMonitor()" id="gf-run-btn" style="background:#1d1d1f;color:#fff;border-color:#1d1d1f;border-radius:8px;padding:7px 18px;white-space:nowrap;">&#9654; Connect &amp; Monitor</button>
+    </div>
+
+    <!-- Loading / error -->
+    <div id="gf-loading" style="display:none;padding:18px;text-align:center;color:#6b7280;font-size:13px;">Connecting to Grafana and Prometheus…</div>
+    <div id="gf-error"   style="display:none;"></div>
+
+    <!-- Status chips -->
+    <div class="gf-status-bar" id="gf-status-bar" style="display:none;"></div>
+
+    <!-- Metrics cards (from Prometheus) -->
+    <div class="gf-metrics-grid" id="gf-metrics-grid" style="display:none;"></div>
+
+    <!-- Grafana dashboard embed + targets side-panel -->
+    <div id="gf-main-area" style="display:none;grid-template-columns:1fr 260px;gap:14px;margin-bottom:14px;">
+      <div class="gf-embed-wrap">
+        <div class="gf-embed-hdr">
+          <span id="gf-embed-title">Grafana Dashboard</span>
+          <div style="display:flex;gap:6px;">
+            <select id="gf-dash-sel" onchange="gfSwitchDash()" style="font-size:11px;border:1px solid #e5e7eb;border-radius:5px;padding:2px 8px;font-family:inherit;background:#f9fafb;color:#374151;"></select>
+            <a id="gf-open-link" href="#" target="_blank" style="font-size:11px;padding:3px 10px;background:#1e3a8a;color:#93c5fd;border-radius:5px;text-decoration:none;font-weight:600;">&#8599; Open</a>
+          </div>
+        </div>
+        <iframe id="gf-dash-iframe" src="" frameborder="0" style="width:100%;height:420px;border:none;" allowfullscreen></iframe>
+        <div id="gf-embed-warning" style="display:none;padding:10px 14px;background:#fffbeb;border-top:1px solid #fde68a;font-size:11px;color:#92400e;">
+          If the iframe shows a Grafana login page, enable anonymous access in <code>grafana.ini</code>:<br>
+          <code>[auth.anonymous] enabled = true</code> &nbsp; <code>[security] allow_embedding = true</code> — then restart Grafana.
+        </div>
+      </div>
+      <!-- Targets panel -->
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af;margin-bottom:10px;">Prometheus Targets</div>
+        <div class="gf-targets-list" id="gf-targets-list"></div>
+        <div id="gf-alerts-area" style="display:none;margin-top:14px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af;margin-bottom:6px;">Active Alerts</div>
+          <div id="gf-alerts-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard list (when no embed available) -->
+    <div class="gf-dash-list" id="gf-dash-list" style="display:none;"></div>
+
+    <!-- Setup Guide -->
+    <div class="gf-setup-box" id="gf-setup-guide" style="display:none;">
+      <div style="font-size:13px;font-weight:700;color:#1d1d1f;margin-bottom:14px;">Quick Setup — Ubuntu / Debian</div>
+      <div class="gf-setup-step">
+        <div class="gf-setup-num">1</div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;">Install Grafana</div>
+          <div class="gf-setup-cmd">sudo apt update && sudo apt install -y grafana
+sudo systemctl enable grafana-server && sudo systemctl start grafana-server
+# Open http://YOUR_IP:3000  →  admin / admin</div>
+        </div>
+      </div>
+      <div class="gf-setup-step">
+        <div class="gf-setup-num">2</div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;">Enable iframe embedding (grafana.ini)</div>
+          <div class="gf-setup-cmd">[auth.anonymous]
+enabled = true
+org_name = Main Org.
+org_role = Viewer
+
+[security]
+allow_embedding = true</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:4px;">Then: <code>sudo systemctl restart grafana-server</code></div>
+        </div>
+      </div>
+      <div class="gf-setup-step">
+        <div class="gf-setup-num">3</div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;">Install Prometheus + Node Exporter</div>
+          <div class="gf-setup-cmd">sudo apt install -y prometheus prometheus-node-exporter
+sudo systemctl enable prometheus prometheus-node-exporter
+sudo systemctl start  prometheus prometheus-node-exporter</div>
+        </div>
+      </div>
+      <div class="gf-setup-step">
+        <div class="gf-setup-num">4</div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;">Add scrape target in /etc/prometheus/prometheus.yml</div>
+          <div class="gf-setup-cmd">scrape_configs:
+  - job_name: 'servers'
+    static_configs:
+      - targets: ['localhost:9100']   # Node Exporter</div>
+        </div>
+      </div>
+      <div class="gf-setup-step">
+        <div class="gf-setup-num">5</div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;">Connect Grafana → Prometheus</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:4px;">Grafana → Connections → Data Sources → Add → Prometheus → URL: http://localhost:9090</div>
+        </div>
+      </div>
+      <div class="gf-setup-step">
+        <div class="gf-setup-num">6</div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;">Import recommended dashboards (Grafana.com)</div>
+          <div style="margin-top:6px;">
+            <button class="gf-rec-dash" onclick="gfImportDash(1860)">&#43; Node Exporter Full (1860)</button>
+            <button class="gf-rec-dash" onclick="gfImportDash(13391)">&#43; Network Overview (13391)</button>
+            <button class="gf-rec-dash" onclick="gfImportDash(14031)">&#43; Network Traffic (14031)</button>
+          </div>
+          <div style="font-size:11px;color:#6b7280;margin-top:6px;">Or: Grafana → Dashboards → Import → enter ID above</div>
+        </div>
+      </div>
+    </div>
   </section>
 
   </div><!-- /page-network -->
@@ -8901,6 +9059,235 @@ function invTab(name, btn) {
   if (bar) bar.style.display = (name === 'plugins') ? 'flex' : 'none';
   if (name === 'plugins') _invPopulateDomains();
   _invRender();
+}
+
+// ── Grafana Monitor ────────────────────────────────────────────────────────────
+var _gfData = null;
+var _gfSetupOpen = false;
+
+function gfToggleSetup() {
+  _gfSetupOpen = !_gfSetupOpen;
+  var el = document.getElementById('gf-setup-guide');
+  if (el) el.style.display = _gfSetupOpen ? '' : 'none';
+}
+
+function gfImportDash(id) {
+  var url = (document.getElementById('gf-grafana-url') || {}).value || 'http://localhost:3000';
+  window.open(url.replace(/\/$/, '') + '/dashboard/import?gnetId=' + id, '_blank');
+}
+
+function gfSwitchDash() {
+  var sel = document.getElementById('gf-dash-sel');
+  if (!sel || !_gfData) return;
+  var uid = sel.value;
+  var dash = (_gfData.grafana.dashboards || []).find(function(d) { return d.uid === uid; });
+  if (!dash) return;
+  var gfUrl = (document.getElementById('gf-grafana-url') || {}).value || 'http://localhost:3000';
+  var embedUrl = gfUrl.replace(/\/$/, '') + dash.url + '?kiosk=tv&refresh=30s';
+  var iframe = document.getElementById('gf-dash-iframe');
+  var titleEl = document.getElementById('gf-embed-title');
+  var openLink = document.getElementById('gf-open-link');
+  if (iframe) iframe.src = embedUrl;
+  if (titleEl) titleEl.textContent = dash.title;
+  if (openLink) { openLink.href = gfUrl.replace(/\/$/, '') + dash.url; }
+}
+
+function runGrafanaMonitor() {
+  var gfUrl   = (document.getElementById('gf-grafana-url') || {}).value || 'http://localhost:3000';
+  var promUrl = (document.getElementById('gf-prom-url')    || {}).value || 'http://localhost:9090';
+  var gfUser  = (document.getElementById('gf-user')        || {}).value || 'admin';
+  var gfPass  = (document.getElementById('gf-pass')        || {}).value || 'admin';
+
+  var loading = document.getElementById('gf-loading');
+  var errEl   = document.getElementById('gf-error');
+  var btn     = document.getElementById('gf-run-btn');
+
+  if (loading) loading.style.display = '';
+  if (errEl)   errEl.style.display = 'none';
+  if (btn)     { btn.disabled = true; btn.textContent = 'Connecting…'; }
+
+  ['gf-status-bar','gf-metrics-grid','gf-main-area','gf-dash-list'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  fetch('/api/grafana/probe', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({grafana_url: gfUrl, prometheus_url: promUrl, gf_user: gfUser, gf_pass: gfPass})
+  }).then(function(r) { return r.json(); })
+  .then(function(d) {
+    _gfData = d;
+    if (loading) loading.style.display = 'none';
+    if (btn) { btn.disabled = false; btn.textContent = '▶ Connect & Monitor'; }
+    _gfRenderStatus(d);
+    _gfRenderMetrics(d, promUrl);
+    _gfRenderEmbed(d, gfUrl);
+    _gfRenderTargets(d);
+    _gfRenderAlerts(d);
+  }).catch(function(e) {
+    if (loading) loading.style.display = 'none';
+    if (btn) { btn.disabled = false; btn.textContent = '▶ Connect & Monitor'; }
+    if (errEl) {
+      errEl.style.display = '';
+      errEl.innerHTML = '<div style="padding:12px 16px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;">Connection failed: ' + _esc(String(e)) + '. Check that URLs are reachable from the server.</div>';
+    }
+  });
+}
+
+function _gfChip(running, label) {
+  var cls = running ? 'gf-chip gf-chip-up' : 'gf-chip gf-chip-down';
+  return '<span class="' + cls + '">' + (running ? '●' : '○') + ' ' + label + (running ? '' : ' — Offline') + '</span>';
+}
+
+function _gfRenderStatus(d) {
+  var bar = document.getElementById('gf-status-bar');
+  if (!bar) return;
+  var html = _gfChip(d.grafana.running, 'Grafana' + (d.grafana.version ? ' ' + d.grafana.version : '')) +
+             _gfChip(d.prometheus.running, 'Prometheus') +
+             _gfChip(d.node_exporter.running, 'Node Exporter');
+  if (d.targets.length) {
+    html += '<span class="gf-chip gf-chip-info" style="margin-left:auto;">&#9679; ' + d.targets.length + ' target' + (d.targets.length !== 1 ? 's' : '') + ' scraping</span>';
+  }
+  bar.innerHTML = html;
+  bar.style.display = 'flex';
+}
+
+function _gfFmtVal(key, v) {
+  if (v === undefined || v === null || isNaN(v)) return '—';
+  if (key.endsWith('_pct')) return v.toFixed(1) + '%';
+  if (key === 'net_rx_bps' || key === 'net_tx_bps') {
+    if (v > 1048576) return (v/1048576).toFixed(1) + ' MB/s';
+    if (v > 1024)    return (v/1024).toFixed(1) + ' KB/s';
+    return v.toFixed(0) + ' B/s';
+  }
+  if (key === 'uptime_s') {
+    var days = Math.floor(v/86400), hrs = Math.floor((v%86400)/3600);
+    return days + 'd ' + hrs + 'h';
+  }
+  return v.toFixed(1);
+}
+
+function _gfColor(key, v) {
+  if (key.endsWith('_pct') && v !== undefined) {
+    if (v >= 90) return '#ef4444';
+    if (v >= 70) return '#f97316';
+    return '#22c55e';
+  }
+  return '#2563eb';
+}
+
+function _gfRenderMetrics(d, promUrl) {
+  var grid = document.getElementById('gf-metrics-grid');
+  if (!grid) return;
+  var m = d.metrics || {};
+  if (!d.prometheus.running) {
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:14px;color:#9ca3af;font-size:12px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;text-align:center;">Prometheus not reachable at <strong>' + _esc(promUrl) + '</strong> — start Prometheus + Node Exporter to see live metrics.</div>';
+    grid.style.display = 'grid';
+    return;
+  }
+  var cards = [
+    {key:'cpu_pct',    lbl:'CPU',         icon:'⚙'},
+    {key:'mem_pct',    lbl:'RAM',          icon:'◉'},
+    {key:'disk_pct',   lbl:'Disk',         icon:'◫'},
+    {key:'net_rx_bps', lbl:'Network In',   icon:'↓'},
+    {key:'net_tx_bps', lbl:'Network Out',  icon:'↑'},
+    {key:'uptime_s',   lbl:'Uptime',       icon:'◷'},
+  ];
+  grid.innerHTML = cards.map(function(c) {
+    var v = m[c.key];
+    var vStr = _gfFmtVal(c.key, v);
+    var col  = _gfColor(c.key, v);
+    var pct  = (c.key.endsWith('_pct') && v !== undefined) ? Math.min(v, 100) : 0;
+    return '<div class="gf-metric-card">' +
+      '<div class="gf-metric-icon">' + c.icon + '</div>' +
+      '<div class="gf-metric-val" style="color:' + (v !== undefined ? col : '#9ca3af') + ';">' + vStr + '</div>' +
+      '<div class="gf-metric-lbl">' + c.lbl + '</div>' +
+      (pct ? '<div class="gf-metric-bar"><div class="gf-metric-fill" style="width:' + pct + '%;background:' + col + ';"></div></div>' : '') +
+      '</div>';
+  }).join('');
+  grid.style.display = 'grid';
+}
+
+function _gfRenderEmbed(d, gfUrl) {
+  var mainArea  = document.getElementById('gf-main-area');
+  var dashList  = document.getElementById('gf-dash-list');
+  var iframe    = document.getElementById('gf-dash-iframe');
+  var sel       = document.getElementById('gf-dash-sel');
+  var openLink  = document.getElementById('gf-open-link');
+  var warning   = document.getElementById('gf-embed-warning');
+  var dashes    = (d.grafana && d.grafana.dashboards) || [];
+
+  if (!d.grafana.running) {
+    if (dashList) {
+      dashList.innerHTML = '<div style="grid-column:1/-1;padding:14px;color:#9ca3af;font-size:12px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">Grafana is offline. See Setup Guide to install it.</div>';
+      dashList.style.display = 'grid';
+    }
+    return;
+  }
+
+  if (!dashes.length) {
+    if (dashList) {
+      dashList.innerHTML = '<div style="grid-column:1/-1;padding:14px;font-size:12px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">' +
+        '<strong>No dashboards found.</strong> Import recommended ones:<br><br>' +
+        '<button class="gf-rec-dash" onclick="gfImportDash(1860)">+ Node Exporter Full</button>' +
+        '<button class="gf-rec-dash" onclick="gfImportDash(13391)">+ Network Overview</button>' +
+        '<button class="gf-rec-dash" onclick="gfImportDash(14031)">+ Network Traffic</button>' +
+        '<button class="gf-rec-dash" onclick="gfImportDash(11074)">+ Node Graph</button>' +
+        '<div style="margin-top:8px;color:#9ca3af;font-size:11px;">Grafana → Dashboards → Import → enter the ID above → select Prometheus data source</div>' +
+        '</div>';
+      dashList.style.display = 'grid';
+    }
+    return;
+  }
+
+  // Populate selector
+  if (sel) {
+    sel.innerHTML = dashes.map(function(d) {
+      return '<option value="' + _esc(d.uid) + '">' + _esc(d.title) + '</option>';
+    }).join('');
+  }
+
+  // Embed first dashboard
+  var first = dashes[0];
+  var embedUrl = gfUrl.replace(/\/$/, '') + first.url + '?kiosk=tv&refresh=30s';
+  if (iframe) { iframe.src = embedUrl; }
+  if (openLink) { openLink.href = gfUrl.replace(/\/$/, '') + first.url; }
+  var titleEl = document.getElementById('gf-embed-title');
+  if (titleEl) titleEl.textContent = first.title;
+
+  // Show warning if anonymous access likely not enabled
+  if (!d.grafana.embed_ok && warning) warning.style.display = '';
+
+  if (mainArea) mainArea.style.display = 'grid';
+}
+
+function _gfRenderTargets(d) {
+  var list = document.getElementById('gf-targets-list');
+  if (!list) return;
+  if (!d.targets.length) {
+    list.innerHTML = '<div style="color:#9ca3af;font-size:11px;">No active targets. Configure prometheus.yml scrape_configs.</div>';
+    return;
+  }
+  list.innerHTML = d.targets.map(function(t) {
+    var col = t.health === 'up' ? '#22c55e' : t.health === 'down' ? '#ef4444' : '#f97316';
+    return '<div class="gf-target-row">' +
+      '<span style="color:' + col + ';font-size:9px;">●</span>' +
+      '<div><div style="font-weight:600;color:#1d1d1f;">' + _esc(t.instance) + '</div>' +
+      '<div style="color:#9ca3af;">' + _esc(t.job) + '</div></div>' +
+      '</div>';
+  }).join('');
+}
+
+function _gfRenderAlerts(d) {
+  var area = document.getElementById('gf-alerts-area');
+  var list = document.getElementById('gf-alerts-list');
+  if (!area || !list || !d.alerts || !d.alerts.length) return;
+  list.innerHTML = d.alerts.map(function(a) {
+    var cls = a.state === 'firing' ? 'gf-alert-item gf-alert-firing' : 'gf-alert-item gf-alert-pending';
+    return '<div class="' + cls + '"><strong>' + _esc(a.name) + '</strong> <span style="opacity:.7;">' + _esc(a.severity.toUpperCase()) + ' · ' + a.state + '</span></div>';
+  }).join('');
+  area.style.display = '';
 }
 
 function loadInventories() {
