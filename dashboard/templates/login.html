@@ -24,15 +24,10 @@
       max-width: 400px;
       box-shadow: 0 24px 60px rgba(0,0,0,.45);
     }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 32px;
-    }
+    .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
     .logo-icon {
       width: 36px; height: 36px;
-      background: linear-gradient(135deg, #2563eb, #60a5fa);
+      background: linear-gradient(135deg, #1e3a8a, #2563eb);
       border-radius: 9px;
       display: flex; align-items: center; justify-content: center;
     }
@@ -43,7 +38,7 @@
     .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 28px; }
     .field { margin-bottom: 16px; }
     label { display: block; font-size: 12px; font-weight: 600; color: #9ca3af; margin-bottom: 6px; letter-spacing: .3px; }
-    input[type=text], input[type=password] {
+    input[type=text], input[type=password], input[type=email] {
       width: 100%;
       background: #0f1117;
       border: 1px solid #2a2d3a;
@@ -56,15 +51,15 @@
       transition: border-color .15s;
     }
     input:focus { border-color: #2563eb; }
-    .error {
-      background: rgba(168,0,0,.15);
-      border: 1px solid rgba(168,0,0,.35);
+    .alert {
       border-radius: 8px;
-      padding: 10px 14px;
+      padding: 11px 14px;
       font-size: 12px;
-      color: #fca5a5;
       margin-bottom: 18px;
+      line-height: 1.5;
     }
+    .alert-error   { background: rgba(168,0,0,.12); border: 1px solid rgba(168,0,0,.3); color: #fca5a5; }
+    .alert-success { background: rgba(16,124,16,.12); border: 1px solid rgba(16,124,16,.3); color: #86efac; }
     .btn {
       width: 100%;
       padding: 11px;
@@ -80,15 +75,21 @@
       margin-top: 4px;
     }
     .btn:hover { background: #1d4ed8; }
-    .footer {
-      margin-top: 22px;
-      text-align: center;
-      font-size: 12px;
-      color: #6b7280;
-    }
+    .footer { margin-top: 22px; text-align: center; font-size: 12px; color: #6b7280; }
     .footer a { color: #60a5fa; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
     .divider { height: 1px; background: #2a2d3a; margin: 22px 0; }
+    .resend-wrap { margin-top: 14px; text-align: center; }
+    .resend-toggle { background: none; border: none; color: #60a5fa; font-size: 12px; cursor: pointer; font-family: inherit; }
+    .resend-toggle:hover { text-decoration: underline; }
+    .resend-form { display: none; margin-top: 12px; }
+    .resend-form input { margin-bottom: 8px; }
+    .resend-form button {
+      width: 100%; padding: 8px; background: #1e293b; color: #93c5fd;
+      border: 1px solid #2a2d3a; border-radius: 6px; font-size: 12px;
+      cursor: pointer; font-family: inherit;
+    }
+    .resend-form button:hover { background: #1e3a5f; }
   </style>
 </head>
 <body>
@@ -104,28 +105,51 @@
     </div>
 
     <h1>Sign in</h1>
-    <p class="subtitle">Enter your credentials to access the dashboard.</p>
+    <p class="subtitle">Use your username or Gmail address to sign in.</p>
+
+    {% if success %}
+    <div class="alert alert-success">{{ success }}</div>
+    {% endif %}
 
     {% if error %}
-    <div class="error">{{ error }}</div>
+    <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
     <form method="POST" action="/login">
       <div class="field">
-        <label for="username">USERNAME</label>
-        <input type="text" id="username" name="username" placeholder="admin" autocomplete="username" required>
+        <label for="username">USERNAME OR EMAIL</label>
+        <input type="text" id="username" name="username" placeholder="username or you@gmail.com"
+               autocomplete="username" required>
       </div>
       <div class="field">
         <label for="password">PASSWORD</label>
-        <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+        <input type="password" id="password" name="password" placeholder="••••••••"
+               autocomplete="current-password" required>
       </div>
       <button type="submit" class="btn">Sign in</button>
     </form>
+
+    <div class="resend-wrap">
+      <button class="resend-toggle" onclick="toggleResend()">Didn't receive verification email?</button>
+      <div class="resend-form" id="resend-form">
+        <form method="POST" action="/resend-verification">
+          <input type="email" name="email" placeholder="your@gmail.com" required>
+          <button type="submit">Resend verification email</button>
+        </form>
+      </div>
+    </div>
 
     <div class="divider"></div>
     <div class="footer">
       Don't have an account? <a href="/signup">Create one</a>
     </div>
   </div>
+
+  <script>
+    function toggleResend() {
+      var f = document.getElementById('resend-form');
+      f.style.display = f.style.display === 'none' || !f.style.display ? 'block' : 'none';
+    }
+  </script>
 </body>
 </html>

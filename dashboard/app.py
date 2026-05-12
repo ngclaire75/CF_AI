@@ -26,9 +26,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for
+from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for, flash
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import dashboard.db as db
 from dashboard.remediations import REMEDIATIONS
 
@@ -422,25 +425,236 @@ def _wp_xmlrpc_verify(site_url: str, username: str, password: str) -> bool:
 app = Flask(__name__, template_folder='templates')
 app.secret_key = os.environ.get('CFAI_SECRET_KEY', 'cfai-dev-secret-change-in-prod-2026')
 
+# ── SMTP / email config ───────────────────────────────────────────────────────
+_SMTP_USER = os.environ.get('SMTP_USER', '')
+_SMTP_PASS = os.environ.get('SMTP_PASS', '')
+_SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+_SMTP_PORT = int(os.environ.get('SMTP_PORT', '465'))
+_BASE_URL  = os.environ.get('CFAI_BASE_URL', 'http://localhost:8889')
+
+def _send_verification_email(to_email: str, token: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        verify_url = f'{_BASE_URL}/verify/{token}'
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Verify your CyberINK account'
+        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['To']      = to_email
+        html = f"""
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;padding:40px 0;min-height:100vh;">
+          <div style="max-width:480px;margin:0 auto;background:#1b1d27;border:1px solid #2a2d3a;border-radius:14px;overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:28px 32px;">
+              <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;">CyberINK</div>
+              <div style="font-size:11px;color:#93c5fd;letter-spacing:.6px;text-transform:uppercase;margin-top:3px;">Security Intelligence</div>
+            </div>
+            <div style="padding:32px;">
+              <p style="color:#e5e7eb;font-size:16px;font-weight:600;margin:0 0 10px;">Verify your email address</p>
+              <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:0 0 28px;">
+                Thanks for signing up. Click the button below to verify your email and activate your account.
+                This link expires in 24 hours.
+              </p>
+              <a href="{verify_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:13px 28px;border-radius:8px;font-size:14px;font-weight:600;">
+                Verify my account
+              </a>
+              <p style="color:#6b7280;font-size:11px;margin-top:28px;line-height:1.6;">
+                If you didn't create an account, you can safely ignore this email.<br>
+                Or copy this link: <span style="color:#60a5fa;">{verify_url}</span>
+              </p>
+            </div>
+            <div style="background:#0f1117;padding:14px 32px;font-size:11px;color:#4b5563;">
+              &copy; CyberINK Security Intelligence. This is an automated message.
+            </div>
+          </div>
+        </div>
+        """
+        msg.attach(MIMEText(html, 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
 # ── User store ────────────────────────────────────────────────────────────────
 _USERS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'users.json')
+
+_DEFAULT_ADMIN = 'admin'
+_DEFAULT_ADMIN_PASS = 'admin123'
 
 def _load_users() -> dict:
     os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
     if not os.path.exists(_USERS_FILE):
-        # Seed default admin
-        default = {'admin': {'password': generate_password_hash('admin123'), 'role': 'admin'}}
+        default = {_DEFAULT_ADMIN: {
+            'password': generate_password_hash(_DEFAULT_ADMIN_PASS),
+            'role': 'admin', 'email': '', 'verified': True, 'verification_token': None,
+        }}
         with open(_USERS_FILE, 'w') as f:
-            _json.dump(default, f)
+            _json.dump(default, f, indent=2)
         return default
     with open(_USERS_FILE) as f:
-        return _json.load(f)
+        users = _json.load(f)
+    # Migrate older entries + always enforce admin account
+    changed = False
+    for uname, u in users.items():
+        for field, default_val in [('verified', True), ('email', ''), ('verification_token', None)]:
+            if field not in u:
+                u[field] = default_val
+                changed = True
+    # Ensure default admin always exists with admin role
+    if _DEFAULT_ADMIN not in users:
+        users[_DEFAULT_ADMIN] = {
+            'password': generate_password_hash(_DEFAULT_ADMIN_PASS),
+            'role': 'admin', 'email': '', 'verified': True, 'verification_token': None,
+        }
+        changed = True
+    elif users[_DEFAULT_ADMIN].get('role') != 'admin':
+        users[_DEFAULT_ADMIN]['role'] = 'admin'
+        changed = True
+    if changed:
+        with open(_USERS_FILE, 'w') as f:
+            _json.dump(users, f, indent=2)
+    return users
 
 def _save_users(users: dict) -> None:
+    # Never allow demoting the default admin
+    if _DEFAULT_ADMIN in users:
+        users[_DEFAULT_ADMIN]['role'] = 'admin'
     os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
     with open(_USERS_FILE, 'w') as f:
         _json.dump(users, f, indent=2)
 
+def _find_user_by_identifier(identifier: str, users: dict):
+    """Return (key, user_dict) by username key or email address."""
+    if '@' in identifier:
+        for k, v in users.items():
+            if v.get('email', '').lower() == identifier.lower():
+                return k, v
+        return None, None
+    return identifier, users.get(identifier)
+
+# ── Global auth enforcement ───────────────────────────────────────────────────
+_PUBLIC_PATHS = ('/login', '/signup', '/verify/', '/logout')
+
+@app.before_request
+def _enforce_auth():
+    if any(request.path.startswith(p) for p in _PUBLIC_PATHS):
+        return None
+    if request.path.startswith('/static/'):
+        return None
+    if not session.get('user'):
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Not authenticated', 'redirect': '/login'}), 401
+        return redirect(url_for('login_page'))
+    # Enforce role-based API access
+    u = session['user']
+    if request.path.startswith('/api/admin/') and u.get('role') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+# ── Auth routes ───────────────────────────────────────────────────────────────
+@app.route('/login', methods=['GET', 'POST'])
+def login_page():
+    if session.get('user'):
+        return redirect(url_for('index'))
+    error   = None
+    success = request.args.get('verified') == '1'
+    if request.method == 'POST':
+        identifier = (request.form.get('username') or '').strip()
+        password   = request.form.get('password') or ''
+        users      = _load_users()
+        key, user  = _find_user_by_identifier(identifier, users)
+        if user and check_password_hash(user['password'], password):
+            if not user.get('verified', True):
+                error = 'Please verify your email before logging in. Check your inbox for the verification link.'
+            else:
+                session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', '')}
+                return redirect(url_for('index'))
+        else:
+            error = 'Invalid username/email or password.'
+    return render_template('login.html', error=error, success='Account verified! You can now sign in.' if success else None)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup_page():
+    if session.get('user'):
+        return redirect(url_for('index'))
+    error        = None
+    pending_email = None
+    if request.method == 'POST':
+        identifier = (request.form.get('username') or '').strip()
+        password   = request.form.get('password') or ''
+        confirm    = request.form.get('confirm') or ''
+        is_email   = '@' in identifier and '.' in identifier.split('@', 1)[-1]
+        key        = identifier.lower() if is_email else identifier
+        if not identifier or not password:
+            error = 'Username/email and password are required.'
+        elif password != confirm:
+            error = 'Passwords do not match.'
+        elif len(password) < 6:
+            error = 'Password must be at least 6 characters.'
+        elif key == _DEFAULT_ADMIN:
+            error = 'That username is reserved.'
+        else:
+            users = _load_users()
+            email_taken = any(v.get('email', '').lower() == identifier.lower() for v in users.values())
+            if key in users or email_taken:
+                error = 'That username or email is already registered.'
+            else:
+                token    = str(_uuid.uuid4())
+                verified = not is_email
+                users[key] = {
+                    'password': generate_password_hash(password),
+                    'role': 'user',
+                    'email': identifier if is_email else '',
+                    'verified': verified,
+                    'verification_token': token if is_email else None,
+                }
+                _save_users(users)
+                if is_email:
+                    sent = _send_verification_email(identifier, token)
+                    if sent:
+                        pending_email = identifier
+                    else:
+                        # SMTP not configured — auto-verify so user isn't stuck
+                        users[key]['verified'] = True
+                        users[key]['verification_token'] = None
+                        _save_users(users)
+                        session['user'] = {'username': key, 'role': 'user', 'email': identifier}
+                        return redirect(url_for('index'))
+                else:
+                    session['user'] = {'username': key, 'role': 'user', 'email': ''}
+                    return redirect(url_for('index'))
+    return render_template('signup.html', error=error, pending_email=pending_email)
+
+@app.route('/verify/<token>')
+def verify_email(token):
+    users = _load_users()
+    for uname, user in users.items():
+        if user.get('verification_token') == token:
+            user['verified'] = True
+            user['verification_token'] = None
+            _save_users(users)
+            return redirect(url_for('login_page') + '?verified=1')
+    return render_template('login.html', error='This verification link is invalid or has already been used.', success=None)
+
+@app.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    email = (request.form.get('email') or '').strip().lower()
+    users = _load_users()
+    key, user = _find_user_by_identifier(email, users)
+    if user and not user.get('verified', True):
+        token = str(_uuid.uuid4())
+        user['verification_token'] = token
+        _save_users(users)
+        _send_verification_email(email, token)
+    return render_template('login.html', error=None,
+                           success='If that email exists and is unverified, a new link has been sent.')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login_page'))
+
+# ── RBAC decorators ───────────────────────────────────────────────────────────
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -448,50 +662,6 @@ def login_required(f):
             return redirect(url_for('login_page'))
         return f(*args, **kwargs)
     return decorated
-
-# ── Auth routes ───────────────────────────────────────────────────────────────
-@app.route('/login', methods=['GET', 'POST'])
-def login_page():
-    error = None
-    if request.method == 'POST':
-        username = (request.form.get('username') or '').strip()
-        password = request.form.get('password') or ''
-        users = _load_users()
-        user = users.get(username)
-        if user and check_password_hash(user['password'], password):
-            session['user'] = {'username': username, 'role': user['role']}
-            return redirect(url_for('index'))
-        error = 'Invalid username or password.'
-    return render_template('login.html', error=error)
-
-@app.route('/signup', methods=['GET', 'POST'])
-def signup_page():
-    error = None
-    if request.method == 'POST':
-        username = (request.form.get('username') or '').strip()
-        password = request.form.get('password') or ''
-        confirm  = request.form.get('confirm') or ''
-        if not username or not password:
-            error = 'Username and password are required.'
-        elif password != confirm:
-            error = 'Passwords do not match.'
-        elif len(password) < 6:
-            error = 'Password must be at least 6 characters.'
-        else:
-            users = _load_users()
-            if username in users:
-                error = 'Username already taken.'
-            else:
-                users[username] = {'password': generate_password_hash(password), 'role': 'user'}
-                _save_users(users)
-                session['user'] = {'username': username, 'role': 'user'}
-                return redirect(url_for('index'))
-    return render_template('signup.html', error=error)
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login_page'))
 
 def _admin_required(f):
     @wraps(f)
@@ -504,16 +674,20 @@ def _admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+# ── Admin user-management API ─────────────────────────────────────────────────
 @app.route('/api/admin/users', methods=['GET'])
 @_admin_required
 def admin_list_users():
     users = _load_users()
-    return jsonify({'users': [{'username': k, 'role': v['role']} for k, v in users.items()]})
+    return jsonify({'users': [
+        {'username': k, 'role': v['role'], 'email': v.get('email', ''), 'verified': v.get('verified', True)}
+        for k, v in users.items()
+    ]})
 
 @app.route('/api/admin/users', methods=['POST'])
 @_admin_required
 def admin_create_user():
-    data = request.get_json() or {}
+    data     = request.get_json() or {}
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
     role     = data.get('role', 'user')
@@ -523,20 +697,27 @@ def admin_create_user():
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
     if role not in ('admin', 'user'):
         return jsonify({'error': 'Invalid role'}), 400
+    if username == _DEFAULT_ADMIN:
+        return jsonify({'error': 'That username is reserved'}), 400
     users = _load_users()
     if username in users:
         return jsonify({'error': 'Username already taken'}), 409
-    users[username] = {'password': generate_password_hash(password), 'role': role}
+    users[username] = {
+        'password': generate_password_hash(password),
+        'role': role, 'email': '', 'verified': True, 'verification_token': None,
+    }
     _save_users(users)
     return jsonify({'ok': True})
 
 @app.route('/api/admin/users/<username>/role', methods=['POST'])
 @_admin_required
 def admin_set_role(username):
-    data = request.get_json() or {}
+    data     = request.get_json() or {}
     new_role = data.get('role')
     if new_role not in ('admin', 'user'):
         return jsonify({'error': 'Invalid role'}), 400
+    if username == _DEFAULT_ADMIN:
+        return jsonify({'error': 'The default admin role cannot be changed'}), 400
     users = _load_users()
     if username not in users:
         return jsonify({'error': 'User not found'}), 404
@@ -546,9 +727,22 @@ def admin_set_role(username):
     _save_users(users)
     return jsonify({'ok': True})
 
+@app.route('/api/admin/users/<username>/verify', methods=['POST'])
+@_admin_required
+def admin_verify_user(username):
+    users = _load_users()
+    if username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    users[username]['verified'] = True
+    users[username]['verification_token'] = None
+    _save_users(users)
+    return jsonify({'ok': True})
+
 @app.route('/api/admin/users/<username>', methods=['DELETE'])
 @_admin_required
 def admin_delete_user(username):
+    if username == _DEFAULT_ADMIN:
+        return jsonify({'error': 'The default admin account cannot be deleted'}), 400
     if username == session['user']['username']:
         return jsonify({'error': 'Cannot delete yourself'}), 400
     users = _load_users()

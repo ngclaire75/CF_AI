@@ -21,18 +21,13 @@
       border-radius: 14px;
       padding: 44px 40px 36px;
       width: 100%;
-      max-width: 400px;
+      max-width: 420px;
       box-shadow: 0 24px 60px rgba(0,0,0,.45);
     }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 32px;
-    }
+    .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
     .logo-icon {
       width: 36px; height: 36px;
-      background: linear-gradient(135deg, #2563eb, #60a5fa);
+      background: linear-gradient(135deg, #1e3a8a, #2563eb);
       border-radius: 9px;
       display: flex; align-items: center; justify-content: center;
     }
@@ -40,10 +35,10 @@
     .logo-text { font-size: 17px; font-weight: 700; color: #fff; letter-spacing: -.3px; }
     .logo-sub  { font-size: 10px; color: #6b7280; letter-spacing: .5px; text-transform: uppercase; margin-top: 1px; }
     h1 { font-size: 21px; font-weight: 700; color: #fff; margin-bottom: 6px; }
-    .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 28px; }
+    .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
     .field { margin-bottom: 16px; }
     label { display: block; font-size: 12px; font-weight: 600; color: #9ca3af; margin-bottom: 6px; letter-spacing: .3px; }
-    input[type=text], input[type=password] {
+    input[type=text], input[type=password], input[type=email] {
       width: 100%;
       background: #0f1117;
       border: 1px solid #2a2d3a;
@@ -56,32 +51,16 @@
       transition: border-color .15s;
     }
     input:focus { border-color: #2563eb; }
-    .error {
-      background: rgba(168,0,0,.15);
-      border: 1px solid rgba(168,0,0,.35);
+    .hint { font-size: 11px; color: #6b7280; margin-top: 5px; }
+    .alert {
       border-radius: 8px;
-      padding: 10px 14px;
+      padding: 11px 14px;
       font-size: 12px;
-      color: #fca5a5;
       margin-bottom: 18px;
+      line-height: 1.5;
     }
-    .note {
-      font-size: 11px;
-      color: #6b7280;
-      margin-top: 6px;
-    }
-    .role-badge {
-      display: inline-block;
-      background: rgba(96,165,250,.15);
-      color: #60a5fa;
-      border: 1px solid rgba(96,165,250,.3);
-      border-radius: 6px;
-      font-size: 11px;
-      padding: 3px 9px;
-      font-weight: 600;
-      margin-left: 6px;
-      vertical-align: middle;
-    }
+    .alert-error   { background: rgba(168,0,0,.12); border: 1px solid rgba(168,0,0,.3); color: #fca5a5; }
+    .alert-info    { background: rgba(37,99,235,.1); border: 1px solid rgba(37,99,235,.25); color: #93c5fd; }
     .btn {
       width: 100%;
       padding: 11px;
@@ -97,24 +76,34 @@
       margin-top: 4px;
     }
     .btn:hover { background: #1d4ed8; }
-    .footer {
-      margin-top: 22px;
-      text-align: center;
-      font-size: 12px;
-      color: #6b7280;
-    }
+    .footer { margin-top: 22px; text-align: center; font-size: 12px; color: #6b7280; }
     .footer a { color: #60a5fa; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
     .divider { height: 1px; background: #2a2d3a; margin: 22px 0; }
-    .info-box {
-      background: rgba(37,99,235,.1);
-      border: 1px solid rgba(37,99,235,.25);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 12px;
-      color: #93c5fd;
-      margin-bottom: 20px;
-      line-height: 1.5;
+
+    /* Pending verification screen */
+    .pending-screen { text-align: center; padding: 8px 0; }
+    .pending-icon {
+      width: 56px; height: 56px;
+      background: rgba(37,99,235,.15);
+      border: 2px solid rgba(37,99,235,.3);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .pending-icon svg { width: 26px; height: 26px; stroke: #60a5fa; fill: none; stroke-width: 2; }
+    .pending-title { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+    .pending-desc { font-size: 13px; color: #9ca3af; line-height: 1.6; margin-bottom: 24px; }
+    .pending-email-pill {
+      display: inline-block;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      color: #60a5fa;
+      margin-bottom: 24px;
+      word-break: break-all;
     }
   </style>
 </head>
@@ -130,38 +119,83 @@
       </div>
     </div>
 
-    <h1>Create account</h1>
-    <p class="subtitle">New accounts are created as <strong style="color:#e5e7eb;">User</strong> role. Contact an admin to upgrade to Admin.</p>
+    {% if pending_email %}
+    <!-- ── Verification pending screen ── -->
+    <div class="pending-screen">
+      <div class="pending-icon">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <div class="pending-title">Check your inbox</div>
+      <p class="pending-desc">
+        A verification email has been sent from <strong style="color:#e5e7eb;">CyberINK</strong> to:
+      </p>
+      <div class="pending-email-pill">{{ pending_email }}</div>
+      <p class="pending-desc">
+        Click the link in the email to activate your account.<br>
+        Check your spam folder if you don't see it.
+      </p>
+      <form method="POST" action="/resend-verification" style="margin-top:4px;">
+        <input type="hidden" name="email" value="{{ pending_email }}">
+        <button type="submit" class="btn" style="background:#1e293b;color:#93c5fd;border:1px solid #2a2d3a;">
+          Resend verification email
+        </button>
+      </form>
+    </div>
+    <div class="divider"></div>
+    <div class="footer"><a href="/login">Back to sign in</a></div>
 
-    <div class="info-box">
-      <strong>User role</strong> grants access to: Dashboard, AI Chatbot, User Activity Logs, Log Explorer, Inventories, and Network Monitor.
+    {% else %}
+    <!-- ── Sign up form ── -->
+    <h1>Create account</h1>
+    <p class="subtitle">Use a Gmail address for email verification, or choose a username.</p>
+
+    <div class="alert alert-info">
+      New accounts are assigned <strong>User</strong> role. An admin can promote you to Admin after sign-up.
     </div>
 
     {% if error %}
-    <div class="error">{{ error }}</div>
+    <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
     <form method="POST" action="/signup">
       <div class="field">
-        <label for="username">USERNAME</label>
-        <input type="text" id="username" name="username" placeholder="yourname" autocomplete="username" required>
+        <label for="username">USERNAME OR GMAIL</label>
+        <input type="text" id="username" name="username"
+               placeholder="yourname  or  you@gmail.com"
+               autocomplete="username" required
+               oninput="detectType(this)">
+        <div class="hint" id="type-hint">Enter a username or a Gmail address.</div>
       </div>
       <div class="field">
         <label for="password">PASSWORD</label>
-        <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="new-password" required>
-        <div class="note">Minimum 6 characters.</div>
+        <input type="password" id="password" name="password" placeholder="••••••••"
+               autocomplete="new-password" required>
+        <div class="hint">Minimum 6 characters.</div>
       </div>
       <div class="field">
         <label for="confirm">CONFIRM PASSWORD</label>
-        <input type="password" id="confirm" name="confirm" placeholder="••••••••" autocomplete="new-password" required>
+        <input type="password" id="confirm" name="confirm" placeholder="••••••••"
+               autocomplete="new-password" required>
       </div>
       <button type="submit" class="btn">Create account</button>
     </form>
-
     <div class="divider"></div>
-    <div class="footer">
-      Already have an account? <a href="/login">Sign in</a>
-    </div>
+    <div class="footer">Already have an account? <a href="/login">Sign in</a></div>
+    {% endif %}
   </div>
+
+  <script>
+    function detectType(el) {
+      var v = el.value;
+      var hint = document.getElementById('type-hint');
+      if (v.indexOf('@') !== -1) {
+        hint.textContent = 'Gmail detected — we will send a verification email before you can log in.';
+        hint.style.color = '#60a5fa';
+      } else {
+        hint.textContent = 'Username — your account will be active immediately after sign-up.';
+        hint.style.color = '#6b7280';
+      }
+    }
+  </script>
 </body>
 </html>

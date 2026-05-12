@@ -2974,8 +2974,8 @@ Export Power BI
     <div style="padding:0 20px 20px;">
       <div id="um-error" style="display:none;color:#a80000;font-size:13px;margin-bottom:12px;"></div>
       <table class="mdef-tbl" id="um-tbl" style="background:#fff;">
-        <thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
-        <tbody id="um-tbody"><tr><td colspan="3" class="mdef-empty">Loading…</td></tr></tbody>
+        <thead><tr><th>Username</th><th>Email</th><th>Verified</th><th>Role</th><th>Actions</th></tr></thead>
+        <tbody id="um-tbody"><tr><td colspan="5" class="mdef-empty">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -9749,27 +9749,50 @@ function loadFileScanPage() {
 function loadUserMgmt() {
   var tbody = document.getElementById('um-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="3" class="mdef-empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading…</td></tr>';
   fetch('/api/admin/users')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (d.error) { tbody.innerHTML = '<tr><td colspan="3" class="mdef-empty" style="color:#a80000;">'+_esc(d.error)+'</td></tr>'; return; }
+      if (d.error) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#a80000;">'+_esc(d.error)+'</td></tr>'; return; }
       var users = d.users || [];
-      if (!users.length) { tbody.innerHTML = '<tr><td colspan="3" class="mdef-empty">No users found.</td></tr>'; return; }
+      if (!users.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No users found.</td></tr>'; return; }
       tbody.innerHTML = users.map(function(u){
-        var isAdmin = u.role === 'admin';
-        var isSelf  = u.username === USER_NAME;
+        var isAdmin    = u.role === 'admin';
+        var isVerified = u.verified !== false;
+        var isSelf     = u.username === USER_NAME;
+        var isDefault  = u.username === 'admin';
         var roleBadge = isAdmin
           ? '<span style="background:rgba(37,99,235,.12);color:#2563eb;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid rgba(37,99,235,.25);">ADMIN</span>'
           : '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid #c8c6c4;">USER</span>';
-        var actions = isSelf ? '<span style="font-size:11px;color:#9ca3af;">current session</span>' : (
-          '<button onclick="umSetRole(\''+_esc(u.username)+'\',\''+(isAdmin?'user':'admin')+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;margin-right:6px;">'+(isAdmin?'Demote to User':'Promote to Admin')+'</button>'
-          + '<button onclick="umDeleteUser(\''+_esc(u.username)+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #f1b3b7;border-radius:4px;background:#fde7e9;color:#a80000;cursor:pointer;">Delete</button>'
-        );
-        return '<tr><td style="font-weight:500;">'+_esc(u.username)+'</td><td>'+roleBadge+'</td><td>'+actions+'</td></tr>';
+        var verifiedBadge = isVerified
+          ? '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">VERIFIED</span>'
+          : '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">PENDING</span>';
+        var emailCell = _esc(u.email || '—');
+        var actions = '';
+        if (isSelf) {
+          actions = '<span style="font-size:11px;color:#9ca3af;">current session</span>';
+        } else {
+          if (!isDefault) {
+            actions += '<button onclick="umSetRole(\''+_esc(u.username)+'\',\''+(isAdmin?'user':'admin')+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;margin-right:4px;">'+(isAdmin?'Demote':'Promote to Admin')+'</button>';
+          }
+          if (!isVerified) {
+            actions += '<button onclick="umVerifyUser(\''+_esc(u.username)+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #9fd4a3;border-radius:4px;background:#e9f8ee;color:#107c10;cursor:pointer;margin-right:4px;">Verify</button>';
+          }
+          if (!isDefault) {
+            actions += '<button onclick="umDeleteUser(\''+_esc(u.username)+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #f1b3b7;border-radius:4px;background:#fde7e9;color:#a80000;cursor:pointer;">Delete</button>';
+          }
+          if (!actions) actions = '<span style="font-size:11px;color:#9ca3af;">protected</span>';
+        }
+        return '<tr>'
+          + '<td style="font-weight:500;">'+_esc(u.username)+(isDefault?'<span style="font-size:10px;color:#9ca3af;margin-left:6px;">(default)</span>':'')+'</td>'
+          + '<td style="font-size:12px;color:#605e5c;">'+emailCell+'</td>'
+          + '<td>'+verifiedBadge+'</td>'
+          + '<td>'+roleBadge+'</td>'
+          + '<td style="white-space:nowrap;">'+actions+'</td>'
+          + '</tr>';
       }).join('');
     })
-    .catch(function(){ tbody.innerHTML = '<tr><td colspan="3" class="mdef-empty" style="color:#a80000;">Failed to load users.</td></tr>'; });
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#a80000;">Failed to load users.</td></tr>'; });
 }
 
 function umSetRole(username, newRole) {
@@ -9778,6 +9801,13 @@ function umSetRole(username, newRole) {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({role: newRole})
   }).then(function(r){ return r.json(); })
+    .then(function(d){ if (d.error) alert(d.error); else loadUserMgmt(); })
+    .catch(function(){ alert('Request failed.'); });
+}
+
+function umVerifyUser(username) {
+  fetch('/api/admin/users/'+encodeURIComponent(username)+'/verify', {method:'POST'})
+    .then(function(r){ return r.json(); })
     .then(function(d){ if (d.error) alert(d.error); else loadUserMgmt(); })
     .catch(function(){ alert('Request failed.'); });
 }
