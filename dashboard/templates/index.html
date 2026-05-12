@@ -4795,7 +4795,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // Apply role-based sidebar restrictions for non-admin users
   if (USER_ROLE !== 'admin') {
-    // Map section ID → sb-item ID
     var _adminOnlyIds = [
       'sb-gsc','sb-filescan','sb-securescore','sb-threatanalytics',
       'sb-incidents','sb-signals','sb-eventtimeline','sb-mitre',
@@ -4806,10 +4805,9 @@ document.addEventListener('DOMContentLoaded', function(){
       var el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
-    // Also hide section labels that become empty
-    // Hide the AI Assistant sub-items label dividers if needed
+
+    // Hide labels whose entire section is hidden
     document.querySelectorAll('.sb-nav-label').forEach(function(lbl){
-      // Check if all following sb-items until next label are hidden
       var sib = lbl.nextElementSibling;
       var allHidden = true;
       while (sib && !sib.classList.contains('sb-nav-label') && !sib.classList.contains('sb-divider')) {
@@ -4817,6 +4815,20 @@ document.addEventListener('DOMContentLoaded', function(){
         sib = sib.nextElementSibling;
       }
       if (allHidden) lbl.style.display = 'none';
+    });
+
+    // Hide dividers that are between two invisible sections
+    document.querySelectorAll('.sb-divider').forEach(function(div){
+      // Check if everything after this divider until the next divider (or end) is hidden
+      var sib = div.nextElementSibling;
+      var allHidden = true;
+      while (sib && !sib.classList.contains('sb-divider')) {
+        if ((sib.classList.contains('sb-item') || sib.classList.contains('sb-nav-label')) && sib.style.display !== 'none') {
+          allHidden = false; break;
+        }
+        sib = sib.nextElementSibling;
+      }
+      if (allHidden) div.style.display = 'none';
     });
   }
 });
