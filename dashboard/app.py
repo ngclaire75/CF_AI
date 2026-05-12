@@ -3903,7 +3903,7 @@ def api_grafana_probe():
 def api_grafana_install():
     """Write + launch an elevated PowerShell script that installs Grafana,
     Prometheus, and Windows Exporter on the local machine."""
-    import subprocess, tempfile, os as _os
+    import subprocess
 
     script = r"""
 # CyberINK — Grafana Auto-Setup
@@ -4000,18 +4000,15 @@ Write-Host "`nPress Enter to close this window..."
 Read-Host
 """
 
-    # Save to a path with no spaces so -File argument works reliably
-    import os as _os
-    script_dir = r'C:\monitoring'
-    _os.makedirs(script_dir, exist_ok=True)
-    path = r'C:\monitoring\cfai_setup.ps1'
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(script)
+    # Encode script as UTF-16LE base64 and use -EncodedCommand — avoids
+    # any file path / spaces / permissions issue entirely.
+    import base64 as _b64
+    encoded = _b64.b64encode(script.encode('utf-16-le')).decode('ascii')
 
     try:
         subprocess.Popen(
             ['powershell', '-Command',
-             f'Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File C:\\monitoring\\cfai_setup.ps1"'],
+             f'Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -EncodedCommand {encoded}"'],
             shell=False
         )
         return jsonify({'ok': True})
