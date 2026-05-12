@@ -2465,11 +2465,19 @@ Export Power BI
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
       <div style="flex:1;min-width:220px;">
         <label style="font-size:12px;font-weight:600;color:#323130;display:block;margin-bottom:4px;">Site URL</label>
-        <input id="fs-site-url" type="text" placeholder="https://servicebrankas.com"
+        <input id="fs-site-url" type="text" placeholder="https://example.com"
           style="width:100%;padding:7px 10px;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;box-sizing:border-box;">
       </div>
       <button onclick="fsRun()" style="padding:7px 20px;background:#0078d4;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer;font-weight:600;">Scan Now</button>
       <button onclick="fsClear()" style="padding:7px 14px;background:#f3f2f1;color:#323130;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;cursor:pointer;">Clear</button>
+      <div id="fs-bulk-bar" style="display:none;margin-left:auto;gap:6px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:11px;color:#605e5c;font-weight:600;">Mark all as:</span>
+        <button onclick="_fsMarkAll('ok')"         style="font-size:11px;padding:3px 10px;background:#e9f8ee;color:#107c10;border:1px solid #9fd4a3;border-radius:4px;cursor:pointer;font-weight:600;">Known Safe</button>
+        <button onclick="_fsMarkAll('suspicious')" style="font-size:11px;padding:3px 10px;background:#fde7e9;color:#a80000;border:1px solid #f1b3b7;border-radius:4px;cursor:pointer;font-weight:600;">Suspicious</button>
+        <button onclick="_fsMarkAll('malware')"    style="font-size:11px;padding:3px 10px;background:#a80000;color:#fff;border:1px solid #a80000;border-radius:4px;cursor:pointer;font-weight:600;">Malware</button>
+        <button onclick="_fsMarkAll('dismissed')"  style="font-size:11px;padding:3px 10px;background:#f3f2f1;color:#605e5c;border:1px solid #c8c6c4;border-radius:4px;cursor:pointer;font-weight:600;">Dismiss All</button>
+        <button onclick="_fsClearDismissed()"      style="font-size:11px;padding:3px 10px;background:#fff;color:#323130;border:1px solid #c8c6c4;border-radius:4px;cursor:pointer;">Reset All</button>
+      </div>
     </div>
 
     <!-- Status -->
@@ -3485,6 +3493,14 @@ Export Power BI
 Load Logs
       </button>
       <span id="pl-count" style="font-size:12px;color:#605e5c;margin-left:8px;"></span>
+      <div id="pl-bulk-bar" style="display:none;margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:11px;color:#605e5c;font-weight:600;">Mark all as:</span>
+        <button onclick="_plMarkAll('safe')"       style="font-size:11px;padding:3px 10px;background:#e9f8ee;color:#107c10;border:1px solid #9fd4a3;border-radius:4px;cursor:pointer;font-weight:600;">Safe</button>
+        <button onclick="_plMarkAll('suspicious')" style="font-size:11px;padding:3px 10px;background:#fde7e9;color:#a80000;border:1px solid #f1b3b7;border-radius:4px;cursor:pointer;font-weight:600;">Suspicious</button>
+        <button onclick="_plMarkAll('watchlist')"  style="font-size:11px;padding:3px 10px;background:#fff4ce;color:#7a4f00;border:1px solid #f0d080;border-radius:4px;cursor:pointer;font-weight:600;">Watchlist</button>
+        <button onclick="_plMarkAll('fp')"         style="font-size:11px;padding:3px 10px;background:#f3f2f1;color:#605e5c;border:1px solid #c8c6c4;border-radius:4px;cursor:pointer;font-weight:600;">False +ve</button>
+        <button onclick="_plMarkAll('none')"       style="font-size:11px;padding:3px 10px;background:#fff;color:#323130;border:1px solid #c8c6c4;border-radius:4px;cursor:pointer;">Clear All</button>
+      </div>
     </div>
     <div class="pl-table-wrap">
       <table>
@@ -5076,6 +5092,7 @@ function _renderPluginLogs(logs) {
   logs.sort(function(a,b){ return (b.timestamp||'').localeCompare(a.timestamp||''); });
   if (countEl) countEl.textContent = logs.length + ' entries';
   var _plStatuses = JSON.parse(localStorage.getItem('cfai_log_statuses') || '{}');
+  _plCurrentLogs = []; // reset for bulk ops
   var _plFlagBadges = {
     suspicious: '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
     blocked:    '<span style="background:#a80000;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
@@ -5089,6 +5106,7 @@ function _renderPluginLogs(logs) {
     var ts = _utcToLocal(l.timestamp || '');
     var ip = (l.ip || '').trim();
     var logKey    = (l.user||'')+'|'+(ip||'')+'|'+(l.timestamp||'')+'|'+idx;
+    _plCurrentLogs.push(logKey); // track for bulk ops
     var logStatus = _plStatuses[logKey] || 'none';
     var rowBg = logStatus==='blocked'?'background:#fff5f5;':logStatus==='suspicious'?'background:#fffbfb;':logStatus==='safe'?'background:#f8fff9;':'';
     var escapedKey = logKey.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -5115,6 +5133,10 @@ function _renderPluginLogs(logs) {
       '</tr>';
   }).join('');
   tbody.innerHTML = html;
+
+  // Show bulk action bar
+  var plBulkBar = document.getElementById('pl-bulk-bar');
+  if (plBulkBar) plBulkBar.style.display = 'flex';
 
   // Async country lookup — collect unique IPs then fill cells
   var ipSet = {};
@@ -9550,8 +9572,7 @@ function loadThreatIntel() {
 
 // ── WordPress File Scanner ────────────────────────────────────────────────────
 function loadFileScanPage() {
-  var saved = localStorage.getItem('cfai_filescan_url');
-  if (saved) document.getElementById('fs-site-url').value = saved;
+  document.getElementById('fs-site-url').value = '';
 }
 
 function _fsSetStatus(sel, fileKey, idx) {
@@ -9583,6 +9604,24 @@ function _fsSetStatus(sel, fileKey, idx) {
 function _fsClearDismissed() {
   localStorage.removeItem('cfai_fs_statuses');
   fsRun();
+}
+
+// ── Bulk action helpers ───────────────────────────────────────────────────────
+var _plCurrentLogs   = []; // track keys for bulk ops
+var _fsCurrentFiles  = []; // track keys for bulk ops
+
+function _plMarkAll(status) {
+  var statuses = JSON.parse(localStorage.getItem('cfai_log_statuses') || '{}');
+  _plCurrentLogs.forEach(function(key){ statuses[key] = status; });
+  localStorage.setItem('cfai_log_statuses', JSON.stringify(statuses));
+  runPluginLogsPage(); // re-render with new statuses
+}
+
+function _fsMarkAll(status) {
+  var statuses = JSON.parse(localStorage.getItem('cfai_fs_statuses') || '{}');
+  _fsCurrentFiles.forEach(function(key){ statuses[key] = status; });
+  localStorage.setItem('cfai_fs_statuses', JSON.stringify(statuses));
+  fsRun(); // re-render with new statuses
 }
 
 function _plSetStatus(sel, logKey, idx) {
@@ -9658,6 +9697,7 @@ function fsRun() {
     _fsRender(data);
     document.getElementById('fs-results').style.display = '';
     document.getElementById('fs-empty').style.display = 'none';
+    document.getElementById('fs-bulk-bar').style.display = 'flex';
   })
   .catch(function(e){
     document.getElementById('fs-loading').style.display = 'none';
@@ -9764,10 +9804,12 @@ function _fsRender(data) {
   if (data.plugin_installed && recentFiles.length) {
     var _SUSP_EXT = ['php','exe','bat','sh','cmd','py'];
     var _fsStatuses = JSON.parse(localStorage.getItem('cfai_fs_statuses') || '{}');
+    _fsCurrentFiles = []; // reset for bulk ops
     var flaggedCount = 0;
     var rRows = recentFiles.map(function(f, idx){
       var isSusp = _SUSP_EXT.indexOf((f.ext||'').toLowerCase()) !== -1;
       var fileKey = f.file;
+      _fsCurrentFiles.push(fileKey); // track for bulk ops
       var status  = _fsStatuses[fileKey] || (isSusp ? 'suspicious' : 'ok');
       if (status === 'suspicious') flaggedCount++;
       var rowOpacity = status === 'dismissed' ? '0.4' : '1';
