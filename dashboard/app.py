@@ -663,6 +663,20 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
+def _cu() -> dict:
+    """Return current session user dict."""
+    return session.get('user', {'username': 'admin', 'role': 'admin'})
+
+def _cu_username() -> str:
+    """Return current user's username."""
+    return _cu().get('username', 'admin')
+
+def _cu_filter():
+    """Return username for DB scoping — None means admin (sees all scans)."""
+    u = _cu()
+    return None if u.get('role') == 'admin' else u.get('username', '')
+
 def _admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -1155,7 +1169,7 @@ def _build_cred_block(site_type: str, creds: dict, domain: str) -> str:
 
 
 def _run_background_scan(job_id: str, target: str, agent_type: str,
-                          model: str, site_type: str, creds: dict):
+                          model: str, site_type: str, creds: dict, username: str = ''):
     """Run a WSTG agent in a background thread and stream chunks to _scan_jobs."""
     job = _scan_jobs[job_id]
 
@@ -1330,6 +1344,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             model=model_used, status=db_status,
             latency_s=round(elapsed, 2),
             tool_count=tools[0], output=output,
+            username=username,
         )
         final_status = 'interrupted' if was_aborted else 'done'
         if was_aborted:
@@ -1354,6 +1369,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 latency_s=round(_time.time() - t0, 2),
                 tool_count=tools[0],
                 output='\n\n'.join(parts) or f'[ERROR] {exc}',
+                username=username,
             )
             job['chunks'].append({'k': 'saved', 'id': scan_id})
             job.update({'status': 'error', 'error': str(exc), 'trace': tb, 'scan_id': scan_id})
@@ -1768,8 +1784,9 @@ def index():
 
 def _build_template_context() -> dict:
     """Build the full template context dict — shared with FastAPI."""
-    scans   = [enrich(s) for s in db.get_scans()]
-    targets = [enrich(t) for t in db.get_targets()]
+    _uf     = _cu_filter()
+    scans   = [enrich(s) for s in db.get_scans(username=_uf)]
+    targets = [enrich(t) for t in db.get_targets(username=_uf)]
     stats   = db.get_stats()
 
     _prio = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2, 'INFO': 3}
@@ -1836,7 +1853,7 @@ def api_scans_recent():
     """Return the latest scans as JSON for live dashboard refresh."""
     limit  = min(int(request.args.get('limit', 50)), 200)
     target = request.args.get('target', '')
-    rows   = db.get_scans()[:limit]
+    rows   = db.get_scans(limit=limit, username=_cu_filter())
     if target:
         rows = [r for r in rows if r.get('target', '').lower() == target.lower()]
     return jsonify([enrich(r) for r in rows])
@@ -1862,7 +1879,7 @@ def _scan_risk(out: str) -> str:
 def api_scans_summary():
     """Lightweight scan list — pre-computed risk, no output text. For dashboard charts/KPIs."""
     limit = min(int(request.args.get('limit', 500)), 2000)
-    rows  = db.get_recent_scans(limit)
+    rows  = db.get_recent_scans(limit, username=_cu_filter())
     return jsonify([{
         'id':         r['id'],
         'target':     r['target'],
@@ -1889,7 +1906,7 @@ def api_scan_cve(scan_id):
 @app.route('/api/target/<path:target>/wp-logs')
 def api_wp_logs(target):
     """Return all WP Activity Log entries parsed from scans for a given target."""
-    scans = db.get_scans_for_target(target)
+    scans = db.get_scans_for_target(target, username=_cu_filter())
     all_entries = []
     overall_status = 'none'
     overall_msg = ''
@@ -1948,6 +1965,7 @@ def api_save_scan():
         latency_s  = float(data.get('latency_s', 0)),
         tool_count = int(data.get('tool_count', 0)),
         output     = str(data['output'])[:60000],
+        username   = _cu_username(),
     )
     return jsonify({'saved': True}), 201
 
@@ -1956,7 +1974,7 @@ def api_save_scan():
 def api_target_analytics(target):
     from dashboard.monitor import get_target_analytics
     from dashboard.security_apis import get_site_scores
-    scans = [enrich(s) for s in db.get_scans_for_target(target)]
+    scans = [enrich(s) for s in db.get_scans_for_target(target, username=_cu_filter())]
     analytics = get_target_analytics(target, scans)
     scores = get_site_scores(target)
     return jsonify({**analytics, 'scores': scores})
@@ -1965,7 +1983,7 @@ def api_target_analytics(target):
 @app.route('/api/target/<path:target>/compare')
 def api_target_compare(target):
     from dashboard.monitor import compare_scans
-    scans = [enrich(s) for s in db.get_scans_for_target(target)]
+    scans = [enrich(s) for s in db.get_scans_for_target(target, username=_cu_filter())]
     if len(scans) < 2:
         return jsonify({'error': 'Need at least 2 scans to compare', 'new': [], 'resolved': [], 'persistent': []})
     result = compare_scans(scans[0], scans[1])  # latest vs previous
@@ -2036,7 +2054,7 @@ def api_connect_scan():
 
     t = _threading.Thread(
         target=_run_background_scan,
-        args=(job_id, target, agent_type, model, site_type, creds),
+        args=(job_id, target, agent_type, model, site_type, creds, _cu_username()),
         daemon=True,
     )
     t.start()
@@ -2124,7 +2142,7 @@ def api_security_signals():
         (r'banner\s+grab|server\s+version\s+exposed', 'Server Banner Exposure'),
     ]
 
-    scans = [enrich(s) for s in db.get_recent_scans(50)]
+    scans = [enrich(s) for s in db.get_recent_scans(50, username=_cu_filter())]
     signals = []
     seen = set()
 
@@ -2290,7 +2308,7 @@ def _save_log_events_to_db(events: list, target: str, source: str, agent_type: s
         if 'plugin' in msg.lower():
             lines.append(f'WP-PLUGIN-CHANGE | {usr} | {msg[:80]}')
     output = '\n'.join(lines)
-    db.save_scan(target=target, agent_type=agent_type, model='log_sync',
+    db.save_scan(target=target, agent_type=agent_type, model='log_sync', username=_cu_username(),
                  status='ok', latency_s=0.0, tool_count=0, output=output)
     # Also write to security_events table for Event Timeline
     for ev in events:
@@ -3794,7 +3812,7 @@ def api_inventories_logins():
     """Return user login events extracted from scan output (WP-LOG and auth lines)."""
     target = request.args.get('target', '')
     limit  = min(int(request.args.get('limit', 500)), 2000)
-    scans  = db.get_scans_for_target(target) if target else db.get_recent_scans(limit=200)
+    scans  = db.get_scans_for_target(target, username=_cu_filter()) if target else db.get_recent_scans(limit=200, username=_cu_filter())
 
     # Also capture WP-USER enumeration lines not covered by WP-LOG
     user_enum_pat = re.compile(
@@ -5745,7 +5763,7 @@ def _api_analytics_pci_inner():
     import json as _j
     from datetime import datetime, timedelta
 
-    scans = db.get_scans(limit=3000)
+    scans = db.get_scans(limit=3000, username=_cu_filter())
     now   = datetime.utcnow()
 
     # ── 1. Mitigation by severity ──────────────────────────────────────────────
@@ -6051,7 +6069,7 @@ def api_monitor_latency():
 def api_mitre_coverage():
     """MITRE ATT&CK coverage from all scan history."""
     from dashboard.mitre_rules import get_coverage, TACTICS
-    scans   = db.get_recent_scans(100)
+    scans   = db.get_recent_scans(100, username=_cu_filter())
     result  = get_coverage(scans)
     result['tactic_order'] = [name for _, name in TACTICS]
     return jsonify(result)
@@ -6094,7 +6112,7 @@ def api_incidents_update(iid):
 def api_unified_overview():
     """Aggregate metrics for the unified observability dashboard."""
     from dashboard.mitre_rules import get_coverage
-    scans      = db.get_recent_scans(50)
+    scans      = db.get_recent_scans(50, username=_cu_filter())
     coverage   = get_coverage(scans)
 
     # Build signal timeline (signals per day from recent scans)
@@ -6153,7 +6171,7 @@ def api_stream_signals():
             try:
                 stats = db.get_stats()
                 inc   = db.get_incident_stats()
-                recent = db.get_recent_scans(5)
+                recent = db.get_recent_scans(5, username=_cu_filter())
                 payload = _json.dumps({
                     'total_scans': stats['total_scans'],
                     'open_incidents': inc['open'],
@@ -6198,7 +6216,7 @@ def api_login_events():
     import re as _re
     target = request.args.get('target', '')
     limit  = int(request.args.get('limit', 200))
-    scans  = db.get_recent_scans(500)
+    scans  = db.get_recent_scans(500, username=_cu_filter())
     events = []
     wp_log_re = _re.compile(
         r'^WP-LOG\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*\|\s*'
@@ -6230,7 +6248,7 @@ def api_vuln_correlate():
     from dashboard import vuln_intel as _vi
     target = request.args.get('target', '')
     limit  = int(request.args.get('limit', 200))
-    scans  = db.get_recent_scans(limit)
+    scans  = db.get_recent_scans(limit, username=_cu_filter())
     if target:
         scans = [s for s in scans if target.lower() in (s.get('target') or '').lower()]
     return jsonify(_vi.correlate_scans(scans, max_cves=50))
@@ -6264,7 +6282,7 @@ def api_export_powerbi():
     import time as _t, re as _re
     limit        = int(request.args.get('limit', 500))
     include_intel = request.args.get('include_intel', 'true').lower() != 'false'
-    scans = db.get_recent_scans(limit)
+    scans = db.get_recent_scans(limit, username=_cu_filter())
     scan_rows = []
     for s in scans:
         out = s.get('output', '')

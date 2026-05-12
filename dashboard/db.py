@@ -28,9 +28,16 @@ def init_db():
                 status      TEXT    DEFAULT 'ok',
                 latency_s   REAL    DEFAULT 0,
                 tool_count  INTEGER DEFAULT 0,
-                output      TEXT    DEFAULT ''
+                output      TEXT    DEFAULT '',
+                username    TEXT    DEFAULT ''
             )
         ''')
+        # Migrate existing DBs — add username column if missing
+        try:
+            con.execute('ALTER TABLE scans ADD COLUMN username TEXT DEFAULT ""')
+            con.commit()
+        except Exception:
+            pass
         con.execute('''
             CREATE TABLE IF NOT EXISTS incidents (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,23 +125,29 @@ def init_db():
 
 
 def save_scan(*, target, agent_type, model='', status='ok',
-              latency_s=0.0, tool_count=0, output='') -> int:
+              latency_s=0.0, tool_count=0, output='', username='') -> int:
     with _connect() as con:
         cur = con.execute(
-            'INSERT INTO scans (target, agent_type, model, status, latency_s, tool_count, output) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO scans (target, agent_type, model, status, latency_s, tool_count, output, username) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             (target, agent_type, model, status,
-             round(float(latency_s), 2), int(tool_count), str(output)[:60000])
+             round(float(latency_s), 2), int(tool_count), str(output)[:60000], username)
         )
         con.commit()
         return cur.lastrowid
 
 
-def get_scans(limit=500):
+def get_scans(limit=500, username=None):
     with _connect() as con:
-        rows = con.execute(
-            'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?', (limit,)
-        ).fetchall()
+        if username:
+            rows = con.execute(
+                'SELECT * FROM scans WHERE username=? ORDER BY created_at DESC LIMIT ?',
+                (username, limit)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?', (limit,)
+            ).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -158,34 +171,57 @@ def get_stats():
     }
 
 
-def get_targets():
-    """Return the most recent scan per unique target."""
+def get_targets(username=None):
+    """Return the most recent scan per unique target, scoped to user if given."""
     with _connect() as con:
-        rows = con.execute('''
-            SELECT s.* FROM scans s
-            INNER JOIN (
-                SELECT target, MAX(created_at) AS latest
-                FROM scans GROUP BY target
-            ) g ON s.target = g.target AND s.created_at = g.latest
-            ORDER BY s.created_at DESC
-        ''').fetchall()
+        if username:
+            rows = con.execute('''
+                SELECT s.* FROM scans s
+                INNER JOIN (
+                    SELECT target, MAX(created_at) AS latest
+                    FROM scans WHERE username=? GROUP BY target
+                ) g ON s.target = g.target AND s.created_at = g.latest
+                WHERE s.username=?
+                ORDER BY s.created_at DESC
+            ''', (username, username)).fetchall()
+        else:
+            rows = con.execute('''
+                SELECT s.* FROM scans s
+                INNER JOIN (
+                    SELECT target, MAX(created_at) AS latest
+                    FROM scans GROUP BY target
+                ) g ON s.target = g.target AND s.created_at = g.latest
+                ORDER BY s.created_at DESC
+            ''').fetchall()
     return [dict(r) for r in rows]
 
 
-def get_scans_for_target(target: str) -> list:
+def get_scans_for_target(target: str, username=None) -> list:
     with _connect() as con:
-        rows = con.execute(
-            'SELECT * FROM scans WHERE target = ? ORDER BY created_at DESC LIMIT 50',
-            (target,)
-        ).fetchall()
+        if username:
+            rows = con.execute(
+                'SELECT * FROM scans WHERE target=? AND username=? ORDER BY created_at DESC LIMIT 50',
+                (target, username)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM scans WHERE target=? ORDER BY created_at DESC LIMIT 50',
+                (target,)
+            ).fetchall()
     return [dict(r) for r in rows]
 
 
-def get_recent_scans(limit: int = 50) -> list:
+def get_recent_scans(limit: int = 50, username=None) -> list:
     with _connect() as con:
-        rows = con.execute(
-            'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?', (limit,)
-        ).fetchall()
+        if username:
+            rows = con.execute(
+                'SELECT * FROM scans WHERE username=? ORDER BY created_at DESC LIMIT ?',
+                (username, limit)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?', (limit,)
+            ).fetchall()
     return [dict(r) for r in rows]
 
 
