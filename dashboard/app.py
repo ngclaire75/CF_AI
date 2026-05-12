@@ -3558,6 +3558,10 @@ def api_cf_attack_mode():
         c2, sl = _req('GET', f'/zones/{zone_id}/settings/security_level')
         level = (sl.get('result') or {}).get('value', 'unknown')
 
+        # Check Development Mode (bypasses Under Attack Mode completely)
+        _, dev = _req('GET', f'/zones/{zone_id}/settings/development_mode')
+        dev_mode = (dev.get('result') or {}).get('value', 'off') == 'on'
+
         # Check if root A/CNAME record is proxied (orange cloud) or DNS-only
         c3, dns = _req('GET', f'/zones/{zone_id}/dns_records?name={zone_name}&per_page=10')
         dns_records = (dns.get('result') or []) if c3 == 200 else []
@@ -3575,11 +3579,16 @@ def api_cf_attack_mode():
             'under_attack': level == 'under_attack',
             'proxied': proxied,
             'dns_only': dns_only,
+            'dev_mode': dev_mode,
             'proxy_warning': (
                 'DNS records are set to DNS Only (grey cloud) — traffic does not flow through '
                 'Cloudflare so Under Attack Mode has no effect. Enable the orange cloud (Proxied) '
                 'in Cloudflare DNS settings for this to work.'
             ) if dns_only else '',
+            'dev_mode_warning': (
+                'Development Mode is ON — this bypasses Under Attack Mode completely. '
+                'Disable it in Cloudflare → Overview → Quick Actions → Development Mode.'
+            ) if dev_mode else '',
         })
 
     # POST — toggle

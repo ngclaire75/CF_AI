@@ -5502,6 +5502,11 @@ function qaLoadStatus() {
       }
       var lvl = d.security_level || 'unknown';
       var uam = d.under_attack;
+
+      if (d.dev_mode_warning) {
+        qaShowStatus('⚠ ' + d.dev_mode_warning, 'warn');
+        return;
+      }
       qaShowStatus(
         'Zone: ' + _qaZoneName + ' — Security level: ' + lvl + (uam ? ' ✓ Under Attack Mode is ON' : ' — Under Attack Mode is OFF'),
         uam ? 'warn' : 'ok'
