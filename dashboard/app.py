@@ -1469,11 +1469,22 @@ _SCANNER_NOISE = re.compile(
 )
 
 
+_LOG_LINE_RE = re.compile(
+    r'^(WP-LOG|WP-PLUGIN-CHANGE|WP-LOG-STATUS|WP-USER|WP-USER-ENUM|WP-USER-CONFIRMED|'
+    r'FAILED_LOGIN|TOOL:|#\s*Log\s+sync)\s*[\|:]',
+    re.I,
+)
+
+
 def extract_recs(text: str) -> list[str]:
     recs, in_sec = [], False
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
+            in_sec = False
+            continue
+        # Skip structured activity-log lines — they are not security recommendations
+        if _LOG_LINE_RE.match(line):
             in_sec = False
             continue
         if _NEGATION.search(line) or _SCANNER_NOISE.search(line):

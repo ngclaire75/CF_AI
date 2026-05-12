@@ -9526,18 +9526,21 @@ function loadSecureScore() {
     .then(function(r){ return r.json(); })
     .then(function(scans) {
       scans = scans || [];
+      // Only use real agent scans — not log-sync entries which have no security analysis text
+      var _logSyncTypes = /^(wp_log_sync|cpanel_log_sync|cpanel_db_log_sync|mysql_log_sync|log_sync)$/i;
+      scans = scans.filter(function(s){ return !_logSyncTypes.test(s.agent_type || ''); });
       if (!scans.length) {
-        catsEl.innerHTML = '<div style="color:#a19f9d;font-size:12px;">No scans yet. Run a scan to calculate your secure score.</div>';
+        catsEl.innerHTML = '<div style="color:#a19f9d;font-size:12px;">No agent scans yet. Run a scan from Connect & Scan with Agent to calculate your secure score.</div>';
         if (valEl) valEl.textContent = '—';
         return;
       }
       var cats = [
-        { name: 'SSL / TLS',       good: /ssl.*a\+|ssl.*a\b|tls.*1\.[23]|certificate.*valid/i,    bad: /ssl.*error|ssl.*expired|ssl.*b|ssl.*c|tls.*1\.0|tls.*1\.1/i },
-        { name: 'HTTP Headers',    good: /content.security.policy|strict.transport|x.frame.options|x.content.type/i,  bad: /missing.*header|no.*csp|no.*hsts/i },
-        { name: 'Authentication',  good: /mfa|two.factor|strong.password|rate.limit/i,             bad: /weak.*password|no.*mfa|brute.force|default.*cred/i },
-        { name: 'CMS / Plugins',   good: /wordpress.*latest|plugins.*updated|no.*vuln/i,            bad: /outdated|vulnerable.*plugin|wp.*old|cve-/i },
-        { name: 'Access Control',  good: /403|access.*denied|proper.*auth/i,                       bad: /unauthenticated|unauthoriz|exposed.*admin|open.*redirect/i },
-        { name: 'Information Leak',good: /no.*disclosure|properly.*hidden/i,                        bad: /version.*disclosed|debug.*enabled|stack.*trace|exposed.*path/i },
+        { name: 'SSL / TLS',       good: /ssl.*a\+|ssl.*a\b|tls.*1\.[23]|certificate.*valid/i,    bad: /ssl.*error|ssl.*expired|ssl.*b\b|ssl.*c\b|tls.*1\.0|tls.*1\.1/i },
+        { name: 'HTTP Headers',    good: /content.security.policy|strict.transport|x.frame.options|x.content.type/i,  bad: /missing.*header|no.*csp|no.*hsts|header.*missing/i },
+        { name: 'Authentication',  good: /mfa|two.factor|strong.password|rate.limit|login.*lockout/i, bad: /weak.*password|no.*mfa|brute.force|default.*cred|failed.*login.*attempt/i },
+        { name: 'CMS / Plugins',   good: /wordpress.*latest|plugins.*updated|no.*vuln|up.to.date/i,  bad: /outdated|vulnerable.*plugin|wp.*old|cve-|plugin.*update.*available/i },
+        { name: 'Access Control',  good: /403|access.*denied|proper.*auth|restricted/i,              bad: /unauthenticated|unauthoriz|exposed.*admin|open.*redirect|admin.*exposed/i },
+        { name: 'Information Leak',good: /no.*disclosure|properly.*hidden|server.*not.*disclosed/i,  bad: /version.*disclosed|debug.*enabled|stack.*trace|exposed.*path|server.*banner/i },
       ];
       var scores = cats.map(function(cat) {
         var goodHits = 0, badHits = 0;
@@ -9546,26 +9549,38 @@ function loadSecureScore() {
           if (cat.good.test(o)) goodHits++;
           if (cat.bad.test(o)) badHits++;
         });
-        var raw = goodHits + badHits > 0 ? Math.max(0, Math.min(100, Math.round((goodHits / (goodHits + badHits)) * 100))) : 50;
+        // No evidence found for this category — return null (no data)
+        if (goodHits + badHits === 0) return { name: cat.name, score: null };
+        // Penalize: each bad hit reduces score; good hits improve it
+        var raw = Math.max(0, Math.min(100, Math.round((goodHits / (goodHits + badHits)) * 100)));
         return { name: cat.name, score: raw };
       });
-      var total = Math.round(scores.reduce(function(sum, c){ return sum + c.score; }, 0) / scores.length);
-      if (valEl) valEl.textContent = total;
+      var scored = scores.filter(function(c){ return c.score !== null; });
+      var total = scored.length ? Math.round(scored.reduce(function(sum, c){ return sum + c.score; }, 0) / scored.length) : null;
+      if (valEl) valEl.textContent = total !== null ? total : '—';
       catsEl.innerHTML = scores.map(function(c) {
-        return '<div class="ss-cat-row"><span class="ss-cat-name">' + c.name + '</span><div class="ss-cat-track"><div class="ss-cat-bar" style="width:' + c.score + '%;background:' + (c.score >= 70 ? '#107c10' : c.score >= 40 ? '#986f0b' : '#a80000') + ';"></div></div><span class="ss-cat-pts">' + c.score + '/100</span></div>';
+        if (c.score === null) {
+          return '<div class="ss-cat-row"><span class="ss-cat-name">' + c.name + '</span><div class="ss-cat-track"><div class="ss-cat-bar" style="width:0%;"></div></div><span class="ss-cat-pts" style="color:#a19f9d;">N/A</span></div>';
+        }
+        var col = c.score >= 70 ? '#107c10' : c.score >= 40 ? '#986f0b' : '#a80000';
+        return '<div class="ss-cat-row"><span class="ss-cat-name">' + c.name + '</span><div class="ss-cat-track"><div class="ss-cat-bar" style="width:' + c.score + '%;background:' + col + ';"></div></div><span class="ss-cat-pts">' + c.score + '/100</span></div>';
       }).join('');
       var canvas = document.getElementById('ss-ring-canvas');
-      if (canvas && window.Chart) {
+      if (canvas && window.Chart && total !== null) {
         if (window._ssRingChart) { window._ssRingChart.destroy(); }
+        var ringCol = total >= 70 ? '#107c10' : total >= 40 ? '#986f0b' : '#a80000';
         window._ssRingChart = new Chart(canvas.getContext('2d'), {
           type: 'doughnut',
-          data: { datasets: [{ data: [total, 100 - total], backgroundColor: [total >= 70 ? '#107c10' : total >= 40 ? '#986f0b' : '#a80000', '#e1dfdd'], borderWidth: 0 }] },
+          data: { datasets: [{ data: [total, 100 - total], backgroundColor: [ringCol, '#e1dfdd'], borderWidth: 0 }] },
           options: { responsive: false, cutout: '75%', plugins: { legend: { display: false } } }
         });
       }
-      var actions = scores.filter(function(c){ return c.score < 70; })
+      var actions = scores.filter(function(c){ return c.score !== null && c.score < 70; })
         .map(function(c){ return 'Improve ' + c.name + ' controls (current score: ' + c.score + '/100)'; });
-      actEl.innerHTML = actions.length ? actions.map(function(a){ return '<div style="padding:6px 0;border-bottom:1px solid #f3f2f1;font-size:12px;">' + a + '</div>'; }).join('') : '<div style="font-size:12px;color:#107c10;">All categories are performing well.</div>';
+      actEl.innerHTML = actions.length
+        ? actions.map(function(a){ return '<div style="padding:6px 0;border-bottom:1px solid #f3f2f1;font-size:12px;">' + a + '</div>'; }).join('')
+        : (scored.length ? '<div style="font-size:12px;color:#107c10;">All scored categories are performing well.</div>'
+                         : '<div style="font-size:12px;color:#a19f9d;">No agent scan output available to assess yet.</div>');
     })
     .catch(function(e){ catsEl.innerHTML = '<div style="color:#a80000;font-size:12px;">Error: ' + _esc(String(e)) + '</div>'; });
 }
