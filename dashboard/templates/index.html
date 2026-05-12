@@ -10094,11 +10094,24 @@ function _fsSetStatus(sel, fileKey, idx) {
     row.style.color    = status === 'suspicious' ? '#a80000' : status === 'malware' ? '#a80000' : '';
     row.style.fontWeight = (status === 'suspicious' || status === 'malware') ? '600' : '';
   }
+  _fsUpdateFlaggedCount();
 }
 
 function _fsClearDismissed() {
   localStorage.removeItem('cfai_fs_statuses');
   if (_fsLastData) { _fsRender(_fsLastData); document.getElementById('fs-bulk-bar').style.display = 'flex'; }
+}
+
+function _fsUpdateFlaggedCount() {
+  var statuses = JSON.parse(localStorage.getItem('cfai_fs_statuses') || '{}');
+  var count = _fsCurrentFiles.filter(function(item) {
+    var s = statuses[item.key] || (item.defaultSusp ? 'suspicious' : 'ok');
+    return s === 'suspicious' || s === 'malware';
+  }).length;
+  var el = document.getElementById('fs-flagged-count');
+  if (!el) return;
+  if (count) { el.textContent = '· ' + count + ' flagged'; el.style.color = '#a80000'; }
+  else { el.textContent = ''; }
 }
 
 // ── Bulk action helpers ───────────────────────────────────────────────────────
@@ -10132,6 +10145,7 @@ function _fsMarkAll(status) {
     if (sel)   sel.value = status;
   });
   localStorage.setItem('cfai_fs_statuses', JSON.stringify(statuses));
+  _fsUpdateFlaggedCount();
 }
 
 function _plSetStatus(sel, logKey, idx) {
@@ -10327,7 +10341,7 @@ function _fsRender(data) {
     var rRows = recentFiles.map(function(f, idx){
       var isSusp = _SUSP_EXT.indexOf((f.ext||'').toLowerCase()) !== -1;
       var fileKey = f.file;
-      _fsCurrentFiles.push({key: fileKey, idx: idx}); // track for bulk ops
+      _fsCurrentFiles.push({key: fileKey, idx: idx, defaultSusp: isSusp}); // track for bulk ops
       var status  = _fsStatuses[fileKey] || (isSusp ? 'suspicious' : 'ok');
       if (status === 'suspicious') flaggedCount++;
       var rowOpacity = status === 'dismissed' ? '0.4' : '1';
@@ -10360,7 +10374,7 @@ function _fsRender(data) {
     }).join('');
     modRecentPanel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
       + '<span style="font-size:12px;font-weight:600;color:#201f1e;">Recently Modified Files — last 7 days ('+recentFiles.length+')'
-      + (flaggedCount ? ' <span style="color:#a80000;">· '+flaggedCount+' flagged</span>' : '') + '</span>'
+      + (flaggedCount ? ' <span id="fs-flagged-count" style="color:#a80000;">· '+flaggedCount+' flagged</span>' : '<span id="fs-flagged-count"></span>') + '</span>'
       + '<button onclick="_fsClearDismissed()" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;">Reset All Statuses</button>'
       + '</div>'
       + '<div class="scroll-panel"><table><thead><tr>'
