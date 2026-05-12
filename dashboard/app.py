@@ -4276,6 +4276,32 @@ def api_pentest_create():
     return jsonify({'ok': True, 'id': eid})
 
 
+@app.route('/api/pentest/engagements/<int:eid>', methods=['PUT'])
+@login_required
+def api_pentest_update(eid):
+    import json
+    d = request.get_json(silent=True) or {}
+    eng = db.get_engagement(eid)
+    if not eng:
+        return jsonify({'error': 'Not found'}), 404
+    with db._connect() as con:
+        con.execute(
+            '''UPDATE engagements SET name=?,client=?,scope_urls=?,scope_ips=?,auth_config=?,
+               urgency=?,deadline=?,notes=? WHERE id=?''',
+            (d.get('name', eng['name']),
+             d.get('client', eng['client']),
+             json.dumps(d.get('scope_urls', eng['scope_urls'])),
+             json.dumps(d.get('scope_ips', eng['scope_ips'])),
+             json.dumps(d.get('auth_config', eng['auth_config'])),
+             d.get('urgency', eng['urgency']),
+             d.get('deadline', eng['deadline']),
+             d.get('notes', eng['notes']),
+             eid)
+        )
+        con.commit()
+    return jsonify({'ok': True, 'id': eid})
+
+
 @app.route('/api/pentest/engagements/<int:eid>', methods=['DELETE'])
 @login_required
 def api_pentest_delete(eid):
@@ -7339,6 +7365,242 @@ def api_export_powerbi():
             'Import via Power BI Desktop: Home > Get Data > JSON. '
             'Expand tables record, then load scans and cves tables.'
         ),
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PENTEST — Findings, Checklist, Scope/RoE, Report
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/api/pentest/engagements/<int:eid>/findings', methods=['GET'])
+@login_required
+def api_pt_findings_list(eid):
+    findings = db.get_pt_findings(eid)
+    return jsonify({'findings': findings})
+
+
+@app.route('/api/pentest/engagements/<int:eid>/findings', methods=['POST'])
+@login_required
+def api_pt_findings_add(eid):
+    d = request.get_json(silent=True) or {}
+    fid = db.add_pt_finding(
+        engagement_id=eid,
+        phase=d.get('phase', ''),
+        severity=d.get('severity', 'informational'),
+        title=d.get('title', 'Untitled Finding'),
+        asset=d.get('asset', ''),
+        description=d.get('description', ''),
+        steps=d.get('steps', ''),
+        evidence=d.get('evidence', ''),
+        cvss_score=float(d.get('cvss_score', 0)),
+        cve=d.get('cve', ''),
+        cwe=d.get('cwe', ''),
+        remediation=d.get('remediation', ''),
+        status=d.get('status', 'open'),
+    )
+    return jsonify({'ok': True, 'id': fid})
+
+
+@app.route('/api/pentest/findings/<int:fid>', methods=['PUT'])
+@login_required
+def api_pt_finding_update(fid):
+    d = request.get_json(silent=True) or {}
+    allowed = {'phase', 'severity', 'title', 'asset', 'description', 'steps',
+               'evidence', 'cvss_score', 'cve', 'cwe', 'remediation', 'status'}
+    kwargs = {k: v for k, v in d.items() if k in allowed}
+    if 'cvss_score' in kwargs:
+        kwargs['cvss_score'] = float(kwargs['cvss_score'])
+    db.update_pt_finding(fid, **kwargs)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/pentest/findings/<int:fid>', methods=['DELETE'])
+@login_required
+def api_pt_finding_delete(fid):
+    ok = db.delete_pt_finding(fid)
+    return jsonify({'ok': ok})
+
+
+@app.route('/api/pentest/engagements/<int:eid>/findings/export', methods=['GET'])
+@login_required
+def api_pt_findings_export(eid):
+    import io, openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    eng = db.get_engagement(eid)
+    if not eng:
+        return jsonify({'error': 'Not found'}), 404
+    findings = db.get_pt_findings(eid)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Findings'
+    hdr_fill = PatternFill('solid', fgColor='1F4E79')
+    hdr_font = Font(color='FFFFFF', bold=True)
+    headers = ['ID', 'Phase', 'Severity', 'CVSS', 'Title', 'Asset',
+               'CVE', 'CWE', 'Status', 'Description', 'Steps to Reproduce',
+               'Evidence', 'Remediation']
+    for ci, h in enumerate(headers, 1):
+        c = ws.cell(row=1, column=ci, value=h)
+        c.fill = hdr_fill; c.font = hdr_font
+        c.alignment = Alignment(wrap_text=True)
+    sev_colors = {'critical': 'C00000', 'high': 'FF0000', 'medium': 'ED7D31',
+                  'low': 'FFD966', 'informational': '92D050'}
+    for ri, f in enumerate(findings, 2):
+        row_data = [f['id'], f['phase'], f['severity'].upper(), f['cvss_score'],
+                    f['title'], f['asset'], f['cve'], f['cwe'], f['status'],
+                    f['description'], f['steps'], f['evidence'], f['remediation']]
+        for ci, val in enumerate(row_data, 1):
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.alignment = Alignment(wrap_text=True, vertical='top')
+            if ci == 3:  # severity column
+                color = sev_colors.get(f['severity'].lower(), 'FFFFFF')
+                c.fill = PatternFill('solid', fgColor=color)
+                c.font = Font(bold=True, color='FFFFFF' if f['severity'].lower() in ('critical', 'high') else '000000')
+    ws.column_dimensions['A'].width = 6
+    ws.column_dimensions['B'].width = 18
+    ws.column_dimensions['C'].width = 14
+    ws.column_dimensions['D'].width = 7
+    ws.column_dimensions['E'].width = 40
+    ws.column_dimensions['F'].width = 25
+    ws.column_dimensions['G'].width = 18
+    ws.column_dimensions['H'].width = 12
+    ws.column_dimensions['I'].width = 12
+    for col in ('J', 'K', 'L', 'M'):
+        ws.column_dimensions[col].width = 50
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    safe_name = ''.join(c for c in eng['name'] if c.isalnum() or c in '_ -')
+    return send_file(buf, as_attachment=True,
+                     download_name=f'findings_{safe_name}.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+@app.route('/api/pentest/engagements/<int:eid>/checklist', methods=['GET'])
+@login_required
+def api_pt_checklist_get(eid):
+    items = db.get_pt_checklist(eid)
+    return jsonify({'checklist': items})
+
+
+@app.route('/api/pentest/engagements/<int:eid>/checklist', methods=['POST'])
+@login_required
+def api_pt_checklist_set(eid):
+    d = request.get_json(silent=True) or {}
+    section = d.get('section', '')
+    item    = d.get('item', '')
+    checked = bool(d.get('checked', False))
+    if not section or not item:
+        return jsonify({'error': 'section and item required'}), 400
+    db.set_pt_checklist_item(eid, section, item, checked)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/pentest/engagements/<int:eid>/scope', methods=['GET'])
+@login_required
+def api_pt_scope_get(eid):
+    scope = db.get_engagement_scope(eid)
+    return jsonify(scope)
+
+
+@app.route('/api/pentest/engagements/<int:eid>/scope', methods=['PUT'])
+@login_required
+def api_pt_scope_save(eid):
+    d = request.get_json(silent=True) or {}
+    scope_doc = d.get('scope_doc')
+    roe_doc   = d.get('roe_doc')
+    db.save_engagement_scope(eid, scope_doc=scope_doc, roe_doc=roe_doc)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/pentest/engagements/<int:eid>/report/generate', methods=['POST'])
+@login_required
+def api_pt_report_generate(eid):
+    import json as _json
+    eng = db.get_engagement(eid)
+    if not eng:
+        return jsonify({'error': 'Engagement not found'}), 404
+    findings = db.get_pt_findings(eid)
+    scope    = db.get_engagement_scope(eid)
+    model    = request.get_json(silent=True) or {}
+    model_id = model.get('model', os.environ.get('CAI_MODEL', 'claude-sonnet-4-6'))
+
+    sev_counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'informational': 0}
+    for f in findings:
+        sev = f.get('severity', 'informational').lower()
+        sev_counts[sev] = sev_counts.get(sev, 0) + 1
+
+    findings_text = ''
+    for i, f in enumerate(findings, 1):
+        findings_text += (
+            f"\n\n--- Finding {i}: {f['title']} ---\n"
+            f"Severity: {f['severity'].upper()} | CVSS: {f['cvss_score']} | Phase: {f['phase']}\n"
+            f"Asset: {f['asset']}\n"
+            f"CVE: {f.get('cve','')} | CWE: {f.get('cwe','')}\n"
+            f"Status: {f['status']}\n\n"
+            f"Description:\n{f['description']}\n\n"
+            f"Steps to Reproduce:\n{f['steps']}\n\n"
+            f"Evidence:\n{f['evidence']}\n\n"
+            f"Remediation:\n{f['remediation']}\n"
+        )
+
+    prompt = f"""You are a senior penetration tester writing an executive and technical pentest report.
+
+Engagement: {eng['name']}
+Client: {eng['client']}
+Status: {eng['status']}
+Deadline: {eng['deadline']}
+Severity Summary: Critical={sev_counts['critical']}, High={sev_counts['high']}, Medium={sev_counts['medium']}, Low={sev_counts['low']}, Informational={sev_counts['informational']}
+
+Scope Document:
+{scope.get('scope_doc','(none)')}
+
+Rules of Engagement:
+{scope.get('roe_doc','(none)')}
+
+Findings ({len(findings)} total):
+{findings_text if findings_text else '(No findings recorded yet)'}
+
+Write a comprehensive penetration test report with these sections:
+1. Executive Summary (3-4 paragraphs for non-technical leadership)
+2. Engagement Overview (scope, methodology, timeline, tools used)
+3. Risk Summary (overall risk rating with justification)
+4. Findings Summary Table (list all findings with severity and status)
+5. Detailed Findings (full write-up for each finding — description, impact, evidence, remediation)
+6. Strategic Recommendations (prioritised remediation roadmap)
+7. Conclusion
+
+Format as clean prose. Use markdown headings. Be specific, professional, and actionable.
+Do NOT invent findings — only report what is listed above."""
+
+    try:
+        if model_id.startswith('gpt') or model_id.startswith('o1'):
+            import openai
+            client_ai = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY', ''))
+            resp = client_ai.chat.completions.create(
+                model=model_id,
+                messages=[{'role': 'user', 'content': prompt}],
+                max_tokens=4096,
+            )
+            report_md = resp.choices[0].message.content or ''
+        else:
+            import anthropic
+            client_ai = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY', ''))
+            resp = client_ai.messages.create(
+                model=model_id,
+                max_tokens=4096,
+                messages=[{'role': 'user', 'content': prompt}],
+            )
+            report_md = resp.content[0].text if resp.content else ''
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({
+        'report_md': report_md,
+        'sev_counts': sev_counts,
+        'total_findings': len(findings),
+        'engagement': {'name': eng['name'], 'client': eng['client']},
     })
 
 

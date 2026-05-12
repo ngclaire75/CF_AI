@@ -609,6 +609,149 @@ def upsert_plugin(*, target: str, name: str, version: str = '',
     return row[0] if row else 0
 
 
+# ── Pentest Findings & Checklist ──────────────────────────────────────────────
+
+def _ensure_pt_tables():
+    with _connect() as con:
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS pt_findings (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                engagement_id INTEGER NOT NULL,
+                phase         TEXT DEFAULT '',
+                severity      TEXT DEFAULT 'informational',
+                title         TEXT NOT NULL,
+                asset         TEXT DEFAULT '',
+                description   TEXT DEFAULT '',
+                steps         TEXT DEFAULT '',
+                evidence      TEXT DEFAULT '',
+                cvss_score    REAL DEFAULT 0,
+                cve           TEXT DEFAULT '',
+                cwe           TEXT DEFAULT '',
+                remediation   TEXT DEFAULT '',
+                status        TEXT DEFAULT 'open'
+            )
+        ''')
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS pt_checklist (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                engagement_id INTEGER NOT NULL,
+                section       TEXT NOT NULL,
+                item          TEXT NOT NULL,
+                checked       INTEGER DEFAULT 0,
+                UNIQUE(engagement_id, section, item)
+            )
+        ''')
+        try:
+            con.execute('ALTER TABLE engagements ADD COLUMN scope_doc TEXT DEFAULT ""')
+            con.commit()
+        except Exception:
+            pass
+        try:
+            con.execute('ALTER TABLE engagements ADD COLUMN roe_doc TEXT DEFAULT ""')
+            con.commit()
+        except Exception:
+            pass
+        con.commit()
+
+
+def get_pt_findings(engagement_id: int) -> list:
+    _ensure_pt_tables()
+    with _connect() as con:
+        rows = con.execute(
+            'SELECT * FROM pt_findings WHERE engagement_id=? ORDER BY severity DESC, created_at DESC',
+            (engagement_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_pt_finding(*, engagement_id: int, phase: str = '', severity: str = 'informational',
+                   title: str, asset: str = '', description: str = '', steps: str = '',
+                   evidence: str = '', cvss_score: float = 0, cve: str = '', cwe: str = '',
+                   remediation: str = '', status: str = 'open') -> int:
+    _ensure_pt_tables()
+    with _connect() as con:
+        cur = con.execute(
+            '''INSERT INTO pt_findings
+               (engagement_id, phase, severity, title, asset, description, steps,
+                evidence, cvss_score, cve, cwe, remediation, status)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+            (engagement_id, phase, severity, title, asset, description, steps,
+             evidence, float(cvss_score), cve, cwe, remediation, status)
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def update_pt_finding(finding_id: int, **kwargs) -> bool:
+    allowed = {'phase', 'severity', 'title', 'asset', 'description', 'steps',
+               'evidence', 'cvss_score', 'cve', 'cwe', 'remediation', 'status'}
+    fields = {k: v for k, v in kwargs.items() if k in allowed}
+    if not fields:
+        return False
+    set_clause = ', '.join(f'{k} = ?' for k in fields)
+    set_clause += ', updated_at = datetime(\'now\')'
+    vals = list(fields.values()) + [finding_id]
+    with _connect() as con:
+        con.execute(f'UPDATE pt_findings SET {set_clause} WHERE id = ?', vals)
+        con.commit()
+    return True
+
+
+def delete_pt_finding(finding_id: int) -> bool:
+    with _connect() as con:
+        cur = con.execute('DELETE FROM pt_findings WHERE id = ?', (finding_id,))
+        con.commit()
+        return cur.rowcount > 0
+
+
+def get_pt_checklist(engagement_id: int) -> list:
+    _ensure_pt_tables()
+    with _connect() as con:
+        rows = con.execute(
+            'SELECT * FROM pt_checklist WHERE engagement_id=? ORDER BY section, item',
+            (engagement_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def set_pt_checklist_item(engagement_id: int, section: str, item: str, checked: bool) -> None:
+    _ensure_pt_tables()
+    with _connect() as con:
+        con.execute(
+            '''INSERT INTO pt_checklist (engagement_id, section, item, checked)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(engagement_id, section, item) DO UPDATE SET checked = excluded.checked''',
+            (engagement_id, section, item, 1 if checked else 0)
+        )
+        con.commit()
+
+
+def get_engagement_scope(eid: int) -> dict:
+    _ensure_pt_tables()
+    with _connect() as con:
+        row = con.execute(
+            'SELECT scope_doc, roe_doc FROM engagements WHERE id=?', (eid,)
+        ).fetchone()
+    if not row:
+        return {'scope_doc': '', 'roe_doc': ''}
+    return {'scope_doc': row['scope_doc'] or '', 'roe_doc': row['roe_doc'] or ''}
+
+
+def save_engagement_scope(eid: int, scope_doc: str = None, roe_doc: str = None) -> None:
+    _ensure_pt_tables()
+    with _connect() as con:
+        if scope_doc is not None and roe_doc is not None:
+            con.execute('UPDATE engagements SET scope_doc=?, roe_doc=? WHERE id=?',
+                        (scope_doc, roe_doc, eid))
+        elif scope_doc is not None:
+            con.execute('UPDATE engagements SET scope_doc=? WHERE id=?', (scope_doc, eid))
+        elif roe_doc is not None:
+            con.execute('UPDATE engagements SET roe_doc=? WHERE id=?', (roe_doc, eid))
+        con.commit()
+
+
 def get_plugins(target: str = '', limit: int = 1000, username=None) -> list:
     with _connect() as con:
         if target and username:
