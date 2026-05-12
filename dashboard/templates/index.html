@@ -5488,6 +5488,14 @@ function qaLoadStatus() {
       _qaZoneName = d.zone_name || domain;
       var tag = document.getElementById('qa-zone-tag');
       if (tag) { tag.textContent = _qaZoneName; tag.style.display = 'inline-block'; }
+
+      // Show proxy warning — if DNS-only, toggle is useless
+      if (d.dns_only || d.proxy_warning) {
+        if (tog) { tog.checked = false; tog.disabled = true; }
+        qaShowStatus('⚠ ' + (d.proxy_warning || 'DNS is set to DNS Only — enable Proxied (orange cloud) in Cloudflare DNS settings first.'), 'warn');
+        return;
+      }
+
       if (tog) {
         tog.checked  = !!d.under_attack;
         tog.disabled = false;
@@ -5495,7 +5503,7 @@ function qaLoadStatus() {
       var lvl = d.security_level || 'unknown';
       var uam = d.under_attack;
       qaShowStatus(
-        'Zone: ' + _qaZoneName + ' — Security level: ' + lvl + (uam ? ' (Under Attack Mode is ON)' : ''),
+        'Zone: ' + _qaZoneName + ' — Security level: ' + lvl + (uam ? ' ✓ Under Attack Mode is ON' : ' — Under Attack Mode is OFF'),
         uam ? 'warn' : 'ok'
       );
     })

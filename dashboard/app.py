@@ -3537,15 +3537,35 @@ def api_cf_attack_mode():
         if not zones:
             return jsonify({'error': f'No Cloudflare zone for {domain}'}), 404
 
-        zone_id = zones[0]['id']
+        zone_id   = zones[0]['id']
+        zone_name = zones[0]['name']
+        zone_status = zones[0].get('status', '')  # 'active' | 'pending' | 'initializing'
+
         c2, sl = _req('GET', f'/zones/{zone_id}/settings/security_level')
         level = (sl.get('result') or {}).get('value', 'unknown')
+
+        # Check if root A/CNAME record is proxied (orange cloud) or DNS-only
+        c3, dns = _req('GET', f'/zones/{zone_id}/dns_records?name={zone_name}&per_page=10')
+        dns_records = (dns.get('result') or []) if c3 == 200 else []
+        root_records = [r for r in dns_records if r.get('name') in (zone_name, f'www.{zone_name}')
+                        and r.get('type') in ('A', 'AAAA', 'CNAME')]
+        proxied = any(r.get('proxied') for r in root_records)
+        dns_only = bool(root_records) and not proxied
+
         return jsonify({
             'domain': domain,
             'zone_id': zone_id,
-            'zone_name': zones[0]['name'],
+            'zone_name': zone_name,
+            'zone_status': zone_status,
             'security_level': level,
             'under_attack': level == 'under_attack',
+            'proxied': proxied,
+            'dns_only': dns_only,
+            'proxy_warning': (
+                'DNS records are set to DNS Only (grey cloud) — traffic does not flow through '
+                'Cloudflare so Under Attack Mode has no effect. Enable the orange cloud (Proxied) '
+                'in Cloudflare DNS settings for this to work.'
+            ) if dns_only else '',
         })
 
     # POST — toggle
