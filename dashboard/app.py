@@ -800,7 +800,7 @@ def _job_load(job_id: str) -> dict | None:
 
 # ── Plugin inventory parser ───────────────────────────────────────────────────
 
-def _parse_and_save_plugins(scan_id: int, target: str, output: str) -> int:
+def _parse_and_save_plugins(scan_id: int, target: str, output: str, username: str = '') -> int:
     """Extract plugins/packages from scan output and upsert them into the DB."""
     found: dict = {}
 
@@ -896,7 +896,7 @@ def _parse_and_save_plugins(scan_id: int, target: str, output: str) -> int:
             db.upsert_plugin(
                 target=target, name=data['name'], version=data['version'],
                 plugin_type=data['plugin_type'], status=data['status'],
-                vulnerable=data['vulnerable'], scan_id=scan_id,
+                vulnerable=data['vulnerable'], scan_id=scan_id, username=username,
             )
         except Exception:
             pass
@@ -1352,7 +1352,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         job['chunks'].append({'k': 'saved', 'id': scan_id})
         job.update({'status': final_status, 'elapsed': round(elapsed, 2),
                     'tool_count': tools[0], 'scan_id': scan_id})
-        _parse_and_save_plugins(scan_id, domain, output)
+        _parse_and_save_plugins(scan_id, domain, output, username=username)
         _job_persist(job_id, job)
 
     except Exception as exc:
@@ -1373,7 +1373,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             )
             job['chunks'].append({'k': 'saved', 'id': scan_id})
             job.update({'status': 'error', 'error': str(exc), 'trace': tb, 'scan_id': scan_id})
-            _parse_and_save_plugins(scan_id, domain or target or '', '\n\n'.join(parts))
+            _parse_and_save_plugins(scan_id, domain or target or '', '\n\n'.join(parts), username=username)
         except Exception:
             job.update({'status': 'error', 'error': str(exc), 'trace': tb})
         _job_persist(job_id, job)
@@ -3803,7 +3803,7 @@ def api_events_ingest_scan():
 def api_inventories_plugins():
     """Return all plugins detected across scans, optionally filtered by target."""
     target = request.args.get('target', '')
-    plugins = db.get_plugins(target=target)
+    plugins = db.get_plugins(target=target, username=_cu_filter())
     return jsonify({'plugins': plugins, 'total': len(plugins)})
 
 

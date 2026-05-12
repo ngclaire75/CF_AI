@@ -118,9 +118,16 @@ def init_db():
             plugin_type TEXT DEFAULT 'Plugin',
             status      TEXT DEFAULT 'active',
             vulnerable  INTEGER DEFAULT 0,
-            scan_id     INTEGER DEFAULT NULL
+            scan_id     INTEGER DEFAULT NULL,
+            username    TEXT DEFAULT ''
         )''')
         con.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_plugins_target_name ON plugins(target, name)')
+        # Migrate existing DBs — add username column to plugins if missing
+        try:
+            con.execute('ALTER TABLE plugins ADD COLUMN username TEXT DEFAULT ""')
+            con.commit()
+        except Exception:
+            pass
         con.commit()
 
 
@@ -486,31 +493,42 @@ def is_ip_blocked(ip: str) -> bool:
 
 def upsert_plugin(*, target: str, name: str, version: str = '',
                   plugin_type: str = 'Plugin', status: str = 'active',
-                  vulnerable: int = 0, scan_id: int = None) -> int:
+                  vulnerable: int = 0, scan_id: int = None, username: str = '') -> int:
     with _connect() as con:
         con.execute(
-            '''INSERT INTO plugins (target, name, version, plugin_type, status, vulnerable, scan_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?)
+            '''INSERT INTO plugins (target, name, version, plugin_type, status, vulnerable, scan_id, username)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(target, name) DO UPDATE SET
                  version     = excluded.version,
                  plugin_type = excluded.plugin_type,
                  status      = excluded.status,
                  vulnerable  = excluded.vulnerable,
                  scan_id     = excluded.scan_id,
+                 username    = excluded.username,
                  updated_at  = datetime('now')''',
-            (target, name, version, plugin_type, status, vulnerable, scan_id)
+            (target, name, version, plugin_type, status, vulnerable, scan_id, username)
         )
         con.commit()
         row = con.execute('SELECT id FROM plugins WHERE target=? AND name=?', (target, name)).fetchone()
     return row[0] if row else 0
 
 
-def get_plugins(target: str = '', limit: int = 1000) -> list:
+def get_plugins(target: str = '', limit: int = 1000, username=None) -> list:
     with _connect() as con:
-        if target:
+        if target and username:
+            rows = con.execute(
+                'SELECT * FROM plugins WHERE target=? AND username=? ORDER BY updated_at DESC LIMIT ?',
+                (target, username, limit)
+            ).fetchall()
+        elif target:
             rows = con.execute(
                 'SELECT * FROM plugins WHERE target=? ORDER BY updated_at DESC LIMIT ?',
                 (target, limit)
+            ).fetchall()
+        elif username:
+            rows = con.execute(
+                'SELECT * FROM plugins WHERE username=? ORDER BY updated_at DESC LIMIT ?',
+                (username, limit)
             ).fetchall()
         else:
             rows = con.execute(

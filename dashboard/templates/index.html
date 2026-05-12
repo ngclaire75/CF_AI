@@ -5146,17 +5146,13 @@ function loadPluginLogsPage() {
       sel.innerHTML = '<option value="">All targets</option>' +
         targets.map(function(t){ return '<option value="'+_esc(t)+'">'+_esc(t)+'</option>'; }).join('');
 
-      // Restore previously selected target
+      // Restore previously selected target — only if it exists in this user's scan list
       var saved = _getUalTarget();
-      if (saved) {
+      if (saved && seen[saved]) {
         sel.value = saved;
-        if (sel.value !== saved) {
-          // saved target not in list yet — add it
-          var opt = document.createElement('option');
-          opt.value = saved; opt.textContent = saved; opt.selected = true;
-          sel.appendChild(opt);
-        }
-        runPluginLogsPage(); // auto-load with saved target
+        runPluginLogsPage();
+      } else if (saved && !seen[saved]) {
+        _saveUalTarget(''); // clear stale target from another user/session
       }
     })
     .catch(function(){});
@@ -9237,15 +9233,16 @@ function _invPopulateDomains() {
       (d.scans || d || []).forEach(function(s) { if (s.target && !seen[s.target]) { seen[s.target]=1; domains.push(s.target); } });
       domains.sort();
       var saved = _getInvPluginDomain();
+      // Only restore saved domain if it's in this user's scan list
+      if (saved && !seen[saved]) { _saveInvPluginDomain(''); saved = ''; }
       sel.innerHTML = '<option value="">All domains</option>' +
         domains.map(function(t){ return '<option value="'+_esc(t)+'"'+(t===saved?' selected':'')+'>'+_esc(t)+'</option>'; }).join('');
-      if (saved) loadLoggedPlugins(); // auto-load saved domain
+      if (saved && seen[saved]) loadLoggedPlugins();
     }).catch(function(){
       domains.sort();
       var saved = _getInvPluginDomain();
       sel.innerHTML = '<option value="">All domains</option>' +
         domains.map(function(t){ return '<option value="'+_esc(t)+'"'+(t===saved?' selected':'')+'>'+_esc(t)+'</option>'; }).join('');
-      if (saved) loadLoggedPlugins();
     });
 }
 
