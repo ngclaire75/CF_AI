@@ -12165,6 +12165,8 @@ function ptLoadDemo() {
     name: 'Demo — Enterprise Pentest (ourdomain.com)',
     client: 'Demo Corp',
     status: 'active',
+    urgency: 'critical',
+    deadline: '2026-05-14',
     scope_urls: ['ourdomain.com', 'product.ourdomain.com'],
     scope_ips: ['203.0.113.10', '203.0.113.11', '203.0.113.12'],
     auth_config: { type: 'oidc', token_url: 'https://sso.ourdomain.com/oauth2/token', client_id: 'pentest-client', scope: 'openid profile api' },
@@ -12209,29 +12211,22 @@ function ptLoadDemo() {
     output: '[DEMO] product.ourdomain.com API scan\n\nMEDIUM: CORS wildcard (*) on all API responses\nMEDIUM: API key accepted in query param — should be header only\nLOW: X-Powered-By header exposes backend technology\n',
   };
 
-  // Override fetch for these demo IDs so the UI renders
-  _ptEngagements = demo;
-  _ptRenderEngList();
-
-  // Patch scans endpoint for demo engagement
-  var _origFetch = window.fetch;
-  window.__grcDemoFetch = function(url, opts) {
-    if (typeof url === 'string' && url.indexOf('/api/pentest/engagements/9999/scans') !== -1) {
-      return Promise.resolve({ ok:true, json: function(){ return Promise.resolve({ scans: [fakeScan, fakeScan2] }); } });
-    }
-    return _origFetch.apply(window, arguments);
-  };
-  // Only patch once
+  // Patch fetch so the scans endpoint returns fake data for this demo engagement
   if (!window.__grcDemoPatchApplied) {
     window.__grcDemoPatchApplied = true;
-    window.fetch = function(url, opts) { return window.__grcDemoFetch(url, opts); };
+    var _origFetch = window.fetch;
+    window.fetch = function(url, opts) {
+      if (typeof url === 'string' && url.indexOf('/api/pentest/engagements/9999/scans') !== -1) {
+        return Promise.resolve({ ok: true, json: function() { return Promise.resolve({ scans: [fakeScan, fakeScan2] }); } });
+      }
+      return _origFetch.apply(window, arguments);
+    };
   }
 
-  // Auto-select the demo engagement
-  setTimeout(function() {
-    var item = document.querySelector('[data-engid="9999"]');
-    if (item) item.click();
-  }, 50);
+  // Inject into state, re-render list, then auto-select
+  _ptEngagements = demo;
+  _ptRenderList();
+  ptSelectEngagement(9999);
 }
 
 function _ptFetchEngagements() {
