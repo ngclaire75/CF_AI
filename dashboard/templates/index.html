@@ -3124,9 +3124,21 @@ Export Power BI
 
     <div style="padding:0 20px 20px;margin-top:20px;">
       <div id="um-error" style="display:none;color:#a80000;font-size:13px;margin-bottom:12px;"></div>
+      <!-- Batch tools (visible only when rows are checked) -->
+      <div id="um-batch-bar" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px 14px;margin-bottom:10px;display:none;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:700;color:#1e40af;" id="um-batch-count">0 selected</span>
+        <button class="mdef-toolbar-btn" style="font-size:11px;padding:4px 10px;" onclick="umBatchPages()">Manage pages</button>
+        <button class="mdef-toolbar-btn" style="font-size:11px;padding:4px 10px;" onclick="umBatchRole('admin')">Promote to Admin</button>
+        <button class="mdef-toolbar-btn" style="font-size:11px;padding:4px 10px;" onclick="umBatchRole('user')">Demote to User</button>
+        <button class="mdef-toolbar-btn" style="font-size:11px;padding:4px 10px;color:#a80000;" onclick="umBatchDelete()">Delete selected</button>
+        <button style="margin-left:auto;font-size:11px;padding:4px 10px;border:none;background:transparent;color:#6b7280;cursor:pointer;" onclick="umClearSelection()">Clear selection</button>
+      </div>
       <table class="mdef-tbl" id="um-tbl" style="background:#fff;">
-        <thead><tr><th>Username</th><th>Email</th><th>Verified</th><th>Role</th><th>Actions</th></tr></thead>
-        <tbody id="um-tbody"><tr><td colspan="5" class="mdef-empty">Loading…</td></tr></tbody>
+        <thead><tr>
+          <th style="width:32px;"><input type="checkbox" id="um-check-all" onchange="umToggleAll(this)" title="Select all"></th>
+          <th>Username</th><th>Email</th><th>Verified</th><th>Role</th><th>Pages</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="um-tbody"><tr><td colspan="7" class="mdef-empty">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -4310,6 +4322,40 @@ sudo systemctl start  prometheus prometheus-node-exporter</div>
   </div><!-- /page-content -->
 </div><!-- /main-shell -->
 
+<!-- ── User Page Permissions Modal ──────────────────────────────────────────── -->
+<div id="um-pages-modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)umClosePagesModal()">
+  <div class="modal-box" style="max-width:640px;">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title" id="um-pages-title">Manage page access</div>
+        <div class="modal-sub"   id="um-pages-sub"></div>
+      </div>
+      <button class="modal-close" onclick="umClosePagesModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:20px 24px 24px;">
+
+      <!-- Quick presets -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+        <span style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-right:4px;">Presets:</span>
+        <button class="pt-btn" style="font-size:11px;" onclick="umPagesPreset('default')">Default (basic)</button>
+        <button class="pt-btn" style="font-size:11px;" onclick="umPagesPreset('analyst')">Analyst</button>
+        <button class="pt-btn" style="font-size:11px;" onclick="umPagesPreset('readonly')">Read-only</button>
+        <button class="pt-btn" style="font-size:11px;" onclick="umPagesPreset('all')">All pages</button>
+        <button class="pt-btn" style="font-size:11px;" onclick="umPagesPreset('none')">None</button>
+      </div>
+
+      <!-- Page checkboxes organised by section -->
+      <div id="um-pages-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;"></div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+        <button class="pt-btn" onclick="umClosePagesModal()">Cancel</button>
+        <button class="pt-btn pt-btn-primary" onclick="umSavePages()">Save permissions</button>
+      </div>
+      <div id="um-pages-err" style="display:none;color:#a80000;font-size:12px;margin-top:8px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ── Pentest New Engagement Modal ─────────────────────────────────────────── -->
 <div id="pt-modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)ptCloseModal()">
   <div class="modal-box" style="max-width:620px;">
@@ -4468,11 +4514,15 @@ sudo systemctl start  prometheus prometheus-node-exporter</div>
 
 <script>
 /* ── Auth context injected from Flask ── */
-var USER_ROLE     = "{{ current_user.role }}";
-var USER_NAME     = "{{ current_user.username }}";
+var USER_ROLE          = "{{ current_user.role }}";
+var USER_NAME          = "{{ current_user.username }}";
+// null = admin (unrestricted); array = explicit page whitelist for this user
+var USER_ALLOWED_PAGES = {{ user_allowed_pages | tojson }};
 
-// Sections accessible to regular (non-admin) users
-var _USER_SECTIONS = ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network'];
+// Resolved allowed sections — used by sbNav guard and sidebar visibility
+var _USER_SECTIONS = USER_ALLOWED_PAGES !== null
+  ? USER_ALLOWED_PAGES
+  : ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network'];
 
 /* ── Timestamp ── */
 (function(){
@@ -5252,45 +5302,56 @@ document.addEventListener('DOMContentLoaded', function(){
   _dashInitPanels();
   loadDefDashboard();
 
-  // Apply role-based sidebar restrictions for non-admin users
-  if (USER_ROLE !== 'admin') {
-    var _adminOnlyIds = [
-      'sb-gsc','sb-filescan','sb-securescore','sb-threatanalytics',
-      'sb-incidents','sb-signals','sb-eventtimeline','sb-mitre',
-      'sb-priority','sb-recommendations','sb-remediation',
-      'sb-weaknesses','sb-targets','sb-observability','sb-scan','sb-history'
-    ];
-    _adminOnlyIds.forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-
-    // Hide labels whose entire section is hidden
-    document.querySelectorAll('.sb-nav-label').forEach(function(lbl){
-      var sib = lbl.nextElementSibling;
-      var allHidden = true;
-      while (sib && !sib.classList.contains('sb-nav-label') && !sib.classList.contains('sb-divider')) {
-        if (sib.classList.contains('sb-item') && sib.style.display !== 'none') { allHidden = false; break; }
-        sib = sib.nextElementSibling;
-      }
-      if (allHidden) lbl.style.display = 'none';
-    });
-
-    // Hide dividers that are between two invisible sections
-    document.querySelectorAll('.sb-divider').forEach(function(div){
-      // Check if everything after this divider until the next divider (or end) is hidden
-      var sib = div.nextElementSibling;
-      var allHidden = true;
-      while (sib && !sib.classList.contains('sb-divider')) {
-        if ((sib.classList.contains('sb-item') || sib.classList.contains('sb-nav-label')) && sib.style.display !== 'none') {
-          allHidden = false; break;
-        }
-        sib = sib.nextElementSibling;
-      }
-      if (allHidden) div.style.display = 'none';
-    });
-  }
+  // Apply per-user page access — hide sidebar items not in USER_ALLOWED_PAGES
+  _applySidebarAccess();
 });
+
+function _applySidebarAccess() {
+  if (USER_ROLE === 'admin') return; // admins always see everything
+
+  // Map every sb-* button id to its section key
+  var _SB_MAP = {
+    'sb-chatbot':'chatbot','sb-gsc':'gsc','sb-filescan':'filescan',
+    'sb-dashboard':'dashboard','sb-securescore':'securescore','sb-threatanalytics':'threatanalytics',
+    'sb-incidents':'incidents','sb-signals':'signals','sb-eventtimeline':'eventtimeline','sb-mitre':'mitre',
+    'sb-priority':'priority','sb-recommendations':'recommendations','sb-remediation':'remediation',
+    'sb-weaknesses':'weaknesses','sb-inventories':'inventories','sb-targets':'targets',
+    'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
+    'sb-scan':'scan','sb-history':'history','sb-pentest':'pentest',
+  };
+
+  Object.keys(_SB_MAP).forEach(function(id) {
+    var section = _SB_MAP[id];
+    var el = document.getElementById(id);
+    if (!el) return;
+    var allowed = USER_ALLOWED_PAGES === null || USER_ALLOWED_PAGES.indexOf(section) !== -1;
+    el.style.display = allowed ? '' : 'none';
+  });
+
+  // Hide section labels whose every item is hidden
+  document.querySelectorAll('.sb-nav-label').forEach(function(lbl) {
+    var sib = lbl.nextElementSibling;
+    var allHidden = true;
+    while (sib && !sib.classList.contains('sb-nav-label') && !sib.classList.contains('sb-divider')) {
+      if (sib.classList.contains('sb-item') && sib.style.display !== 'none') { allHidden = false; break; }
+      sib = sib.nextElementSibling;
+    }
+    lbl.style.display = allHidden ? 'none' : '';
+  });
+
+  // Hide dividers between fully-hidden sections
+  document.querySelectorAll('.sb-divider').forEach(function(div) {
+    var sib = div.nextElementSibling;
+    var allHidden = true;
+    while (sib && !sib.classList.contains('sb-divider')) {
+      if ((sib.classList.contains('sb-item') || sib.classList.contains('sb-nav-label')) && sib.style.display !== 'none') {
+        allHidden = false; break;
+      }
+      sib = sib.nextElementSibling;
+    }
+    div.style.display = allHidden ? 'none' : '';
+  });
+}
 
 function copyEnvTemplate() {
   var el = document.getElementById('env-template');
@@ -10676,21 +10737,77 @@ function loadFileScanPage() {
 }
 
 /* ══ USER MANAGEMENT ══════════════════════════════════════════════════════ */
+// ── All page definitions (section key → label) ───────────────────────────────
+var _ALL_PAGES = [
+  { group: 'AI Assistant',           pages: [
+    { key: 'chatbot',        label: 'AI Chatbot' },
+    { key: 'gsc',            label: 'Domain Health & Search Console' },
+    { key: 'filescan',       label: 'File Scanner' },
+  ]},
+  { group: 'Overview',               pages: [
+    { key: 'dashboard',      label: 'Dashboard' },
+    { key: 'securescore',    label: 'Secure Score' },
+    { key: 'threatanalytics',label: 'Threat Analytics' },
+  ]},
+  { group: 'Incidents & Alerts',     pages: [
+    { key: 'incidents',      label: 'Incidents' },
+    { key: 'signals',        label: 'Security Signals' },
+    { key: 'eventtimeline',  label: 'Event Timeline' },
+    { key: 'mitre',          label: 'MITRE ATT&CK' },
+  ]},
+  { group: 'Actions',                pages: [
+    { key: 'priority',       label: 'Priority Actions' },
+    { key: 'recommendations',label: 'Recommendations' },
+    { key: 'remediation',    label: 'Remediation' },
+  ]},
+  { group: 'Vulnerability Mgmt',     pages: [
+    { key: 'weaknesses',     label: 'Weaknesses' },
+    { key: 'inventories',    label: 'Inventories' },
+    { key: 'targets',        label: 'Scan Results' },
+  ]},
+  { group: 'Monitoring & Logs',      pages: [
+    { key: 'observability',  label: 'Observability' },
+    { key: 'logexplorer',    label: 'Log Explorer' },
+    { key: 'pluginlogs',     label: 'User Activity Logs' },
+    { key: 'network',        label: 'Network Monitor' },
+  ]},
+  { group: 'Scanning',               pages: [
+    { key: 'scan',           label: 'Connect & Scan with Agent' },
+    { key: 'history',        label: 'Security Analytics' },
+    { key: 'pentest',        label: 'Pentest Engagements' },
+  ]},
+];
+
+// Presets
+var _PAGE_PRESETS = {
+  default:  ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network'],
+  analyst:  ['dashboard','chatbot','gsc','filescan','securescore','threatanalytics','incidents','signals','eventtimeline',
+             'mitre','priority','weaknesses','inventories','targets','observability','logexplorer','pluginlogs','network','history'],
+  readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
+  all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
+  none:     [],
+};
+
+var _umUsers       = [];     // cached from last fetch
+var _umPagesTarget = [];     // usernames currently being edited in the pages modal
+
 function loadUserMgmt() {
   var tbody = document.getElementById('um-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty">Loading…</td></tr>';
+  umClearSelection();
   fetch('/api/admin/users')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (d.error) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#a80000;">'+_esc(d.error)+'</td></tr>'; return; }
-      var users = d.users || [];
-      if (!users.length) { tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty">No users found.</td></tr>'; return; }
-      tbody.innerHTML = users.map(function(u){
+      if (d.error) { tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty" style="color:#a80000;">'+_esc(d.error)+'</td></tr>'; return; }
+      _umUsers = d.users || [];
+      if (!_umUsers.length) { tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty">No users found.</td></tr>'; return; }
+      tbody.innerHTML = _umUsers.map(function(u){
         var isAdmin    = u.role === 'admin';
         var isVerified = u.verified !== false;
         var isSelf     = u.username === USER_NAME;
         var isDefault  = u.username === 'admin';
+        var chk        = isDefault || isSelf ? '' : '<input type="checkbox" class="um-row-chk" data-user="'+_esc(u.username)+'" onchange="umOnCheck()">';
         var roleBadge = isAdmin
           ? '<span style="background:rgba(37,99,235,.12);color:#2563eb;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid rgba(37,99,235,.25);">ADMIN</span>'
           : '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid #c8c6c4;">USER</span>';
@@ -10698,6 +10815,18 @@ function loadUserMgmt() {
           ? '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">VERIFIED</span>'
           : '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">PENDING</span>';
         var emailCell = _esc(u.email || '—');
+
+        // Pages cell
+        var pagesCell;
+        if (isAdmin) {
+          pagesCell = '<span style="font-size:11px;color:#9ca3af;">All (admin)</span>';
+        } else {
+          var ap = u.allowed_pages;
+          var count = ap === null || ap === undefined ? '—' : ap.length + ' pages';
+          pagesCell = '<button onclick="umOpenPagesModal([\''+_esc(u.username)+'\'])" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;">'
+            + count + ' — Edit</button>';
+        }
+
         var actions = '';
         if (isSelf) {
           actions = '<span style="font-size:11px;color:#9ca3af;">current session</span>';
@@ -10714,15 +10843,17 @@ function loadUserMgmt() {
           if (!actions) actions = '<span style="font-size:11px;color:#9ca3af;">protected</span>';
         }
         return '<tr>'
+          + '<td style="text-align:center;">'+chk+'</td>'
           + '<td style="font-weight:500;">'+_esc(u.username)+(isDefault?'<span style="font-size:10px;color:#9ca3af;margin-left:6px;">(default)</span>':'')+'</td>'
           + '<td style="font-size:12px;color:#605e5c;">'+emailCell+'</td>'
           + '<td>'+verifiedBadge+'</td>'
           + '<td>'+roleBadge+'</td>'
+          + '<td>'+pagesCell+'</td>'
           + '<td style="white-space:nowrap;">'+actions+'</td>'
           + '</tr>';
       }).join('');
     })
-    .catch(function(){ tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#a80000;">Failed to load users.</td></tr>'; });
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty" style="color:#a80000;">Failed to load users.</td></tr>'; });
 }
 
 function umSetRole(username, newRole) {
@@ -10774,6 +10905,155 @@ function umCreateUser() {
       loadUserMgmt();
     })
     .catch(function(){ errEl.textContent = 'Request failed.'; errEl.style.display=''; });
+}
+
+// ── Checkbox selection helpers ────────────────────────────────────────────────
+
+function umOnCheck() {
+  var all  = document.querySelectorAll('.um-row-chk');
+  var sel  = document.querySelectorAll('.um-row-chk:checked');
+  var bar  = document.getElementById('um-batch-bar');
+  var cnt  = document.getElementById('um-batch-count');
+  var allChk = document.getElementById('um-check-all');
+  if (bar) bar.style.display = sel.length ? 'flex' : 'none';
+  if (cnt) cnt.textContent   = sel.length + ' selected';
+  if (allChk) allChk.indeterminate = sel.length > 0 && sel.length < all.length;
+}
+
+function umToggleAll(chkAll) {
+  document.querySelectorAll('.um-row-chk').forEach(function(c){ c.checked = chkAll.checked; });
+  umOnCheck();
+}
+
+function umClearSelection() {
+  document.querySelectorAll('.um-row-chk').forEach(function(c){ c.checked = false; });
+  var bar = document.getElementById('um-batch-bar');
+  var allChk = document.getElementById('um-check-all');
+  if (bar) bar.style.display = 'none';
+  if (allChk) { allChk.checked = false; allChk.indeterminate = false; }
+}
+
+function _umGetSelected() {
+  return Array.from(document.querySelectorAll('.um-row-chk:checked')).map(function(c){ return c.dataset.user; });
+}
+
+// ── Batch operations ──────────────────────────────────────────────────────────
+
+function umBatchPages() {
+  var sel = _umGetSelected();
+  if (!sel.length) return;
+  umOpenPagesModal(sel);
+}
+
+function umBatchRole(newRole) {
+  var sel = _umGetSelected();
+  if (!sel.length) return;
+  if (!confirm('Set role "' + newRole + '" for ' + sel.length + ' user(s)?')) return;
+  var promises = sel.map(function(username) {
+    return fetch('/api/admin/users/' + encodeURIComponent(username) + '/role', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({role: newRole})
+    });
+  });
+  Promise.all(promises).then(function(){ loadUserMgmt(); }).catch(function(){ alert('Some requests failed.'); loadUserMgmt(); });
+}
+
+function umBatchDelete() {
+  var sel = _umGetSelected();
+  if (!sel.length) return;
+  if (!confirm('Delete ' + sel.length + ' user(s)? This cannot be undone.')) return;
+  var promises = sel.map(function(username) {
+    return fetch('/api/admin/users/' + encodeURIComponent(username), { method: 'DELETE' });
+  });
+  Promise.all(promises).then(function(){ loadUserMgmt(); }).catch(function(){ alert('Some requests failed.'); loadUserMgmt(); });
+}
+
+// ── Page permissions modal ────────────────────────────────────────────────────
+
+function umOpenPagesModal(usernames) {
+  _umPagesTarget = usernames;
+  var modal  = document.getElementById('um-pages-modal-bg');
+  var title  = document.getElementById('um-pages-title');
+  var sub    = document.getElementById('um-pages-sub');
+  var errEl  = document.getElementById('um-pages-err');
+  if (errEl) errEl.style.display = 'none';
+
+  if (usernames.length === 1) {
+    title.textContent = 'Page access — ' + usernames[0];
+    sub.textContent   = 'Check the pages this user is allowed to visit.';
+  } else {
+    title.textContent = 'Page access — ' + usernames.length + ' users';
+    sub.textContent   = 'Changes will be applied to all selected users. Mixed selections are shown unchecked.';
+  }
+
+  // Build checkbox grid
+  var grid = document.getElementById('um-pages-grid');
+  grid.innerHTML = '';
+
+  // Determine initial checked state from first user (for single) or intersection (for batch)
+  var firstUser  = _umUsers.find(function(u){ return u.username === usernames[0]; });
+  var initPages  = (firstUser && firstUser.allowed_pages) ? firstUser.allowed_pages : [];
+  if (usernames.length > 1) initPages = []; // start unchecked for multi
+
+  _ALL_PAGES.forEach(function(grp) {
+    var col = document.createElement('div');
+    col.style.cssText = 'margin-bottom:14px;';
+    col.innerHTML = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:6px;border-bottom:1px solid #f3f4f6;padding-bottom:4px;">' + _esc(grp.group) + '</div>';
+    grp.pages.forEach(function(p) {
+      var chk = initPages.indexOf(p.key) !== -1;
+      col.innerHTML += '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#111827;margin-bottom:5px;cursor:pointer;">'
+        + '<input type="checkbox" id="um-pg-' + p.key + '" value="' + p.key + '"' + (chk ? ' checked' : '') + ' style="cursor:pointer;">'
+        + _esc(p.label) + '</label>';
+    });
+    grid.appendChild(col);
+  });
+
+  modal.style.display = 'flex';
+}
+
+function umClosePagesModal() {
+  document.getElementById('um-pages-modal-bg').style.display = 'none';
+  _umPagesTarget = [];
+}
+
+function umPagesPreset(preset) {
+  var pages = _PAGE_PRESETS[preset] || [];
+  _ALL_PAGES.forEach(function(grp) {
+    grp.pages.forEach(function(p) {
+      var el = document.getElementById('um-pg-' + p.key);
+      if (el) el.checked = pages.indexOf(p.key) !== -1;
+    });
+  });
+}
+
+function umSavePages() {
+  var allowed = [];
+  _ALL_PAGES.forEach(function(grp) {
+    grp.pages.forEach(function(p) {
+      var el = document.getElementById('um-pg-' + p.key);
+      if (el && el.checked) allowed.push(p.key);
+    });
+  });
+  var errEl = document.getElementById('um-pages-err');
+
+  var promises = _umPagesTarget.map(function(username) {
+    return fetch('/api/admin/users/' + encodeURIComponent(username) + '/pages', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({allowed_pages: allowed})
+    }).then(function(r){ return r.json(); });
+  });
+
+  Promise.all(promises).then(function(results) {
+    var errors = results.filter(function(r){ return r.error; });
+    if (errors.length) {
+      if (errEl) { errEl.textContent = errors.map(function(e){ return e.error; }).join('; '); errEl.style.display = ''; }
+      return;
+    }
+    umClosePagesModal();
+    loadUserMgmt();
+  }).catch(function() {
+    if (errEl) { errEl.textContent = 'Request failed. Please try again.'; errEl.style.display = ''; }
+  });
 }
 
 function _fsSetStatus(sel, fileKey, idx) {

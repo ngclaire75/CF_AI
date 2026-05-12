@@ -494,6 +494,10 @@ def _load_users() -> dict:
         return default
     with open(_USERS_FILE) as f:
         users = _json.load(f)
+    # Default page list for non-admin users
+    _DEFAULT_USER_PAGES = [
+        'dashboard', 'chatbot', 'pluginlogs', 'logexplorer', 'inventories', 'network',
+    ]
     # Migrate older entries + always enforce admin account
     changed = False
     for uname, u in users.items():
@@ -501,6 +505,10 @@ def _load_users() -> dict:
             if field not in u:
                 u[field] = default_val
                 changed = True
+        # Migrate: add allowed_pages for non-admin users who don't have it yet
+        if u.get('role') != 'admin' and 'allowed_pages' not in u:
+            u['allowed_pages'] = _DEFAULT_USER_PAGES[:]
+            changed = True
     # Ensure default admin always exists with admin role
     if _DEFAULT_ADMIN not in users:
         users[_DEFAULT_ADMIN] = {
@@ -694,7 +702,13 @@ def _admin_required(f):
 def admin_list_users():
     users = _load_users()
     return jsonify({'users': [
-        {'username': k, 'role': v['role'], 'email': v.get('email', ''), 'verified': v.get('verified', True)}
+        {
+            'username':      k,
+            'role':          v['role'],
+            'email':         v.get('email', ''),
+            'verified':      v.get('verified', True),
+            'allowed_pages': v.get('allowed_pages'),  # None for admins = unrestricted
+        }
         for k, v in users.items()
     ]})
 
@@ -740,6 +754,31 @@ def admin_set_role(username):
     users[username]['role'] = new_role
     _save_users(users)
     return jsonify({'ok': True})
+
+@app.route('/api/admin/users/<username>/pages', methods=['GET'])
+@_admin_required
+def admin_get_user_pages(username):
+    users = _load_users()
+    if username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    u = users[username]
+    return jsonify({'allowed_pages': u.get('allowed_pages')})  # None = admin / unrestricted
+
+
+@app.route('/api/admin/users/<username>/pages', methods=['POST'])
+@_admin_required
+def admin_set_user_pages(username):
+    users = _load_users()
+    if username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    data  = request.get_json(silent=True) or {}
+    pages = data.get('allowed_pages')
+    if pages is not None and not isinstance(pages, list):
+        return jsonify({'error': 'allowed_pages must be a list'}), 400
+    users[username]['allowed_pages'] = pages
+    _save_users(users)
+    return jsonify({'ok': True})
+
 
 @app.route('/api/admin/users/<username>/verify', methods=['POST'])
 @_admin_required
@@ -1781,7 +1820,17 @@ def enrich(scan: dict) -> dict:
 @login_required
 def index():
     ctx = _build_template_context()
-    ctx['current_user'] = session.get('user', {'username': 'admin', 'role': 'admin'})
+    user = session.get('user', {'username': 'admin', 'role': 'admin'})
+    ctx['current_user'] = user
+    # Inject per-user page permissions (None for admins = sees everything)
+    if user.get('role') == 'admin':
+        ctx['user_allowed_pages'] = None
+    else:
+        users = _load_users()
+        u = users.get(user['username'], {})
+        ctx['user_allowed_pages'] = u.get('allowed_pages', [
+            'dashboard', 'chatbot', 'pluginlogs', 'logexplorer', 'inventories', 'network',
+        ])
     return render_template('index.html', **ctx)
 
 
