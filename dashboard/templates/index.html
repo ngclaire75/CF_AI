@@ -1672,6 +1672,14 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 .btn-lock:hover{background:#8b0000;}
 .btn-unlock{background:#107c10;color:#fff;border:none;border-radius:4px;padding:4px 9px;font-size:11px;cursor:pointer;white-space:nowrap;}
 .btn-unlock:hover{background:#0b5e0b;}
+/* Quick Actions toggle */
+.qa-toggle-wrap{display:inline-flex;align-items:center;cursor:pointer;position:relative;}
+.qa-toggle-wrap input{position:absolute;opacity:0;width:0;height:0;}
+.qa-toggle-track{display:inline-block;width:42px;height:24px;background:#d2d0ce;border-radius:12px;transition:background .2s;position:relative;}
+.qa-toggle-wrap input:checked + .qa-toggle-track{background:#107c10;}
+.qa-toggle-wrap input:disabled + .qa-toggle-track{opacity:.45;cursor:not-allowed;}
+.qa-toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.qa-toggle-wrap input:checked + .qa-toggle-track .qa-toggle-thumb{transform:translateX(18px);}
 
 /* ── Security Operations Center ─────────────────────────────────────────── */
 .soc-wrap{display:flex;flex-direction:column;height:100%;}
@@ -2537,6 +2545,59 @@ Export Power BI
 
   <!-- ══ PRIORITY ACTIONS PAGE ═════════════════════════════════════════════ -->
   <div id="page-priority" class="page-section" style="display:none">
+
+  <!-- Quick Actions panel -->
+  <section class="section" style="margin-bottom:18px;">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Quick Actions</div>
+        <div class="sec-desc">Apply Cloudflare protections instantly to a zone.</div>
+      </div>
+    </div>
+    <div class="card" style="padding:20px 24px;">
+      <!-- Domain selector -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+        <label style="font-size:12px;font-weight:600;color:#605e5c;white-space:nowrap;">Zone / Domain</label>
+        <input type="text" id="qa-domain" placeholder="servicebrankas.com"
+          style="flex:1;min-width:200px;max-width:320px;background:#faf9f8;border:1px solid #d2d0ce;border-radius:6px;padding:7px 12px;font-size:13px;outline:none;"
+          oninput="qaClearStatus()" />
+        <button onclick="qaLoadStatus()"
+          style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">
+          Load Status
+        </button>
+        <span id="qa-zone-tag" style="display:none;font-size:11px;background:#dff6dd;color:#107c10;padding:3px 8px;border-radius:4px;font-weight:600;"></span>
+      </div>
+      <div id="qa-status-msg" style="display:none;font-size:12px;margin-bottom:14px;padding:8px 12px;border-radius:6px;"></div>
+
+      <!-- Under Attack Mode row -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid #edebe9;">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#201f1e;margin-bottom:3px;">Under Attack Mode</div>
+          <div style="font-size:12px;color:#605e5c;line-height:1.5;max-width:460px;">
+            Show your site visitors a non-interactive JS challenge once your domain is active on Cloudflare.
+            Blocks most bots and scripts while letting real browsers through.
+          </div>
+          <a href="https://developers.cloudflare.com/fundamentals/reference/cloudflare-challenges/#under-attack-mode"
+            target="_blank" rel="noopener"
+            style="font-size:11px;color:#2563eb;text-decoration:none;margin-top:4px;display:inline-block;">
+            About Under Attack Mode ↗
+          </a>
+        </div>
+        <div style="flex-shrink:0;padding-top:2px;">
+          <label class="qa-toggle-wrap" title="Toggle Under Attack Mode">
+            <input type="checkbox" id="qa-uam-toggle" onchange="qaToggleAttackMode(this)" disabled />
+            <span class="qa-toggle-track"><span class="qa-toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+
+      <div style="padding:10px 0;border-top:1px solid #edebe9;font-size:11px;color:#a19f9d;">
+        Requires a Cloudflare API token with <strong>Zone Settings:Edit</strong> permission.
+        <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener" style="color:#2563eb;">Manage tokens ↗</a>
+      </div>
+    </div>
+  </section>
+
   <!-- Priority Actions -->
   <section class="section">
     <div class="sec-head">
@@ -5376,6 +5437,94 @@ function _updateLockUI() {
       btn.setAttribute('data-action', 'disable');
     }
     if (badge) badge.style.display = '';
+  });
+}
+
+/* ── Quick Actions — Under Attack Mode toggle ──────────────────────────── */
+var _qaZoneId   = '';
+var _qaZoneName = '';
+
+function qaClearStatus() {
+  var s = document.getElementById('qa-status-msg');
+  var t = document.getElementById('qa-zone-tag');
+  if (s) { s.style.display = 'none'; s.textContent = ''; }
+  if (t) t.style.display = 'none';
+  var tog = document.getElementById('qa-uam-toggle');
+  if (tog) { tog.checked = false; tog.disabled = true; }
+  _qaZoneId = ''; _qaZoneName = '';
+}
+
+function qaShowStatus(msg, type) {
+  var s = document.getElementById('qa-status-msg');
+  if (!s) return;
+  var styles = {
+    ok:   'background:#dff6dd;color:#107c10;border:1px solid #a9d3a9;',
+    err:  'background:#fde7e9;color:#a80000;border:1px solid #f4b8bc;',
+    info: 'background:#f3f2f1;color:#323130;border:1px solid #d2d0ce;',
+    warn: 'background:#fff4ce;color:#7a4f00;border:1px solid #f0d28b;',
+  };
+  s.style.cssText = 'display:block;font-size:12px;margin-bottom:14px;padding:8px 12px;border-radius:6px;' + (styles[type] || styles.info);
+  s.textContent = msg;
+}
+
+function qaLoadStatus() {
+  var domain = (document.getElementById('qa-domain').value || '').trim();
+  if (!domain) { qaShowStatus('Enter a domain name first.', 'warn'); return; }
+  qaShowStatus('Loading…', 'info');
+  var tog = document.getElementById('qa-uam-toggle');
+  if (tog) { tog.checked = false; tog.disabled = true; }
+  fetch('/api/cloudflare/attack-mode?domain=' + encodeURIComponent(domain))
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.error) { qaShowStatus('Error: ' + d.error, 'err'); return; }
+      _qaZoneId   = d.zone_id   || '';
+      _qaZoneName = d.zone_name || domain;
+      var tag = document.getElementById('qa-zone-tag');
+      if (tag) { tag.textContent = _qaZoneName; tag.style.display = 'inline-block'; }
+      if (tog) {
+        tog.checked  = !!d.under_attack;
+        tog.disabled = false;
+      }
+      var lvl = d.security_level || 'unknown';
+      var uam = d.under_attack;
+      qaShowStatus(
+        'Zone: ' + _qaZoneName + ' — Security level: ' + lvl + (uam ? ' (Under Attack Mode is ON)' : ''),
+        uam ? 'warn' : 'ok'
+      );
+    })
+    .catch(function(e){ qaShowStatus('Request failed: ' + e, 'err'); });
+}
+
+function qaToggleAttackMode(chk) {
+  var domain = (document.getElementById('qa-domain').value || '').trim();
+  if (!domain) {
+    qaShowStatus('Load a domain status first.', 'warn');
+    chk.checked = !chk.checked;
+    return;
+  }
+  chk.disabled = true;
+  qaShowStatus((chk.checked ? 'Enabling' : 'Disabling') + ' Under Attack Mode…', 'info');
+  fetch('/api/cloudflare/attack-mode', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ domain: domain, enabled: chk.checked }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    chk.disabled = false;
+    if (d.ok) {
+      chk.checked = !!d.enabled;
+      qaShowStatus(d.message || (d.enabled ? 'Under Attack Mode enabled.' : 'Under Attack Mode disabled.'),
+                   d.enabled ? 'warn' : 'ok');
+    } else {
+      chk.checked = !chk.checked; // revert
+      qaShowStatus('Error: ' + (d.error || 'Unknown error'), 'err');
+    }
+  })
+  .catch(function(e) {
+    chk.disabled = false;
+    chk.checked = !chk.checked;
+    qaShowStatus('Request failed: ' + e, 'err');
   });
 }
 

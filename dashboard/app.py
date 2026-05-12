@@ -3256,7 +3256,7 @@ def api_cloudflare_zones():
 
 @app.route('/api/priority/maintenance', methods=['POST'])
 def api_priority_maintenance():
-    """Toggle Cloudflare maintenance mode (security_level=under_attack) for a domain."""
+    """Lock / unlock a site via Cloudflare — tries 4 methods in order to ensure the block sticks."""
     import json as _j
     data      = request.get_json(force=True, silent=True) or {}
     _raw_domain = (data.get('domain') or '').strip()
@@ -3272,143 +3272,152 @@ def api_priority_maintenance():
 
     cf_token = _strip_env_prefix(os.environ.get('CF_API_TOKEN', '').strip())
     if not cf_token:
-        return jsonify({'ok': False, 'error': 'CF_API_TOKEN not set in .env — open your .env file and add: CF_API_TOKEN=your_token_here (get it from dash.cloudflare.com/profile/api-tokens)'}), 200
+        return jsonify({'ok': False, 'error': 'CF_API_TOKEN not set in .env — add: CF_API_TOKEN=your_token (dash.cloudflare.com/profile/api-tokens)'}), 200
 
-    def _cf_get(path):
-        c, b = _cf_request(path, cf_token, timeout=15)
-        if c == 200:
-            try: return c, _json.loads(b)
-            except Exception: pass
-        try: return c, _json.loads(b)
-        except Exception: return c, {}
+    BASE = 'https://api.cloudflare.com/client/v4'
+    hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
 
-    def _cf_post(path, payload):
-        url  = f'https://api.cloudflare.com/client/v4{path}'
-        hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
+    def _req(method, path, payload=None):
+        url = BASE + path
         try:
-            if _HAS_REQUESTS:
-                r = _requests.post(url, headers=hdrs, json=payload, timeout=15, verify=True)
-                try: return r.status_code, r.json()
-                except Exception: return r.status_code, {}
+            if not _HAS_REQUESTS:
+                return 0, {}
+            r = _requests.request(method, url, headers=hdrs,
+                                  json=payload if payload is not None else None,
+                                  timeout=15, verify=True)
+            try:    return r.status_code, r.json()
+            except: return r.status_code, {}
         except Exception as e:
             return 0, {'error': str(e)}
-        return 0, {}
 
-    def _cf_delete(path):
-        url  = f'https://api.cloudflare.com/client/v4{path}'
-        hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
-        try:
-            if _HAS_REQUESTS:
-                r = _requests.delete(url, headers=hdrs, timeout=15, verify=True)
-                try: return r.status_code, r.json()
-                except Exception: return r.status_code, {}
-        except Exception as e:
-            return 0, {'error': str(e)}
-        return 0, {}
+    def _get(path):   return _req('GET',    path)
+    def _post(path, p): return _req('POST',  path, p)
+    def _put(path, p):  return _req('PUT',   path, p)
+    def _patch(path, p): return _req('PATCH', path, p)
+    def _delete(path):  return _req('DELETE', path)
 
-    def _cf_patch(path, payload):
-        url  = f'https://api.cloudflare.com/client/v4{path}'
-        hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
-        try:
-            if _HAS_REQUESTS:
-                r = _requests.patch(url, headers=hdrs, json=payload, timeout=15, verify=True)
-                try: return r.status_code, r.json()
-                except Exception: return r.status_code, {}
-        except Exception as e:
-            return 0, {'error': str(e)}
-        return 0, {}
-
-    # --- find zone for domain ---
-    def _cf_json(path):
-        c, b = _cf_request(path, cf_token, timeout=15)
-        if c == 200:
-            try: return _json.loads(b)
-            except Exception: pass
-        return None
-
-    bare = domain.lstrip('www.')
-    zone_resp = _cf_json(f'/zones?name={bare}&per_page=1') or _cf_json(f'/zones?name={domain}&per_page=1')
-    zones = (zone_resp or {}).get('result') or []
+    # --- find zone --- use re.sub to avoid lstrip character-set bug
+    bare = re.sub(r'^www\.', '', domain, flags=re.I)
+    for lookup in [bare, domain]:
+        c, b = _get(f'/zones?name={lookup}&per_page=1')
+        zones = (b.get('result') or []) if c == 200 else []
+        if zones:
+            break
     if not zones:
-        return jsonify({'error': f'No Cloudflare zone found for {domain}. Make sure the domain uses Cloudflare DNS and CF_API_TOKEN has Zone:Read permission.'}), 404
+        return jsonify({'error': (
+            f'No Cloudflare zone found for {domain}. '
+            'Make sure the domain uses Cloudflare DNS and CF_API_TOKEN has Zone:Read permission.'
+        )}), 404
 
-    zone      = zones[0]
-    zone_id   = zone['id']
-    zone_name = zone['name']
+    zone_id   = zones[0]['id']
+    zone_name = zones[0]['name']
+    expr = f'(http.host eq "{zone_name}" or http.host eq "www.{zone_name}")'
 
+    # ─────────────────────────────────────────────────────────────────────────
     if action == 'enable':
-        # Use Cloudflare Firewall Rules API — creates a hard block (HTTP 403) for ALL visitors.
-        # Firewall Rules run before WAF Custom Rules and work on all Cloudflare plans.
-        expr = f'(http.host eq "{zone_name}" or http.host eq "www.{zone_name}")'
-        sc_fw, fw_resp = _cf_post(f'/zones/{zone_id}/firewall/rules', [
-            {
-                'filter':      {'expression': expr, 'paused': False},
-                'action':      'block',
-                'description': 'CF_AI Site Lock',
-                'priority':    1,
-                'paused':      False,
-            }
-        ])
-        fw_result  = (fw_resp or [{}])[0] if isinstance(fw_resp, list) else (fw_resp or {}).get('result') or {}
-        fw_rule_id = (fw_result.get('id') or '')
-        fw_filt_id = ((fw_result.get('filter') or {}).get('id') or '')
+        # Snapshot current security level so we can restore it on unlock
+        _, sl_resp = _get(f'/zones/{zone_id}/settings/security_level')
+        prev_level = ((sl_resp.get('result') or {}).get('value') or 'medium')
 
-        if sc_fw in (200, 201) and fw_rule_id:
-            db.enable_maintenance(domain, zone_id=zone_id,
-                                  cf_rule_id=f'fw:{fw_rule_id}:{fw_filt_id}',
-                                  prev_level='medium', reason=reason)
-            return jsonify({
-                'ok': True,
-                'message': (f'Site LOCKED. All visitors to {zone_name} now receive HTTP 403 — '
-                            f'nobody can access the site until you click Unlock.'),
-                'zone': zone_name, 'rule_id': fw_rule_id,
-            })
+        # ── Method 1: Cloudflare Firewall Rules (legacy, free plan) ──────────
+        sc1, fw_resp = _post(f'/zones/{zone_id}/firewall/rules', [{
+            'filter':      {'expression': expr, 'paused': False},
+            'action':      'block',
+            'description': 'CF_AI_SITE_LOCK',
+            'priority':    1,
+            'paused':      False,
+        }])
+        if sc1 in (200, 201):
+            fw_list    = fw_resp if isinstance(fw_resp, list) else (fw_resp.get('result') or [{}])
+            fw_result  = fw_list[0] if fw_list else {}
+            fw_rule_id = fw_result.get('id', '')
+            fw_filt_id = (fw_result.get('filter') or {}).get('id', '')
+            if fw_rule_id:
+                db.enable_maintenance(domain, zone_id=zone_id,
+                                      cf_rule_id=f'fw:{fw_rule_id}:{fw_filt_id}',
+                                      prev_level=prev_level, reason=reason)
+                return jsonify({'ok': True, 'method': 'firewall_rule',
+                    'message': f'Site LOCKED. {zone_name} returns HTTP 403 to all visitors. Click Unlock to restore access.',
+                    'zone': zone_name})
 
-        # Firewall Rules failed — try WAF Custom Rules (Rulesets API)
-        errs_fw = fw_resp if isinstance(fw_resp, list) else (fw_resp or {}).get('errors') or []
-        sc, rs_data = _cf_get(f'/zones/{zone_id}/rulesets/phases/http_request_firewall_custom/entrypoint')
-        ruleset_id = ((rs_data or {}).get('result') or {}).get('id')
+        # ── Method 2: WAF Custom Rules via Rulesets API (all plans) ──────────
+        _, rs_data = _get(f'/zones/{zone_id}/rulesets/phases/http_request_firewall_custom/entrypoint')
+        ruleset_id  = (rs_data.get('result') or {}).get('id', '')
+        existing_rules = (rs_data.get('result') or {}).get('rules') or []
+
         if not ruleset_id:
-            sc2, rs_create = _cf_post(f'/zones/{zone_id}/rulesets', {
-                'name': 'default', 'kind': 'zone',
+            sc_c, rs_c = _post(f'/zones/{zone_id}/rulesets', {
+                'name': 'CF_AI_LOCK', 'kind': 'zone',
                 'phase': 'http_request_firewall_custom', 'rules': []
             })
-            ruleset_id = ((rs_create or {}).get('result') or {}).get('id')
+            ruleset_id = (rs_c.get('result') or {}).get('id', '')
+            existing_rules = []
 
         if ruleset_id:
-            sc3, rule_resp = _cf_post(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules', {
-                'description': 'CF_AI Site Lock',
-                'expression':  f'(http.host eq "{zone_name}" or http.host eq "www.{zone_name}")',
-                'action':      'block',
-                'enabled':     True,
-            })
-            rule_result = (rule_resp or {}).get('result') or {}
-            rules = rule_result.get('rules') or []
-            our_rule = next((r for r in reversed(rules) if r.get('description') == 'CF_AI Site Lock'), None)
-            rule_id  = (our_rule or {}).get('id', '')
-            if sc3 in (200, 201) and rule_id:
-                db.enable_maintenance(domain, zone_id=zone_id,
-                                      cf_rule_id=f'{ruleset_id}:{rule_id}',
-                                      prev_level='medium', reason=reason)
-                return jsonify({
-                    'ok': True,
-                    'message': (f'Site LOCKED via WAF rule. All visitors to {zone_name} now receive '
-                                f'HTTP 403 — nobody can access the site until you click Unlock.'),
-                    'zone': zone_name,
-                })
+            new_rule = {'description': 'CF_AI_SITE_LOCK', 'expression': expr,
+                        'action': 'block', 'enabled': True}
+            sc2, rs_put = _put(f'/zones/{zone_id}/rulesets/{ruleset_id}',
+                               {'rules': existing_rules + [new_rule]})
+            if sc2 in (200, 201):
+                updated_rules = (rs_put.get('result') or {}).get('rules') or []
+                our = next((r for r in reversed(updated_rules)
+                            if r.get('description') == 'CF_AI_SITE_LOCK'), {})
+                rule_id = our.get('id', '')
+                if rule_id:
+                    db.enable_maintenance(domain, zone_id=zone_id,
+                                          cf_rule_id=f'rs:{ruleset_id}:{rule_id}',
+                                          prev_level=prev_level, reason=reason)
+                    return jsonify({'ok': True, 'method': 'waf_custom_rule',
+                        'message': f'Site LOCKED via WAF rule. {zone_name} blocks all visitors (HTTP 403). Click Unlock to restore access.',
+                        'zone': zone_name})
 
-        # Both methods failed — report the real Cloudflare error
-        cf_err = ''
-        if isinstance(errs_fw, list) and errs_fw:
-            e0 = errs_fw[0] if isinstance(errs_fw[0], dict) else {}
-            cf_err = e0.get('message') or str(errs_fw[0])
-        if not cf_err:
-            cf_err = 'Cloudflare returned HTTP ' + str(sc_fw)
-        if sc_fw in (403, 401):
-            cf_err = ('Permission denied — your CF_API_TOKEN needs "Zone → Firewall Services: Edit" '
-                      'permission. Create a new token at dash.cloudflare.com/profile/api-tokens.')
-        return jsonify({'ok': False, 'error': f'Could not lock site: {cf_err}'}), 200
+        # ── Method 3: IP Access Rules — block wildcard "all" ─────────────────
+        sc3, ip_resp = _post(f'/zones/{zone_id}/firewall/access_rules/rules', {
+            'mode': 'block', 'configuration': {'target': 'ip_range', 'value': '0.0.0.0/0'},
+            'notes': 'CF_AI_SITE_LOCK — block all IPv4'
+        })
+        rule_id_v4 = (ip_resp.get('result') or {}).get('id', '')
+        sc3b, ip_resp_v6 = _post(f'/zones/{zone_id}/firewall/access_rules/rules', {
+            'mode': 'block', 'configuration': {'target': 'ip6_range', 'value': '::/0'},
+            'notes': 'CF_AI_SITE_LOCK — block all IPv6'
+        })
+        rule_id_v6 = (ip_resp_v6.get('result') or {}).get('id', '')
+        if rule_id_v4 or rule_id_v6:
+            db.enable_maintenance(domain, zone_id=zone_id,
+                                  cf_rule_id=f'ip:{rule_id_v4}:{rule_id_v6}',
+                                  prev_level=prev_level, reason=reason)
+            return jsonify({'ok': True, 'method': 'ip_access_rule',
+                'message': f'Site LOCKED via IP block rules. All traffic to {zone_name} is blocked. Click Unlock to restore access.',
+                'zone': zone_name})
 
+        # ── Method 4: Under Attack mode (challenge all visitors) ─────────────
+        sc4, _ = _patch(f'/zones/{zone_id}/settings/security_level',
+                        {'value': 'under_attack'})
+        if sc4 in (200, 201):
+            db.enable_maintenance(domain, zone_id=zone_id,
+                                  cf_rule_id=f'sl:{prev_level}',
+                                  prev_level=prev_level, reason=reason)
+            return jsonify({'ok': True, 'method': 'under_attack',
+                'message': (f'Site set to UNDER ATTACK mode on {zone_name} — '
+                            f'all visitors must pass a JS/CAPTCHA challenge. '
+                            f'For a hard HTTP 403 block your API token needs Firewall Services:Edit permission.'),
+                'zone': zone_name})
+
+        # All four methods failed
+        err_detail = ''
+        for sc, resp in [(sc1, fw_resp), (sc2 if 'sc2' in dir() else 0, rs_put if 'rs_put' in dir() else {})]:
+            errs = resp.get('errors') if isinstance(resp, dict) else []
+            if errs:
+                err_detail = (errs[0] if isinstance(errs[0], str) else (errs[0] or {}).get('message', ''))
+                break
+        if sc1 in (401, 403) or sc4 in (401, 403):
+            err_detail = ('Permission denied. Token needs at minimum "Zone Settings:Edit". '
+                          'For a full block: add "Zone → Firewall Services:Edit" or "Zone → WAF:Edit". '
+                          'Create/edit token at dash.cloudflare.com/profile/api-tokens.')
+        return jsonify({'ok': False,
+                        'error': f'Could not lock {zone_name}: {err_detail or "all Cloudflare methods failed"}'}), 200
+
+    # ─────────────────────────────────────────────────────────────────────────
     elif action == 'disable':
         maint       = db.get_maintenance(domain)
         cf_rule_ref = (maint or {}).get('cf_rule_id', '')
@@ -3416,29 +3425,62 @@ def api_priority_maintenance():
         deleted     = False
 
         if cf_rule_ref.startswith('fw:'):
-            # Firewall Rules path
-            parts      = cf_rule_ref.split(':', 2)
+            parts = cf_rule_ref.split(':', 2)
             fw_rule_id = parts[1] if len(parts) > 1 else ''
             fw_filt_id = parts[2] if len(parts) > 2 else ''
             if fw_rule_id:
-                sc_d, _ = _cf_delete(f'/zones/{zone_id}/firewall/rules/{fw_rule_id}')
+                sc_d, _ = _delete(f'/zones/{zone_id}/firewall/rules/{fw_rule_id}')
                 deleted = sc_d in (200, 204)
             if fw_filt_id:
-                _cf_delete(f'/zones/{zone_id}/filters/{fw_filt_id}')
+                _delete(f'/zones/{zone_id}/filters/{fw_filt_id}')
+
+        elif cf_rule_ref.startswith('rs:'):
+            parts = cf_rule_ref.split(':', 2)
+            ruleset_id = parts[1] if len(parts) > 1 else ''
+            rule_id    = parts[2] if len(parts) > 2 else ''
+            if ruleset_id and rule_id:
+                # Remove only our rule by rebuilding the ruleset without it
+                _, rs_data = _get(f'/zones/{zone_id}/rulesets/{ruleset_id}')
+                current_rules = (rs_data.get('result') or {}).get('rules') or []
+                kept = [r for r in current_rules
+                        if r.get('id') != rule_id and r.get('description') != 'CF_AI_SITE_LOCK']
+                sc_d, _ = _put(f'/zones/{zone_id}/rulesets/{ruleset_id}', {'rules': kept})
+                deleted = sc_d in (200, 201)
+
+        elif cf_rule_ref.startswith('ip:'):
+            parts      = cf_rule_ref.split(':', 2)
+            rule_id_v4 = parts[1] if len(parts) > 1 else ''
+            rule_id_v6 = parts[2] if len(parts) > 2 else ''
+            ok4 = ok6 = False
+            if rule_id_v4:
+                sc_d4, _ = _delete(f'/zones/{zone_id}/firewall/access_rules/rules/{rule_id_v4}')
+                ok4 = sc_d4 in (200, 204)
+            if rule_id_v6:
+                sc_d6, _ = _delete(f'/zones/{zone_id}/firewall/access_rules/rules/{rule_id_v6}')
+                ok6 = sc_d6 in (200, 204)
+            deleted = ok4 or ok6
+
+        elif cf_rule_ref.startswith('sl:'):
+            # Was set via security_level — restore it
+            _patch(f'/zones/{zone_id}/settings/security_level', {'value': prev_level or 'medium'})
+            deleted = True
+
         elif cf_rule_ref and ':' in cf_rule_ref:
-            # WAF Rulesets path
+            # Legacy format: ruleset_id:rule_id
             ruleset_id, rule_id = cf_rule_ref.split(':', 1)
-            sc_d, _ = _cf_delete(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules/{rule_id}')
+            sc_d, _ = _delete(f'/zones/{zone_id}/rulesets/{ruleset_id}/rules/{rule_id}')
             deleted = sc_d in (200, 204)
 
+        # Always restore security level on unlock
+        if prev_level and not cf_rule_ref.startswith('sl:'):
+            _patch(f'/zones/{zone_id}/settings/security_level', {'value': prev_level})
+
         db.disable_maintenance(domain)
-        return jsonify({
-            'ok': True,
+        return jsonify({'ok': True,
             'message': (f'Site UNLOCKED. {zone_name} is now accessible to all visitors again.'
                         if deleted else
-                        f'Site unlocked for {zone_name} (rule may need manual removal in Cloudflare dashboard).'),
-            'zone': zone_name,
-        })
+                        f'{zone_name} unlocked in our records — please verify the block rule was removed in your Cloudflare dashboard.'),
+            'zone': zone_name})
 
     return jsonify({'error': 'Invalid action. Use "enable" or "disable"'}), 400
 
@@ -3451,6 +3493,109 @@ def api_priority_maintenance_status():
         'maintenance_domains': [s['domain'] for s in sites],
         'details': sites,
     })
+
+
+@app.route('/api/cloudflare/attack-mode', methods=['GET', 'POST'])
+def api_cf_attack_mode():
+    """GET: return current Under Attack Mode status for a domain.
+       POST {domain, enabled}: toggle security_level between under_attack and medium.
+    """
+    def _strip_env_prefix(v):
+        return v.split('=', 1)[-1].strip() if '=' in v else v.strip()
+    cf_token = _strip_env_prefix(os.environ.get('CF_API_TOKEN', '').strip())
+    if not cf_token:
+        return jsonify({'error': 'CF_API_TOKEN not set'}), 400
+
+    BASE = 'https://api.cloudflare.com/client/v4'
+    hdrs = {'Authorization': f'Bearer {cf_token}', 'Content-Type': 'application/json'}
+
+    def _req(method, path, payload=None):
+        url = BASE + path
+        try:
+            if not _HAS_REQUESTS:
+                return 0, {}
+            r = _requests.request(method, url, headers=hdrs,
+                                  json=payload if payload is not None else None,
+                                  timeout=12, verify=True)
+            try:    return r.status_code, r.json()
+            except: return r.status_code, {}
+        except Exception as e:
+            return 0, {'error': str(e)}
+
+    if request.method == 'GET':
+        raw = (request.args.get('domain') or '').strip()
+        domain = re.sub(r'^https?://', '', raw, flags=re.I).split('/')[0].rstrip('.').lower()
+        if not domain:
+            return jsonify({'error': 'domain required'}), 400
+
+        bare = re.sub(r'^www\.', '', domain, flags=re.I)
+        zones = []
+        for lk in [bare, domain]:
+            c, b = _req('GET', f'/zones?name={lk}&per_page=1')
+            zones = (b.get('result') or []) if c == 200 else []
+            if zones: break
+        if not zones:
+            return jsonify({'error': f'No Cloudflare zone for {domain}'}), 404
+
+        zone_id = zones[0]['id']
+        c2, sl = _req('GET', f'/zones/{zone_id}/settings/security_level')
+        level = (sl.get('result') or {}).get('value', 'unknown')
+        return jsonify({
+            'domain': domain,
+            'zone_id': zone_id,
+            'zone_name': zones[0]['name'],
+            'security_level': level,
+            'under_attack': level == 'under_attack',
+        })
+
+    # POST — toggle
+    data    = request.get_json(force=True, silent=True) or {}
+    raw     = (data.get('domain') or '').strip()
+    domain  = re.sub(r'^https?://', '', raw, flags=re.I).split('/')[0].rstrip('.').lower()
+    enabled = bool(data.get('enabled', True))
+    if not domain:
+        return jsonify({'error': 'domain required'}), 400
+
+    bare = re.sub(r'^www\.', '', domain, flags=re.I)
+    zones = []
+    for lk in [bare, domain]:
+        c, b = _req('GET', f'/zones?name={lk}&per_page=1')
+        zones = (b.get('result') or []) if c == 200 else []
+        if zones: break
+    if not zones:
+        return jsonify({'error': f'No Cloudflare zone for {domain}'}), 404
+
+    zone_id   = zones[0]['id']
+    zone_name = zones[0]['name']
+
+    if enabled:
+        # Save current level before switching to under_attack
+        c_get, sl_now = _req('GET', f'/zones/{zone_id}/settings/security_level')
+        prev = (sl_now.get('result') or {}).get('value', 'medium')
+        if prev == 'under_attack':
+            prev = 'medium'  # already under_attack — nothing to save
+        sc, resp = _req('PATCH', f'/zones/{zone_id}/settings/security_level',
+                        {'value': 'under_attack'})
+        if sc in (200, 201):
+            db.enable_maintenance(domain, zone_id=zone_id,
+                                  cf_rule_id=f'sl:{prev}',
+                                  prev_level=prev, reason='Under Attack Mode toggled from dashboard')
+            return jsonify({'ok': True, 'enabled': True, 'zone': zone_name,
+                'message': f'Under Attack Mode ENABLED on {zone_name}. All visitors see a JS challenge.'})
+        err = ((resp.get('errors') or [{}])[0]).get('message', f'HTTP {sc}')
+        if sc in (401, 403):
+            err = 'Token needs Zone Settings:Edit permission (dash.cloudflare.com/profile/api-tokens).'
+        return jsonify({'ok': False, 'error': err}), 200
+    else:
+        # Restore previous level
+        maint = db.get_maintenance(domain)
+        prev  = (maint or {}).get('previous_security_level', 'medium') or 'medium'
+        if prev == 'under_attack':
+            prev = 'medium'
+        sc, _ = _req('PATCH', f'/zones/{zone_id}/settings/security_level', {'value': prev})
+        db.disable_maintenance(domain)
+        return jsonify({'ok': True, 'enabled': False, 'zone': zone_name,
+            'message': f'Under Attack Mode DISABLED on {zone_name}. Security level restored to "{prev}".'})
 
 
 # ══ Security Operations ══════════════════════════════════════════════════════
