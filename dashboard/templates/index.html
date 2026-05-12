@@ -12176,11 +12176,14 @@ function _ptRenderTargetsTab(eng, visible) {
     allTargets.forEach(function(t) {
       var tid = 'pt-tgt-' + eng.id + '-' + _ptHashStr(t);
       var isIp = ips.indexOf(t) !== -1;
-      html += '<div class="pt-target-row" id="' + tid + '">'
+      html += '<div style="margin-bottom:6px;">'
+        + '<div class="pt-target-row" id="' + tid + '" style="margin-bottom:0;border-radius:6px 6px 0 0;">'
         + '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:' + (isIp ? '#f3f4f6' : '#dbeafe') + ';color:' + (isIp ? '#374151' : '#1e40af') + ';flex-shrink:0;">' + (isIp ? 'IP' : 'URL') + '</span>'
         + '<span class="pt-target-url">' + _esc(t) + '</span>'
         + '<span class="pt-scan-status pt-scan-idle" id="' + tid + '-status">Idle</span>'
         + '<button class="pt-btn" style="padding:4px 8px;font-size:11px;" onclick="ptScanTarget(' + eng.id + ',\'' + _esc(t) + '\',\'' + tid + '\')">Scan</button>'
+        + '</div>'
+        + '<pre id="' + tid + '-output" style="display:none;font-size:10px;font-family:monospace;background:#0f1117;color:#a5d6a7;padding:8px 10px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin:0;"></pre>'
         + '</div>';
     });
   }
@@ -12227,15 +12230,29 @@ function ptScanTarget(eid, target, rowId) {
 
 function _ptPollScan(eid, jobId, rowId, statusEl) {
   var key = eid + '-' + rowId;
+  var outputEl = document.getElementById(rowId + '-output');
+  var lastLen  = 0;
   if (_ptScanPollers[key]) clearInterval(_ptScanPollers[key]);
   _ptScanPollers[key] = setInterval(function() {
     fetch('/api/pentest/jobs/' + jobId).then(function(r){ return r.json(); }).then(function(d) {
+      // Show live output while running
+      if (outputEl && d.output && d.output.length > lastLen) {
+        lastLen = d.output.length;
+        outputEl.style.display = '';
+        outputEl.textContent = d.output.slice(-3000); // last 3k chars for perf
+        outputEl.scrollTop = outputEl.scrollHeight;
+      }
       if (d.status === 'done' || d.status === 'error') {
         clearInterval(_ptScanPollers[key]);
         delete _ptScanPollers[key];
         if (statusEl) {
           statusEl.className = 'pt-scan-status ' + (d.status === 'done' ? 'pt-scan-done' : 'pt-scan-error');
-          statusEl.textContent = d.status === 'done' ? 'Done' : 'Error';
+          statusEl.textContent = d.status === 'done' ? 'Done' : (d.error ? 'Error: ' + d.error.slice(0, 60) : 'Error');
+        }
+        // Auto-refresh findings panel if visible
+        var findingsPanel = document.getElementById('pt-panel-findings-' + eid);
+        if (findingsPanel && findingsPanel.style.display !== 'none') {
+          ptLoadFindings(eid);
         }
       }
     }).catch(function(){});

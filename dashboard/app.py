@@ -4301,6 +4301,192 @@ def api_pentest_scans(eid):
     return jsonify({'scans': [enrich(s) for s in scans]})
 
 
+def _pentest_fetch_oidc_token(token_url: str, client_id: str, client_secret: str, scope: str):
+    """Fetch an OIDC access token via client_credentials grant. Returns (token, error_str)."""
+    try:
+        import requests as _req
+        r = _req.post(token_url, data={
+            'grant_type':    'client_credentials',
+            'client_id':     client_id,
+            'client_secret': client_secret,
+            'scope':         scope,
+        }, timeout=15)
+        r.raise_for_status()
+        j = r.json()
+        return j.get('access_token', ''), ''
+    except Exception as exc:
+        return '', str(exc)
+
+
+def _build_pentest_cred_block(creds: dict, target: str) -> str:
+    """Build an authenticated-scan instruction block for enterprise pentest targets."""
+    atype = creds.get('auth_type', 'none')
+    if not atype or atype == 'none':
+        return ''
+
+    hdr = (
+        '\n\n══════════════ AUTHENTICATED SCAN ══════════════\n'
+        'Credentials provided. You MUST use them for every check below.\n'
+        'NEVER print secrets/tokens in output — write [REDACTED] instead.\n'
+        '════════════════════════════════════════════════\n\n'
+    )
+    base_url = (target if '://' in target else f'https://{target}').rstrip('/')
+
+    if atype == 'bearer':
+        token = creds.get('bearer_token', '')
+        if not token:
+            return ''
+        return (hdr
+            + 'BEARER TOKEN AUTHENTICATION\n'
+            + f'  Authorization: Bearer {token}\n\n'
+            + 'Run ALL authenticated checks using this token:\n\n'
+            + '1. Authenticated root + API discovery:\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/"\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/api/"\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/api/v1/"\n\n'
+            + '2. User/profile endpoint (IDOR baseline):\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/api/v1/me"\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/api/v1/user"\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/api/v1/profile"\n\n'
+            + '3. Privilege escalation — admin endpoints:\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/admin"\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/api/admin"\n'
+            + f'   curl -s -H "Authorization: Bearer {token}" "{base_url}/api/v1/admin"\n\n'
+            + '4. JWT claims decode (no secret needed):\n'
+            + f'   python3 -c "import base64,json; t=\'{token}\'; p=t.split(\'.\')[1]; '
+            + 'p+=\'=\'*(4-len(p)%4); print(json.dumps(json.loads(base64.b64decode(p)),indent=2))"\n\n'
+            + '5. IDOR — enumerate other user IDs:\n'
+            + f'   for id in 1 2 3 100 999; do curl -s -o /dev/null -w "%{{http_code}} id=$id\\n" '
+            + f'-H "Authorization: Bearer {token}" "{base_url}/api/v1/users/$id"; done\n\n'
+            + '6. HTTP method fuzzing:\n'
+            + f'   for m in GET POST PUT PATCH DELETE OPTIONS; do curl -s -o /dev/null -w "%{{http_code}} $m\\n" '
+            + f'-X $m -H "Authorization: Bearer {token}" "{base_url}/api/v1/me"; done\n'
+        )
+
+    if atype == 'apikey':
+        key    = creds.get('api_key', '')
+        header = creds.get('api_key_header', 'X-API-Key')
+        if not key:
+            return ''
+        return (hdr
+            + 'API KEY AUTHENTICATION\n'
+            + f'  {header}: {key}\n\n'
+            + 'Run ALL authenticated API checks:\n\n'
+            + '1. API discovery:\n'
+            + f'   curl -s -H "{header}: {key}" "{base_url}/api/"\n'
+            + f'   curl -s -H "{header}: {key}" "{base_url}/api/v1/"\n'
+            + f'   curl -s -H "{header}: {key}" "{base_url}/api/v2/"\n\n'
+            + '2. Rate limit test (20 rapid requests):\n'
+            + f'   for i in $(seq 1 20); do curl -s -o /dev/null -w "%{{http_code}} req=$i\\n" '
+            + f'-H "{header}: {key}" "{base_url}/api/v1/me"; done\n\n'
+            + '3. IDOR via list endpoints:\n'
+            + f'   curl -s -H "{header}: {key}" "{base_url}/api/v1/users"\n'
+            + f'   curl -s -H "{header}: {key}" "{base_url}/api/v1/accounts"\n'
+            + f'   for id in 1 2 3 100 999; do curl -s -o /dev/null -w "%{{http_code}} id=$id\\n" '
+            + f'-H "{header}: {key}" "{base_url}/api/v1/users/$id"; done\n\n'
+            + '4. API key in query param (alternate injection):\n'
+            + f'   curl -s "{base_url}/api/v1/me?api_key={key}"\n'
+            + f'   curl -s "{base_url}/api/v1/me?apikey={key}"\n\n'
+            + '5. HTTP method override:\n'
+            + f'   curl -s -X POST -H "{header}: {key}" -H "X-HTTP-Method-Override: DELETE" "{base_url}/api/v1/me"\n\n'
+            + '6. Admin endpoint access:\n'
+            + f'   curl -s -H "{header}: {key}" "{base_url}/api/v1/admin/users"\n'
+            + f'   curl -s -H "{header}: {key}" "{base_url}/api/admin"\n'
+        )
+
+    if atype == 'basic':
+        user = creds.get('basic_user', '')
+        pw   = creds.get('basic_pass', '')
+        if not user:
+            return ''
+        return (hdr
+            + 'BASIC AUTHENTICATION\n'
+            + f'  Username : {user}\n'
+            + '  Password : $BASIC_PASSWORD (set in environment — do not print)\n\n'
+            + f'  export BASIC_PASSWORD="{pw}"\n\n'
+            + 'Run ALL basic-auth checks:\n\n'
+            + '1. Login test:\n'
+            + f'   curl -s -u "{user}:$BASIC_PASSWORD" -o /dev/null -w "%{{http_code}}" "{base_url}/"\n'
+            + f'   curl -s -u "{user}:$BASIC_PASSWORD" -o /dev/null -w "%{{http_code}}" "{base_url}/api/v1/me"\n\n'
+            + '2. Admin panel access:\n'
+            + f'   curl -s -u "{user}:$BASIC_PASSWORD" "{base_url}/admin"\n\n'
+            + '3. Enumerate protected directories:\n'
+            + f'   for path in api admin dashboard config settings users accounts; do '
+            + f'curl -s -o /dev/null -w "%{{http_code}} /$path\\n" -u "{user}:$BASIC_PASSWORD" "{base_url}/$path"; done\n\n'
+            + '4. Unauthenticated fallback (must return 401/403):\n'
+            + f'   curl -s -o /dev/null -w "%{{http_code}}" "{base_url}/api/v1/me"\n'
+            + f'   curl -s -o /dev/null -w "%{{http_code}}" "{base_url}/admin"\n\n'
+            + '5. Account lockout policy (brute force test):\n'
+            + f'   for pw in admin password 123456 test qwerty; do '
+            + f'curl -s -o /dev/null -w "%{{http_code}} pw=$pw\\n" -u "{user}:$pw" "{base_url}/"; done\n'
+        )
+
+    if atype == 'oidc':
+        token_url    = creds.get('oidc_token_url', '')
+        client_id    = creds.get('oidc_client_id', '')
+        scope        = creds.get('oidc_scope', 'openid profile')
+        access_token = creds.get('oidc_access_token', '')
+        if not access_token:
+            return hdr + '[OIDC] Token fetch failed — proceeding without authentication\n'
+        return (hdr
+            + 'OIDC/SSO AUTHENTICATION (client_credentials grant)\n'
+            + f'  Token URL   : {token_url}\n'
+            + f'  Client ID   : {client_id}\n'
+            + f'  Scope       : {scope}\n'
+            + '  Access token acquired — use as Bearer for all requests\n\n'
+            + 'Run ALL OIDC-authenticated checks:\n\n'
+            + '1. Validate token claims:\n'
+            + f'   python3 -c "import base64,json; t=\'{access_token}\'; p=t.split(\'.\')[1]; '
+            + 'p+=\'=\'*(4-len(p)%4); print(json.dumps(json.loads(base64.b64decode(p)),indent=2))"\n\n'
+            + '2. Protected endpoint access:\n'
+            + f'   curl -s -H "Authorization: Bearer {access_token}" "{base_url}/api/v1/me"\n'
+            + f'   curl -s -H "Authorization: Bearer {access_token}" "{base_url}/api/v1/users"\n\n'
+            + '3. OIDC discovery document:\n'
+            + f'   curl -s "{token_url.split("/token")[0]}/.well-known/openid-configuration"\n'
+            + f'   curl -s "{base_url}/.well-known/openid-configuration"\n\n'
+            + '4. Token endpoint CSRF / parameter tampering:\n'
+            + f'   curl -s -X POST "{token_url}" '
+            + '-d "grant_type=authorization_code&code=INVALID&redirect_uri=https://evil.com" | head -c 500\n\n'
+            + '5. SSO bypass — admin escalation:\n'
+            + f'   curl -s -H "Authorization: Bearer {access_token}" "{base_url}/admin"\n'
+            + f'   curl -s -H "Authorization: Bearer {access_token}" "{base_url}/api/admin"\n\n'
+            + '6. Scope escalation attempt:\n'
+            + f'   curl -s -X POST "{token_url}" '
+            + f'-d "grant_type=client_credentials&client_id={client_id}&client_secret=[REDACTED]&scope=admin openid"\n'
+        )
+
+    if atype == 'custom':
+        headers = creds.get('custom_headers', {})
+        if not headers:
+            return ''
+        h_flags   = ' '.join(f'-H "{k}: {v}"' for k, v in headers.items())
+        h_display = '\n'.join(f'  {k}: {v}' for k, v in headers.items())
+        return (hdr
+            + f'CUSTOM HEADERS\n{h_display}\n\n'
+            + 'Run ALL checks with these headers:\n\n'
+            + '1. Authenticated discovery:\n'
+            + f'   curl -s {h_flags} "{base_url}/api/"\n'
+            + f'   curl -s {h_flags} "{base_url}/api/v1/"\n\n'
+            + '2. Protected endpoints:\n'
+            + f'   curl -s {h_flags} "{base_url}/api/v1/me"\n'
+            + f'   curl -s {h_flags} "{base_url}/admin"\n\n'
+            + '3. IDOR check:\n'
+            + f'   for id in 1 2 3 100 999; do curl -s -o /dev/null -w "%{{http_code}} id=$id\\n" '
+            + f'{h_flags} "{base_url}/api/v1/users/$id"; done\n\n'
+            + '4. Unauthenticated fallback (header stripped):\n'
+            + f'   curl -s "{base_url}/api/v1/me" | head -c 500\n'
+        )
+
+    return ''
+
+
+def _is_network_target(target: str) -> bool:
+    """Return True if target is an IPv4 address or CIDR range (not a hostname/URL)."""
+    import re as _re
+    t = target.strip().replace('https://', '').replace('http://', '').rstrip('/')
+    return bool(_re.match(r'^\d{1,3}(?:\.\d{1,3}){3}(?:/\d{1,2})?$', t))
+
+
 @app.route('/api/pentest/engagements/<int:eid>/scan-target', methods=['POST'])
 @login_required
 def api_pentest_scan_target(eid):
@@ -4320,58 +4506,151 @@ def api_pentest_scan_target(eid):
     auth  = eng.get('auth_config', {})
     atype = auth.get('type', 'none')
     creds = {
-        'auth_type':     atype,
-        'bearer_token':  auth.get('token', '') if atype == 'bearer' else '',
-        'api_key':       auth.get('value', '') if atype == 'apikey' else '',
-        'api_key_header':auth.get('header', 'X-API-Key'),
-        'basic_user':    auth.get('username', '') if atype == 'basic' else '',
-        'basic_pass':    auth.get('password', '') if atype == 'basic' else '',
-        'custom_headers':auth.get('headers', {}) if atype == 'custom' else {},
-        'oidc_token_url':auth.get('token_url', '') if atype == 'oidc' else '',
-        'oidc_client_id':auth.get('client_id', '') if atype == 'oidc' else '',
-        'oidc_secret':   auth.get('client_secret', '') if atype == 'oidc' else '',
-        'oidc_scope':    auth.get('scope', 'openid profile') if atype == 'oidc' else '',
+        'auth_type':      atype,
+        'bearer_token':   auth.get('token', '')          if atype == 'bearer' else '',
+        'api_key':        auth.get('value', '')          if atype == 'apikey' else '',
+        'api_key_header': auth.get('header', 'X-API-Key'),
+        'basic_user':     auth.get('username', '')       if atype == 'basic'  else '',
+        'basic_pass':     auth.get('password', '')       if atype == 'basic'  else '',
+        'custom_headers': auth.get('headers', {})        if atype == 'custom' else {},
+        'oidc_token_url': auth.get('token_url', '')      if atype == 'oidc'   else '',
+        'oidc_client_id': auth.get('client_id', '')      if atype == 'oidc'   else '',
+        'oidc_secret':    auth.get('client_secret', '')  if atype == 'oidc'   else '',
+        'oidc_scope':     auth.get('scope', 'openid profile') if atype == 'oidc' else '',
     }
 
     import uuid, threading
     job_id = str(uuid.uuid4())[:8]
 
     def _run(job_id, target, agent_type, model, eng_id, creds, username):
-        import time
-        t0     = time.time()
-        output = ''
+        import time as _t
+        t0    = _t.time()
+        parts = []
+
+        def _ot(txt):
+            parts.append(txt)
+            _jobs[job_id]['output'] = ''.join(parts)
+
+        def _oo(name, args):
+            pass
+
+        def _or(name, result, err):
+            r_full = str(result)
+            if r_full.strip():
+                parts.append(f'\n[TOOL:{name}]\n{r_full}\n')
+            _jobs[job_id]['output'] = ''.join(parts)
+
         try:
-            from dashboard.agents import run_agent
-            auth_note = ''
-            if creds.get('bearer_token'):
-                auth_note += f'\n[AUTH] Bearer token provided — test authenticated endpoints.\n'
-            if creds.get('api_key'):
-                ak = creds["api_key"]
-                auth_note += f'\n[AUTH] API key ({creds["api_key_header"]}): {ak[:8]}*** — include in API requests.\n'
-            if creds.get('basic_user'):
-                auth_note += f'\n[AUTH] Basic auth user: {creds["basic_user"]} — test authenticated endpoints.\n'
-            if creds.get('oidc_token_url'):
-                auth_note += f'\n[OIDC] Token URL: {creds["oidc_token_url"]} client_id: {creds["oidc_client_id"]} — test OIDC/SSO flows.\n'
-            if creds.get('custom_headers'):
-                auth_note += f'\n[HEADERS] Custom headers: {creds["custom_headers"]}\n'
-            output = run_agent(target=target, agent_type=agent_type, model=model,
-                               extra_context=auth_note)
-        except Exception as e:
-            output = f'[ERROR] {e}'
+            from agents.pentest import run_full_pentest
 
-        sid = db.save_scan(target=target, agent_type=agent_type, model=model,
-                           status='ok', latency_s=time.time()-t0,
-                           output=str(output)[:60000], username=username)
-        with __import__('sqlite3').connect(db.DB_PATH) as con:
-            con.execute('UPDATE scans SET engagement_id=? WHERE id=?', (eng_id, sid))
-            con.commit()
-        db.update_engagement_status(eng_id, 'running')
-        _jobs[job_id] = {'status': 'done', 'scan_id': sid, 'target': target}
+            # ── OIDC: fetch real token before building cred_block ─────────────
+            if creds.get('auth_type') == 'oidc' and creds.get('oidc_token_url'):
+                _ot('[OIDC] Fetching access token via client_credentials grant…\n')
+                tok, err = _pentest_fetch_oidc_token(
+                    creds['oidc_token_url'],
+                    creds.get('oidc_client_id', ''),
+                    creds.get('oidc_secret', ''),
+                    creds.get('oidc_scope', 'openid profile'),
+                )
+                if tok:
+                    creds['oidc_access_token'] = tok
+                    _ot(f'[OIDC] Token acquired ({len(tok)} chars) — authenticated scan enabled\n')
+                else:
+                    _ot(f'[OIDC] Token fetch failed: {err} — continuing without auth\n')
 
-    _jobs[job_id] = {'status': 'running', 'target': target}
-    t = threading.Thread(target=_run,
-                         args=(job_id, target, agent_type, model, eid, creds, _cu_username()),
-                         daemon=True)
+            cred_block = _build_pentest_cred_block(creds, target)
+            if cred_block:
+                _ot(f'[AUTH] {atype.upper()} credentials loaded — authenticated scan enabled\n')
+
+            # ── Network/IP targets: nmap + nuclei ─────────────────────────────
+            if _is_network_target(target):
+                import subprocess as _sp
+                _ot(f'\n[NETWORK] Detected IP/CIDR target: {target}\n')
+
+                _ot('[NETWORK] Running nmap service + vuln scan (may take several minutes)…\n')
+                nm_cmd = ['nmap', '-sV', '-sC', '--script=vuln', '-T4', '-oN', '-', target]
+                try:
+                    nm = _sp.run(nm_cmd, capture_output=True, text=True, timeout=600)
+                    nm_out = nm.stdout or nm.stderr or '[nmap returned no output]'
+                    _ot(nm_out)
+                except FileNotFoundError:
+                    _ot('[NETWORK] nmap not found — install nmap to enable network scanning\n')
+                except _sp.TimeoutExpired:
+                    _ot('[NETWORK] nmap timed out after 10 min\n')
+                except Exception as ne:
+                    _ot(f'[NETWORK] nmap error: {ne}\n')
+
+                _ot('\n[NETWORK] Running nuclei network + CVE scan…\n')
+                nu_cmd = [
+                    'nuclei', '-target', target,
+                    '-tags', 'network,cve,misconfig,exposed-panels',
+                    '-severity', 'critical,high,medium',
+                    '-silent', '-timeout', '10',
+                ]
+                try:
+                    nu = _sp.run(nu_cmd, capture_output=True, text=True, timeout=600)
+                    _ot(nu.stdout or '[nuclei returned no output]\n')
+                except FileNotFoundError:
+                    _ot('[NETWORK] nuclei not found — install nuclei to enable template-based scanning\n')
+                except Exception as ne:
+                    _ot(f'[NETWORK] nuclei error: {ne}\n')
+
+                output = ''.join(parts)
+
+            else:
+                # ── Web/API targets: full WSTG agent suite ────────────────────
+                from urllib.parse import urlparse as _up
+                _parsed = _up(target if '://' in target else f'https://{target}')
+                domain  = (_parsed.netloc or _parsed.path.split('/')[0]).rstrip('/')
+
+                results = run_full_pentest(
+                    domain,
+                    model=model or None,
+                    on_text=_ot,
+                    on_tool=_oo,
+                    on_result=_or,
+                    cred_block=cred_block or None,
+                    run_workflow=(agent_type == 'pentest'),
+                    agent_key='' if agent_type == 'pentest' else agent_type,
+                    is_aborted=None,
+                )
+                output = '\n\n'.join(
+                    f'=== {k.upper()} ===\n{v}'
+                    for k, v in results.items() if v
+                )
+
+            elapsed = _t.time() - t0
+            sid = db.save_scan(
+                target=target, agent_type=agent_type, model=model,
+                status='ok', latency_s=elapsed,
+                output=str(output)[:60000], username=username,
+            )
+            with __import__('sqlite3').connect(db.DB_PATH) as con:
+                con.execute('UPDATE scans SET engagement_id=? WHERE id=?', (eng_id, sid))
+                con.commit()
+            db.update_engagement_status(eng_id, 'active')
+            _jobs[job_id].update({'status': 'done', 'scan_id': sid, 'target': target})
+
+        except Exception as exc:
+            import traceback
+            err_detail = traceback.format_exc()
+            elapsed = _t.time() - t0
+            sid = db.save_scan(
+                target=target, agent_type=agent_type, model=model,
+                status='error', latency_s=elapsed,
+                output=f'[ERROR] {exc}\n\n{err_detail}'[:60000], username=username,
+            )
+            with __import__('sqlite3').connect(db.DB_PATH) as con:
+                con.execute('UPDATE scans SET engagement_id=? WHERE id=?', (eng_id, sid))
+                con.commit()
+            _jobs[job_id].update({'status': 'error', 'error': str(exc), 'scan_id': sid})
+
+    _jobs[job_id] = {'status': 'running', 'target': target, 'output': ''}
+    t = threading.Thread(
+        target=_run,
+        args=(job_id, target, agent_type, model, eid, creds, _cu_username()),
+        daemon=True,
+    )
     t.start()
     return jsonify({'ok': True, 'job_id': job_id})
 
