@@ -3955,9 +3955,17 @@ Start-Process $exe -ArgumentList "--config.file=`"$yml`" --storage.tsdb.path=`"C
 Step "Checking Grafana..."
 $gf = Get-Service "Grafana" -ErrorAction SilentlyContinue
 if (-not $gf) {
-    Step "Installing Grafana via winget..."
-    winget install GrafanaLabs.Grafana --accept-source-agreements --accept-package-agreements --silent
-}
+    Step "Getting latest Grafana version..."
+    try {
+        $gfVer = (Invoke-RestMethod "https://grafana.com/api/grafana/versions/stable" -TimeoutSec 10).version
+    } catch { $gfVer = "11.3.0" }
+    $gfUrl = "https://dl.grafana.com/oss/release/grafana-$gfVer.windows-amd64.msi"
+    Step "Downloading Grafana $gfVer (this may take a minute)..."
+    Invoke-WebRequest -Uri $gfUrl -OutFile "C:\monitoring\grafana.msi" -UseBasicParsing
+    Step "Installing Grafana..."
+    Start-Process msiexec.exe -Wait -ArgumentList "/i C:\monitoring\grafana.msi /quiet"
+    Step "Grafana installed"
+} else { Step "Grafana already installed" }
 $iniCandidates = @(
     "C:\Program Files\GrafanaLabs\grafana\conf\grafana.ini",
     "C:\Program Files (x86)\GrafanaLabs\grafana\conf\grafana.ini"
