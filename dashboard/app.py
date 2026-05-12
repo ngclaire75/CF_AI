@@ -3899,6 +3899,7 @@ def api_grafana_probe():
             pass
 
     # Prometheus targets
+    _is_windows_exporter = False
     try:
         r = _req.get(f'{prom_url}/api/v1/targets', timeout=4)
         if r.status_code == 200:
@@ -3910,23 +3911,38 @@ def api_grafana_probe():
                  'health': t.get('health', 'unknown')}
                 for t in active
             ]
-            out['node_exporter']['running'] = any(
-                'node' in t.get('labels', {}).get('job', '').lower()
-                for t in active
-            )
+            # Accept both Node Exporter (Linux) and Windows Exporter (Windows :9182)
+            for t in active:
+                job = t.get('labels', {}).get('job', '').lower()
+                inst = t.get('labels', {}).get('instance', '')
+                if 'node' in job or 'windows' in job or '9182' in inst or '9100' in inst:
+                    out['node_exporter']['running'] = True
+                    if 'windows' in job or '9182' in inst:
+                        _is_windows_exporter = True
+                    break
     except Exception:
         pass
 
-    # Prometheus instant metrics
+    # Prometheus instant metrics — use Windows Exporter or Node Exporter queries as appropriate
     if out['prometheus']['running']:
-        queries = {
-            'cpu_pct':    '100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)',
-            'mem_pct':    '(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100',
-            'disk_pct':   '(1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100',
-            'net_rx_bps': 'sum(irate(node_network_receive_bytes_total[5m]))',
-            'net_tx_bps': 'sum(irate(node_network_transmit_bytes_total[5m]))',
-            'uptime_s':   'node_time_seconds - node_boot_time_seconds',
-        }
+        if _is_windows_exporter:
+            queries = {
+                'cpu_pct':    '100 - (avg by (instance) (irate(windows_cpu_time_total{mode="idle"}[5m])) * 100)',
+                'mem_pct':    '100 - (windows_os_physical_memory_free_bytes / windows_cs_physical_memory_bytes * 100)',
+                'disk_pct':   '100 - (windows_logical_disk_free_bytes{volume="C:"} / windows_logical_disk_size_bytes{volume="C:"} * 100)',
+                'net_rx_bps': 'sum(irate(windows_net_bytes_received_total[5m]))',
+                'net_tx_bps': 'sum(irate(windows_net_bytes_sent_total[5m]))',
+                'uptime_s':   'windows_system_system_up_time',
+            }
+        else:
+            queries = {
+                'cpu_pct':    '100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)',
+                'mem_pct':    '(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100',
+                'disk_pct':   '(1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100',
+                'net_rx_bps': 'sum(irate(node_network_receive_bytes_total[5m]))',
+                'net_tx_bps': 'sum(irate(node_network_transmit_bytes_total[5m]))',
+                'uptime_s':   'node_time_seconds - node_boot_time_seconds',
+            }
         for key, q in queries.items():
             try:
                 r = _req.get(f'{prom_url}/api/v1/query', params={'query': q}, timeout=4)

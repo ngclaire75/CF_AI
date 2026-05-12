@@ -3904,20 +3904,24 @@ allow_embedding = true</div>
       <div class="gf-setup-step">
         <div class="gf-setup-num">3</div>
         <div style="flex:1;">
-          <div style="font-size:12px;font-weight:600;">Install Prometheus + Node Exporter</div>
-          <div class="gf-setup-cmd">sudo apt install -y prometheus prometheus-node-exporter
-sudo systemctl enable prometheus prometheus-node-exporter
-sudo systemctl start  prometheus prometheus-node-exporter</div>
+          <div style="font-size:12px;font-weight:600;">Install Prometheus + Windows Exporter (Windows) or Node Exporter (Linux)</div>
+          <div class="gf-setup-cmd"># Windows — use Auto-Setup button above (installs Grafana + Prometheus + Windows Exporter)
+# Linux:
+sudo apt install -y prometheus prometheus-node-exporter
+sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         </div>
       </div>
       <div class="gf-setup-step">
         <div class="gf-setup-num">4</div>
         <div style="flex:1;">
-          <div style="font-size:12px;font-weight:600;">Add scrape target in /etc/prometheus/prometheus.yml</div>
+          <div style="font-size:12px;font-weight:600;">Prometheus scrape config (prometheus.yml)</div>
           <div class="gf-setup-cmd">scrape_configs:
-  - job_name: 'servers'
+  - job_name: 'windows'           # Windows Exporter
     static_configs:
-      - targets: ['localhost:9100']   # Node Exporter</div>
+      - targets: ['localhost:9182']
+  # - job_name: 'node'            # Linux Node Exporter
+  #   static_configs:
+  #     - targets: ['localhost:9100']</div>
         </div>
       </div>
       <div class="gf-setup-step">
@@ -9536,7 +9540,7 @@ function _gfRenderStatus(d) {
   if (!bar) return;
   var html = _gfChip(d.grafana.running, 'Grafana' + (d.grafana.version ? ' ' + d.grafana.version : '')) +
              _gfChip(d.prometheus.running, 'Prometheus') +
-             _gfChip(d.node_exporter.running, 'Node Exporter');
+             _gfChip(d.node_exporter.running, 'Windows/Node Exporter');
   if (d.targets.length) {
     html += '<span class="gf-chip gf-chip-info" style="margin-left:auto;">&#9679; ' + d.targets.length + ' target' + (d.targets.length !== 1 ? 's' : '') + ' scraping</span>';
   }
@@ -9573,7 +9577,7 @@ function _gfRenderMetrics(d, promUrl) {
   if (!grid) return;
   var m = d.metrics || {};
   if (!d.prometheus.running) {
-    grid.innerHTML = '<div style="grid-column:1/-1;padding:14px;color:#9ca3af;font-size:12px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;text-align:center;">Prometheus not reachable at <strong>' + _esc(promUrl) + '</strong> — start Prometheus + Node Exporter to see live metrics.</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:14px;color:#9ca3af;font-size:12px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;text-align:center;">Prometheus not reachable at <strong>' + _esc(promUrl) + '</strong> — start Prometheus + Windows Exporter (port 9182) to see live metrics.</div>';
     grid.style.display = 'grid';
     return;
   }
