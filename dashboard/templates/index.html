@@ -2169,6 +2169,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <button class="sb-item" id="sb-grc" onclick="sbNav('grc',this)">
       <span class="sb-label">GRC Compliance</span>
     </button>
+    <button class="sb-item" id="sb-agents" onclick="sbNav('agents',this)">
+      <span class="sb-label">Meet Our Agents</span>
+    </button>
 
     {% if current_user.role == 'admin' %}
     <div class="sb-divider"></div>
@@ -4746,11 +4749,11 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         </div>
         <div class="pt2-field">
           <label class="pt2-field-label">Web Targets (one per line)</label>
-          <textarea class="pt2-textarea" id="pt2-em-urls" rows="3" placeholder="https://app.example.com&#10;https://api.example.com"></textarea>
+          <textarea class="pt2-textarea" id="pt2-em-urls" rows="3" placeholder="https://app.example.com"></textarea>
         </div>
         <div class="pt2-field">
           <label class="pt2-field-label">Network / IP Targets (one per line)</label>
-          <textarea class="pt2-textarea" id="pt2-em-ips" rows="2" placeholder="192.168.1.0/24&#10;10.0.0.1"></textarea>
+          <textarea class="pt2-textarea" id="pt2-em-ips" rows="2" placeholder="192.168.1.0/24"></textarea>
         </div>
         <div class="pt2-field-row">
           <div class="pt2-field">
@@ -4873,6 +4876,207 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
   </div><!-- /mdef-page -->
   </div><!-- /page-grc -->
+
+  <!-- ══ MEET OUR AGENTS PAGE ════════════════════════════════════════════════ -->
+  <div id="page-agents" class="page-section" style="display:none">
+    <style>
+      .moa-wrap { max-width:1100px; margin:0 auto; padding:32px 24px 48px; }
+      .moa-title { font-size:1.6rem; font-weight:700; color:#1e293b; margin-bottom:6px; }
+      .moa-sub   { font-size:.95rem; color:#64748b; margin-bottom:32px; }
+      .moa-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:20px; }
+      .moa-card  { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:24px; display:flex; flex-direction:column; gap:10px; transition:box-shadow .15s; }
+      .moa-card:hover { box-shadow:0 4px 18px rgba(0,0,0,.08); }
+      .moa-card-header { display:flex; align-items:center; gap:12px; }
+      .moa-badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; padding:3px 10px; border-radius:20px; color:#fff; white-space:nowrap; }
+      .moa-badge-info  { background:#3b82f6; }
+      .moa-badge-conf  { background:#6366f1; }
+      .moa-badge-idnt  { background:#8b5cf6; }
+      .moa-badge-athn  { background:#ec4899; }
+      .moa-badge-athz  { background:#f59e0b; color:#1e293b; }
+      .moa-badge-sess  { background:#10b981; }
+      .moa-badge-inpv  { background:#ef4444; }
+      .moa-badge-cryp  { background:#0ea5e9; }
+      .moa-badge-clnt  { background:#14b8a6; }
+      .moa-badge-apit  { background:#f97316; }
+      .moa-badge-js    { background:#eab308; color:#1e293b; }
+      .moa-name  { font-size:1rem; font-weight:700; color:#1e293b; }
+      .moa-desc  { font-size:.82rem; color:#64748b; font-style:italic; }
+      .moa-body  { font-size:.88rem; color:#374151; line-height:1.6; }
+      .moa-covers-title { font-size:.75rem; font-weight:700; color:#94a3b8; letter-spacing:.06em; text-transform:uppercase; margin-top:4px; }
+      .moa-covers { display:flex; flex-wrap:wrap; gap:5px; }
+      .moa-tag   { font-size:.73rem; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:4px; padding:2px 7px; }
+    </style>
+    <div class="moa-wrap">
+      <div class="moa-title">Meet Our Agents</div>
+      <div class="moa-sub">CF_AI deploys 11 specialised security testing agents, each mapped to the OWASP Web Security Testing Guide (WSTG). Every agent runs real shell commands — no hardcoded results.</div>
+      <div class="moa-grid">
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-info">WSTG-INFO</span>
+            <div><div class="moa-name">Recon Scout</div><div class="moa-desc">Passive &amp; Active Reconnaissance</div></div>
+          </div>
+          <div class="moa-body">Performs deep passive intelligence gathering before touching the target. Runs WHOIS, DNS enumeration, certificate transparency, Wayback Machine, Shodan, HackerTarget, URLScan, AlienVault OTX, and subdomain discovery. Then moves to active HTTP fingerprinting via a 9-layer Cloudflare bypass cascade.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">INFO-02 Server Fingerprint</span><span class="moa-tag">INFO-06 Entry Points</span>
+            <span class="moa-tag">INFO-07 JS Bundle Analysis</span><span class="moa-tag">INFO-08 Framework Headers</span>
+            <span class="moa-tag">INFO-09 App Fingerprint</span><span class="moa-tag">INFO-10 Architecture Map</span>
+            <span class="moa-tag">Port Scan</span><span class="moa-tag">Service Detection</span>
+            <span class="moa-tag">Dir Brute-force</span><span class="moa-tag">Nuclei Tech Scan</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-js">WSTG-JS</span>
+            <div><div class="moa-name">JS Secret Hunter</div><div class="moa-desc">JavaScript &amp; Source Code Analysis</div></div>
+          </div>
+          <div class="moa-body">Fetches every JS bundle referenced on the target page and scans for hardcoded secrets — API keys, tokens, credentials, internal URLs, and exposed GraphQL endpoints. Uses the built-in <code>hunt_js_secrets</code> tool for entropy-based pattern matching across minified bundles.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">Hardcoded Secrets</span><span class="moa-tag">API Key Exposure</span>
+            <span class="moa-tag">Internal Endpoint Leakage</span><span class="moa-tag">Source Map Exposure</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-conf">WSTG-CONF</span>
+            <div><div class="moa-name">Config Auditor</div><div class="moa-desc">Infrastructure &amp; Deployment Security</div></div>
+          </div>
+          <div class="moa-body">Audits HTTP security headers (CSP, HSTS, X-Frame-Options, etc.), detects exposed admin panels and management interfaces, checks cloud storage buckets for public access, tests for DNS zone transfer vulnerabilities, and probes for open redirect flaws. Leads with a full Nuclei misconfiguration scan.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">HTTP Security Headers</span><span class="moa-tag">Exposed Admin Panels</span>
+            <span class="moa-tag">Cloud Storage Misconfig</span><span class="moa-tag">DNS Zone Transfer</span>
+            <span class="moa-tag">Open Redirect</span><span class="moa-tag">Subdomain Takeover</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-idnt">WSTG-IDNT</span>
+            <div><div class="moa-name">Identity Mapper</div><div class="moa-desc">User Roles &amp; Account Enumeration</div></div>
+          </div>
+          <div class="moa-body">Enumerates user roles and privilege levels visible on the application. Tests registration flows, account provisioning processes, username enumeration via timing and error message differences, and enforces username policy checks with boundary values and special characters.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">IDNT-01 Role Definitions</span><span class="moa-tag">IDNT-02 Registration</span>
+            <span class="moa-tag">IDNT-03 Provisioning</span><span class="moa-tag">IDNT-04 User Enumeration</span>
+            <span class="moa-tag">IDNT-05 Username Policy</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-athn">WSTG-ATHN</span>
+            <div><div class="moa-name">Auth Prober</div><div class="moa-desc">Authentication &amp; Credential Security</div></div>
+          </div>
+          <div class="moa-body">Tests the full authentication attack surface: credential transport over HTTP vs HTTPS, default and weak passwords, account lockout thresholds, auth schema bypasses via header injection, weak password policies, security question flaws, password reset token predictability, alternative channel weaknesses, and MFA presence and bypass vectors.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">Default Credentials</span><span class="moa-tag">Account Lockout</span>
+            <span class="moa-tag">Auth Bypass</span><span class="moa-tag">Password Policy</span>
+            <span class="moa-tag">Password Reset Flaws</span><span class="moa-tag">MFA Detection</span>
+            <span class="moa-tag">Alternative Auth Channels</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-athz">WSTG-ATHZ</span>
+            <div><div class="moa-name">Access Control Tester</div><div class="moa-desc">Authorization &amp; Privilege Escalation</div></div>
+          </div>
+          <div class="moa-body">Probes for broken access control: path traversal and file inclusion, direct access to admin-only endpoints without authentication, vertical privilege escalation via role-manipulation payloads, IDOR across user/order/invoice resources, RBAC boundary testing, mass assignment via privileged field injection, and OAuth/OIDC endpoint discovery.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">Path Traversal</span><span class="moa-tag">Auth Schema Bypass</span>
+            <span class="moa-tag">Privilege Escalation</span><span class="moa-tag">IDOR</span>
+            <span class="moa-tag">Mass Assignment</span><span class="moa-tag">RBAC Testing</span>
+            <span class="moa-tag">OAuth Weaknesses</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-sess">WSTG-SESS</span>
+            <div><div class="moa-name">Session Analyst</div><div class="moa-desc">Cookie &amp; Token Security</div></div>
+          </div>
+          <div class="moa-body">Audits session management end-to-end: session schema analysis, cookie security flags (HttpOnly, Secure, SameSite), fixation attacks, CSRF token presence and SameSite enforcement, logout invalidation, session timeout enforcement, JWT handling including alg:none bypass, session token entropy measurement, and concurrent session policy.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">Cookie Flags</span><span class="moa-tag">Session Fixation</span>
+            <span class="moa-tag">CSRF Tokens</span><span class="moa-tag">Logout Invalidation</span>
+            <span class="moa-tag">JWT / alg:none bypass</span><span class="moa-tag">Token Entropy</span>
+            <span class="moa-tag">Concurrent Sessions</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-inpv">WSTG-INPV</span>
+            <div><div class="moa-name">Injection Hunter</div><div class="moa-desc">SQLi, XSS, SSTI &amp; Command Injection</div></div>
+          </div>
+          <div class="moa-body">Leads with 9,000+ Nuclei CVE templates, then manually tests reflected XSS, stored XSS, SQL injection (with sqlmap and manual error-detection), server-side code and command injection, SSTI (7*7=49 polyglot), SSRF against cloud metadata endpoints, XXE via XML-accepting endpoints and SOAP, malicious file upload bypass, and file-focused path traversal.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">Reflected &amp; Stored XSS</span><span class="moa-tag">SQL Injection</span>
+            <span class="moa-tag">Command Injection</span><span class="moa-tag">SSTI</span>
+            <span class="moa-tag">SSRF</span><span class="moa-tag">XXE</span>
+            <span class="moa-tag">File Upload Bypass</span><span class="moa-tag">Path Traversal</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-cryp">WSTG-CRYP</span>
+            <div><div class="moa-name">Crypto Inspector</div><div class="moa-desc">TLS, Cipher &amp; Key Security</div></div>
+          </div>
+          <div class="moa-body">Enumerates TLS versions and cipher suites with nmap, validates certificates (self-signed, expiry, SAN, chain trust), checks HTTP-to-HTTPS redirect and HSTS headers, tests whether login forms submit over plaintext HTTP, scans for exposed sensitive files and source repositories, hunts hardcoded API keys and secrets in JS bundles, and checks debug endpoints for credential leakage.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">TLS/SSL Config</span><span class="moa-tag">Certificate Validation</span>
+            <span class="moa-tag">Data in Transit</span><span class="moa-tag">Exposed Files (.env, .git)</span>
+            <span class="moa-tag">Hardcoded Secrets</span><span class="moa-tag">Key Management</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-clnt">WSTG-CLNT</span>
+            <div><div class="moa-name">Client-Side Analyst</div><div class="moa-desc">Browser Security &amp; DOM Vulnerabilities</div></div>
+          </div>
+          <div class="moa-body">Scans the DOM for dangerous sinks (innerHTML, eval, document.write), audits external JS includes for XSSI, tests HTML injection and open redirect via 15 common parameter names, inspects localStorage/sessionStorage usage patterns, detects outdated libraries (jQuery, Bootstrap, Lodash, etc.) with CVE cross-reference, checks for clickjacking protection, and probes WebSocket endpoints for missing Origin checks.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">DOM XSS</span><span class="moa-tag">HTML Injection</span>
+            <span class="moa-tag">Open Redirect</span><span class="moa-tag">Browser Storage</span>
+            <span class="moa-tag">Outdated JS Libraries</span><span class="moa-tag">Clickjacking</span>
+            <span class="moa-tag">WebSocket Origin Check</span><span class="moa-tag">XSSI / JSONP</span>
+          </div>
+        </div>
+
+        <div class="moa-card">
+          <div class="moa-card-header">
+            <span class="moa-badge moa-badge-apit">WSTG-APIT</span>
+            <div><div class="moa-name">API Security Tester</div><div class="moa-desc">REST, GraphQL &amp; OWASP API Top 10</div></div>
+          </div>
+          <div class="moa-body">The most comprehensive agent — covers all 10 OWASP API Security Top 10 categories. Discovers API endpoints and documentation, tests BOLA/IDOR across object IDs, checks authentication bypass and JWT alg:none, measures rate limiting on auth endpoints (20-request burst), tests BFLA via HTTP verb tampering, mass assignment via privileged field injection, CORS misconfiguration, API injection (SQLi/NoSQLi/SSTI), deprecated version discovery, and error verbosity. Also runs GraphQL introspection and WordPress REST API deep audits with automatic credential discovery.</div>
+          <div class="moa-covers-title">Covers</div>
+          <div class="moa-covers">
+            <span class="moa-tag">API-1 BOLA/IDOR</span><span class="moa-tag">API-2 Broken Auth</span>
+            <span class="moa-tag">API-3 Data Exposure</span><span class="moa-tag">API-4 Rate Limiting</span>
+            <span class="moa-tag">API-5 BFLA</span><span class="moa-tag">API-6 Mass Assignment</span>
+            <span class="moa-tag">API-7 CORS / Docs Exposure</span><span class="moa-tag">API-8 Injection</span>
+            <span class="moa-tag">API-9 Asset Management</span><span class="moa-tag">API-10 Logging</span>
+            <span class="moa-tag">GraphQL Introspection</span><span class="moa-tag">WordPress REST API</span>
+          </div>
+        </div>
+
+      </div><!-- /moa-grid -->
+    </div><!-- /moa-wrap -->
+  </div><!-- /page-agents -->
 
   </div><!-- /page-content -->
 </div><!-- /main-shell -->
@@ -5168,6 +5372,7 @@ var _PAGE_TITLES = {
   'usermgmt':      'User Management',
   'pentest':       'Pentest Engagements',
   'grc':           'GRC Compliance',
+  'agents':        'Meet Our Agents',
 };
 
 var _currentPage = 'dashboard';

