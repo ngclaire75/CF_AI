@@ -3530,12 +3530,26 @@ def api_cf_attack_mode():
 
         bare = re.sub(r'^www\.', '', domain, flags=re.I)
         zones = []
+        last_status = 0
+        last_body   = {}
         for lk in [bare, domain]:
-            c, b = _req('GET', f'/zones?name={lk}&per_page=1')
-            zones = (b.get('result') or []) if c == 200 else []
+            last_status, last_body = _req('GET', f'/zones?name={lk}&per_page=1')
+            zones = (last_body.get('result') or []) if last_status == 200 else []
             if zones: break
         if not zones:
-            return jsonify({'error': f'No Cloudflare zone for {domain}'}), 404
+            if last_status in (401, 403):
+                cf_errs = last_body.get('errors') or []
+                cf_msg  = cf_errs[0].get('message', '') if cf_errs and isinstance(cf_errs[0], dict) else ''
+                return jsonify({'error': (
+                    f'API token permission denied (HTTP {last_status}). '
+                    f'{cf_msg} — Go to dash.cloudflare.com/profile/api-tokens, '
+                    f'edit the token and add Zone → Zone:Read permission.'
+                )}), 403
+            return jsonify({'error': (
+                f'No Cloudflare zone found for {domain} (HTTP {last_status}). '
+                f'Make sure the domain is added to this Cloudflare account and '
+                f'CF_API_TOKEN has Zone:Read permission.'
+            )}), 404
 
         zone_id   = zones[0]['id']
         zone_name = zones[0]['name']
