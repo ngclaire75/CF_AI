@@ -1973,6 +1973,16 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
       <button class="btn-topbar" onclick="toggleDashboardEdit()" id="dash-edit-btn">Customize</button>
       <button class="btn-topbar primary" onclick="loadDefDashboard()">Refresh</button>
       <button class="btn-topbar" onclick="window.print()">Print</button>
+      <div style="width:1px;height:18px;background:rgba(255,255,255,.15);margin:0 4px;flex-shrink:0;"></div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;">
+          <span style="font-size:12px;font-weight:600;color:#fff;">{{ current_user.username }}</span>
+          <span style="font-size:10px;color:{{ '#60a5fa' if current_user.role == 'admin' else '#9ca3af' }};font-weight:600;text-transform:uppercase;letter-spacing:.4px;">{{ current_user.role }}</span>
+        </div>
+        <a href="/logout" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);cursor:pointer;text-decoration:none;" title="Sign out">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c8c6c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </a>
+      </div>
     </div>
   </div>
 
@@ -3386,7 +3396,7 @@ Export Power BI
           <button class="btn btn-sm" onclick="runHostingerMysql()" id="le-hostinger-btn" style="background:#0078d4;color:#fff;border-color:#0078d4;border-radius:8px;padding:7px 20px;">Fetch via MySQL</button>
         </div>
         <div class="le-hint">
-          <strong style="color:#a80000;">⚠ DB Host must be the remote Hostinger hostname, NOT "localhost"</strong><br>
+          <strong style="color:#a80000;">DB Host must be the remote Hostinger hostname, NOT "localhost"</strong><br>
           <strong>Step 1:</strong> hPanel → Databases → MySQL Databases → copy the <em>Database Server</em> field (e.g. <code>auth-db1234.hstgr.io</code>)<br>
           <strong>Step 2:</strong> hPanel → Databases → Remote MySQL → add your VPS/dashboard server IP<br>
           <strong>Step 3:</strong> Paste the DB Server hostname above (not localhost), fill in DB Name, Username, Password → click Fetch<br>
@@ -3948,6 +3958,13 @@ Load Logs
 </div>
 
 <script>
+/* ── Auth context injected from Flask ── */
+var USER_ROLE     = "{{ current_user.role }}";
+var USER_NAME     = "{{ current_user.username }}";
+
+// Sections accessible to regular (non-admin) users
+var _USER_SECTIONS = ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network'];
+
 /* ── Timestamp ── */
 (function(){
   var d = new Date();
@@ -4039,6 +4056,11 @@ var _PAGE_TITLES = {
 var _currentPage = 'dashboard';
 
 function sbNav(section, el) {
+  // Role-based access guard
+  if (USER_ROLE !== 'admin' && _USER_SECTIONS.indexOf(section) === -1) {
+    alert('Access restricted. Contact your admin to upgrade your account.');
+    return;
+  }
   // Hide all pages
   document.querySelectorAll('.page-section').forEach(function(p){ p.style.display='none'; p.classList.remove('active'); });
   // Show target page
@@ -4716,6 +4738,33 @@ document.addEventListener('DOMContentLoaded', function(){
   _hideLoadingOverlay();
   _dashInitPanels();
   loadDefDashboard();
+
+  // Apply role-based sidebar restrictions for non-admin users
+  if (USER_ROLE !== 'admin') {
+    // Map section ID → sb-item ID
+    var _adminOnlyIds = [
+      'sb-gsc','sb-filescan','sb-securescore','sb-threatanalytics',
+      'sb-incidents','sb-signals','sb-eventtimeline','sb-mitre',
+      'sb-priority','sb-recommendations','sb-remediation',
+      'sb-weaknesses','sb-targets','sb-observability','sb-scan','sb-history'
+    ];
+    _adminOnlyIds.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    // Also hide section labels that become empty
+    // Hide the AI Assistant sub-items label dividers if needed
+    document.querySelectorAll('.sb-nav-label').forEach(function(lbl){
+      // Check if all following sb-items until next label are hidden
+      var sib = lbl.nextElementSibling;
+      var allHidden = true;
+      while (sib && !sib.classList.contains('sb-nav-label') && !sib.classList.contains('sb-divider')) {
+        if (sib.classList.contains('sb-item') && sib.style.display !== 'none') { allHidden = false; break; }
+        sib = sib.nextElementSibling;
+      }
+      if (allHidden) lbl.style.display = 'none';
+    });
+  }
 });
 
 function copyEnvTemplate() {

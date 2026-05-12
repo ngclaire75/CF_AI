@@ -26,7 +26,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect
+from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 import dashboard.db as db
 from dashboard.remediations import REMEDIATIONS
 
@@ -418,6 +420,78 @@ def _wp_xmlrpc_verify(site_url: str, username: str, password: str) -> bool:
 
 
 app = Flask(__name__, template_folder='templates')
+app.secret_key = os.environ.get('CFAI_SECRET_KEY', 'cfai-dev-secret-change-in-prod-2026')
+
+# ── User store ────────────────────────────────────────────────────────────────
+_USERS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'users.json')
+
+def _load_users() -> dict:
+    os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
+    if not os.path.exists(_USERS_FILE):
+        # Seed default admin
+        default = {'admin': {'password': generate_password_hash('admin123'), 'role': 'admin'}}
+        with open(_USERS_FILE, 'w') as f:
+            _json.dump(default, f)
+        return default
+    with open(_USERS_FILE) as f:
+        return _json.load(f)
+
+def _save_users(users: dict) -> None:
+    os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
+    with open(_USERS_FILE, 'w') as f:
+        _json.dump(users, f, indent=2)
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('user'):
+            return redirect(url_for('login_page'))
+        return f(*args, **kwargs)
+    return decorated
+
+# ── Auth routes ───────────────────────────────────────────────────────────────
+@app.route('/login', methods=['GET', 'POST'])
+def login_page():
+    error = None
+    if request.method == 'POST':
+        username = (request.form.get('username') or '').strip()
+        password = request.form.get('password') or ''
+        users = _load_users()
+        user = users.get(username)
+        if user and check_password_hash(user['password'], password):
+            session['user'] = {'username': username, 'role': user['role']}
+            return redirect(url_for('index'))
+        error = 'Invalid username or password.'
+    return render_template('login.html', error=error)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup_page():
+    error = None
+    if request.method == 'POST':
+        username = (request.form.get('username') or '').strip()
+        password = request.form.get('password') or ''
+        confirm  = request.form.get('confirm') or ''
+        if not username or not password:
+            error = 'Username and password are required.'
+        elif password != confirm:
+            error = 'Passwords do not match.'
+        elif len(password) < 6:
+            error = 'Password must be at least 6 characters.'
+        else:
+            users = _load_users()
+            if username in users:
+                error = 'Username already taken.'
+            else:
+                users[username] = {'password': generate_password_hash(password), 'role': 'user'}
+                _save_users(users)
+                session['user'] = {'username': username, 'role': 'user'}
+                return redirect(url_for('index'))
+    return render_template('signup.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login_page'))
 
 # ── In-memory scan job store (Connect Your Website feature) ──────────────────
 _scan_jobs: dict = {}
@@ -1371,8 +1445,10 @@ def enrich(scan: dict) -> dict:
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/')
+@login_required
 def index():
     ctx = _build_template_context()
+    ctx['current_user'] = session.get('user', {'username': 'admin', 'role': 'admin'})
     return render_template('index.html', **ctx)
 
 
