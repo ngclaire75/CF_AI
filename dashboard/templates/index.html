@@ -6162,6 +6162,8 @@ function openWpLogsModal(target) {
         '</div>'+
       '</div>';
 
+      var _logStatuses = JSON.parse(localStorage.getItem('cfai_log_statuses') || '{}');
+
       html += '<div class="rpt-sec"><h3>Activity Log Events ('+logs.length+')</h3>'+
         '<div class="scroll-panel">'+
         '<table class="wplogs-table">'+
@@ -6172,21 +6174,45 @@ function openWpLogsModal(target) {
             '<th>IP Address</th>'+
             '<th>Country</th>'+
             '<th>Risk</th>'+
+            '<th>Flag</th>'+
             '<th>Scan</th>'+
           '</tr></thead><tbody>';
 
-      logs.forEach(function(l) {
+      logs.forEach(function(l, idx) {
         var riskClass = 'wplogs-risk-'+(l.risk||'INFO');
         var countryBadge = l.country
           ? '<span style="font-size:10px;background:#f3f4f6;border-radius:3px;padding:1px 5px;color:#374151;">'+esc(l.country)+'</span>'
           : '<span style="color:#d1d5db;font-size:11px;">—</span>';
-        html += '<tr>'+
+        var logKey    = (l.user||'')+'|'+(l.ip||'')+'|'+(l.timestamp||'')+'|'+idx;
+        var logStatus = _logStatuses[logKey] || 'none';
+        var flagBadges = {
+          suspicious: '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
+          blocked:    '<span style="background:#a80000;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
+          safe:       '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
+          watchlist:  '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
+          fp:         '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE +VE</span>',
+        };
+        var rowBg = logStatus==='blocked' ? 'background:#fff5f5;' : logStatus==='suspicious' ? 'background:#fffbfb;' : logStatus==='safe' ? 'background:#f8fff9;' : '';
+        var escapedKey = logKey.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        var flagCell = '<div style="display:flex;align-items:center;gap:4px;">'
+          + '<span id="logbadge-'+idx+'">'+(flagBadges[logStatus]||'')+'</span>'
+          + '<select onchange="_logSetStatus(this,\''+escapedKey+'\','+idx+')" '
+          + 'style="font-size:10px;border:1px solid #e5e7eb;border-radius:4px;padding:2px 3px;cursor:pointer;background:#fff;max-width:90px;">'
+          + '<option value="none"'       +(logStatus==='none'?' selected':'')+'>— Flag</option>'
+          + '<option value="suspicious"' +(logStatus==='suspicious'?' selected':'')+'>Suspicious</option>'
+          + '<option value="watchlist"'  +(logStatus==='watchlist'?' selected':'')+'>Watchlist</option>'
+          + '<option value="blocked"'    +(logStatus==='blocked'?' selected':'')+'>Block User</option>'
+          + '<option value="safe"'       +(logStatus==='safe'?' selected':'')+'>Safe</option>'
+          + '<option value="fp"'         +(logStatus==='fp'?' selected':'')+'>False +ve</option>'
+          + '</select></div>';
+        html += '<tr id="logrow-'+idx+'" style="'+rowBg+'">'+
           '<td style="white-space:nowrap;font-size:11px;color:#6b7280;">'+esc(l.timestamp||'--')+'</td>'+
           '<td style="font-weight:500;">'+esc(l.user||'--')+'</td>'+
           '<td>'+esc(l.event||'--')+'</td>'+
           '<td style="font-family:monospace;font-size:11px;">'+esc(l.ip||'--')+'</td>'+
           '<td>'+countryBadge+'</td>'+
           '<td><span class="'+riskClass+'">'+esc(l.risk||'INFO')+'</span></td>'+
+          '<td>'+flagCell+'</td>'+
           '<td style="font-size:11px;color:#9ca3af;">#'+esc(String(l.scan_id||''))+'</td>'+
         '</tr>';
       });
@@ -9503,6 +9529,57 @@ function loadFileScanPage() {
   if (saved) document.getElementById('fs-site-url').value = saved;
 }
 
+function _fsSetStatus(sel, fileKey, idx) {
+  var status = sel.value;
+  var statuses = JSON.parse(localStorage.getItem('cfai_fs_statuses') || '{}');
+  statuses[fileKey] = status;
+  localStorage.setItem('cfai_fs_statuses', JSON.stringify(statuses));
+  var row   = document.getElementById('fsrow-'+idx);
+  var badge = document.getElementById('fsbadge-'+idx);
+  var badgeStyles = {
+    suspicious: {bg:'#fde7e9', col:'#a80000', label:'SUSPICIOUS'},
+    malware:    {bg:'#a80000', col:'#fff',    label:'MALWARE'},
+    dismissed:  {bg:'#f3f2f1', col:'#a19f9d', label:'DISMISSED'},
+    ok:         {bg:'#e9f8ee', col:'#107c10', label:'KNOWN SAFE'},
+  };
+  var s = badgeStyles[status] || badgeStyles.ok;
+  if (badge) {
+    badge.textContent = s.label;
+    badge.style.background = s.bg;
+    badge.style.color = s.col;
+  }
+  if (row) {
+    row.style.opacity  = status === 'dismissed' ? '0.4' : '1';
+    row.style.color    = status === 'suspicious' ? '#a80000' : status === 'malware' ? '#a80000' : '';
+    row.style.fontWeight = (status === 'suspicious' || status === 'malware') ? '600' : '';
+  }
+}
+
+function _fsClearDismissed() {
+  localStorage.removeItem('cfai_fs_statuses');
+  fsRun();
+}
+
+function _logSetStatus(sel, logKey, idx) {
+  var status = sel.value;
+  var statuses = JSON.parse(localStorage.getItem('cfai_log_statuses') || '{}');
+  statuses[logKey] = status;
+  localStorage.setItem('cfai_log_statuses', JSON.stringify(statuses));
+  var badge = document.getElementById('logbadge-'+idx);
+  var row   = document.getElementById('logrow-'+idx);
+  var flagBadges = {
+    suspicious: '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
+    blocked:    '<span style="background:#a80000;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
+    safe:       '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
+    watchlist:  '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
+    fp:         '<span style="background:#f3f2f1;color:#605e5c;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">FALSE +VE</span>',
+  };
+  if (badge) badge.innerHTML = flagBadges[status] || '';
+  if (row) {
+    row.style.background = status==='blocked' ? '#fff5f5' : status==='suspicious' ? '#fffbfb' : status==='safe' ? '#f8fff9' : '';
+  }
+}
+
 function fsClear() {
   document.getElementById('fs-site-url').value = '';
   document.getElementById('fs-results').style.display = 'none';
@@ -9643,21 +9720,48 @@ function _fsRender(data) {
   var recentFiles = data.recent_modified || [];
   if (data.plugin_installed && recentFiles.length) {
     var _SUSP_EXT = ['php','exe','bat','sh','cmd','py'];
-    var rRows = recentFiles.map(function(f){
+    var _fsStatuses = JSON.parse(localStorage.getItem('cfai_fs_statuses') || '{}');
+    var flaggedCount = 0;
+    var rRows = recentFiles.map(function(f, idx){
       var isSusp = _SUSP_EXT.indexOf((f.ext||'').toLowerCase()) !== -1;
-      var rowStyle = isSusp ? 'color:#a80000;font-weight:600;' : '';
-      return '<tr style="'+rowStyle+'">'
+      var fileKey = f.file;
+      var status  = _fsStatuses[fileKey] || (isSusp ? 'suspicious' : 'ok');
+      if (status === 'suspicious') flaggedCount++;
+      var rowOpacity = status === 'dismissed' ? '0.4' : '1';
+      var rowStyle   = (status === 'suspicious') ? 'color:#a80000;font-weight:600;' : '';
+      var badgeHtml;
+      if (status === 'suspicious') {
+        badgeHtml = '<span id="fsbadge-'+idx+'" style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">SUSPICIOUS</span>';
+      } else if (status === 'malware') {
+        badgeHtml = '<span id="fsbadge-'+idx+'" style="background:#a80000;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">MALWARE</span>';
+      } else if (status === 'dismissed') {
+        badgeHtml = '<span id="fsbadge-'+idx+'" style="background:#f3f2f1;color:#a19f9d;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">DISMISSED</span>';
+      } else {
+        badgeHtml = '<span id="fsbadge-'+idx+'" style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">KNOWN SAFE</span>';
+      }
+      var selectHtml = '<select onchange="_fsSetStatus(this,\''+fileKey.replace(/'/g,"\\'")+'\',' +idx+')" '
+        + 'style="font-size:11px;border:1px solid #c8c6c4;border-radius:4px;padding:2px 4px;cursor:pointer;background:#fff;">'
+        + '<option value="suspicious"'  +(status==='suspicious'?' selected':'')+'>Suspicious</option>'
+        + '<option value="ok"'          +(status==='ok'?' selected':'')+'>Known Safe</option>'
+        + '<option value="malware"'     +(status==='malware'?' selected':'')+'>Malware</option>'
+        + '<option value="dismissed"'   +(status==='dismissed'?' selected':'')+'>Dismiss</option>'
+        + '</select>';
+      return '<tr id="fsrow-'+idx+'" style="opacity:'+rowOpacity+';'+rowStyle+'">'
         + '<td style="font-size:11px;word-break:break-all;">'+_esc(f.file)+'</td>'
         + '<td style="font-size:11px;white-space:nowrap;">'+_esc(f.modified)+'</td>'
         + '<td style="font-size:11px;">'+_esc(f.ext)+'</td>'
         + '<td style="font-size:11px;">'+(f.size ? Math.round(f.size/1024)+'KB' : '')+'</td>'
-        + '<td>'+(isSusp ? '<span style="background:#fde7e9;color:#a80000;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">SUSPICIOUS</span>' : '')+'</td>'
+        + '<td>'+badgeHtml+'</td>'
+        + '<td>'+selectHtml+'</td>'
         + '</tr>';
     }).join('');
-    modRecentPanel.innerHTML = '<div style="font-size:12px;font-weight:600;color:#201f1e;margin-bottom:6px;">'
-      + 'Recently Modified Files — last 7 days ('+recentFiles.length+')</div>'
+    modRecentPanel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+      + '<span style="font-size:12px;font-weight:600;color:#201f1e;">Recently Modified Files — last 7 days ('+recentFiles.length+')'
+      + (flaggedCount ? ' <span style="color:#a80000;">· '+flaggedCount+' flagged</span>' : '') + '</span>'
+      + '<button onclick="_fsClearDismissed()" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;">Reset All Statuses</button>'
+      + '</div>'
       + '<div class="scroll-panel"><table><thead><tr>'
-      + '<th>File</th><th>Modified</th><th>Ext</th><th>Size</th><th>Flag</th>'
+      + '<th>File</th><th>Modified</th><th>Ext</th><th>Size</th><th>Flag</th><th>Status</th>'
       + '</tr></thead><tbody>'+rRows+'</tbody></table></div>';
   } else if (data.plugin_installed) {
     modRecentPanel.innerHTML = '<div style="font-size:12px;color:#107c10;">✓ No recently modified suspicious files in wp-content (last 7 days)</div>';
