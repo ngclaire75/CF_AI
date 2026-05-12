@@ -1931,7 +1931,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
     <div class="sb-nav-label">Scanning</div>
     <button class="sb-item" id="sb-scan" onclick="sbNav('scan',this)">
-      <span class="sb-label">Connect &amp; scan</span>
+      <span class="sb-label">Connect &amp; Scan with Agent</span>
     </button>
     <button class="sb-item" id="sb-history" onclick="sbNav('history',this)">
       <span class="sb-label">Security analytics</span>
@@ -2610,7 +2610,7 @@ Export Power BI
   <section class="section" id="connect-section">
     <div class="sec-head">
       <div>
-        <div class="sec-title">Connect Your Website</div>
+        <div class="sec-title">Connect & Scan with Agent</div>
         <div class="sec-desc">Enter your URL, optionally provide hosting credentials for a deeper authenticated scan, then pick an AI agent.</div>
       </div>
     </div>
@@ -2679,6 +2679,7 @@ Export Power BI
                 <option value="cpanel">cPanel Hosting</option>
                 <option value="ssh">SSH / Root Access</option>
                 <option value="sftp">SFTP / FTP</option>
+                <option value="mysql">MySQL / Database</option>
               </select>
             </div>
           </div>
@@ -2722,6 +2723,21 @@ Export Power BI
               <div><label class="cred-label">Port</label><input type="text" id="cwFtpPort" class="cred-input" placeholder="22" style="width:64px;" autocomplete="off"/></div>
             </div>
             <div class="cred-hint">Scans the webroot for exposed .env files, wp-config.php, backup/SQL dumps, and PHP shells in the uploads directory.</div>
+          </div>
+
+          <!-- MySQL / Database fields -->
+          <div id="cred-db" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">DB Host</label><input type="text" id="cwDbHost" class="cred-input" placeholder="hostname.hostinger.com" autocomplete="off"/></div>
+              <div><label class="cred-label">DB Port</label><input type="text" id="cwDbPort" class="cred-input" placeholder="3306" style="width:70px;" autocomplete="off"/></div>
+              <div><label class="cred-label">DB Name</label><input type="text" id="cwDbName" class="cred-input" placeholder="u123456789_dbname" autocomplete="off"/></div>
+            </div>
+            <div class="cred-row" style="margin-top:8px;">
+              <div><label class="cred-label">DB Username</label><input type="text" id="cwDbUser" class="cred-input" placeholder="u123456789_user" autocomplete="off"/></div>
+              <div><label class="cred-label">DB Password</label><input type="password" id="cwDbPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">Table Prefix</label><input type="text" id="cwDbPrefix" class="cred-input" placeholder="wp_" style="width:80px;" autocomplete="off"/></div>
+            </div>
+            <div class="cred-hint">Reads wp_simple_history and similar log tables directly. Enable Remote MySQL in Hostinger hPanel → Databases → Remote MySQL and add your IP.</div>
           </div>
 
           <div class="cred-notice">&#9888; Credentials are used only for this scan session and are never stored in the database or transmitted externally.</div>
@@ -4090,7 +4106,7 @@ var _PAGE_TITLES = {
   'mitre':         'MITRE ATT&CK / Cloud SIEM',
   'incidents':     'Incident Management',
   'logexplorer':   'Log Explorer',
-  'scan':          'Connect & Scan',
+  'scan':          'Connect & Scan with Agent',
   'vulns':         'Vulnerability Overview',
   'priority':      'Priority Actions',
   'targets':       'Scan Results',
@@ -6536,9 +6552,9 @@ function cwToggleCreds() {
 }
 function cwUpdateCredFields() {
   var t = document.getElementById('cwCredType').value;
-  var map = {wordpress: 'wp', cpanel: 'cpanel', ssh: 'ssh', sftp: 'sftp'};
+  var map = {wordpress: 'wp', cpanel: 'cpanel', ssh: 'ssh', sftp: 'sftp', mysql: 'db'};
   var key = map[t] || t;
-  ['wp','cpanel','ssh','sftp'].forEach(function(k){
+  ['wp','cpanel','ssh','sftp','db'].forEach(function(k){
     var el = document.getElementById('cred-' + k);
     if (el) el.style.display = (k === key) ? 'block' : 'none';
   });
@@ -6552,6 +6568,8 @@ function cwGetCreds() {
     cpanel_user: g('cwCpUser'),   cpanel_pass: g('cwCpPass'),
     ssh_host:    g('cwSshHost'),  ssh_user:   g('cwSshUser'),  ssh_pass:    g('cwSshPass'), ssh_port: g('cwSshPort'),
     ftp_host:    g('cwFtpHost'),  ftp_user:   g('cwFtpUser'),  ftp_pass:    g('cwFtpPass'), ftp_port: g('cwFtpPort'),
+    db_host:     g('cwDbHost'),   db_port:    g('cwDbPort'),   db_name:     g('cwDbName'),
+    db_user:     g('cwDbUser'),   db_pass:    g('cwDbPass'),   db_prefix:   g('cwDbPrefix'),
   };
 }
 
@@ -7733,6 +7751,11 @@ function runHostingerMysql() {
         db_user: user, db_pass: pass, table_prefix: prefix
       }));
     } catch(ex) {}
+    // Also persist server-side so sync and Connect & Scan can use them
+    fetch('/api/creds/save', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({type:'mysql', db_host:host, db_port:parseInt(port),
+        db_name:name, db_user:user, db_pass:pass, table_prefix:prefix})
+    }).catch(function(){});
     var events = d.events || [];
     stats.textContent = events.length + ' event(s) loaded from MySQL' + (d.total > events.length ? ' (showing ' + events.length + ' of ' + d.total + ')' : '');
     stats.style.display = 'block';
@@ -7856,6 +7879,11 @@ function runWpCpanelDb() {
           cp_token: token, wp_dir: dir
         }));
       } catch(e) {}
+      // Also persist server-side
+      fetch('/api/creds/save', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({type:'cpanel', url:url, cp_host:host,
+          cp_user:user, cp_pass:pass, cp_token:token, wp_dir:dir})
+      }).catch(function(){});
     }
   }).catch(function(e){
     btn.disabled = false; btn.textContent = 'Fetch via Database';

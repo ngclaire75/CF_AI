@@ -1080,6 +1080,43 @@ def _build_cred_block(site_type: str, creds: dict, domain: str) -> str:
             + f'    {sc} "ufw status 2>/dev/null; iptables -L INPUT -n 2>/dev/null|head -20"\n'
         )
 
+    if site_type == 'mysql' and creds.get('db_host') and creds.get('db_name'):
+        db_host   = creds.get('db_host', '')
+        db_port   = creds.get('db_port', '3306') or '3306'
+        db_name   = creds.get('db_name', '')
+        db_user   = creds.get('db_user', '')
+        db_prefix = creds.get('db_prefix', 'wp_') or 'wp_'
+        mc = (f'mysql -h "{db_host}" -P {db_port} -u "{db_user}" -p"$DB_PASSWORD" '
+              f'--connect-timeout=10 "{db_name}"')
+        return (hdr
+            + 'MYSQL / DATABASE CREDENTIALS\n'
+            + f'  Host     : {db_host}:{db_port}\n'
+            + f'  Database : {db_name}\n'
+            + f'  User     : {db_user}\n'
+            + f'  Prefix   : {db_prefix}\n'
+            + '  Password : $DB_PASSWORD (in environment — do not print)\n\n'
+            + 'Run ALL MySQL security checks:\n\n'
+            + f'1. WordPress users (admins + last login):\n'
+            + f'   {mc} -e "SELECT user_login,user_email,user_registered FROM {db_prefix}users ORDER BY user_registered DESC LIMIT 30;"\n\n'
+            + f'2. WordPress options (siteurl, admin email, active plugins):\n'
+            + f'   {mc} -e "SELECT option_name,option_value FROM {db_prefix}options WHERE option_name IN (\'siteurl\',\'admin_email\',\'blogname\',\'active_plugins\',\'blogdescription\');"\n\n'
+            + f'3. Recent Simple History activity log (login, plugin changes):\n'
+            + f'   {mc} -e "SELECT date,initiator,action,object_type,object_name FROM {db_prefix}simple_history ORDER BY id DESC LIMIT 50;" 2>/dev/null || '
+            + f'{mc} -e "SELECT created_at,user_login,action FROM {db_prefix}wsal_occurrences oc JOIN {db_prefix}wsal_metadata m ON oc.id=m.occurrence_id WHERE m.name=\'username\' ORDER BY oc.created_at DESC LIMIT 50;" 2>/dev/null\n\n'
+            + f'4. Wordfence login log (brute force evidence):\n'
+            + f'   {mc} -e "SELECT ctime,IP,username,hitcount,blockedHits FROM {db_prefix}wflogins ORDER BY ctime DESC LIMIT 30;" 2>/dev/null\n\n'
+            + f'5. Wordfence blocked IPs:\n'
+            + f'   {mc} -e "SELECT IP,blockedTime,reason FROM {db_prefix}wfblockediplog ORDER BY blockedTime DESC LIMIT 20;" 2>/dev/null\n\n'
+            + f'6. User capabilities (check for hidden admins):\n'
+            + f'   {mc} -e "SELECT user_id,meta_value FROM {db_prefix}usermeta WHERE meta_key=\'{db_prefix}capabilities\' AND meta_value LIKE \'%administrator%\';"\n\n'
+            + f'7. Recent user registrations (last 30 days):\n'
+            + f'   {mc} -e "SELECT user_login,user_email,user_registered FROM {db_prefix}users WHERE user_registered > DATE_SUB(NOW(),INTERVAL 30 DAY) ORDER BY user_registered DESC;"\n\n'
+            + f'8. Active plugins list from DB:\n'
+            + f'   {mc} -e "SELECT option_value FROM {db_prefix}options WHERE option_name=\'active_plugins\';" | tr \',\' \'\\n\' | grep -oP \'[a-z0-9-]+/[a-z0-9-]+\\.php\'\n\n'
+            + f'9. Scheduled events (check for malicious crons):\n'
+            + f'   {mc} -e "SELECT option_value FROM {db_prefix}options WHERE option_name=\'cron\';" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); [print(k,list(v.keys())) for k,v in d.items() if k!=\'version\']" 2>/dev/null\n'
+        )
+
     if site_type == 'sftp' and ftp_user and ftp_host:
         proto  = 'sftp' if site_type == 'sftp' else 'ftp'
         cp_ftp = f'curl -sk --user "{ftp_user}:$FTP_PASSWORD"'
@@ -1139,6 +1176,12 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         'SSHPASS':         creds.get('ssh_pass', ''),
         'FTP_PASSWORD':    creds.get('ftp_pass', ''),
         'SSH_KEY':         creds.get('ssh_key', ''),
+        'DB_HOST':         creds.get('db_host', ''),
+        'DB_PORT':         creds.get('db_port', '3306'),
+        'DB_NAME':         creds.get('db_name', ''),
+        'DB_USER':         creds.get('db_user', ''),
+        'DB_PASSWORD':     creds.get('db_pass', ''),
+        'DB_PREFIX':       creds.get('db_prefix', 'wp_'),
     }
     for k, v in cred_env.items():
         if v:
@@ -1227,6 +1270,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 or creds.get('cpanel_user') or creds.get('cpanel_pass')
                 or creds.get('ssh_user')    or creds.get('ssh_pass')
                 or creds.get('ftp_user')    or creds.get('ftp_pass')
+                or creds.get('db_host')     or creds.get('db_name')
             )
             _needs_mcp = (site_type == 'wordpress') or bool(_wp_creds) or (agent_type == 'apit')
 
@@ -1925,11 +1969,12 @@ def api_connect_scan():
 
     Request JSON:
       { "target": "example.com", "agent_type": "apit", "model": "",
-        "site_type": "wordpress|cpanel|ssh|sftp|none",
+        "site_type": "wordpress|cpanel|ssh|sftp|mysql|none",
         "wp_user": "", "wp_pass": "", "wp_app_pass": "",
         "cpanel_user": "", "cpanel_pass": "",
         "ssh_host": "", "ssh_user": "", "ssh_pass": "", "ssh_port": "", "ssh_key": "",
-        "ftp_host": "", "ftp_user": "", "ftp_pass": "", "ftp_port": "" }
+        "ftp_host": "", "ftp_user": "", "ftp_pass": "", "ftp_port": "",
+        "db_host": "", "db_port": "", "db_name": "", "db_user": "", "db_pass": "", "db_prefix": "" }
     Response: { "job_id": "<uuid>" }
     """
     data = request.get_json(force=True, silent=True) or {}
@@ -1958,6 +2003,12 @@ def api_connect_scan():
         'ftp_user':     _s('ftp_user'),
         'ftp_pass':     _s('ftp_pass'),
         'ftp_port':     _s('ftp_port'),
+        'db_host':      _s('db_host'),
+        'db_port':      _s('db_port') or '3306',
+        'db_name':      _s('db_name'),
+        'db_user':      _s('db_user'),
+        'db_pass':      _s('db_pass'),
+        'db_prefix':    _s('db_prefix') or 'wp_',
     }
 
     job_id = str(_uuid.uuid4())
@@ -2104,6 +2155,147 @@ def api_security_signals():
                              any(kw in sig['event'].lower()
                                  for kw in ('injection', 'rce', 'exposure', 'traversal')))
     return jsonify({'signals': signals[:200], 'counts': counts})
+
+
+# ── Credential persistence ───────────────────────────────────────────────────
+@app.route('/api/creds/save', methods=['POST'])
+def api_creds_save():
+    """Save credentials to server-side session so all pages can use them."""
+    data      = request.get_json(force=True, silent=True) or {}
+    cred_type = data.get('type', '')   # 'wordpress' | 'cpanel' | 'mysql'
+    if not cred_type:
+        return jsonify({'error': 'type required'}), 400
+    # Accept either nested {"creds": {...}} or flat top-level keys (everything except 'type')
+    creds = data.get('creds') or {k: v for k, v in data.items() if k != 'type'}
+    if 'saved_creds' not in session:
+        session['saved_creds'] = {}
+    session['saved_creds'][cred_type] = creds
+    session.modified = True
+    return jsonify({'ok': True})
+
+@app.route('/api/creds/load', methods=['GET'])
+def api_creds_load():
+    """Return which credential types have been saved (passwords masked)."""
+    saved = session.get('saved_creds', {})
+    result = {}
+    for ctype, creds in saved.items():
+        result[ctype] = {k: ('***' if any(s in k.lower() for s in ('pass', 'token', 'key', 'secret')) else v)
+                         for k, v in creds.items()}
+    return jsonify({'creds': result,
+                    'has_wordpress': 'wordpress' in saved,
+                    'has_mysql':     'mysql' in saved,
+                    'has_cpanel':    'cpanel' in saved})
+
+@app.route('/api/sync/all', methods=['POST'])
+def api_sync_all():
+    """Re-fetch from all saved credential sources and populate the DB."""
+    import base64 as _b64, json as _j
+    saved = session.get('saved_creds', {})
+    results = {}
+
+    # WordPress
+    wp = saved.get('wordpress', {})
+    if wp.get('url'):
+        url      = wp['url'].rstrip('/')
+        wp_user  = wp.get('wp_user', '')
+        app_pass = wp.get('wp_app_pass', '')
+        auth_hdr = ('Basic ' + _b64.b64encode(f'{wp_user}:{app_pass}'.encode()).decode()) if wp_user and app_pass else None
+        def _wg(path):
+            hdrs = {'Authorization': auth_hdr} if auth_hdr else {}
+            code, body = _wp_request(f'{url}{path}', headers=hdrs, timeout=15)
+            try: return _j.loads(body) if code == 200 else None
+            except Exception: return None
+        events, source = [], 'WordPress REST API'
+        for path in [f'/wp-json/wsal/v1/events?per_page=100&order=DESC',
+                     f'/wp-json/cfai-simple-history/v1/events?per_page=100']:
+            data_r = _wg(path)
+            if not data_r: continue
+            items = data_r if isinstance(data_r, list) else (data_r.get('events') or data_r.get('data') or [])
+            for ev in items:
+                msg = str(ev.get('message') or ev.get('alert_message') or ev.get('type') or '')
+                if not msg: continue
+                events.append({'timestamp': str(ev.get('created_on') or ev.get('date') or ''),
+                                'user': str(ev.get('user_login') or ev.get('username') or '—'),
+                                'event': msg[:120], 'ip': str(ev.get('client_ip') or ev.get('ip') or ''),
+                                'severity': 'HIGH' if any(k in msg.lower() for k in ('fail','block','brute','invalid')) else 'INFO',
+                                'source': source})
+        if events:
+            _save_log_events_to_db(events, url, 'WordPress REST API', 'wp_log_sync')
+            results['wordpress'] = f'{len(events)} events synced'
+
+    # MySQL
+    mysql = saved.get('mysql', {})
+    if mysql.get('db_host') and mysql.get('db_name'):
+        try:
+            import pymysql, pymysql.cursors
+            conn = pymysql.connect(host=mysql['db_host'], port=int(mysql.get('db_port', 3306)),
+                                   user=mysql.get('db_user', ''), password=mysql.get('db_pass', ''),
+                                   database=mysql['db_name'], charset='utf8mb4', connect_timeout=10,
+                                   cursorclass=pymysql.cursors.DictCursor)
+            pfx = mysql.get('table_prefix', 'wp_')
+            events, source = [], 'MySQL'
+            with conn.cursor() as cur:
+                sh = f'{pfx}simple_history'
+                cur.execute("SHOW TABLES LIKE %s", (sh,))
+                if cur.fetchone():
+                    cur.execute(f"SELECT id, date, logger, level, message FROM {sh} ORDER BY id DESC LIMIT 100")
+                    for row in cur.fetchall():
+                        msg = str(row.get('message') or row.get('logger') or '')
+                        if not msg: continue
+                        events.append({'timestamp': str(row.get('date') or ''), 'user': '—',
+                                        'event': msg[:200], 'ip': '', 'severity': 'INFO', 'source': 'MySQL Simple History'})
+            conn.close()
+            if events:
+                _save_log_events_to_db(events, mysql.get('db_name', 'wordpress'), 'MySQL Direct', 'mysql_log_sync')
+                results['mysql'] = f'{len(events)} events synced'
+        except Exception as e:
+            results['mysql'] = f'error: {str(e)[:80]}'
+
+    return jsonify({'ok': True, 'results': results, 'synced_at': _time.strftime('%Y-%m-%d %H:%M:%S')})
+
+
+def _save_log_events_to_db(events: list, target: str, source: str, agent_type: str = 'log_sync') -> None:
+    """Format log events as WP-LOG scan output and persist to the DB.
+
+    This makes every log fetch visible across all analytics pages
+    (Threat Analytics, MITRE, Security Signals, Event Timeline, etc.)
+    since they all read from the scans table.
+    """
+    if not events:
+        return
+    lines = [f'# Log sync from {source} — {target} — {_time.strftime("%Y-%m-%d %H:%M:%S")}']
+    for ev in events:
+        ts  = (ev.get('timestamp') or '—')[:30]
+        usr = (ev.get('user') or '—')[:40]
+        msg = (ev.get('event') or '')[:200]
+        ip  = (ev.get('ip') or '-')[:45]
+        sev = (ev.get('severity') or 'INFO').upper()
+        if sev not in ('HIGH', 'MEDIUM', 'LOW', 'INFO'):
+            sev = 'INFO'
+        lines.append(f'WP-LOG | {ts} | {usr} | {msg} | {ip} | {sev}')
+        # Extra signal keywords so security-signals & MITRE parsers fire
+        if any(k in msg.lower() for k in ('fail', 'brute', 'block', 'invalid', 'attack')):
+            lines.append(f'FAILED_LOGIN | {usr} | {ip}')
+        if 'plugin' in msg.lower():
+            lines.append(f'WP-PLUGIN-CHANGE | {usr} | {msg[:80]}')
+    output = '\n'.join(lines)
+    db.save_scan(target=target, agent_type=agent_type, model='log_sync',
+                 status='ok', latency_s=0.0, tool_count=0, output=output)
+    # Also write to security_events table for Event Timeline
+    for ev in events:
+        if ev.get('severity') in ('HIGH', 'MEDIUM') or any(
+                k in (ev.get('event') or '').lower() for k in ('fail', 'brute', 'block', 'attack', 'invalid')):
+            try:
+                db.log_security_event(
+                    event_type=ev.get('event', 'Log event')[:80],
+                    category='authentication',
+                    severity=ev.get('severity', 'INFO'),
+                    ip_address=ev.get('ip', ''),
+                    country=_geoip(ev.get('ip', '')),
+                    target=target,
+                )
+            except Exception:
+                pass
 
 
 @app.route('/api/logs/wp-live', methods=['POST'])
@@ -2266,6 +2458,7 @@ def api_logs_wp_live():
         note = ('No login events found. Install "WP Activity Log" (WSAL) or "Simple History" plugin '
                 'on your WordPress site to expose real-time login events via REST API.')
 
+    _save_log_events_to_db(events, url or 'wordpress', source or 'WordPress REST API', 'wp_log_sync')
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
@@ -2458,6 +2651,7 @@ def api_logs_cpanel_live():
         else:
             note = 'Connected but no active sessions found. Try the API Token method for better access.'
 
+    _save_log_events_to_db(events, host or 'cpanel', source or 'cPanel', 'cpanel_log_sync')
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
@@ -2624,6 +2818,7 @@ def api_logs_wp_cpanel_db():
     if not events and not note:
         note = 'No Simple History events found. Is the Simple History plugin installed and active?'
 
+    _save_log_events_to_db(events, data.get('url', '') or 'wordpress', source or 'cPanel DB', 'cpanel_db_log_sync')
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
@@ -2847,6 +3042,7 @@ def api_logs_wp_mysql_direct():
 
     # Sort all events newest-first
     events.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+    _save_log_events_to_db(events, db_name or db_host, source or 'MySQL Direct', 'mysql_log_sync')
     return jsonify({'events': events[:limit], 'total': len(events), 'source': source, 'note': note})
 
 
