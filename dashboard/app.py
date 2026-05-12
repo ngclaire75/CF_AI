@@ -3562,13 +3562,14 @@ def api_cf_attack_mode():
         _, dev = _req('GET', f'/zones/{zone_id}/settings/development_mode')
         dev_mode = (dev.get('result') or {}).get('value', 'off') == 'on'
 
-        # Check if root A/CNAME record is proxied (orange cloud) or DNS-only
-        c3, dns = _req('GET', f'/zones/{zone_id}/dns_records?name={zone_name}&per_page=10')
+        # Check if any A/CNAME record is proxied — fetch all records (no name filter)
+        # so we don't miss apex/www records due to filter mismatch
+        c3, dns = _req('GET', f'/zones/{zone_id}/dns_records?per_page=100')
         dns_records = (dns.get('result') or []) if c3 == 200 else []
-        root_records = [r for r in dns_records if r.get('name') in (zone_name, f'www.{zone_name}')
-                        and r.get('type') in ('A', 'AAAA', 'CNAME')]
-        proxied = any(r.get('proxied') for r in root_records)
-        dns_only = bool(root_records) and not proxied
+        ac_records = [r for r in dns_records if r.get('type') in ('A', 'AAAA', 'CNAME')]
+        proxied = any(r.get('proxied') for r in ac_records)
+        # dns_only = True when we found records but NONE are proxied through CF
+        dns_only = bool(ac_records) and not proxied
 
         return jsonify({
             'domain': domain,
@@ -3581,9 +3582,8 @@ def api_cf_attack_mode():
             'dns_only': dns_only,
             'dev_mode': dev_mode,
             'proxy_warning': (
-                'DNS records are set to DNS Only (grey cloud) — traffic does not flow through '
-                'Cloudflare so Under Attack Mode has no effect. Enable the orange cloud (Proxied) '
-                'in Cloudflare DNS settings for this to work.'
+                'DNS is set to DNS Only (grey cloud) — traffic bypasses Cloudflare so Under Attack Mode '
+                'has no effect. Go to Cloudflare → DNS → enable the orange cloud (Proxied) on your A/CNAME records.'
             ) if dns_only else '',
             'dev_mode_warning': (
                 'Development Mode is ON — this bypasses Under Attack Mode completely. '
