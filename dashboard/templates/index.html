@@ -1245,6 +1245,28 @@ select.pt-input { appearance:none;-webkit-appearance:none;background-image:url("
 .pt-sev-low      { background:#d1fae5;color:#065f46; }
 .pt-sev-info     { background:#dbeafe;color:#1e40af; }
 
+/* ── GRC Compliance ── */
+.grc-score-ring { display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;border:3px solid currentColor;font-size:15px;font-weight:800; }
+.grc-score-excellent { color:#059669;border-color:#059669; }
+.grc-score-good      { color:#0078d4;border-color:#0078d4; }
+.grc-score-needs     { color:#d97706;border-color:#d97706; }
+.grc-score-poor      { color:#dc2626;border-color:#dc2626; }
+.grc-accordion-card  { background:#fff;border:1px solid #edebe9;border-radius:8px;overflow:hidden; }
+.grc-accordion-hdr   { display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none; }
+.grc-accordion-hdr:hover { background:#f9fafb; }
+.grc-accordion-body  { display:none;padding:0 16px 16px; }
+.grc-accordion-body.open { display:block; }
+.grc-std-row  { display:grid;grid-template-columns:220px 60px auto;gap:12px;align-items:start;padding:10px 0;border-bottom:1px solid #f3f4f6; }
+.grc-std-row:last-child { border-bottom:none; }
+.grc-pill-list { display:flex;flex-wrap:wrap;gap:5px;margin-top:6px; }
+.grc-pill      { font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600; }
+.grc-pill-gap  { background:#fee2e2;color:#991b1b; }
+.grc-pill-rec  { background:#dbeafe;color:#1e40af; }
+.grc-pill-ok   { background:#d1fae5;color:#065f46; }
+.grc-file-row  { display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:12px; }
+.grc-file-row .grc-rm { cursor:pointer;color:#6b7280;font-size:14px;margin-left:auto;line-height:1; }
+.grc-file-row .grc-rm:hover { color:#dc2626; }
+
 /* ── Timeline loading skeleton ── */
 @keyframes shimmer { from{background-position:200% 0;} to{background-position:-200% 0;} }
 .skeleton {
@@ -2018,6 +2040,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     </button>
     <button class="sb-item" id="sb-pentest" onclick="sbNav('pentest',this)">
       <span class="sb-label">Pentest Engagements</span>
+    </button>
+    <button class="sb-item" id="sb-grc" onclick="sbNav('grc',this)">
+      <span class="sb-label">GRC Compliance</span>
     </button>
 
     {% if current_user.role == 'admin' %}
@@ -4306,7 +4331,10 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <div style="width:300px;flex-shrink:0;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <span style="font-size:13px;font-weight:700;color:#201f1e;">Engagements</span>
-          <button class="pt-btn pt-btn-primary" onclick="ptOpenNewModal()">+ New</button>
+          <div style="display:flex;gap:6px;">
+            <button class="pt-btn" onclick="ptLoadDemo()" style="font-size:11px;color:#6b7280;border-color:#d1d5db;" title="Load temporary demo data — disappears on refresh">Demo</button>
+            <button class="pt-btn pt-btn-primary" onclick="ptOpenNewModal()">+ New</button>
+          </div>
         </div>
         <div id="pt-eng-list" style="display:flex;flex-direction:column;gap:8px;">
           <div style="color:#a19f9d;font-size:13px;padding:24px;text-align:center;">Loading…</div>
@@ -4323,6 +4351,89 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     </div><!-- /two-col -->
   </div><!-- /mdef-page -->
   </div><!-- /page-pentest -->
+
+  <!-- ══ GRC COMPLIANCE PAGE ═════════════════════════════════════════════════ -->
+  <div id="page-grc" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">GRC Compliance Analyzer</div>
+
+    <!-- Upload & config panel -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+
+      <!-- Upload zone -->
+      <div style="background:#fff;border:1px solid #edebe9;border-radius:8px;padding:20px;">
+        <div style="font-size:13px;font-weight:700;color:#201f1e;margin-bottom:12px;">Policy Documents</div>
+        <div id="grc-drop-zone"
+             style="border:2px dashed #d1d5db;border-radius:8px;padding:32px 16px;text-align:center;cursor:pointer;background:#f9fafb;transition:border-color .15s;"
+             onclick="document.getElementById('grc-file-input').click()"
+             ondragover="event.preventDefault();this.style.borderColor='#2563eb'"
+             ondragleave="this.style.borderColor='#d1d5db'"
+             ondrop="grcHandleDrop(event)">
+          <div style="font-size:28px;margin-bottom:8px;">📄</div>
+          <div style="font-size:13px;color:#374151;font-weight:600;">Drop policy files here</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:4px;">or click to browse</div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:6px;">Supports: .txt .md .docx .pdf</div>
+        </div>
+        <input type="file" id="grc-file-input" multiple accept=".txt,.md,.docx,.pdf"
+               style="display:none" onchange="grcAddFiles(this.files)">
+        <div id="grc-file-list" style="margin-top:12px;display:flex;flex-direction:column;gap:4px;"></div>
+      </div>
+
+      <!-- Standards & options -->
+      <div style="background:#fff;border:1px solid #edebe9;border-radius:8px;padding:20px;">
+        <div style="font-size:13px;font-weight:700;color:#201f1e;margin-bottom:12px;">Standards to Check</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="grc-std-iso" value="ISO 27001" checked style="accent-color:#2563eb;">
+            <div>
+              <div style="font-weight:600;color:#111827;">ISO/IEC 27001:2022</div>
+              <div style="font-size:11px;color:#6b7280;">International standard for information security management</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="grc-std-cis" value="CIS Controls" checked style="accent-color:#2563eb;">
+            <div>
+              <div style="font-weight:600;color:#111827;">CIS Controls v8</div>
+              <div style="font-size:11px;color:#6b7280;">18 prioritised controls for cyber defence</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="grc-std-nist" value="NIST CSF" checked style="accent-color:#2563eb;">
+            <div>
+              <div style="font-weight:600;color:#111827;">NIST CSF 2.0</div>
+              <div style="font-size:11px;color:#6b7280;">Identify · Protect · Detect · Respond · Recover · Govern</div>
+            </div>
+          </label>
+        </div>
+        <button class="pt-btn pt-btn-primary" onclick="grcRunAnalysis()" id="grc-analyze-btn"
+                style="width:100%;padding:10px;font-size:13px;">
+          Analyze Policies
+        </button>
+        <div id="grc-status" style="margin-top:10px;font-size:12px;color:#6b7280;text-align:center;min-height:18px;"></div>
+      </div>
+    </div><!-- /upload+config grid -->
+
+    <!-- Results -->
+    <div id="grc-results" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:14px;font-weight:700;color:#201f1e;">Analysis Results</div>
+        <button class="pt-btn" onclick="grcExport()" id="grc-export-btn"
+                style="font-size:12px;background:#059669;color:#fff;border-color:#059669;">
+          Export Excel
+        </button>
+      </div>
+
+      <!-- KPI bar -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;" id="grc-kpi-bar"></div>
+
+      <!-- Per-policy accordion -->
+      <div id="grc-accordion" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+
+    <div id="grc-error" style="display:none;padding:14px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;margin-top:12px;"></div>
+
+  </div><!-- /mdef-page -->
+  </div><!-- /page-grc -->
 
   </div><!-- /page-content -->
 </div><!-- /main-shell -->
@@ -4617,6 +4728,7 @@ var _PAGE_TITLES = {
   'securescore':   'Secure Score',
   'usermgmt':      'User Management',
   'pentest':       'Pentest Engagements',
+  'grc':           'GRC Compliance',
 };
 
 var _currentPage = 'dashboard';
@@ -4663,6 +4775,7 @@ function sbNav(section, el) {
   if (section === 'filescan')      loadFileScanPage();
   if (section === 'usermgmt')      loadUserMgmt();
   if (section === 'pentest')       loadPentestPage();
+  if (section === 'grc')           loadGrcPage();
 }
 
 function toggleSidebar() {
@@ -5322,7 +5435,7 @@ function _applySidebarAccess() {
     'sb-priority':'priority','sb-recommendations':'recommendations','sb-remediation':'remediation',
     'sb-weaknesses':'weaknesses','sb-inventories':'inventories','sb-targets':'targets',
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
-    'sb-scan':'scan','sb-history':'history','sb-pentest':'pentest',
+    'sb-scan':'scan','sb-history':'history','sb-pentest':'pentest','sb-grc':'grc',
   };
 
   Object.keys(_SB_MAP).forEach(function(id) {
@@ -12045,6 +12158,82 @@ function loadPentestPage() {
   _ptFetchEngagements();
 }
 
+// ── Mock / Demo Engagement ────────────────────────────────────────────────────
+function ptLoadDemo() {
+  var demo = [{
+    id: 9999,
+    name: 'Demo — Enterprise Pentest (ourdomain.com)',
+    client: 'Demo Corp',
+    status: 'active',
+    scope_urls: ['ourdomain.com', 'product.ourdomain.com'],
+    scope_ips: ['203.0.113.10', '203.0.113.11', '203.0.113.12'],
+    auth_config: { type: 'oidc', token_url: 'https://sso.ourdomain.com/oauth2/token', client_id: 'pentest-client', scope: 'openid profile api' },
+    created_at: new Date().toISOString(),
+  }];
+  // Inject fake scans so findings panel works
+  var fakeScan = {
+    id: 88001, engagement_id: 9999, target: 'ourdomain.com', agent_type: 'pentest',
+    status: 'ok', risk: 'HIGH', latency_s: 42,
+    display_date: new Date().toISOString().slice(0,16).replace('T',' '),
+    agent_label: 'Full Penetration Test',
+    recs: [
+      'Disable HTTP and enforce HTTPS-only redirects across all endpoints',
+      'Rotate OIDC client_secret — current secret exceeds 90-day rotation policy',
+      'Enforce Content-Security-Policy header on all product pages',
+      'Require MFA for all admin and privileged accounts (ISO 27001 A.9.4.2)',
+      'Rate-limit /api/v1/auth/token endpoint — currently allows unlimited requests',
+    ],
+    output: '[DEMO] This is mock data for preview only. Run a real scan to see actual results.\n\n'
+      + '=== ATHN ===\nAuthentication Testing\n'
+      + 'CRITICAL: OIDC token endpoint accepts invalid redirect_uri — potential OAuth phishing\n'
+      + 'HIGH: Login form allows unlimited password attempts — no account lockout detected\n'
+      + 'HIGH: Session token not rotated after privilege escalation\n\n'
+      + '=== INPV ===\nInput Validation\n'
+      + 'MEDIUM: XSS reflected in /search?q= parameter (no output encoding)\n'
+      + 'MEDIUM: SQL error messages exposed on /api/v1/users?filter= endpoint\n\n'
+      + '=== APIT ===\nAPI Security Testing\n'
+      + 'HIGH: /api/v1/users/{id} — IDOR, can access any user record by changing id\n'
+      + 'MEDIUM: API returns internal stack traces on 500 errors\n'
+      + 'LOW: API versioning not enforced — /api/v0/ still accessible with no auth\n',
+  };
+  var fakeScan2 = {
+    id: 88002, engagement_id: 9999, target: 'product.ourdomain.com', agent_type: 'apit',
+    status: 'ok', risk: 'MEDIUM', latency_s: 28,
+    display_date: new Date().toISOString().slice(0,16).replace('T',' '),
+    agent_label: 'API Security Testing',
+    recs: [
+      'Add Authorization header validation to all /api/v2/ routes',
+      'Remove debug endpoints /api/v2/_debug and /api/v2/internal/health from production',
+      'Enforce CORS allowlist — current policy allows requests from any origin',
+    ],
+    output: '[DEMO] product.ourdomain.com API scan\n\nMEDIUM: CORS wildcard (*) on all API responses\nMEDIUM: API key accepted in query param — should be header only\nLOW: X-Powered-By header exposes backend technology\n',
+  };
+
+  // Override fetch for these demo IDs so the UI renders
+  _ptEngagements = demo;
+  _ptRenderEngList();
+
+  // Patch scans endpoint for demo engagement
+  var _origFetch = window.fetch;
+  window.__grcDemoFetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/pentest/engagements/9999/scans') !== -1) {
+      return Promise.resolve({ ok:true, json: function(){ return Promise.resolve({ scans: [fakeScan, fakeScan2] }); } });
+    }
+    return _origFetch.apply(window, arguments);
+  };
+  // Only patch once
+  if (!window.__grcDemoPatchApplied) {
+    window.__grcDemoPatchApplied = true;
+    window.fetch = function(url, opts) { return window.__grcDemoFetch(url, opts); };
+  }
+
+  // Auto-select the demo engagement
+  setTimeout(function() {
+    var item = document.querySelector('[data-engid="9999"]');
+    if (item) item.click();
+  }, 50);
+}
+
 function _ptFetchEngagements() {
   fetch('/api/pentest/engagements').then(function(r){ return r.json(); }).then(function(data) {
     _ptEngagements = data.engagements || [];
@@ -12418,6 +12607,281 @@ function _ptShowErr(msg) {
   e.textContent = msg;
   e.style.display = '';
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GRC COMPLIANCE PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+
+var _grcFiles   = [];   // {file, name} staging array
+var _grcResults = [];   // last analysis results (for export)
+
+function loadGrcPage() {
+  // Nothing to auto-load; the page is self-contained
+}
+
+// ── File handling ─────────────────────────────────────────────────────────────
+
+function grcHandleDrop(e) {
+  e.preventDefault();
+  document.getElementById('grc-drop-zone').style.borderColor = '#d1d5db';
+  grcAddFiles(e.dataTransfer.files);
+}
+
+function grcAddFiles(fileList) {
+  var allowed = ['.txt', '.md', '.docx', '.pdf'];
+  Array.from(fileList).forEach(function(f) {
+    var ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
+    if (allowed.indexOf(ext) === -1) {
+      grcSetStatus('Skipped "' + f.name + '" — unsupported type.', '#dc2626');
+      return;
+    }
+    // Avoid duplicates
+    if (_grcFiles.some(function(x){ return x.name === f.name; })) return;
+    _grcFiles.push({ file: f, name: f.name });
+  });
+  grcRenderFileList();
+}
+
+function grcRemoveFile(name) {
+  _grcFiles = _grcFiles.filter(function(x){ return x.name !== name; });
+  grcRenderFileList();
+}
+
+function grcRenderFileList() {
+  var el = document.getElementById('grc-file-list');
+  if (!el) return;
+  if (!_grcFiles.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _grcFiles.map(function(f) {
+    var icon = f.name.endsWith('.pdf') ? '📕' : f.name.endsWith('.docx') ? '📘' : '📄';
+    var kb   = (f.file.size / 1024).toFixed(0) + ' KB';
+    return '<div class="grc-file-row">'
+      + '<span style="font-size:14px;">' + icon + '</span>'
+      + '<span style="flex:1;color:#111827;font-weight:500;">' + _esc(f.name) + '</span>'
+      + '<span style="color:#6b7280;font-size:10px;">' + kb + '</span>'
+      + '<span class="grc-rm" onclick="grcRemoveFile(\'' + f.name.replace(/'/g,"\\'") + '\')">&times;</span>'
+      + '</div>';
+  }).join('');
+}
+
+// ── Analysis ──────────────────────────────────────────────────────────────────
+
+function grcGetStandards() {
+  var stds = [];
+  ['grc-std-iso','grc-std-cis','grc-std-nist'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && el.checked) stds.push(el.value);
+  });
+  return stds;
+}
+
+function grcSetStatus(msg, color) {
+  var el = document.getElementById('grc-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color || '#6b7280';
+}
+
+function grcRunAnalysis() {
+  if (!_grcFiles.length) {
+    grcSetStatus('Add at least one policy document first.', '#dc2626');
+    return;
+  }
+  var stds = grcGetStandards();
+  if (!stds.length) {
+    grcSetStatus('Select at least one standard.', '#dc2626');
+    return;
+  }
+
+  var btn = document.getElementById('grc-analyze-btn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+  document.getElementById('grc-results').style.display = 'none';
+  document.getElementById('grc-error').style.display   = 'none';
+  grcSetStatus('Sending to AI — this may take 15–60s per document…', '#0078d4');
+
+  var fd = new FormData();
+  _grcFiles.forEach(function(f){ fd.append('files', f.file, f.name); });
+  stds.forEach(function(s){ fd.append('standards', s); });
+
+  fetch('/api/grc/analyze', { method: 'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      btn.disabled = false;
+      btn.textContent = 'Analyze Policies';
+      if (d.error) { grcShowError(d.error); return; }
+      _grcResults = d.results || [];
+      grcSetStatus('Analysis complete — ' + _grcResults.length + ' document(s) processed.', '#059669');
+      grcRenderResults(_grcResults);
+    })
+    .catch(function(e) {
+      btn.disabled = false;
+      btn.textContent = 'Analyze Policies';
+      grcShowError('Request failed: ' + e);
+    });
+}
+
+function grcShowError(msg) {
+  var el = document.getElementById('grc-error');
+  el.textContent = msg;
+  el.style.display = '';
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+
+function grcScoreClass(score) {
+  if (score >= 80) return 'grc-score-excellent';
+  if (score >= 60) return 'grc-score-good';
+  if (score >= 40) return 'grc-score-needs';
+  return 'grc-score-poor';
+}
+
+function grcRenderResults(results) {
+  // KPI bar
+  var totalScore = 0, goodCount = 0, gapCount = 0;
+  results.forEach(function(r) {
+    if (!r.error) {
+      totalScore += r.overall_score || 0;
+      if ((r.overall_score || 0) >= 60) goodCount++;
+      (r.critical_gaps || []).forEach(function(){ gapCount++; });
+    }
+  });
+  var avgScore = results.length ? Math.round(totalScore / results.length) : 0;
+
+  document.getElementById('grc-kpi-bar').innerHTML = [
+    { label:'Avg Compliance Score', value: avgScore + '%',    color: avgScore >= 60 ? '#059669' : '#dc2626' },
+    { label:'Policies Reviewed',    value: results.length,    color: '#0078d4' },
+    { label:'Policies Passing',     value: goodCount,         color: '#059669' },
+    { label:'Critical Gaps Found',  value: gapCount,          color: '#dc2626' },
+  ].map(function(k) {
+    return '<div style="background:#fff;border:1px solid #edebe9;border-radius:8px;padding:14px 16px;">'
+      + '<div style="font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">' + k.label + '</div>'
+      + '<div style="font-size:22px;font-weight:800;color:' + k.color + ';">' + k.value + '</div>'
+      + '</div>';
+  }).join('');
+
+  // Accordion
+  document.getElementById('grc-accordion').innerHTML = results.map(function(r, i) {
+    if (r.error) {
+      return '<div class="grc-accordion-card">'
+        + '<div class="grc-accordion-hdr" style="color:#dc2626;">'
+        + '<span style="font-size:14px;">⚠</span>'
+        + '<div style="flex:1;"><div style="font-weight:700;">' + _esc(r.filename) + '</div>'
+        + '<div style="font-size:12px;color:#6b7280;">Error: ' + _esc(r.error) + '</div></div>'
+        + '</div></div>';
+    }
+
+    var sc    = r.overall_score || 0;
+    var scCls = grcScoreClass(sc);
+
+    var stdsHtml = (r.standards || []).map(function(s) {
+      var ssc = s.score || 0;
+      return '<div class="grc-std-row">'
+        + '<div>'
+          + '<div style="font-size:12px;font-weight:700;color:#111827;">' + _esc(s.name) + '</div>'
+          + '<div style="font-size:11px;color:#6b7280;margin-top:2px;">' + _esc(s.rating || '') + '</div>'
+        + '</div>'
+        + '<div class="grc-score-ring ' + grcScoreClass(ssc) + '" style="width:40px;height:40px;font-size:12px;">' + ssc + '</div>'
+        + '<div>'
+          + (s.gaps && s.gaps.length ? '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Gaps</div>'
+             + '<div class="grc-pill-list">'
+             + s.gaps.map(function(g){ return '<span class="grc-pill grc-pill-gap" title="' + _esc(g) + '">' + _esc(g.length > 55 ? g.slice(0,55)+'…' : g) + '</span>'; }).join('')
+             + '</div>' : '')
+          + (s.recommendations && s.recommendations.length ? '<div style="font-size:11px;font-weight:600;color:#6b7280;margin:8px 0 4px;">Recommendations</div>'
+             + '<div class="grc-pill-list">'
+             + s.recommendations.map(function(rec){ return '<span class="grc-pill grc-pill-rec" title="' + _esc(rec) + '">' + _esc(rec.length > 55 ? rec.slice(0,55)+'…' : rec) + '</span>'; }).join('')
+             + '</div>' : '')
+          + (s.covered_controls && s.covered_controls.length ? '<div style="font-size:11px;font-weight:600;color:#6b7280;margin:8px 0 4px;">Covered</div>'
+             + '<div class="grc-pill-list">'
+             + s.covered_controls.map(function(c){ return '<span class="grc-pill grc-pill-ok">' + _esc(c.length > 45 ? c.slice(0,45)+'…' : c) + '</span>'; }).join('')
+             + '</div>' : '')
+        + '</div>'
+      + '</div>';
+    }).join('');
+
+    var critGapsHtml = r.critical_gaps && r.critical_gaps.length
+      ? '<div style="margin-bottom:12px;">'
+        + '<div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px;">Critical Gaps</div>'
+        + r.critical_gaps.map(function(g){ return '<div style="font-size:12px;padding:5px 10px;margin-bottom:4px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:0 4px 4px 0;color:#991b1b;">' + _esc(g) + '</div>'; }).join('')
+        + '</div>' : '';
+
+    var strengthsHtml = r.strengths && r.strengths.length
+      ? '<div style="margin-bottom:12px;">'
+        + '<div style="font-size:12px;font-weight:700;color:#059669;margin-bottom:6px;">Strengths</div>'
+        + r.strengths.map(function(g){ return '<div style="font-size:12px;padding:5px 10px;margin-bottom:4px;background:#f0fdf4;border-left:3px solid #059669;border-radius:0 4px 4px 0;color:#065f46;">' + _esc(g) + '</div>'; }).join('')
+        + '</div>' : '';
+
+    var quickWinsHtml = r.quick_wins && r.quick_wins.length
+      ? '<div style="margin-bottom:12px;">'
+        + '<div style="font-size:12px;font-weight:700;color:#0078d4;margin-bottom:6px;">Quick Wins</div>'
+        + r.quick_wins.map(function(g){ return '<div style="font-size:12px;padding:5px 10px;margin-bottom:4px;background:#eff6ff;border-left:3px solid #0078d4;border-radius:0 4px 4px 0;color:#1e40af;">' + _esc(g) + '</div>'; }).join('')
+        + '</div>' : '';
+
+    var uid = 'grc-acc-' + i;
+    return '<div class="grc-accordion-card">'
+      + '<div class="grc-accordion-hdr" onclick="grcToggle(\'' + uid + '\')">'
+        + '<div class="grc-score-ring ' + scCls + '">' + sc + '</div>'
+        + '<div style="flex:1;">'
+          + '<div style="font-size:13px;font-weight:700;color:#111827;">' + _esc(r.filename) + '</div>'
+          + '<div style="font-size:11px;color:#6b7280;margin-top:2px;">' + _esc(r.policy_type || '') + ' &bull; ' + _esc(r.overall_rating || '') + '</div>'
+          + '<div style="font-size:12px;color:#374151;margin-top:4px;line-height:1.4;">' + _esc(r.summary || '') + '</div>'
+        + '</div>'
+        + '<span id="' + uid + '-chevron" style="font-size:18px;color:#9ca3af;transition:transform .2s;">&#8250;</span>'
+      + '</div>'
+      + '<div class="grc-accordion-body" id="' + uid + '-body">'
+        + critGapsHtml + strengthsHtml + quickWinsHtml
+        + '<div style="font-size:12px;font-weight:700;color:#374151;margin:12px 0 8px;">Standards Breakdown</div>'
+        + stdsHtml
+      + '</div>'
+    + '</div>';
+  }).join('');
+
+  document.getElementById('grc-results').style.display = '';
+  // Auto-open first card
+  grcToggle('grc-acc-0');
+}
+
+function grcToggle(uid) {
+  var body    = document.getElementById(uid + '-body');
+  var chevron = document.getElementById(uid + '-chevron');
+  if (!body) return;
+  var open = body.classList.toggle('open');
+  if (chevron) chevron.style.transform = open ? 'rotate(90deg)' : '';
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+function grcExport() {
+  if (!_grcResults.length) { grcSetStatus('No results to export.', '#dc2626'); return; }
+  var btn = document.getElementById('grc-export-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  fetch('/api/grc/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ results: _grcResults }),
+  })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d){ throw new Error(d.error || r.statusText); });
+    return r.blob();
+  })
+  .then(function(blob) {
+    var url = URL.createObjectURL(blob);
+    var a   = document.createElement('a');
+    a.href  = url;
+    a.download = 'grc_compliance_report.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.disabled = false;
+    btn.textContent = 'Export Excel';
+  })
+  .catch(function(e) {
+    grcShowError('Export failed: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Export Excel';
+  });
+}
+
 </script>
 </body>
 </html>

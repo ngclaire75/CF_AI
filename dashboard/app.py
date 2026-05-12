@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for, flash
+from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for, flash, send_file
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import smtplib
@@ -7340,6 +7340,368 @@ def api_export_powerbi():
             'Expand tables record, then load scans and cves tables.'
         ),
     })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GRC COMPLIANCE ANALYSIS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _grc_extract_text(file_obj) -> str | None:
+    """Extract plain text from uploaded PDF, DOCX, or TXT policy file."""
+    name = (file_obj.filename or '').lower()
+    data = file_obj.read()
+
+    if name.endswith('.txt') or name.endswith('.md'):
+        try:
+            return data.decode('utf-8', errors='replace')
+        except Exception:
+            return data.decode('latin-1', errors='replace')
+
+    if name.endswith('.docx'):
+        try:
+            import io
+            from docx import Document as _DocxDoc
+            doc = _DocxDoc(io.BytesIO(data))
+            return '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
+        except ImportError:
+            return f'[python-docx not installed — cannot read .docx files. Install with: pip install python-docx]'
+        except Exception as e:
+            return f'[DOCX read error: {e}]'
+
+    if name.endswith('.pdf'):
+        try:
+            import io
+            try:
+                import pdfplumber as _pp
+                with _pp.open(io.BytesIO(data)) as pdf:
+                    return '\n'.join(p.extract_text() or '' for p in pdf.pages)
+            except ImportError:
+                pass
+            try:
+                from pypdf import PdfReader as _PR
+                reader = _PR(io.BytesIO(data))
+                return '\n'.join(page.extract_text() or '' for page in reader.pages)
+            except ImportError:
+                pass
+            return '[PDF library not installed. Install pdfplumber or pypdf: pip install pdfplumber]'
+        except Exception as e:
+            return f'[PDF read error: {e}]'
+
+    return None  # unsupported
+
+
+_GRC_POLICY_TYPES = {
+    'cybersecurity':  'Cybersecurity Policy',
+    'password':       'Password Policy',
+    'backup':         'Backup Policy',
+    'access control': 'Access Control Policy',
+    'incident':       'Incident Response Policy',
+    'device':         'Device Usage Policy',
+    'data':           'Data Classification Policy',
+    'remote':         'Remote Access Policy',
+    'acceptable use': 'Acceptable Use Policy',
+    'change':         'Change Management Policy',
+    'vendor':         'Vendor / Third-Party Policy',
+    'encryption':     'Encryption Policy',
+    'physical':       'Physical Security Policy',
+    'business continuity': 'Business Continuity / DR Policy',
+    'vulnerability':  'Vulnerability Management Policy',
+    'patch':          'Patch Management Policy',
+    'network':        'Network Security Policy',
+    'cloud':          'Cloud Security Policy',
+    'gdpr':           'GDPR / Privacy Policy',
+    'audit':          'Audit & Logging Policy',
+}
+
+def _grc_detect_policy_type(filename: str, content: str) -> str:
+    """Guess policy type from filename + first 500 chars of content."""
+    text = (filename + ' ' + content[:500]).lower()
+    for keyword, label in _GRC_POLICY_TYPES.items():
+        if keyword in text:
+            return label
+    return 'General Security Policy'
+
+
+def _grc_analyze_policy(filename: str, content: str, standards: list[str]) -> dict:
+    """Send policy text to Claude and return structured compliance findings."""
+    import os as _os
+
+    policy_type = _grc_detect_policy_type(filename, content)
+
+    standards_block = '\n'.join(
+        f'- {s}' for s in (standards or ['ISO 27001', 'CIS Controls', 'NIST CSF'])
+    )
+
+    # Truncate to keep within model context — 12k chars is plenty for policy analysis
+    excerpt = content[:12000]
+    if len(content) > 12000:
+        excerpt += f'\n\n[... {len(content)-12000} more chars truncated ...]'
+
+    system_prompt = (
+        'You are a senior GRC (Governance, Risk & Compliance) consultant specialising in '
+        'information security policy review. You have deep knowledge of ISO/IEC 27001:2022, '
+        'CIS Controls v8, and NIST Cybersecurity Framework (CSF) 2.0.'
+    )
+
+    user_prompt = f"""Review the following policy document and assess its compliance with each requested standard.
+
+POLICY TYPE: {policy_type}
+FILENAME: {filename}
+
+STANDARDS TO CHECK:
+{standards_block}
+
+--- POLICY DOCUMENT START ---
+{excerpt}
+--- POLICY DOCUMENT END ---
+
+Respond ONLY in this exact JSON format (no markdown fences, pure JSON):
+{{
+  "policy_type": "{policy_type}",
+  "summary": "<2-3 sentence executive summary of the policy quality>",
+  "overall_score": <0-100 integer>,
+  "overall_rating": "<Excellent|Good|Needs Improvement|Poor>",
+  "standards": [
+    {{
+      "name": "<standard name>",
+      "score": <0-100>,
+      "rating": "<Excellent|Good|Needs Improvement|Poor>",
+      "covered_controls": ["<control or clause that is addressed>", ...],
+      "gaps": ["<missing control or requirement>", ...],
+      "recommendations": ["<specific actionable fix>", ...]
+    }}
+  ],
+  "critical_gaps": ["<top 3-5 most critical missing items across all standards>"],
+  "strengths": ["<things the policy does well>"],
+  "quick_wins": ["<easy improvements that would raise the score quickly>"]
+}}"""
+
+    model = _os.environ.get('CAI_MODEL', 'claude-sonnet-4-6')
+
+    try:
+        if model.startswith('gpt') or model.startswith('o1') or model.startswith('o3'):
+            import openai as _oai
+            client = _oai.OpenAI(api_key=_os.environ.get('OPENAI_API_KEY', ''))
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user',   'content': user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=4096,
+            )
+            raw = resp.choices[0].message.content or ''
+        else:
+            import anthropic as _ant
+            client = _ant.Anthropic(api_key=_os.environ.get('ANTHROPIC_API_KEY', ''))
+            resp = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                system=system_prompt,
+                messages=[{'role': 'user', 'content': user_prompt}],
+            )
+            raw = resp.content[0].text if resp.content else ''
+
+        # Strip markdown fences if the model added them despite instructions
+        raw = raw.strip()
+        if raw.startswith('```'):
+            raw = raw.split('```', 2)[-1].strip()
+            if raw.startswith('json'):
+                raw = raw[4:].strip()
+            if raw.endswith('```'):
+                raw = raw[:-3].strip()
+
+        result = _json.loads(raw)
+        result['filename'] = filename
+        result['content_len'] = len(content)
+        return result
+
+    except _json.JSONDecodeError as e:
+        return {
+            'filename':    filename,
+            'policy_type': policy_type,
+            'error':       f'JSON parse error: {e}',
+            'raw':         raw[:500] if 'raw' in dir() else '',
+        }
+    except Exception as e:
+        return {
+            'filename':    filename,
+            'policy_type': policy_type,
+            'error':       str(e),
+        }
+
+
+def _grc_build_excel(results: list[dict]):
+    """Build an openpyxl workbook from GRC analysis results."""
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise RuntimeError('openpyxl not installed — run: pip install openpyxl')
+
+    wb = openpyxl.Workbook()
+
+    # ── colour palette ──────────────────────────────────────────────────────
+    CLR_HDR_BG  = 'FF1E3A8A'   # dark blue header
+    CLR_HDR_FG  = 'FFFFFFFF'
+    CLR_SEC_BG  = 'FFDBEAFE'   # light blue section
+    CLR_RED     = 'FFFEE2E2'
+    CLR_YEL     = 'FFFEF9C3'
+    CLR_GRN     = 'FFD1FAE5'
+    CLR_BORDER  = 'FFE5E7EB'
+
+    def _hdr_fill(): return PatternFill('solid', fgColor=CLR_HDR_BG)
+    def _sec_fill(): return PatternFill('solid', fgColor=CLR_SEC_BG)
+    def _score_fill(s):
+        if s >= 75: return PatternFill('solid', fgColor=CLR_GRN)
+        if s >= 50: return PatternFill('solid', fgColor=CLR_YEL)
+        return PatternFill('solid', fgColor=CLR_RED)
+    def _thin_border():
+        s = Side(style='thin', color=CLR_BORDER)
+        return Border(left=s, right=s, top=s, bottom=s)
+    def _hdr_font(): return Font(bold=True, color=CLR_HDR_FG, size=10)
+    def _bold():     return Font(bold=True, size=10)
+
+    def _col_widths(ws, widths):
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+    def _write_row(ws, row, values, fill=None, font=None, wrap=False):
+        for col, val in enumerate(values, 1):
+            c = ws.cell(row=row, column=col, value=val)
+            if fill:  c.fill   = fill
+            if font:  c.font   = font
+            c.border    = _thin_border()
+            c.alignment = Alignment(wrap_text=wrap, vertical='top')
+        return row + 1
+
+    # ── Sheet 1: Executive Summary ──────────────────────────────────────────
+    ws = wb.active
+    ws.title = 'Executive Summary'
+    _col_widths(ws, [32, 22, 14, 14, 52])
+
+    row = _write_row(ws, 1,
+        ['Policy File', 'Policy Type', 'Overall Score', 'Rating', 'Summary'],
+        fill=_hdr_fill(), font=_hdr_font())
+
+    for r in results:
+        if r.get('error'):
+            _write_row(ws, row, [r['filename'], r.get('policy_type','?'), 'ERROR', '', r['error']])
+        else:
+            score = r.get('overall_score', 0)
+            row = _write_row(ws, row,
+                [r['filename'], r.get('policy_type','?'), score,
+                 r.get('overall_rating','?'), r.get('summary','')],
+                fill=_score_fill(score), wrap=True)
+
+    ws.freeze_panes = 'A2'
+
+    # ── Sheet 2: Standards Detail ───────────────────────────────────────────
+    ws2 = wb.create_sheet('Standards Detail')
+    _col_widths(ws2, [28, 22, 22, 14, 14, 48, 48, 48])
+
+    row = _write_row(ws2, 1,
+        ['Policy File', 'Policy Type', 'Standard', 'Score', 'Rating',
+         'Covered Controls', 'Gaps', 'Recommendations'],
+        fill=_hdr_fill(), font=_hdr_font())
+
+    for r in results:
+        if r.get('error'):
+            continue
+        for s in r.get('standards', []):
+            score = s.get('score', 0)
+            row = _write_row(ws2, row,
+                [r['filename'], r.get('policy_type','?'), s.get('name',''),
+                 score, s.get('rating','?'),
+                 '\n'.join(f'• {x}' for x in s.get('covered_controls', [])),
+                 '\n'.join(f'• {x}' for x in s.get('gaps', [])),
+                 '\n'.join(f'• {x}' for x in s.get('recommendations', []))],
+                fill=_score_fill(score), wrap=True)
+
+    ws2.freeze_panes = 'A2'
+    ws2.row_dimensions[1].height = 20
+
+    # ── Sheet 3: Critical Gaps & Quick Wins ────────────────────────────────
+    ws3 = wb.create_sheet('Gaps & Quick Wins')
+    _col_widths(ws3, [28, 22, 8, 56])
+
+    row = _write_row(ws3, 1,
+        ['Policy File', 'Policy Type', 'Category', 'Item'],
+        fill=_hdr_fill(), font=_hdr_font())
+
+    for r in results:
+        if r.get('error'):
+            continue
+        for item in r.get('critical_gaps', []):
+            row = _write_row(ws3, row,
+                [r['filename'], r.get('policy_type','?'), 'GAP', item],
+                fill=PatternFill('solid', fgColor=CLR_RED), wrap=True)
+        for item in r.get('quick_wins', []):
+            row = _write_row(ws3, row,
+                [r['filename'], r.get('policy_type','?'), 'WIN', item],
+                fill=PatternFill('solid', fgColor=CLR_GRN), wrap=True)
+        for item in r.get('strengths', []):
+            row = _write_row(ws3, row,
+                [r['filename'], r.get('policy_type','?'), 'STRENGTH', item],
+                fill=PatternFill('solid', fgColor=CLR_YEL), wrap=True)
+
+    ws3.freeze_panes = 'A2'
+
+    return wb
+
+
+@app.route('/api/grc/analyze', methods=['POST'])
+@login_required
+def api_grc_analyze():
+    """Analyze uploaded policy documents against security standards."""
+    files     = request.files.getlist('files')
+    standards = request.form.getlist('standards') or ['ISO 27001', 'CIS Controls', 'NIST CSF']
+
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({'error': 'No files uploaded'}), 400
+
+    results = []
+    for f in files:
+        if not f.filename:
+            continue
+        text = _grc_extract_text(f)
+        if text is None:
+            results.append({
+                'filename':    f.filename,
+                'policy_type': 'Unknown',
+                'error':       'Unsupported file type. Upload .txt, .md, .docx, or .pdf',
+            })
+            continue
+        analysis = _grc_analyze_policy(f.filename, text, standards)
+        results.append(analysis)
+
+    return jsonify({'results': results})
+
+
+@app.route('/api/grc/export', methods=['POST'])
+@login_required
+def api_grc_export():
+    """Export GRC analysis as an Excel workbook."""
+    import io as _io
+    d       = request.get_json(silent=True) or {}
+    results = d.get('results', [])
+    if not results:
+        return jsonify({'error': 'No results to export'}), 400
+    try:
+        wb = _grc_build_excel(results)
+    except RuntimeError as e:
+        return jsonify({'error': str(e)}), 500
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='grc_compliance_report.xlsx',
+    )
 
 
 if __name__ == '__main__':

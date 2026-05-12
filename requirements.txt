@@ -39,3 +39,8 @@ pymysql>=1.1.0               # pure-Python MySQL client — no native libs neede
 python-nmap>=0.7.1           # nmap port scanner Python binding
 wappalyzer>=0.4.0            # technology fingerprinting
 bs4>=0.0.2                   # BeautifulSoup — HTML parsing for crawlers
+
+# GRC Compliance document parsing & Excel export
+openpyxl>=3.1.0              # Excel report generation (GRC compliance)
+python-docx>=1.1.0           # Read .docx policy documents
+pdfplumber>=0.11.0           # Extract text from PDF policy documents
