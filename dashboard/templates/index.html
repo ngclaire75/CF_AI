@@ -6047,10 +6047,10 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- Scroll-to-top button (System Logs) -->
   <button id="sl-scroll-top-btn" onclick="slScrollToTop()"
     style="display:none;position:fixed;bottom:28px;right:32px;z-index:8000;
-           padding:9px 16px;border:none;border-radius:20px;
+           padding:9px 16px;border:none;border-radius:20px;width:fit-content;
            background:#1e3a5f;color:#fff;font-size:13px;font-weight:600;
            box-shadow:0 4px 16px rgba(0,0,0,.22);cursor:pointer;
-           align-items:center;gap:7px;transition:opacity .2s,transform .2s;">
+           white-space:nowrap;transition:opacity .2s,transform .2s;">
     Scroll to Top
   </button>
 
@@ -12687,10 +12687,11 @@ var _slLive = true, _slTimer = null, _slSearchTimer = null;
 function slScrollCheck(el) {
   var btn = document.getElementById('sl-scroll-top-btn');
   if (!btn) return;
-  var show = (document.getElementById('page-syslog') || {}).style &&
-             document.getElementById('page-syslog').style.display !== 'none' &&
-             el.scrollTop > 220;
-  btn.style.display = show ? 'inline-flex' : 'none';
+  var syslogVisible = document.getElementById('page-syslog') &&
+                      document.getElementById('page-syslog').style.display !== 'none';
+  var streamActive  = document.getElementById('sl-tab-stream') &&
+                      document.getElementById('sl-tab-stream').classList.contains('active');
+  btn.style.display = (syslogVisible && streamActive && el.scrollTop > 220) ? 'inline-block' : 'none';
 }
 
 function slScrollToTop() {
@@ -12939,6 +12940,10 @@ function slSetTab(tab) {
     document.getElementById('sl-tab-'+t).classList.toggle('active', t===tab);
     document.getElementById('sl-panel-'+t).classList.toggle('active', t===tab);
   });
+  if (tab !== 'stream') {
+    var btn = document.getElementById('sl-scroll-top-btn');
+    if (btn) btn.style.display = 'none';
+  }
 }
 
 function slSearchDebounce() {
