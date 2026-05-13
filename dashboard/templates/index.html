@@ -2188,6 +2188,15 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     </button>
     {% endif %}
 
+    <div class="sb-divider"></div>
+    <div class="sb-nav-label">Legal</div>
+    <button class="sb-item" id="sb-policy" onclick="sbNav('policy',this)">
+      <span class="sb-label">Subscription Policy</span>
+    </button>
+    <button class="sb-item" id="sb-privacy" onclick="sbNav('privacy',this)">
+      <span class="sb-label">Privacy Policy</span>
+    </button>
+
   </nav>
 
   <!-- Sidebar footer -->
@@ -5088,44 +5097,65 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- ══ PRICING PAGE ══════════════════════════════════════════════════════ -->
   <div id="page-pricing" class="page-section" style="display:none">
   <style>
-    .pricing-wrap { max-width:900px; margin:0 auto; padding:40px 24px 60px; }
-    .pricing-header { margin-bottom:8px; }
+    .pricing-wrap { max-width:920px; margin:0 auto; padding:40px 24px 60px; }
     .pricing-title { font-size:22px; font-weight:700; color:#1a1d23; }
-    .pricing-sub { font-size:13px; color:#6b7280; margin-top:6px; margin-bottom:32px; }
-    #pricing-upgrade-banner { display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:12px 16px; margin-bottom:24px; font-size:13px; color:#7a4f00; font-weight:500; }
+    .pricing-sub { font-size:13px; color:#6b7280; margin-top:6px; margin-bottom:8px; }
+    .pricing-billing-toggle { display:flex; align-items:center; gap:10px; margin-bottom:28px; margin-top:14px; }
+    .pricing-billing-toggle label { font-size:12px; color:#6b7280; cursor:pointer; }
+    .pricing-billing-toggle label.active { color:#1a1d23; font-weight:600; }
+    .ptoggle { position:relative; width:36px; height:20px; }
+    .ptoggle input { opacity:0; width:0; height:0; }
+    .ptoggle-slider { position:absolute; inset:0; background:#d1d5db; border-radius:20px; cursor:pointer; transition:.2s; }
+    .ptoggle-slider:before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+    .ptoggle input:checked + .ptoggle-slider { background:#2563eb; }
+    .ptoggle input:checked + .ptoggle-slider:before { transform:translateX(16px); }
+    .ptoggle-save { font-size:11px; background:#dbeafe; color:#1d4ed8; border-radius:10px; padding:2px 8px; font-weight:600; }
+    #pricing-upgrade-banner { display:none; background:#fef3c7; border:1px solid #f59e0b; border-radius:6px; padding:12px 16px; margin-bottom:24px; font-size:13px; color:#92400e; font-weight:500; }
     .pricing-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     @media(max-width:640px){ .pricing-grid { grid-template-columns:1fr; } }
     .pricing-card { background:#fff; border:1.5px solid #e5e7eb; border-radius:10px; padding:28px 28px 24px; display:flex; flex-direction:column; position:relative; }
-    .pricing-card.plan-pro { border-color:#2563eb; box-shadow:0 0 0 1px #2563eb20; }
-    .pricing-card.plan-current { outline:2px solid #16a34a; outline-offset:2px; }
-    .pricing-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 10px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:12px; }
+    .pricing-card.plan-pro { border-color:#2563eb; box-shadow:0 0 0 1px rgba(37,99,235,.15); }
+    .pricing-card.plan-current { outline:2px solid #2563eb; outline-offset:2px; }
+    .pricing-badge { display:inline-block; font-size:10px; font-weight:700; padding:3px 12px; border-radius:20px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:12px; }
     .pricing-badge.badge-basic { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
     .pricing-badge.badge-pro { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
-    .pricing-badge.badge-current { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+    .pricing-badge.badge-current { background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; }
     .pricing-plan-name { font-size:20px; font-weight:700; color:#111827; margin-bottom:4px; }
-    .pricing-price { font-size:28px; font-weight:800; color:#111827; margin-bottom:4px; }
+    .pricing-price { font-size:28px; font-weight:800; color:#111827; margin-bottom:2px; }
     .pricing-price span { font-size:13px; font-weight:400; color:#6b7280; }
+    .pricing-price-annual { display:none; }
+    .pricing-price-alt { font-size:11px; color:#6b7280; margin-bottom:4px; }
     .pricing-desc { font-size:12px; color:#6b7280; margin-bottom:20px; }
     .pricing-divider { border:none; border-top:1px solid #e5e7eb; margin:0 0 18px; }
     .pricing-features { list-style:none; padding:0; margin:0 0 24px; flex:1; }
     .pricing-features li { font-size:13px; color:#374151; padding:5px 0; display:flex; align-items:flex-start; gap:8px; line-height:1.45; }
-    .pricing-features li .pf-check { width:15px; height:15px; flex-shrink:0; margin-top:1px; color:#16a34a; stroke:#16a34a; }
-    .pricing-features li .pf-lock { width:15px; height:15px; flex-shrink:0; margin-top:1px; color:#9ca3af; stroke:#9ca3af; }
+    .pricing-features li .pf-check { width:15px; height:15px; flex-shrink:0; margin-top:1px; stroke:#2563eb; }
+    .pricing-features li .pf-lock { width:15px; height:15px; flex-shrink:0; margin-top:1px; stroke:#9ca3af; }
     .pricing-features li.locked { color:#9ca3af; }
     .pricing-cta { text-align:center; font-size:12px; color:#6b7280; padding:10px 0 0; border-top:1px solid #e5e7eb; margin-top:auto; }
     .pricing-cta strong { color:#374151; }
-    .pricing-admin-note { margin-top:28px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:16px 20px; font-size:13px; color:#6b7280; }
+    .pricing-footer-links { margin-top:24px; text-align:center; font-size:12px; color:#9ca3af; }
+    .pricing-footer-links a { color:#2563eb; text-decoration:none; }
+    .pricing-footer-links a:hover { text-decoration:underline; }
+    .pricing-admin-note { margin-top:20px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:14px 18px; font-size:12px; color:#6b7280; }
     .pricing-admin-note strong { color:#374151; }
   </style>
 
   <div class="pricing-wrap">
-    <div class="pricing-header">
-      <div class="pricing-title">Pricing Plans</div>
-      <div class="pricing-sub">Choose the plan that fits your workflow. Pro unlocks AI-driven agent scans and full pentest engagement management.</div>
+    <div class="pricing-title">Pricing Plans</div>
+    <div class="pricing-sub">Semua harga dalam Rupiah Indonesia (IDR). Pro membuka akses agen AI dan manajemen pentest penuh.</div>
+
+    <div class="pricing-billing-toggle">
+      <label class="active" id="ptoggle-monthly-lbl">Bulanan</label>
+      <label class="ptoggle">
+        <input type="checkbox" id="ptoggle-input" onchange="pricingToggleBilling(this.checked)">
+        <span class="ptoggle-slider"></span>
+      </label>
+      <label id="ptoggle-annual-lbl">Tahunan <span class="ptoggle-save">Hemat 25%</span></label>
     </div>
 
     <div id="pricing-upgrade-banner">
-      This page requires a Pro plan. Upgrade your account or contact your administrator to gain access.
+      Halaman ini memerlukan paket Pro. Hubungi administrator Anda untuk meningkatkan akses.
     </div>
 
     <div class="pricing-grid">
@@ -5134,56 +5164,413 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <div class="pricing-card" id="pricing-card-basic">
         <span class="pricing-badge badge-basic" id="pricing-basic-badge">Basic</span>
         <div class="pricing-plan-name">Basic</div>
-        <div class="pricing-price">Free <span>/ forever</span></div>
-        <div class="pricing-desc">Full visibility and threat monitoring for your sites.</div>
+        <div class="pricing-price pricing-price-monthly">Gratis <span>/ selamanya</span></div>
+        <div class="pricing-price pricing-price-annual" style="display:none">Gratis <span>/ selamanya</span></div>
+        <div class="pricing-price-alt" id="pricing-basic-alt">&nbsp;</div>
+        <div class="pricing-desc">Visibilitas penuh dan pemantauan ancaman untuk situs Anda, tanpa biaya.</div>
         <hr class="pricing-divider">
         <ul class="pricing-features">
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Security Dashboard &amp; KPI Overview</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> AI Chatbot Assistant</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Log Explorer &amp; Plugin Activity Logs</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Incident Management</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Threat Analytics &amp; Security Signals</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Security Dashboard &amp; Ikhtisar KPI</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Asisten AI Chatbot</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Log Explorer &amp; Log Aktivitas Plugin</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Manajemen Insiden</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Analitik Ancaman &amp; Sinyal Keamanan</li>
           <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> MITRE ATT&amp;CK / Cloud SIEM</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Vulnerability Overview, Weaknesses &amp; Recommendations</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> GRC Compliance Analyzer</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Inventories &amp; Network Monitor</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> WordPress File Scanner &amp; Domain Health</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Secure Score &amp; Priority Actions</li>
-          <li class="locked"><svg class="pf-lock" viewBox="0 0 16 16" fill="none" stroke-width="2"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg> Connect &amp; Scan with Agent — Pro only</li>
-          <li class="locked"><svg class="pf-lock" viewBox="0 0 16 16" fill="none" stroke-width="2"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg> Pentest Engagement Management — Pro only</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Ikhtisar Kerentanan, Kelemahan &amp; Rekomendasi</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Analis Kepatuhan GRC</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Inventaris &amp; Monitor Jaringan</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Scanner File WordPress &amp; Kesehatan Domain</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Skor Keamanan &amp; Tindakan Prioritas</li>
+          <li class="locked"><svg class="pf-lock" viewBox="0 0 16 16" fill="none" stroke-width="2"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg> Connect &amp; Scan dengan Agen — khusus Pro</li>
+          <li class="locked"><svg class="pf-lock" viewBox="0 0 16 16" fill="none" stroke-width="2"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg> Manajemen Pentest Engagement — khusus Pro</li>
         </ul>
-        <div class="pricing-cta" id="pricing-basic-cta"><strong>Contact your administrator</strong> to change your plan.</div>
+        <div class="pricing-cta" id="pricing-basic-cta"><strong>Hubungi administrator Anda</strong> untuk mengubah paket.</div>
       </div>
 
       <!-- Pro Plan -->
       <div class="pricing-card plan-pro" id="pricing-card-pro">
         <span class="pricing-badge badge-pro" id="pricing-pro-badge">Pro</span>
         <div class="pricing-plan-name">Pro</div>
-        <div class="pricing-price">Paid <span>/ per seat</span></div>
-        <div class="pricing-desc">Everything in Basic, plus live AI agent scanning and full pentest workflow.</div>
+        <div class="pricing-price pricing-price-monthly" id="pricing-pro-price-m">Rp 299.000 <span>/ seat / bulan</span></div>
+        <div class="pricing-price pricing-price-annual" id="pricing-pro-price-a" style="display:none">Rp 2.690.000 <span>/ seat / tahun</span></div>
+        <div class="pricing-price-alt" id="pricing-pro-alt">Ditagih bulanan &bull; setara Rp 299.000/bln</div>
+        <div class="pricing-desc">Semua fitur Basic, ditambah pemindaian agen AI langsung dan alur kerja pentest lengkap.</div>
         <hr class="pricing-divider">
         <ul class="pricing-features">
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Everything in Basic</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Connect &amp; Scan with Agent — 11 WSTG agents, real shell commands</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Full OWASP WSTG checklist coverage (69 test items)</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Pentest Engagement Management — findings, checklist, RoE, AI report</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Scan History &amp; Security Analytics</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Automated remediation recommendations from scan output</li>
-          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Priority support</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Semua fitur Basic</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Connect &amp; Scan dengan Agen — 11 agen WSTG, perintah shell nyata</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Cakupan checklist OWASP WSTG penuh (69 item uji)</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Manajemen Pentest Engagement — temuan, checklist, RoE, laporan AI</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Riwayat Scan &amp; Analitik Keamanan</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Rekomendasi remediasi otomatis dari hasil scan</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Hingga 50 scan/bulan per pengguna</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Dukungan prioritas via email (respons &lt; 24 jam)</li>
         </ul>
-        <div class="pricing-cta" id="pricing-pro-cta"><strong>Contact your administrator</strong> to upgrade your account.</div>
+        <div class="pricing-cta" id="pricing-pro-cta"><strong>Hubungi administrator Anda</strong> untuk meningkatkan paket.</div>
       </div>
 
     </div><!-- /pricing-grid -->
 
+    <div class="pricing-footer-links">
+      <a href="#" onclick="sbNav('policy', document.getElementById('sb-policy')); return false;">Kebijakan Berlangganan &amp; Penagihan</a>
+      &nbsp;&bull;&nbsp;
+      <a href="#" onclick="sbNav('privacy', document.getElementById('sb-privacy')); return false;">Kebijakan Privasi</a>
+    </div>
+
     <div class="pricing-admin-note" id="pricing-admin-note" style="display:none">
-      <strong>Administrator note:</strong> Plan assignments are managed per-user in
-      <a href="#" onclick="sbNav('usermgmt', document.getElementById('sb-usermgmt')); return false;" style="color:#2563eb;text-decoration:none;">User Management</a>.
-      Select a user and use the Plan column to switch between Basic and Pro.
+      <strong>Catatan Administrator:</strong> Penetapan paket dikelola per pengguna di
+      <a href="#" onclick="sbNav('usermgmt', document.getElementById('sb-usermgmt')); return false;" style="color:#2563eb;text-decoration:none;">Manajemen Pengguna</a>.
+      Pilih pengguna dan gunakan kolom Plan untuk beralih antara Basic dan Pro.
     </div>
 
   </div><!-- /pricing-wrap -->
   </div><!-- /page-pricing -->
+
+  <!-- ══ SUBSCRIPTION & BILLING POLICY PAGE ══════════════════════════════ -->
+  <div id="page-policy" class="page-section" style="display:none">
+  <style>
+    .legal-wrap { max-width:860px; margin:0 auto; padding:40px 28px 72px; }
+    .legal-title { font-size:22px; font-weight:700; color:#1a1d23; margin-bottom:4px; }
+    .legal-updated { font-size:11px; color:#9ca3af; margin-bottom:32px; }
+    .legal-section { margin-bottom:32px; }
+    .legal-section h2 { font-size:15px; font-weight:700; color:#1a1d23; margin:0 0 10px; padding-bottom:8px; border-bottom:1px solid #e5e7eb; }
+    .legal-section h3 { font-size:13px; font-weight:700; color:#374151; margin:16px 0 6px; }
+    .legal-section p { font-size:13px; color:#4b5563; line-height:1.7; margin:0 0 10px; }
+    .legal-section ul { font-size:13px; color:#4b5563; line-height:1.7; margin:0 0 10px; padding-left:20px; }
+    .legal-section ul li { margin-bottom:5px; }
+    .legal-table { width:100%; border-collapse:collapse; font-size:12px; margin:10px 0 14px; }
+    .legal-table th { background:#f9fafb; font-weight:700; color:#374151; text-align:left; padding:8px 12px; border:1px solid #e5e7eb; }
+    .legal-table td { padding:8px 12px; border:1px solid #e5e7eb; color:#4b5563; vertical-align:top; }
+    .legal-table tr:nth-child(even) td { background:#f9fafb; }
+    .legal-highlight { background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:#1e40af; }
+    .legal-nav-back { font-size:12px; color:#2563eb; cursor:pointer; margin-bottom:20px; display:inline-block; }
+    .legal-nav-back:hover { text-decoration:underline; }
+  </style>
+
+  <div class="legal-wrap">
+    <div class="legal-nav-back" onclick="sbNav('pricing', document.getElementById('sb-pricing'))">&larr; Kembali ke Pricing Plans</div>
+    <div class="legal-title">Kebijakan Berlangganan &amp; Penagihan</div>
+    <div class="legal-updated">Berlaku sejak: 1 Januari 2025 &nbsp;&bull;&nbsp; Terakhir diperbarui: 13 Mei 2025</div>
+
+    <div class="legal-highlight">
+      Dengan menggunakan layanan CyberINK paket Pro, Anda menyetujui ketentuan penagihan dan berlangganan yang tercantum dalam kebijakan ini. Harap baca dengan seksama sebelum melakukan pembayaran.
+    </div>
+
+    <div class="legal-section">
+      <h2>1. Deskripsi Layanan dan Paket</h2>
+      <p>CyberINK menyediakan platform keamanan berbasis kecerdasan buatan (AI) yang dirancang untuk organisasi yang membutuhkan pemantauan ancaman, pengujian keamanan web, dan manajemen kerentanan secara terpusat.</p>
+      <h3>1.1 Paket Basic (Gratis)</h3>
+      <p>Paket Basic tersedia tanpa biaya dan mencakup fitur-fitur pemantauan keamanan inti. Paket ini tidak memerlukan informasi pembayaran dan dapat digunakan tanpa batas waktu selama akun aktif dan mematuhi Kebijakan Penggunaan yang Dapat Diterima.</p>
+      <ul>
+        <li>Security Dashboard &amp; KPI Overview</li>
+        <li>Asisten AI Chatbot, Log Explorer, Manajemen Insiden</li>
+        <li>Analitik Ancaman, MITRE ATT&amp;CK, GRC Compliance</li>
+        <li>Inventaris, Monitor Jaringan, Scanner File WordPress</li>
+        <li>Skor Keamanan &amp; Tindakan Prioritas</li>
+      </ul>
+      <h3>1.2 Paket Pro (Berbayar)</h3>
+      <p>Paket Pro mencakup semua fitur Basic ditambah akses ke mesin pemindaian agen AI dan manajemen pentest engagement penuh. Paket ini dikenakan biaya berlangganan per pengguna (per seat).</p>
+      <ul>
+        <li>Connect &amp; Scan dengan 11 agen WSTG (perintah shell nyata, tanpa hasil hardcoded)</li>
+        <li>Cakupan checklist OWASP WSTG penuh — 69 item uji keamanan</li>
+        <li>Manajemen Pentest Engagement (temuan, checklist, Rules of Engagement, laporan AI)</li>
+        <li>Riwayat Scan &amp; Analitik Keamanan</li>
+        <li>Rekomendasi remediasi otomatis dari output scan</li>
+        <li>Hingga 50 sesi scan/bulan per pengguna</li>
+        <li>Dukungan prioritas via email dengan waktu respons &lt; 24 jam kerja</li>
+      </ul>
+    </div>
+
+    <div class="legal-section">
+      <h2>2. Harga dan Mata Uang</h2>
+      <p>Seluruh harga dinyatakan dalam Rupiah Indonesia (IDR) dan sudah termasuk Pajak Pertambahan Nilai (PPN) sebesar 11% sesuai peraturan perpajakan Indonesia yang berlaku.</p>
+      <table class="legal-table">
+        <thead><tr><th>Paket</th><th>Harga Bulanan</th><th>Harga Tahunan</th><th>Penghematan</th></tr></thead>
+        <tbody>
+          <tr><td>Basic</td><td>Gratis</td><td>Gratis</td><td>—</td></tr>
+          <tr><td>Pro (per seat)</td><td>Rp 299.000 / bulan</td><td>Rp 2.690.000 / tahun</td><td>~Rp 898.000 (25%)</td></tr>
+          <tr><td>Pro — 5 seat</td><td>Rp 1.349.000 / bulan</td><td>Rp 12.105.000 / tahun</td><td>~Rp 4.083.000 (25%)</td></tr>
+          <tr><td>Pro — 10 seat</td><td>Rp 2.499.000 / bulan</td><td>Rp 22.490.000 / tahun</td><td>~Rp 7.498.000 (25%)</td></tr>
+        </tbody>
+      </table>
+      <p>Harga dapat berubah sewaktu-waktu. Pelanggan aktif akan diberitahu paling lambat 30 hari sebelum perubahan harga berlaku melalui email yang terdaftar.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>3. Siklus Penagihan</h2>
+      <h3>3.1 Berlangganan Bulanan</h3>
+      <p>Tagihan diproses setiap bulan pada tanggal yang sama dengan tanggal aktivasi awal. Pembayaran jatuh tempo di awal setiap periode penagihan (di muka). Jika tanggal penagihan jatuh pada hari libur atau akhir pekan, tagihan akan diproses pada hari kerja berikutnya.</p>
+      <h3>3.2 Berlangganan Tahunan</h3>
+      <p>Tagihan diproses sekaligus untuk 12 bulan di muka. Berlangganan tahunan memberikan penghematan 25% dibandingkan tarif bulanan. Perpanjangan tahunan akan ditagih otomatis 7 hari sebelum masa berlangganan berakhir kecuali pelanggan membatalkan lebih awal.</p>
+      <h3>3.3 Penambahan Seat</h3>
+      <p>Penambahan seat di tengah periode penagihan akan dihitung secara prorata berdasarkan sisa hari dalam periode tersebut. Tagihan prorata akan ditambahkan ke tagihan berikutnya.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>4. Metode Pembayaran</h2>
+      <p>CyberINK menerima metode pembayaran berikut:</p>
+      <ul>
+        <li><strong>Transfer Bank:</strong> BCA, BNI, BRI, Mandiri, BSI</li>
+        <li><strong>Virtual Account:</strong> Tersedia untuk semua bank di atas melalui gateway pembayaran</li>
+        <li><strong>QRIS:</strong> Pembayaran via aplikasi dompet digital yang mendukung QRIS (GoPay, OVO, DANA, LinkAja, ShopeePay)</li>
+        <li><strong>Kartu Kredit/Debit:</strong> Visa, Mastercard (melalui payment gateway tersertifikasi PCI-DSS)</li>
+        <li><strong>Invoice Perusahaan:</strong> Tersedia untuk langganan 5 seat ke atas, dengan termin pembayaran NET-15</li>
+      </ul>
+      <p>CyberINK tidak menyimpan data kartu kredit secara langsung. Seluruh transaksi kartu diproses oleh payment gateway yang telah tersertifikasi PCI-DSS Level 1.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>5. Pembatalan dan Kebijakan Pengembalian Dana</h2>
+      <h3>5.1 Pembatalan Berlangganan Bulanan</h3>
+      <p>Pelanggan dapat membatalkan berlangganan bulanan kapan saja. Pembatalan akan berlaku efektif pada akhir periode penagihan yang sedang berjalan. Tidak ada pengembalian dana untuk bulan yang sedang berjalan; akses Pro tetap aktif hingga akhir periode.</p>
+      <h3>5.2 Pembatalan Berlangganan Tahunan</h3>
+      <p>Berlangganan tahunan dapat dibatalkan dalam 14 hari kalender sejak tanggal pembayaran untuk mendapatkan pengembalian dana penuh (<em>full refund</em>). Setelah 14 hari, tidak ada pengembalian dana untuk sisa masa berlangganan tahunan.</p>
+      <h3>5.3 Pengecualian Pengembalian Dana</h3>
+      <p>Pengembalian dana tidak tersedia dalam kondisi berikut:</p>
+      <ul>
+        <li>Akun dihentikan karena pelanggaran Kebijakan Penggunaan yang Dapat Diterima</li>
+        <li>Permintaan pengembalian dana diajukan setelah 14 hari untuk berlangganan tahunan</li>
+        <li>Penggunaan fitur Pro telah dilakukan secara signifikan (lebih dari 10 sesi scan)</li>
+      </ul>
+      <h3>5.4 Proses Permintaan Pengembalian Dana</h3>
+      <p>Kirimkan permintaan pengembalian dana ke <strong>billing@cyberink.id</strong> dengan subjek "Refund Request — [Username] — [Tanggal Pembayaran]". Proses pengembalian dana diselesaikan dalam 7–14 hari kerja melalui metode pembayaran asal.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>6. Batas Penggunaan (Fair Use)</h2>
+      <p>Paket Pro dirancang untuk penggunaan profesional yang wajar. Batas berikut berlaku per pengguna per bulan:</p>
+      <table class="legal-table">
+        <thead><tr><th>Sumber Daya</th><th>Batas Bulanan</th><th>Biaya Kelebihan</th></tr></thead>
+        <tbody>
+          <tr><td>Sesi Scan Agen (WSTG)</td><td>50 sesi</td><td>Rp 5.000 / sesi tambahan</td></tr>
+          <tr><td>Pentest Engagement aktif bersamaan</td><td>10 engagement</td><td>Tidak tersedia; upgrade diperlukan</td></tr>
+          <tr><td>Penyimpanan Laporan Scan</td><td>5 GB</td><td>Rp 15.000 / GB tambahan</td></tr>
+          <tr><td>Ekspor Laporan PDF/Excel</td><td>Tidak terbatas</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <p>CyberINK berhak menangguhkan sementara akses Pro jika penggunaan terdeteksi melebihi batas wajar secara signifikan atau digunakan untuk tujuan yang melanggar hukum. Pemberitahuan akan dikirimkan terlebih dahulu melalui email kecuali pelanggaran bersifat kritis.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>7. Pembaruan dan Peningkatan Paket</h2>
+      <p>Pengguna dapat melakukan upgrade dari Basic ke Pro kapan saja melalui administrator sistem. Downgrade dari Pro ke Basic akan berlaku di awal periode penagihan berikutnya. Data scan dan engagement yang dibuat selama paket Pro akan tetap dapat dibaca (read-only) setelah downgrade, namun fitur scan baru tidak dapat dijalankan.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>8. Jaminan Ketersediaan Layanan (SLA)</h2>
+      <p>CyberINK berkomitmen untuk menyediakan ketersediaan layanan (uptime) sebesar <strong>99,5%</strong> per bulan untuk pengguna Pro, dihitung berdasarkan uptime server dashboard dan mesin agen scan.</p>
+      <ul>
+        <li>Pemeliharaan terjadwal akan diumumkan paling lambat 48 jam sebelumnya dan tidak dihitung sebagai downtime</li>
+        <li>Jika uptime aktual di bawah 99,5%, pelanggan Pro berhak mengajukan kredit layanan sebesar 5% dari tagihan bulan tersebut per setiap 0,5% penurunan uptime</li>
+        <li>Kredit layanan tidak dapat dikonversi menjadi uang tunai</li>
+      </ul>
+    </div>
+
+    <div class="legal-section">
+      <h2>9. Penghentian Layanan</h2>
+      <p>CyberINK berhak menghentikan atau menangguhkan akun tanpa pemberitahuan terlebih dahulu jika:</p>
+      <ul>
+        <li>Akun digunakan untuk melakukan pemindaian keamanan tanpa otorisasi pada sistem yang bukan milik pengguna</li>
+        <li>Akun terlibat dalam aktivitas ilegal atau melanggar hukum yang berlaku di Indonesia</li>
+        <li>Terdapat tunggakan pembayaran lebih dari 30 hari</li>
+      </ul>
+      <p>Dalam hal penghentian karena tunggakan, akses Pro akan dibekukan dan akun akan diturunkan ke paket Basic. Data tidak akan dihapus selama 90 hari; pelanggan dapat mengaktifkan kembali dengan melunasi tunggakan.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>10. Hukum yang Berlaku</h2>
+      <p>Kebijakan ini tunduk pada hukum Republik Indonesia, termasuk namun tidak terbatas pada Undang-Undang No. 11 Tahun 2008 tentang Informasi dan Transaksi Elektronik (ITE) beserta perubahannya, dan peraturan perpajakan yang berlaku. Setiap sengketa yang timbul akan diselesaikan melalui mediasi terlebih dahulu, dan jika tidak mencapai kesepakatan, akan diselesaikan di Pengadilan Negeri Jakarta Pusat.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>11. Kontak</h2>
+      <p>Pertanyaan terkait penagihan dan berlangganan:</p>
+      <ul>
+        <li>Email: <strong>billing@cyberink.id</strong></li>
+        <li>Jam kerja: Senin – Jumat, 09.00 – 17.00 WIB</li>
+        <li>Waktu respons: &lt; 1 hari kerja untuk paket Pro, &lt; 3 hari kerja untuk paket Basic</li>
+      </ul>
+    </div>
+
+  </div><!-- /legal-wrap -->
+  </div><!-- /page-policy -->
+
+  <!-- ══ PRIVACY POLICY PAGE ══════════════════════════════════════════════ -->
+  <div id="page-privacy" class="page-section" style="display:none">
+
+  <div class="legal-wrap">
+    <div class="legal-nav-back" onclick="sbNav('pricing', document.getElementById('sb-pricing'))">&larr; Kembali ke Pricing Plans</div>
+    <div class="legal-title">Kebijakan Privasi</div>
+    <div class="legal-updated">Berlaku sejak: 1 Januari 2025 &nbsp;&bull;&nbsp; Terakhir diperbarui: 13 Mei 2025</div>
+
+    <div class="legal-highlight">
+      CyberINK berkomitmen untuk melindungi privasi Anda. Kebijakan ini menjelaskan data apa yang kami kumpulkan, bagaimana kami menggunakannya, dan hak-hak Anda sebagai pengguna. Kami mematuhi Undang-Undang Pelindungan Data Pribadi (UU PDP) No. 27 Tahun 2022 dan prinsip-prinsip GDPR secara sukarela.
+    </div>
+
+    <div class="legal-section">
+      <h2>1. Identitas Pengendali Data</h2>
+      <p>CyberINK bertindak sebagai Pengendali Data (Data Controller) atas seluruh data pribadi yang dikumpulkan melalui platform ini. Jika Anda memiliki pertanyaan tentang pemrosesan data pribadi Anda, hubungi:</p>
+      <ul>
+        <li><strong>Data Protection Officer (DPO):</strong> privacy@cyberink.id</li>
+        <li><strong>Alamat:</strong> Jakarta, Indonesia</li>
+      </ul>
+    </div>
+
+    <div class="legal-section">
+      <h2>2. Data yang Kami Kumpulkan</h2>
+      <h3>2.1 Data Akun</h3>
+      <p>Saat Anda membuat akun, kami mengumpulkan:</p>
+      <ul>
+        <li>Nama pengguna (username)</li>
+        <li>Alamat email (opsional, diperlukan untuk verifikasi dan notifikasi)</li>
+        <li>Kata sandi yang dienkripsi menggunakan algoritma bcrypt (kami tidak pernah menyimpan kata sandi dalam bentuk teks biasa)</li>
+        <li>Peran akun (role: admin / user) dan paket berlangganan</li>
+      </ul>
+      <h3>2.2 Data Penggunaan Platform</h3>
+      <p>Saat Anda menggunakan platform, kami mencatat:</p>
+      <ul>
+        <li>Target pemindaian yang Anda masukkan (domain, URL, rentang IP) — disimpan di basis data lokal untuk riwayat scan</li>
+        <li>Hasil pemindaian yang dihasilkan oleh agen AI</li>
+        <li>Waktu dan durasi sesi pengguna</li>
+        <li>Tindakan yang dilakukan di dalam platform (misalnya membuat engagement, menjalankan scan)</li>
+        <li>Preferensi tata letak dashboard yang disimpan di localStorage browser Anda (tidak dikirim ke server kami)</li>
+      </ul>
+      <h3>2.3 Data Teknis</h3>
+      <p>Secara otomatis kami mengumpulkan:</p>
+      <ul>
+        <li>Alamat IP pengguna yang terautentikasi (untuk log keamanan dan pencegahan penyalahgunaan)</li>
+        <li>Agen pengguna (User-Agent) browser</li>
+        <li>Waktu akses dan endpoint yang diakses (log akses server)</li>
+      </ul>
+      <h3>2.4 Data Pembayaran</h3>
+      <p>Untuk pengguna Pro, data pembayaran (nomor kartu, informasi rekening) <strong>tidak disimpan oleh CyberINK</strong>. Seluruh transaksi keuangan diproses oleh payment gateway pihak ketiga yang tersertifikasi. Kami hanya menyimpan status pembayaran, tanggal transaksi, dan referensi ID transaksi untuk keperluan rekonsiliasi.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>3. Dasar Hukum Pemrosesan Data</h2>
+      <p>Kami memproses data pribadi Anda berdasarkan:</p>
+      <ul>
+        <li><strong>Pelaksanaan kontrak:</strong> data yang diperlukan untuk menyediakan layanan yang Anda berlangganan</li>
+        <li><strong>Kepentingan sah (legitimate interest):</strong> keamanan platform, pencegahan penipuan, peningkatan layanan</li>
+        <li><strong>Kewajiban hukum:</strong> kepatuhan terhadap peraturan perpajakan dan regulasi yang berlaku di Indonesia</li>
+        <li><strong>Persetujuan:</strong> untuk komunikasi pemasaran (Anda dapat mencabut persetujuan kapan saja)</li>
+      </ul>
+    </div>
+
+    <div class="legal-section">
+      <h2>4. Penggunaan Data</h2>
+      <p>Data yang kami kumpulkan digunakan semata-mata untuk tujuan berikut:</p>
+      <ul>
+        <li>Menyediakan, mengoperasikan, dan meningkatkan platform CyberINK</li>
+        <li>Memverifikasi identitas dan mengautentikasi akses pengguna</li>
+        <li>Mengirimkan notifikasi terkait layanan (misalnya verifikasi email, peringatan keamanan akun)</li>
+        <li>Mengelola penagihan dan berlangganan</li>
+        <li>Mendeteksi, mencegah, dan menanggapi ancaman keamanan terhadap platform</li>
+        <li>Memenuhi kewajiban hukum dan regulasi</li>
+        <li>Analitik penggunaan agregat dan anonim untuk pengembangan produk</li>
+      </ul>
+      <p>Kami <strong>tidak</strong> menggunakan data Anda untuk iklan pihak ketiga, dan kami <strong>tidak menjual</strong> data pribadi Anda kepada siapa pun.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>5. Berbagi Data dengan Pihak Ketiga</h2>
+      <p>Kami hanya berbagi data dengan pihak ketiga dalam kondisi terbatas berikut:</p>
+      <table class="legal-table">
+        <thead><tr><th>Pihak Ketiga</th><th>Tujuan</th><th>Data yang Dibagikan</th></tr></thead>
+        <tbody>
+          <tr><td>Cloudflare Inc.</td><td>CDN, DDoS protection, DNS</td><td>Traffic metadata, IP address</td></tr>
+          <tr><td>Payment Gateway (Midtrans/Xendit)</td><td>Pemrosesan pembayaran</td><td>Informasi transaksi (bukan data kartu mentah)</td></tr>
+          <tr><td>Anthropic / OpenAI</td><td>Model AI untuk chatbot &amp; analisis laporan</td><td>Teks prompt yang Anda kirimkan ke fitur AI</td></tr>
+          <tr><td>SMTP Provider</td><td>Pengiriman email notifikasi</td><td>Alamat email tujuan dan konten notifikasi</td></tr>
+          <tr><td>Otoritas Hukum</td><td>Kewajiban hukum / perintah pengadilan</td><td>Data yang diminta sesuai perintah yang sah</td></tr>
+        </tbody>
+      </table>
+      <p>Seluruh pihak ketiga diwajibkan memiliki standar keamanan data yang memadai dan tidak diizinkan menggunakan data Anda untuk tujuan lain di luar yang telah ditetapkan.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>6. Keamanan Data</h2>
+      <p>Kami menerapkan langkah-langkah keamanan teknis dan organisasional sebagai berikut:</p>
+      <ul>
+        <li><strong>Enkripsi kata sandi:</strong> menggunakan bcrypt dengan salt factor yang disesuaikan secara berkala</li>
+        <li><strong>Enkripsi transport:</strong> seluruh komunikasi antara browser dan server menggunakan TLS 1.2 atau lebih tinggi (HTTPS)</li>
+        <li><strong>Isolasi sesi:</strong> sesi pengguna dibatasi waktu dan di-invalidasi setelah logout</li>
+        <li><strong>Kontrol akses berbasis peran:</strong> halaman dan API dilindungi oleh middleware autentikasi dan otorisasi</li>
+        <li><strong>Audit log:</strong> seluruh tindakan administratif dan pemindaian dicatat dengan timestamp dan identitas pengguna</li>
+        <li><strong>Basis data lokal:</strong> data scan disimpan di SQLite yang diakses hanya oleh proses server CyberINK</li>
+        <li><strong>Pembaruan keamanan:</strong> dependensi platform diperbarui secara berkala untuk menutup kerentanan yang diketahui</li>
+      </ul>
+    </div>
+
+    <div class="legal-section">
+      <h2>7. Retensi Data</h2>
+      <table class="legal-table">
+        <thead><tr><th>Jenis Data</th><th>Masa Retensi</th><th>Catatan</th></tr></thead>
+        <tbody>
+          <tr><td>Data akun aktif</td><td>Selama akun aktif</td><td>Dihapus 90 hari setelah penghapusan akun</td></tr>
+          <tr><td>Hasil scan &amp; engagement</td><td>Selama akun aktif + 90 hari</td><td>Dapat diekspor sebelum akun dihapus</td></tr>
+          <tr><td>Log akses server</td><td>90 hari</td><td>Dihapus otomatis dengan rotasi log</td></tr>
+          <tr><td>Riwayat pembayaran</td><td>5 tahun</td><td>Kewajiban perpajakan Indonesia</td></tr>
+          <tr><td>LocalStorage browser</td><td>Dikelola oleh browser Anda</td><td>Dapat dihapus dari pengaturan browser</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="legal-section">
+      <h2>8. Hak-Hak Pengguna</h2>
+      <p>Sesuai UU PDP No. 27 Tahun 2022, Anda memiliki hak berikut:</p>
+      <ul>
+        <li><strong>Hak Akses:</strong> meminta salinan data pribadi yang kami simpan tentang Anda</li>
+        <li><strong>Hak Koreksi:</strong> meminta koreksi atas data yang tidak akurat atau tidak lengkap</li>
+        <li><strong>Hak Penghapusan:</strong> meminta penghapusan data pribadi Anda (kecuali data yang wajib disimpan berdasarkan hukum)</li>
+        <li><strong>Hak Portabilitas:</strong> menerima data Anda dalam format yang dapat dibaca mesin (JSON/CSV)</li>
+        <li><strong>Hak Keberatan:</strong> menolak pemrosesan data untuk tujuan tertentu (misalnya komunikasi pemasaran)</li>
+        <li><strong>Hak Penarikan Persetujuan:</strong> mencabut persetujuan kapan saja tanpa mempengaruhi pemrosesan yang sudah dilakukan sebelumnya</li>
+      </ul>
+      <p>Untuk mengajukan permintaan terkait hak-hak di atas, kirimkan email ke <strong>privacy@cyberink.id</strong> dengan subjek "Data Subject Request — [Jenis Permintaan]". Kami akan merespons dalam 14 hari kerja.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>9. Cookie dan Penyimpanan Lokal</h2>
+      <p>CyberINK menggunakan mekanisme penyimpanan berikut di perangkat Anda:</p>
+      <table class="legal-table">
+        <thead><tr><th>Mekanisme</th><th>Tujuan</th><th>Dapat Dinonaktifkan?</th></tr></thead>
+        <tbody>
+          <tr><td>Session Cookie</td><td>Autentikasi sesi login pengguna — diperlukan agar platform berfungsi</td><td>Tidak (essential)</td></tr>
+          <tr><td>localStorage</td><td>Menyimpan preferensi tata letak dashboard, status filter, dan target scan terakhir di browser Anda</td><td>Ya — hapus dari pengaturan browser</td></tr>
+          <tr><td>sessionStorage</td><td>Menyimpan status scan yang sedang berjalan selama tab browser aktif</td><td>Ya — ditutup otomatis saat tab ditutup</td></tr>
+        </tbody>
+      </table>
+      <p>Kami tidak menggunakan cookie pelacak pihak ketiga atau cookie analitik komersial.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>10. Transfer Data Internasional</h2>
+      <p>Beberapa layanan yang kami gunakan (seperti Anthropic untuk model AI dan Cloudflare untuk CDN) berlokasi di luar Indonesia. Transfer data tersebut dilakukan dengan jaminan kontraktual yang memadai, termasuk Standard Contractual Clauses (SCC) dan kebijakan privasi masing-masing penyedia. Kami hanya mentransfer data yang diperlukan untuk fungsi spesifik layanan tersebut.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>11. Perubahan Kebijakan Privasi</h2>
+      <p>Kami dapat memperbarui Kebijakan Privasi ini sewaktu-waktu. Perubahan material akan diberitahukan melalui:</p>
+      <ul>
+        <li>Notifikasi di dalam platform minimal 14 hari sebelum berlaku</li>
+        <li>Email ke alamat yang terdaftar (jika tersedia)</li>
+      </ul>
+      <p>Penggunaan platform setelah tanggal berlakunya perubahan dianggap sebagai penerimaan atas kebijakan yang diperbarui. Jika Anda tidak menyetujui perubahan, Anda dapat menghapus akun sebelum tanggal berlaku.</p>
+    </div>
+
+    <div class="legal-section">
+      <h2>12. Kontak dan Pengaduan</h2>
+      <p>Untuk pertanyaan, permintaan terkait data, atau pengaduan privasi:</p>
+      <ul>
+        <li>Email DPO: <strong>privacy@cyberink.id</strong></li>
+        <li>Waktu respons: paling lambat 14 hari kerja</li>
+      </ul>
+      <p>Jika Anda merasa hak privasi Anda tidak ditangani dengan memadai, Anda berhak mengajukan aduan kepada Kementerian Komunikasi dan Digital Republik Indonesia (Komdigi) sebagai otoritas pengawas perlindungan data.</p>
+    </div>
+
+  </div><!-- /legal-wrap -->
+  </div><!-- /page-privacy -->
 
   </div><!-- /page-content -->
 </div><!-- /main-shell -->
@@ -5482,6 +5869,8 @@ var _PAGE_TITLES = {
   'grc':           'GRC Compliance',
   'agents':        'Meet Our Agents',
   'pricing':       'Pricing Plans',
+  'policy':        'Subscription & Billing Policy',
+  'privacy':       'Privacy Policy',
 };
 
 var _PRO_PAGES = ['scan', 'pentest'];
@@ -5540,6 +5929,8 @@ function sbNav(section, el) {
   if (section === 'pentest')       loadPentestPage();
   if (section === 'grc')           loadGrcPage();
   if (section === 'pricing')       initPricingPage();
+  if (section === 'policy')        {}  // static page, no init needed
+  if (section === 'privacy')       {}  // static page, no init needed
 }
 
 function toggleSidebar() {
@@ -11775,9 +12166,8 @@ function umSetPlan(username, newPlan) {
 }
 
 function initPricingPage() {
-  // Highlight the card matching the current user's plan
-  var basicCard = document.getElementById('pricing-card-basic');
-  var proCard   = document.getElementById('pricing-card-pro');
+  var basicCard  = document.getElementById('pricing-card-basic');
+  var proCard    = document.getElementById('pricing-card-pro');
   var basicBadge = document.getElementById('pricing-basic-badge');
   var proBadge   = document.getElementById('pricing-pro-badge');
   var basicCta   = document.getElementById('pricing-basic-cta');
@@ -11790,16 +12180,34 @@ function initPricingPage() {
   if (proBadge)   { proBadge.className   = 'pricing-badge badge-pro';   proBadge.textContent   = 'Pro'; }
 
   if (USER_PLAN === 'pro') {
-    if (proCard)  proCard.classList.add('plan-current');
-    if (proBadge) { proBadge.className = 'pricing-badge badge-current'; proBadge.textContent = 'Pro — Your Plan'; }
-    if (proCta)   proCta.innerHTML = '<strong>You are on the Pro plan.</strong> All features are unlocked.';
+    if (proCard)   proCard.classList.add('plan-current');
+    if (proBadge)  { proBadge.className = 'pricing-badge badge-current'; proBadge.textContent = 'Pro — Paket Anda'; }
+    if (proCta)    proCta.innerHTML = '<strong>Anda menggunakan paket Pro.</strong> Semua fitur telah diaktifkan.';
   } else {
     if (basicCard)  basicCard.classList.add('plan-current');
-    if (basicBadge) { basicBadge.className = 'pricing-badge badge-current'; basicBadge.textContent = 'Basic — Your Plan'; }
-    if (basicCta)   basicCta.innerHTML = '<strong>You are on the Basic plan.</strong> Contact your administrator to upgrade to Pro.';
+    if (basicBadge) { basicBadge.className = 'pricing-badge badge-current'; basicBadge.textContent = 'Basic — Paket Anda'; }
+    if (basicCta)   basicCta.innerHTML = '<strong>Anda menggunakan paket Basic.</strong> Hubungi administrator untuk upgrade ke Pro.';
   }
 
   if (adminNote) adminNote.style.display = USER_ROLE === 'admin' ? 'block' : 'none';
+  // Reset toggle to monthly on open
+  var tog = document.getElementById('ptoggle-input');
+  if (tog) { tog.checked = false; pricingToggleBilling(false); }
+}
+
+function pricingToggleBilling(isAnnual) {
+  var mPrices = document.querySelectorAll('.pricing-price-monthly');
+  var aPrices = document.querySelectorAll('.pricing-price-annual');
+  var mLbl    = document.getElementById('ptoggle-monthly-lbl');
+  var aLbl    = document.getElementById('ptoggle-annual-lbl');
+  var proAlt  = document.getElementById('pricing-pro-alt');
+  mPrices.forEach(function(el){ el.style.display = isAnnual ? 'none' : ''; });
+  aPrices.forEach(function(el){ el.style.display = isAnnual ? '' : 'none'; });
+  if (mLbl) mLbl.classList.toggle('active', !isAnnual);
+  if (aLbl) aLbl.classList.toggle('active', isAnnual);
+  if (proAlt) proAlt.textContent = isAnnual
+    ? 'Ditagih tahunan • setara Rp 224.167/bln (hemat Rp 898.000/thn)'
+    : 'Ditagih bulanan • setara Rp 299.000/bln';
 }
 
 function umSetRole(username, newRole) {
