@@ -6265,18 +6265,31 @@ var _PAGE_TITLES = {
   'privacy':       'Privacy Policy',
 };
 
-var _PRO_PAGES = ['scan', 'pentest'];
+// Pages requiring Pro plan — redirect Basic users to pricing
+var _PRO_PAGES = ['scan', 'pentest', 'agents'];
+
+// Pages always accessible to every logged-in user regardless of plan or whitelist
+var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'syslog'];
 
 var _currentPage = 'dashboard';
 
+// Hide Meet Our Agents sidebar button for non-pro, non-admin users
+(function() {
+  if (USER_PLAN !== 'pro' && USER_ROLE !== 'admin') {
+    var agentsBtn = document.getElementById('sb-agents');
+    if (agentsBtn) agentsBtn.style.display = 'none';
+  }
+})();
+
 function sbNav(section, el) {
-  // Role-based access guard
-  if (USER_ROLE !== 'admin' && _USER_SECTIONS.indexOf(section) === -1) {
+  var isPublic = _PUBLIC_PAGES.indexOf(section) !== -1;
+  // Role-based access guard (public pages and admins bypass this)
+  if (!isPublic && USER_ROLE !== 'admin' && _USER_SECTIONS.indexOf(section) === -1) {
     alert('Access restricted. Contact your admin to upgrade your account.');
     return;
   }
-  // Plan-based gate — Pro pages redirect to pricing for Basic users
-  if (USER_PLAN !== 'pro' && USER_ROLE !== 'admin' && _PRO_PAGES.indexOf(section) !== -1) {
+  // Plan-based gate — Pro pages redirect Basic users to pricing
+  if (!isPublic && USER_PLAN !== 'pro' && USER_ROLE !== 'admin' && _PRO_PAGES.indexOf(section) !== -1) {
     var pricingEl = document.getElementById('sb-pricing');
     sbNav('pricing', pricingEl);
     var banner = document.getElementById('pricing-upgrade-banner');
