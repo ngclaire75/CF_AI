@@ -12881,22 +12881,18 @@ function slRenderStats(stats) {
 
   // Top hosts
   var hosts = stats.by_host || [];
-  var maxH = hosts.length ? hosts[0].cnt : 1;
   var hTb = document.getElementById('sl-host-tbody');
   if (hTb) hTb.innerHTML = hosts.length ? hosts.map(function(h){
-    var w = Math.max(4, Math.round((h.cnt/maxH)*120));
     return '<tr><td>'+_esc(h.host||'(unknown)')+'</td><td>'+h.cnt.toLocaleString()+'</td>'
-      +'<td><span class="sl-bar" style="width:'+w+'px"></span></td></tr>';
+      +'<td style="font-weight:600;color:#111827;">'+h.cnt.toLocaleString()+'</td></tr>';
   }).join('') : '<tr><td colspan="3" style="text-align:center;padding:20px;color:#9ca3af;">No data</td></tr>';
 
   // By source
   var srcs = stats.by_source || [];
-  var maxS = srcs.length ? srcs[0].cnt : 1;
   var sTb = document.getElementById('sl-src-tbody');
   if (sTb) sTb.innerHTML = srcs.length ? srcs.map(function(s){
-    var w = Math.max(4, Math.round((s.cnt/maxS)*120));
     return '<tr><td>'+_esc(s.source_type)+'</td><td>'+s.cnt.toLocaleString()+'</td>'
-      +'<td><span class="sl-bar" style="width:'+w+'px;background:#7c3aed;"></span></td></tr>';
+      +'<td style="font-weight:600;color:#111827;">'+s.cnt.toLocaleString()+'</td></tr>';
   }).join('') : '<tr><td colspan="3" style="text-align:center;padding:20px;color:#9ca3af;">No data</td></tr>';
 }
 
