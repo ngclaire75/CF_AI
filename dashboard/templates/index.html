@@ -13566,17 +13566,17 @@ function invRenderStats(s) {
   if (!row) return;
   function fmt(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
   var cards = [
-    {label:'Active',          val: s.active    || 0, color:'#107c10', bg:'#e9f8ee'},
-    {label:'Monthly',         val: s.monthly   || 0, color:'#2563eb', bg:'#eff6ff'},
-    {label:'Annual',          val: s.annual    || 0, color:'#7c3aed', bg:'#f5f3ff'},
-    {label:'Pending',         val: s.pending   || 0, color:'#92400e', bg:'#fef3c7'},
-    {label:'Cancelled',       val: s.cancelled || 0, color:'#6b7280', bg:'#f3f4f6'},
-    {label:'Revenue (Active)',val: fmt(s.revenue_active), color:'#111827', bg:'#f9fafb', big:true},
+    {label:'Active',          val: s.active    || 0},
+    {label:'Monthly',         val: s.monthly   || 0},
+    {label:'Annual',          val: s.annual    || 0},
+    {label:'Pending',         val: s.pending   || 0},
+    {label:'Cancelled',       val: s.cancelled || 0},
+    {label:'Revenue (Active)',val: fmt(s.revenue_active), big:true},
   ];
   row.innerHTML = cards.map(function(c){
-    return '<div style="background:' + c.bg + ';border-radius:8px;padding:14px 16px;">'
+    return '<div style="background:#f3f4f6;border-radius:8px;padding:14px 16px;">'
       + '<div style="font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">' + c.label + '</div>'
-      + '<div style="font-size:' + (c.big ? '16px' : '22px') + ';font-weight:800;color:' + c.color + ';">' + c.val + '</div>'
+      + '<div style="font-size:' + (c.big ? '16px' : '22px') + ';font-weight:800;color:#111827;">' + c.val + '</div>'
       + '</div>';
   }).join('');
 }
