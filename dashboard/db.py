@@ -171,7 +171,175 @@ def init_db():
             con.commit()
         except Exception:
             pass
+
+        # ── Subscriptions (Midtrans payment tracking) ─────────────────────────
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+                username         TEXT NOT NULL,
+                email            TEXT DEFAULT '',
+                order_id         TEXT UNIQUE NOT NULL,
+                transaction_id   TEXT DEFAULT '',
+                plan_type        TEXT DEFAULT 'monthly',
+                amount           INTEGER DEFAULT 0,
+                currency         TEXT DEFAULT 'IDR',
+                status           TEXT DEFAULT 'pending',
+                payment_type     TEXT DEFAULT '',
+                bank             TEXT DEFAULT '',
+                va_number        TEXT DEFAULT '',
+                subscribed_at    TEXT DEFAULT '',
+                expires_at       TEXT DEFAULT '',
+                cancelled_at     TEXT DEFAULT '',
+                snap_token       TEXT DEFAULT '',
+                raw_notification TEXT DEFAULT ''
+            )
+        ''')
+        con.execute('CREATE INDEX IF NOT EXISTS idx_sub_username  ON subscriptions(username)')
+        con.execute('CREATE INDEX IF NOT EXISTS idx_sub_status    ON subscriptions(status)')
+        con.execute('CREATE INDEX IF NOT EXISTS idx_sub_order_id  ON subscriptions(order_id)')
         con.commit()
+
+
+# ── Subscription CRUD ─────────────────────────────────────────────────────────
+
+def create_subscription(*, username: str, email: str, order_id: str,
+                        plan_type: str, amount: int, snap_token: str = '') -> int:
+    with _connect() as con:
+        cur = con.execute(
+            '''INSERT INTO subscriptions (username, email, order_id, plan_type, amount, snap_token)
+               VALUES (?, ?, ?, ?, ?, ?)''',
+            (username, email, order_id, plan_type, amount, snap_token)
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def update_subscription_status(order_id: str, status: str, *,
+                                transaction_id: str = '', payment_type: str = '',
+                                bank: str = '', va_number: str = '',
+                                subscribed_at: str = '', expires_at: str = '',
+                                raw_notification: str = '') -> None:
+    with _connect() as con:
+        con.execute(
+            '''UPDATE subscriptions SET
+               status=?, transaction_id=?, payment_type=?, bank=?, va_number=?,
+               subscribed_at = CASE WHEN ? != '' THEN ? ELSE subscribed_at END,
+               expires_at    = CASE WHEN ? != '' THEN ? ELSE expires_at END,
+               raw_notification = CASE WHEN ? != '' THEN ? ELSE raw_notification END
+               WHERE order_id=?''',
+            (status, transaction_id, payment_type, bank, va_number,
+             subscribed_at, subscribed_at, expires_at, expires_at,
+             raw_notification, raw_notification, order_id)
+        )
+        con.commit()
+
+
+def cancel_subscription(order_id: str, cancelled_at: str) -> None:
+    with _connect() as con:
+        con.execute(
+            "UPDATE subscriptions SET status='cancelled', cancelled_at=? WHERE order_id=?",
+            (cancelled_at, order_id)
+        )
+        con.commit()
+
+
+def get_subscription_by_order_id(order_id: str):
+    with _connect() as con:
+        row = con.execute('SELECT * FROM subscriptions WHERE order_id=?', (order_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def get_user_active_subscription(username: str):
+    with _connect() as con:
+        row = con.execute(
+            "SELECT * FROM subscriptions WHERE username=? AND status='active' "
+            "ORDER BY subscribed_at DESC LIMIT 1",
+            (username,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_user_subscriptions(username: str) -> list:
+    with _connect() as con:
+        rows = con.execute(
+            'SELECT * FROM subscriptions WHERE username=? ORDER BY created_at DESC',
+            (username,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_all_subscriptions(status: str = None, plan_type: str = None,
+                          search: str = None, limit: int = 100, offset: int = 0) -> list:
+    with _connect() as con:
+        q = 'SELECT * FROM subscriptions WHERE 1=1'
+        params: list = []
+        if status:
+            q += ' AND status=?'
+            params.append(status)
+        if plan_type:
+            q += ' AND plan_type=?'
+            params.append(plan_type)
+        if search:
+            q += ' AND (username LIKE ? OR email LIKE ? OR order_id LIKE ?)'
+            params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
+        q += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+        params.extend([limit, offset])
+        return [dict(r) for r in con.execute(q, params).fetchall()]
+
+
+def count_all_subscriptions(status: str = None, plan_type: str = None,
+                             search: str = None) -> int:
+    with _connect() as con:
+        q = 'SELECT COUNT(*) FROM subscriptions WHERE 1=1'
+        params: list = []
+        if status:
+            q += ' AND status=?'
+            params.append(status)
+        if plan_type:
+            q += ' AND plan_type=?'
+            params.append(plan_type)
+        if search:
+            q += ' AND (username LIKE ? OR email LIKE ? OR order_id LIKE ?)'
+            params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
+        return con.execute(q, params).fetchone()[0]
+
+
+def get_subscription_stats() -> dict:
+    with _connect() as con:
+        def _count(where, params=()):
+            return con.execute(f'SELECT COUNT(*) FROM subscriptions WHERE {where}', params).fetchone()[0]
+        def _sum(where, params=()):
+            return con.execute(f'SELECT COALESCE(SUM(amount),0) FROM subscriptions WHERE {where}', params).fetchone()[0]
+        return {
+            'active':               _count("status='active'"),
+            'monthly':              _count("status='active' AND plan_type='monthly'"),
+            'annual':               _count("status='active' AND plan_type='annual'"),
+            'pending':              _count("status='pending'"),
+            'cancelled':            _count("status='cancelled'"),
+            'expired':              _count("status='expired'"),
+            'failed':               _count("status='failed'"),
+            'revenue_active':       _sum("status='active'"),
+            'revenue_all_time':     _sum("status IN ('active','expired','cancelled')"),
+        }
+
+
+def expire_stale_subscriptions() -> list:
+    """Mark active subscriptions past their expires_at as expired. Returns affected rows."""
+    import datetime as _dt
+    now = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    with _connect() as con:
+        rows = con.execute(
+            "SELECT * FROM subscriptions WHERE status='active' AND expires_at!='' AND expires_at<=?",
+            (now,)
+        ).fetchall()
+        if rows:
+            con.execute(
+                "UPDATE subscriptions SET status='expired' WHERE status='active' AND expires_at!='' AND expires_at<=?",
+                (now,)
+            )
+            con.commit()
+        return [dict(r) for r in rows]
 
 
 # ── Engagement CRUD ───────────────────────────────────────────────────────────

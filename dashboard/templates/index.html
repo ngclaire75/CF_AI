@@ -2195,6 +2195,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <button class="sb-item" id="sb-usermgmt" onclick="sbNav('usermgmt',this)">
       <span class="sb-label">User Management</span>
     </button>
+    <button class="sb-item" id="sb-invoices" onclick="sbNav('invoices',this)">
+      <span class="sb-label">Invoice Management</span>
+    </button>
     {% endif %}
 
     <div class="sb-divider"></div>
@@ -3322,6 +3325,81 @@ Export Power BI
     </div>
   </div>
   </div><!-- /page-usermgmt -->
+
+  <!-- ══ INVOICE MANAGEMENT PAGE ════════════════════════════════════════════ -->
+  <div id="page-invoices" class="page-section" style="display:none">
+  <div class="mdef-page">
+    <div class="mdef-page-title">Invoice Management</div>
+
+    <!-- Stats row -->
+    <div id="inv-stats-row" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:0 20px 20px;"></div>
+
+    <!-- Toolbar -->
+    <div class="mdef-toolbar" style="gap:10px;flex-wrap:wrap;padding:0 20px 14px;">
+      <input id="inv-search" type="text" placeholder="Search username, email, order ID…"
+             style="padding:6px 10px;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;width:220px;"
+             oninput="invFilter()">
+      <select id="inv-filter-status" onchange="invFilter()"
+              style="padding:6px 10px;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;">
+        <option value="">All Status</option>
+        <option value="active">Active</option>
+        <option value="pending">Pending</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="expired">Expired</option>
+        <option value="failed">Failed</option>
+      </select>
+      <select id="inv-filter-plan" onchange="invFilter()"
+              style="padding:6px 10px;border:1px solid #c8c6c4;border-radius:4px;font-size:13px;">
+        <option value="">All Plans</option>
+        <option value="monthly">Monthly</option>
+        <option value="annual">Annual</option>
+      </select>
+      <button class="mdef-toolbar-btn primary" onclick="loadInvoices()">Refresh</button>
+      <button class="mdef-toolbar-btn" onclick="invExportCsv()" style="margin-left:auto;">Export CSV</button>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x:auto;padding:0 20px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid #e1dfdd;text-align:left;">
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Username</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Email</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Plan</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Amount</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Method</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Status</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Subscribed</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Expires</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Order ID</th>
+            <th style="padding:8px 10px;color:#6b7280;font-weight:600;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="inv-tbody">
+          <tr><td colspan="10" style="padding:20px;color:#9ca3af;text-align:center;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div id="inv-pagination" style="display:flex;align-items:center;gap:10px;padding:14px 20px;font-size:13px;color:#6b7280;"></div>
+
+    <!-- Cancel confirm modal -->
+    <div id="inv-cancel-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:8px;padding:28px 32px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+        <div style="font-weight:700;font-size:16px;margin-bottom:10px;">Cancel Subscription</div>
+        <div id="inv-cancel-msg" style="font-size:13px;color:#374151;margin-bottom:20px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="document.getElementById('inv-cancel-bg').style.display='none'"
+                  style="padding:7px 18px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;">Keep</button>
+          <button id="inv-cancel-confirm-btn"
+                  style="padding:7px 18px;border:none;border-radius:4px;background:#a80000;color:#fff;cursor:pointer;font-weight:600;">Cancel Subscription</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /mdef-page -->
+  </div><!-- /page-invoices -->
 
   <!-- ══ SYSTEM LOGS PAGE ═══════════════════════════════════════════════════ -->
   <div id="page-syslog" class="page-section" style="display:none">
@@ -6162,6 +6240,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 var USER_ROLE          = "{{ current_user.role }}";
 var USER_NAME          = "{{ current_user.username }}";
 var USER_PLAN          = "{{ user_plan }}";
+var MIDTRANS_CONFIGURED = {{ 'true' if midtrans_configured else 'false' }};
+var MIDTRANS_CLIENT_KEY = "{{ midtrans_client_key }}";
 // null = admin (unrestricted); array = explicit page whitelist for this user
 var USER_ALLOWED_PAGES = {{ user_allowed_pages | tojson }};
 
@@ -6263,6 +6343,8 @@ var _PAGE_TITLES = {
   'pricing':       'Pricing Plans',
   'policy':        'Subscription & Billing Policy',
   'privacy':       'Privacy Policy',
+  'syslog':        'System Logs',
+  'invoices':      'Invoice Management',
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
@@ -6331,6 +6413,7 @@ function sbNav(section, el) {
   if (section === 'gsc')           loadGscPage();
   if (section === 'filescan')      loadFileScanPage();
   if (section === 'usermgmt')      loadUserMgmt();
+  if (section === 'invoices')      loadInvoices();
   if (section === 'pentest')       loadPentestPage();
   if (section === 'grc')           loadGrcPage();
   if (section === 'pricing')       initPricingPage();
@@ -13073,23 +13156,116 @@ function initPricingPage() {
   if (proBadge)   { proBadge.className   = 'pricing-badge badge-pro';   proBadge.textContent   = 'Pro'; }
 
   if (USER_PLAN === 'pro') {
-    if (proCard)   proCard.classList.add('plan-current');
-    if (proBadge)  { proBadge.className = 'pricing-badge badge-current'; proBadge.textContent = isEn ? 'Pro — Your Plan' : 'Pro — Paket Anda'; }
-    if (proCta)    proCta.innerHTML = isEn
-      ? '<strong>You are on the Pro plan.</strong> All features are active.'
-      : '<strong>Anda menggunakan paket Pro.</strong> Semua fitur telah diaktifkan.';
+    if (proCard)  proCard.classList.add('plan-current');
+    if (proBadge) { proBadge.className = 'pricing-badge badge-current'; proBadge.textContent = isEn ? 'Pro — Your Plan' : 'Pro — Paket Anda'; }
+    // Load active subscription details
+    fetch('/api/payment/status')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var sub = d.subscription;
+        if (proCta) {
+          if (sub) {
+            var exp = sub.expires_at ? sub.expires_at.split(' ')[0] : '—';
+            var pt  = sub.plan_type === 'annual'
+              ? (isEn ? 'Annual' : 'Tahunan')
+              : (isEn ? 'Monthly' : 'Bulanan');
+            var pm  = sub.payment_type ? (' · ' + sub.payment_type.replace(/_/g,' ').toUpperCase()) : '';
+            proCta.innerHTML = (isEn
+              ? '<strong>You are on the Pro plan.</strong> All features are active.<br>'
+              : '<strong>Anda menggunakan paket Pro.</strong> Semua fitur telah diaktifkan.<br>')
+              + '<span style="font-size:11px;color:#6b7280;">' + pt + pm + ' · '
+              + (isEn ? 'Expires: ' : 'Berakhir: ') + exp + '</span>'
+              + (USER_ROLE !== 'admin' ? '<br><button onclick="paymentCancelSelf()" style="margin-top:8px;padding:4px 12px;border:1px solid #f1b3b7;border-radius:4px;background:#fde7e9;color:#a80000;font-size:11px;cursor:pointer;">'
+                + (isEn ? 'Cancel Subscription' : 'Batalkan Langganan') + '</button>' : '');
+          } else {
+            proCta.innerHTML = isEn ? '<strong>You are on the Pro plan.</strong> All features are active.' : '<strong>Anda menggunakan paket Pro.</strong> Semua fitur telah diaktifkan.';
+          }
+        }
+      }).catch(function(){});
   } else {
     if (basicCard)  basicCard.classList.add('plan-current');
     if (basicBadge) { basicBadge.className = 'pricing-badge badge-current'; basicBadge.textContent = isEn ? 'Basic — Your Plan' : 'Basic — Paket Anda'; }
-    if (basicCta)   basicCta.innerHTML = isEn
-      ? '<strong>You are on the Basic plan.</strong> Contact your administrator to upgrade to Pro.'
-      : '<strong>Anda menggunakan paket Basic.</strong> Hubungi administrator untuk upgrade ke Pro.';
+    if (basicCta) basicCta.innerHTML = isEn
+      ? '<strong>You are on the Basic plan.</strong>'
+      : '<strong>Anda menggunakan paket Basic.</strong>';
+    if (proCta) {
+      if (!MIDTRANS_CONFIGURED) {
+        proCta.innerHTML = isEn
+          ? '<strong>Payment gateway not yet configured.</strong> Contact administrator.'
+          : '<strong>Payment gateway belum dikonfigurasi.</strong> Hubungi administrator.';
+      } else {
+        proCta.innerHTML =
+          '<button id="pricing-subscribe-btn" onclick="paymentSubscribe()" '
+          + 'style="display:block;width:100%;padding:10px;border:none;border-radius:6px;'
+          + 'background:#2563eb;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:6px;">'
+          + (isEn ? 'Subscribe to Pro' : 'Berlangganan Pro') + '</button>'
+          + '<div id="pricing-pay-err" style="display:none;color:#a80000;font-size:12px;margin-top:4px;"></div>';
+      }
+    }
   }
 
   if (adminNote) adminNote.style.display = USER_ROLE === 'admin' ? 'block' : 'none';
-  // Reset toggle to monthly on open
   var tog = document.getElementById('ptoggle-input');
   if (tog) { tog.checked = false; pricingToggleBilling(false); }
+}
+
+function paymentSubscribe() {
+  var tog      = document.getElementById('ptoggle-input');
+  var planType = (tog && tog.checked) ? 'annual' : 'monthly';
+  var btn      = document.getElementById('pricing-subscribe-btn');
+  var errEl    = document.getElementById('pricing-pay-err');
+  if (btn) { btn.disabled = true; btn.textContent = 'Memproses…'; }
+  if (errEl) errEl.style.display = 'none';
+
+  fetch('/api/payment/create-transaction', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({plan_type: planType})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d.error) {
+      if (errEl) { errEl.textContent = d.error; errEl.style.display = ''; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Berlangganan Pro'; }
+      return;
+    }
+    window.snap.pay(d.snap_token, {
+      onSuccess: function(result) {
+        if (btn) btn.textContent = 'Pembayaran berhasil!';
+        setTimeout(function(){ location.reload(); }, 1500);
+      },
+      onPending: function(result) {
+        if (errEl) {
+          errEl.style.color = '#92400e';
+          errEl.textContent = 'Pembayaran tertunda. Selesaikan pembayaran untuk mengaktifkan Pro.';
+          errEl.style.display = '';
+        }
+        if (btn) { btn.disabled = false; btn.textContent = 'Berlangganan Pro'; }
+      },
+      onError: function(result) {
+        if (errEl) { errEl.style.color = '#a80000'; errEl.textContent = 'Pembayaran gagal. Silakan coba lagi.'; errEl.style.display = ''; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Berlangganan Pro'; }
+      },
+      onClose: function() {
+        if (btn) { btn.disabled = false; btn.textContent = 'Berlangganan Pro'; }
+      }
+    });
+  })
+  .catch(function(){
+    if (errEl) { errEl.textContent = 'Koneksi gagal. Coba lagi.'; errEl.style.display = ''; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Berlangganan Pro'; }
+  });
+}
+
+function paymentCancelSelf() {
+  var isEn = _pageLang['pricing'] === 'en';
+  if (!confirm(isEn ? 'Cancel your Pro subscription? Your plan will revert to Basic.' : 'Batalkan langganan Pro? Akun Anda akan kembali ke Basic.')) return;
+  fetch('/api/payment/cancel', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) { alert(d.error); return; }
+      location.reload();
+    });
 }
 
 function pricingToggleBilling(isAnnual) {
@@ -13342,6 +13518,161 @@ function umSavePages() {
   }).catch(function() {
     if (errEl) { errEl.textContent = 'Request failed. Please try again.'; errEl.style.display = ''; }
   });
+}
+
+// ── Invoice Management ────────────────────────────────────────────────────────
+var _invData      = [];
+var _invOffset    = 0;
+var _invPageSize  = 50;
+var _invTotal     = 0;
+var _invCancelId  = null;
+
+function loadInvoices() {
+  var tbody = document.getElementById('inv-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="10" style="padding:20px;color:#9ca3af;text-align:center;">Loading…</td></tr>';
+  invFilter();
+}
+
+function invFilter() {
+  _invOffset = 0;
+  invFetch();
+}
+
+function invFetch() {
+  var status   = (document.getElementById('inv-filter-status') || {}).value || '';
+  var plan     = (document.getElementById('inv-filter-plan')   || {}).value || '';
+  var search   = (document.getElementById('inv-search')        || {}).value || '';
+  var url = '/api/admin/invoices?limit=' + _invPageSize + '&offset=' + _invOffset;
+  if (status) url += '&status=' + encodeURIComponent(status);
+  if (plan)   url += '&plan_type=' + encodeURIComponent(plan);
+  if (search) url += '&search=' + encodeURIComponent(search);
+
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) { document.getElementById('inv-tbody').innerHTML = '<tr><td colspan="10" style="padding:20px;color:#a80000;text-align:center;">' + _esc(d.error) + '</td></tr>'; return; }
+      _invData  = d.subscriptions || [];
+      _invTotal = d.total || 0;
+      invRenderStats(d.stats || {});
+      invRenderTable(_invData);
+      invRenderPagination();
+    })
+    .catch(function(){ document.getElementById('inv-tbody').innerHTML = '<tr><td colspan="10" style="padding:20px;color:#a80000;text-align:center;">Request failed.</td></tr>'; });
+}
+
+function invRenderStats(s) {
+  var row = document.getElementById('inv-stats-row');
+  if (!row) return;
+  function fmt(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
+  var cards = [
+    {label:'Active',          val: s.active    || 0, color:'#107c10', bg:'#e9f8ee'},
+    {label:'Monthly',         val: s.monthly   || 0, color:'#2563eb', bg:'#eff6ff'},
+    {label:'Annual',          val: s.annual    || 0, color:'#7c3aed', bg:'#f5f3ff'},
+    {label:'Pending',         val: s.pending   || 0, color:'#92400e', bg:'#fef3c7'},
+    {label:'Cancelled',       val: s.cancelled || 0, color:'#6b7280', bg:'#f3f4f6'},
+    {label:'Revenue (Active)',val: fmt(s.revenue_active), color:'#111827', bg:'#f9fafb', big:true},
+  ];
+  row.innerHTML = cards.map(function(c){
+    return '<div style="background:' + c.bg + ';border-radius:8px;padding:14px 16px;">'
+      + '<div style="font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">' + c.label + '</div>'
+      + '<div style="font-size:' + (c.big ? '16px' : '22px') + ';font-weight:800;color:' + c.color + ';">' + c.val + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function invRenderTable(rows) {
+  var tbody = document.getElementById('inv-tbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="padding:20px;color:#9ca3af;text-align:center;">No invoices found.</td></tr>';
+    return;
+  }
+  var statusStyle = {
+    active:    'background:#e9f8ee;color:#107c10',
+    pending:   'background:#fef3c7;color:#92400e',
+    cancelled: 'background:#f3f4f6;color:#6b7280',
+    expired:   'background:#f3f4f6;color:#a80000',
+    failed:    'background:#fde7e9;color:#a80000',
+  };
+  tbody.innerHTML = rows.map(function(r){
+    var ss   = statusStyle[r.status] || 'background:#f3f4f6;color:#374151';
+    var pt   = r.plan_type === 'annual' ? '<span style="background:#f5f3ff;color:#7c3aed;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">ANNUAL</span>'
+                                        : '<span style="background:#eff6ff;color:#2563eb;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">MONTHLY</span>';
+    var amt  = 'Rp ' + Number(r.amount || 0).toLocaleString('id-ID');
+    var pm   = r.payment_type ? r.payment_type.replace(/_/g,' ').toUpperCase() : '—';
+    if (r.bank) pm += ' / ' + r.bank.toUpperCase();
+    var sub  = r.subscribed_at ? r.subscribed_at.split(' ')[0] : '—';
+    var exp  = r.expires_at    ? r.expires_at.split(' ')[0]    : '—';
+    var canCancel = (r.status === 'active' || r.status === 'pending');
+    var actions = canCancel
+      ? '<button onclick="invConfirmCancel(' + r.id + ',\'' + _esc(r.username) + '\')" style="padding:3px 10px;border:1px solid #f1b3b7;border-radius:4px;background:#fde7e9;color:#a80000;font-size:11px;cursor:pointer;">Cancel</button>'
+      : '<span style="color:#9ca3af;font-size:11px;">' + r.status + '</span>';
+    return '<tr style="border-bottom:1px solid #f3f4f6;">'
+      + '<td style="padding:9px 10px;font-weight:500;">' + _esc(r.username) + '</td>'
+      + '<td style="padding:9px 10px;color:#6b7280;font-size:12px;">' + _esc(r.email || '—') + '</td>'
+      + '<td style="padding:9px 10px;">' + pt + '</td>'
+      + '<td style="padding:9px 10px;font-weight:600;">' + amt + '</td>'
+      + '<td style="padding:9px 10px;font-size:12px;color:#374151;">' + _esc(pm) + '</td>'
+      + '<td style="padding:9px 10px;"><span style="' + ss + ';font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">' + r.status.toUpperCase() + '</span></td>'
+      + '<td style="padding:9px 10px;font-size:12px;">' + sub + '</td>'
+      + '<td style="padding:9px 10px;font-size:12px;">' + exp + '</td>'
+      + '<td style="padding:9px 10px;font-size:11px;color:#9ca3af;font-family:monospace;">' + _esc(r.order_id) + '</td>'
+      + '<td style="padding:9px 10px;">' + actions + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function invRenderPagination() {
+  var el = document.getElementById('inv-pagination');
+  if (!el) return;
+  var pages = Math.ceil(_invTotal / _invPageSize) || 1;
+  var cur   = Math.floor(_invOffset / _invPageSize) + 1;
+  el.innerHTML = 'Showing ' + (_invOffset + 1) + '–' + Math.min(_invOffset + _invPageSize, _invTotal) + ' of ' + _invTotal
+    + (cur > 1 ? ' &nbsp;<button onclick="invPage(-1)" style="padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;font-size:12px;">Prev</button>' : '')
+    + (cur < pages ? ' &nbsp;<button onclick="invPage(1)" style="padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;font-size:12px;">Next</button>' : '');
+}
+
+function invPage(dir) {
+  _invOffset = Math.max(0, _invOffset + dir * _invPageSize);
+  invFetch();
+}
+
+function invConfirmCancel(id, username) {
+  _invCancelId = id;
+  var msg = document.getElementById('inv-cancel-msg');
+  if (msg) msg.textContent = 'Cancel Pro subscription for "' + username + '"? Their plan will revert to Basic immediately.';
+  var btn = document.getElementById('inv-cancel-confirm-btn');
+  if (btn) btn.onclick = function(){ invDoCancel(id); };
+  document.getElementById('inv-cancel-bg').style.display = 'flex';
+}
+
+function invDoCancel(id) {
+  document.getElementById('inv-cancel-bg').style.display = 'none';
+  fetch('/api/admin/invoices/' + id + '/cancel', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) { alert(d.error); return; }
+      loadInvoices();
+    });
+}
+
+function invExportCsv() {
+  var headers = ['Username','Email','Plan','Amount (IDR)','Payment Method','Bank','VA Number','Status','Subscribed At','Expires At','Cancelled At','Order ID','Transaction ID'];
+  var rows = _invData.map(function(r){
+    return [r.username, r.email, r.plan_type, r.amount,
+            r.payment_type, r.bank, r.va_number, r.status,
+            r.subscribed_at, r.expires_at, r.cancelled_at,
+            r.order_id, r.transaction_id]
+      .map(function(v){ return '"' + String(v||'').replace(/"/g,'""') + '"'; })
+      .join(',');
+  });
+  var csv  = [headers.join(',')].concat(rows).join('\n');
+  var blob = new Blob([csv], {type:'text/csv'});
+  var a    = document.createElement('a');
+  a.href   = URL.createObjectURL(blob);
+  a.download = 'cyberink_invoices_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
 }
 
 function _fsSetStatus(sel, fileKey, idx) {
@@ -15685,5 +16016,8 @@ function grcExport() {
 }
 
 </script>
+{% if midtrans_configured %}
+<script src="{{ midtrans_snap_js_url }}" data-client-key="{{ midtrans_client_key }}"></script>
+{% endif %}
 </body>
 </html>

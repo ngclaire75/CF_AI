@@ -547,7 +547,45 @@ def _find_user_by_identifier(identifier: str, users: dict):
 
 # ── Global auth enforcement ───────────────────────────────────────────────────
 _PUBLIC_PATHS = ('/login', '/signup', '/verify/', '/logout',
-                 '/api/syslog/hec', '/api/syslog/ingest', '/api/events/ingest')
+                 '/api/syslog/hec', '/api/syslog/ingest', '/api/events/ingest',
+                 '/api/payment/notification')
+
+# ── Midtrans configuration ────────────────────────────────────────────────────
+_MIDTRANS_SERVER_KEY     = os.environ.get('MIDTRANS_SERVER_KEY', '').strip()
+_MIDTRANS_CLIENT_KEY     = os.environ.get('MIDTRANS_CLIENT_KEY', '').strip()
+_MIDTRANS_IS_PRODUCTION  = os.environ.get('MIDTRANS_IS_PRODUCTION', '0').strip() == '1'
+
+def _midtrans_api_base() -> str:
+    return 'https://app.midtrans.com' if _MIDTRANS_IS_PRODUCTION else 'https://app.sandbox.midtrans.com'
+
+def _midtrans_snap_js_url() -> str:
+    base = 'https://app.midtrans.com' if _MIDTRANS_IS_PRODUCTION else 'https://app.sandbox.midtrans.com'
+    return f'{base}/snap/snap.js'
+
+def _midtrans_snap_create(order_id: str, amount: int, customer: dict, item_name: str, plan_type: str) -> dict:
+    import base64 as _b64
+    url  = f'{_midtrans_api_base()}/snap/v1/transactions'
+    auth = _b64.b64encode(f'{_MIDTRANS_SERVER_KEY}:'.encode()).decode()
+    payload = {
+        'transaction_details': {'order_id': order_id, 'gross_amount': amount},
+        'item_details': [{'id': plan_type, 'price': amount, 'quantity': 1, 'name': item_name}],
+        'customer_details': {
+            'first_name': customer.get('name', customer.get('username', '')),
+            'email':      customer.get('email', ''),
+        },
+    }
+    resp = _requests.post(url, json=payload, headers={
+        'Authorization': f'Basic {auth}',
+        'Content-Type':  'application/json',
+        'Accept':        'application/json',
+    }, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
+
+def _midtrans_verify_signature(order_id: str, status_code: str, gross_amount: str) -> str:
+    import hashlib
+    raw = f'{order_id}{status_code}{gross_amount}{_MIDTRANS_SERVER_KEY}'
+    return hashlib.sha512(raw.encode()).hexdigest()
 
 @app.before_request
 def _enforce_auth():
@@ -1853,6 +1891,9 @@ def index():
             'dashboard', 'chatbot', 'pluginlogs', 'logexplorer', 'inventories', 'network',
         ])
         ctx['user_plan'] = u.get('plan', 'basic')
+    ctx['midtrans_client_key'] = _MIDTRANS_CLIENT_KEY
+    ctx['midtrans_snap_js_url'] = _midtrans_snap_js_url()
+    ctx['midtrans_configured'] = bool(_MIDTRANS_SERVER_KEY and _MIDTRANS_CLIENT_KEY)
     return render_template('index.html', **ctx)
 
 
@@ -8184,6 +8225,184 @@ def api_grc_export():
         as_attachment=True,
         download_name='grc_compliance_report.xlsx',
     )
+
+
+# ── Payment routes (Midtrans) ─────────────────────────────────────────────────
+
+@app.route('/api/payment/create-transaction', methods=['POST'])
+@login_required
+def api_payment_create():
+    if not _MIDTRANS_SERVER_KEY or not _MIDTRANS_CLIENT_KEY:
+        return jsonify({'error': 'Pembayaran belum dikonfigurasi. Hubungi administrator.'}), 503
+    d         = request.get_json(silent=True) or {}
+    plan_type = d.get('plan_type', 'monthly')
+    if plan_type not in ('monthly', 'annual'):
+        return jsonify({'error': 'Tipe paket tidak valid.'}), 400
+    u        = session['user']
+    username = u.get('username', '')
+    email    = u.get('email', '')
+    existing = db.get_user_active_subscription(username)
+    if existing:
+        return jsonify({'error': 'Anda sudah memiliki langganan Pro yang aktif.'}), 409
+    amount    = 299000 if plan_type == 'monthly' else 2690000
+    item_name = f'CyberINK Pro — {"Bulanan" if plan_type == "monthly" else "Tahunan"}'
+    order_id  = f'CYBERINK-{username.upper()}-{_uuid.uuid4().hex[:8].upper()}'
+    try:
+        result = _midtrans_snap_create(
+            order_id=order_id, amount=amount,
+            customer={'username': username, 'email': email},
+            item_name=item_name, plan_type=plan_type,
+        )
+    except Exception as exc:
+        return jsonify({'error': f'Payment gateway error: {exc}'}), 502
+    snap_token = result.get('token', '')
+    db.create_subscription(username=username, email=email, order_id=order_id,
+                           plan_type=plan_type, amount=amount, snap_token=snap_token)
+    return jsonify({'snap_token': snap_token, 'order_id': order_id})
+
+
+@app.route('/api/payment/notification', methods=['POST'])
+def api_payment_notification():
+    """Midtrans payment notification webhook — no session auth required."""
+    from datetime import datetime as _dt, timedelta as _td
+    data               = request.get_json(silent=True) or {}
+    order_id           = data.get('order_id', '')
+    status_code        = str(data.get('status_code', ''))
+    gross_amount       = str(data.get('gross_amount', ''))
+    transaction_status = data.get('transaction_status', '')
+    fraud_status       = data.get('fraud_status', 'accept')
+    payment_type       = data.get('payment_type', '')
+    transaction_id     = data.get('transaction_id', '')
+    incoming_sig       = data.get('signature_key', '')
+
+    if _MIDTRANS_SERVER_KEY and incoming_sig:
+        expected = _midtrans_verify_signature(order_id, status_code, gross_amount)
+        if incoming_sig != expected:
+            return jsonify({'error': 'Invalid signature'}), 403
+
+    sub = db.get_subscription_by_order_id(order_id)
+    if not sub:
+        return jsonify({'error': 'Order not found'}), 404
+
+    if transaction_status in ('capture', 'settlement'):
+        new_status = 'active' if fraud_status == 'accept' else 'failed'
+    elif transaction_status == 'pending':
+        new_status = 'pending'
+    elif transaction_status in ('deny', 'cancel', 'expire'):
+        new_status = 'failed'
+    elif transaction_status in ('refund', 'partial_refund'):
+        new_status = 'cancelled'
+    else:
+        new_status = transaction_status
+
+    subscribed_at = ''
+    expires_at    = ''
+    if new_status == 'active':
+        now           = _dt.utcnow()
+        subscribed_at = now.strftime('%Y-%m-%d %H:%M:%S')
+        delta         = _td(days=31) if sub.get('plan_type') == 'monthly' else _td(days=366)
+        expires_at    = (now + delta).strftime('%Y-%m-%d %H:%M:%S')
+
+    bank      = data.get('bank', '') or data.get('issuer', '')
+    va_number = ''
+    va_list   = data.get('va_numbers', [])
+    if va_list and isinstance(va_list, list):
+        va_number = va_list[0].get('va_number', '')
+
+    db.update_subscription_status(
+        order_id, new_status,
+        transaction_id=transaction_id, payment_type=payment_type,
+        bank=bank, va_number=va_number,
+        subscribed_at=subscribed_at, expires_at=expires_at,
+        raw_notification=_json.dumps(data)[:2000],
+    )
+
+    users    = _load_users()
+    username = sub.get('username', '')
+    if new_status == 'active' and username in users:
+        users[username]['plan'] = 'pro'
+        _save_users(users)
+    elif new_status in ('cancelled', 'failed', 'expired') and sub.get('status') == 'active':
+        if username in users:
+            users[username]['plan'] = 'basic'
+            _save_users(users)
+
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/api/payment/status', methods=['GET'])
+@login_required
+def api_payment_status():
+    username = session['user'].get('username', '')
+    expired  = db.expire_stale_subscriptions()
+    users    = _load_users()
+    for s in expired:
+        un = s.get('username', '')
+        if un in users:
+            users[un]['plan'] = 'basic'
+    if expired:
+        _save_users(users)
+    sub = db.get_user_active_subscription(username)
+    all_subs = db.get_user_subscriptions(username)
+    return jsonify({'subscription': sub, 'history': all_subs})
+
+
+@app.route('/api/payment/cancel', methods=['POST'])
+@login_required
+def api_payment_cancel():
+    from datetime import datetime as _dt
+    username = session['user'].get('username', '')
+    sub      = db.get_user_active_subscription(username)
+    if not sub:
+        return jsonify({'error': 'Tidak ada langganan aktif yang ditemukan.'}), 404
+    db.cancel_subscription(sub['order_id'], _dt.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+    users = _load_users()
+    if username in users:
+        users[username]['plan'] = 'basic'
+        _save_users(users)
+    return jsonify({'ok': True})
+
+
+# ── Admin invoice routes ──────────────────────────────────────────────────────
+
+@app.route('/api/admin/invoices', methods=['GET'])
+@login_required
+def api_admin_invoices():
+    if session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    db.expire_stale_subscriptions()
+    status    = request.args.get('status', '') or None
+    plan_type = request.args.get('plan_type', '') or None
+    search    = request.args.get('search', '') or None
+    limit     = min(int(request.args.get('limit', 100)), 500)
+    offset    = int(request.args.get('offset', 0))
+    subs  = db.get_all_subscriptions(status=status, plan_type=plan_type,
+                                     search=search, limit=limit, offset=offset)
+    total = db.count_all_subscriptions(status=status, plan_type=plan_type, search=search)
+    stats = db.get_subscription_stats()
+    return jsonify({'subscriptions': subs, 'stats': stats, 'total': total})
+
+
+@app.route('/api/admin/invoices/<int:sub_id>/cancel', methods=['POST'])
+@login_required
+def api_admin_cancel_subscription(sub_id):
+    if session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    from datetime import datetime as _dt
+    with db._connect() as con:
+        row = con.execute('SELECT * FROM subscriptions WHERE id=?', (sub_id,)).fetchone()
+        if not row:
+            return jsonify({'error': 'Subscription not found'}), 404
+        sub = dict(row)
+    db.cancel_subscription(sub['order_id'], _dt.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+    users    = _load_users()
+    username = sub.get('username', '')
+    if username in users:
+        active = db.get_user_active_subscription(username)
+        if not active:
+            users[username]['plan'] = 'basic'
+            _save_users(users)
+    return jsonify({'ok': True})
 
 
 if __name__ == '__main__':
