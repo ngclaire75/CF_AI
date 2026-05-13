@@ -2098,6 +2098,9 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <div class="sb-divider"></div>
 
     <div class="sb-nav-label">Overview</div>
+    <button class="sb-item" id="sb-agents" onclick="sbNav('agents',this)">
+      <span class="sb-label">Meet Our Agents</span>
+    </button>
     <button class="sb-item active" id="sb-dashboard" onclick="sbNav('dashboard',this)">
       <span class="sb-label">Dashboard</span>
     </button>
@@ -2186,10 +2189,6 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <button class="sb-item" id="sb-grc" onclick="sbNav('grc',this)">
       <span class="sb-label">GRC Compliance</span>
     </button>
-    <button class="sb-item" id="sb-agents" onclick="sbNav('agents',this)">
-      <span class="sb-label">Meet Our Agents</span>
-    </button>
-
     {% if current_user.role == 'admin' %}
     <div class="sb-divider"></div>
     <div class="sb-nav-label">Administration</div>
