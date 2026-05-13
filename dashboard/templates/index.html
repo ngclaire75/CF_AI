@@ -3401,6 +3401,7 @@ Export Power BI
         <span id="sl-live-badge" class="sl-auto-badge">LIVE</span>
         <button onclick="slToggleLive()" style="font-size:12px;padding:6px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;">Pause</button>
         <button onclick="slRefresh()" style="font-size:12px;padding:6px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;">Refresh</button>
+        <button onclick="slOpenAddSource()" style="font-size:12px;padding:6px 14px;border:1px solid #2563eb;border-radius:6px;background:#2563eb;color:#fff;cursor:pointer;font-family:inherit;font-weight:600;">+ Add Source</button>
         <button id="sl-clear-btn" onclick="slClearLogs()" style="display:none;font-size:12px;padding:6px 14px;border:1px solid #fca5a5;border-radius:6px;background:#fff;color:#dc2626;cursor:pointer;font-family:inherit;">Clear All</button>
       </div>
     </div>
@@ -3585,6 +3586,66 @@ Export Power BI
     </div><!-- /panel-config -->
 
   </div><!-- /sl-wrap -->
+
+  <!-- Add Source Modal -->
+  <div id="sl-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;">
+    <div style="background:#fff;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.2);width:min(680px,96vw);margin-bottom:40px;overflow:hidden;">
+      <div style="padding:20px 24px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#111827;">Add Log Source</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:2px;">Connect a new host or system to forward logs into CyberINK</div>
+        </div>
+        <button onclick="slCloseAddSource()" style="background:none;border:none;font-size:20px;color:#9ca3af;cursor:pointer;line-height:1;">&times;</button>
+      </div>
+      <!-- Source type tabs -->
+      <div style="display:flex;gap:0;border-bottom:1px solid #e5e7eb;padding:0 24px;">
+        <button class="sl-stab active" id="sl-stab-win" onclick="slSourceTab('win')" style="font-size:12px;font-weight:600;padding:10px 16px;border:none;border-bottom:2px solid #2563eb;background:none;cursor:pointer;color:#2563eb;font-family:inherit;">Windows Host</button>
+        <button class="sl-stab" id="sl-stab-linux" onclick="slSourceTab('linux')" style="font-size:12px;font-weight:600;padding:10px 16px;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;color:#6b7280;font-family:inherit;">Linux / rsyslog</button>
+        <button class="sl-stab" id="sl-stab-splunk" onclick="slSourceTab('splunk')" style="font-size:12px;font-weight:600;padding:10px 16px;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;color:#6b7280;font-family:inherit;">Splunk Forwarder</button>
+        <button class="sl-stab" id="sl-stab-generic" onclick="slSourceTab('generic')" style="font-size:12px;font-weight:600;padding:10px 16px;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;color:#6b7280;font-family:inherit;">Generic HTTP</button>
+      </div>
+      <div style="padding:20px 24px;">
+        <!-- Windows -->
+        <div id="sl-spanel-win">
+          <p style="font-size:13px;color:#374151;margin-bottom:14px;">Run the PowerShell forwarder script on any Windows host. It reads Security, System, and Application event channels and sends batches to CyberINK every 30 seconds using your HEC token — no interactive login required.</p>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">1. Save this script on the Windows host</div>
+          <div class="sl-code-block" style="margin-bottom:12px;font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-ps"></span></div>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">2. Run it (or register as Scheduled Task)</div>
+          <div class="sl-code-block" style="font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-task"></span></div>
+        </div>
+        <!-- Linux -->
+        <div id="sl-spanel-linux" style="display:none;">
+          <p style="font-size:13px;color:#374151;margin-bottom:14px;">Forward Linux system logs using <strong>rsyslog</strong> or <strong>journald</strong>. The snippet below configures rsyslog to forward all facility.severity messages to CyberINK via HTTP using your HEC token.</p>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">/etc/rsyslog.d/99-cyberink.conf</div>
+          <div class="sl-code-block" style="margin-bottom:12px;font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-rsyslog"></span></div>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">Reload rsyslog</div>
+          <div class="sl-code-block" style="font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button>sudo systemctl restart rsyslog</div>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-top:12px;margin-bottom:5px;">Alternative — journald one-liner (systemd)</div>
+          <div class="sl-code-block" style="font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-journald"></span></div>
+        </div>
+        <!-- Splunk -->
+        <div id="sl-spanel-splunk" style="display:none;">
+          <p style="font-size:13px;color:#374151;margin-bottom:14px;">Point a <strong>Splunk Universal Forwarder</strong> or <strong>Heavy Forwarder</strong> at CyberINK's HEC endpoint. No Splunk plugin required — just configure an <code>outputs.conf</code> stanza.</p>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">$SPLUNK_HOME/etc/system/local/outputs.conf</div>
+          <div class="sl-code-block" style="margin-bottom:12px;font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-outputs"></span></div>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">Test with curl from the Splunk host</div>
+          <div class="sl-code-block" style="font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-curl"></span></div>
+        </div>
+        <!-- Generic -->
+        <div id="sl-spanel-generic" style="display:none;">
+          <p style="font-size:13px;color:#374151;margin-bottom:14px;">Any system that can make HTTP POST requests can send logs. Use the HEC token in the Authorization header — no session login required.</p>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">curl example</div>
+          <div class="sl-code-block" style="margin-bottom:12px;font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-generic-curl"></span></div>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">Python example</div>
+          <div class="sl-code-block" style="font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-python"></span></div>
+        </div>
+      </div>
+      <div style="padding:12px 24px;border-top:1px solid #e5e7eb;background:#f9fafb;display:flex;justify-content:flex-end;">
+        <button onclick="slCloseAddSource()" style="font-size:12px;padding:7px 18px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;">Close</button>
+      </div>
+    </div>
+  </div>
+
   </div><!-- /page-syslog -->
 
   <!-- ══ OBSERVABILITY PAGE ════════════════════════════════════════════════ -->
@@ -5176,18 +5237,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       .moa-card  { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:24px; display:flex; flex-direction:column; gap:10px; transition:box-shadow .15s; }
       .moa-card:hover { box-shadow:0 4px 18px rgba(0,0,0,.08); }
       .moa-card-header { display:flex; align-items:center; gap:12px; }
-      .moa-badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; padding:3px 10px; border-radius:20px; color:#fff; white-space:nowrap; }
-      .moa-badge-info  { background:#3b82f6; }
-      .moa-badge-conf  { background:#6366f1; }
-      .moa-badge-idnt  { background:#8b5cf6; }
-      .moa-badge-athn  { background:#ec4899; }
-      .moa-badge-athz  { background:#f59e0b; color:#1e293b; }
-      .moa-badge-sess  { background:#10b981; }
-      .moa-badge-inpv  { background:#ef4444; }
-      .moa-badge-cryp  { background:#0ea5e9; }
-      .moa-badge-clnt  { background:#14b8a6; }
-      .moa-badge-apit  { background:#f97316; }
-      .moa-badge-js    { background:#eab308; color:#1e293b; }
       .moa-name  { font-size:1rem; font-weight:700; color:#1e293b; }
       .moa-desc  { font-size:.82rem; color:#64748b; font-style:italic; }
       .moa-body  { font-size:.88rem; color:#374151; line-height:1.6; }
@@ -5202,8 +5251,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-info">WSTG-INFO</span>
-            <div><div class="moa-name">Recon Scout</div><div class="moa-desc">Passive &amp; Active Reconnaissance</div></div>
+<div><div class="moa-name">Recon Scout</div><div class="moa-desc">Passive &amp; Active Reconnaissance</div></div>
           </div>
           <div class="moa-body">Performs deep passive intelligence gathering before touching the target. Runs WHOIS, DNS enumeration, certificate transparency, Wayback Machine, Shodan, HackerTarget, URLScan, AlienVault OTX, and subdomain discovery. Then moves to active HTTP fingerprinting via a 9-layer Cloudflare bypass cascade.</div>
           <div class="moa-covers-title">Covers</div>
@@ -5218,8 +5266,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-js">WSTG-JS</span>
-            <div><div class="moa-name">JS Secret Hunter</div><div class="moa-desc">JavaScript &amp; Source Code Analysis</div></div>
+<div><div class="moa-name">JS Secret Hunter</div><div class="moa-desc">JavaScript &amp; Source Code Analysis</div></div>
           </div>
           <div class="moa-body">Fetches every JS bundle referenced on the target page and scans for hardcoded secrets — API keys, tokens, credentials, internal URLs, and exposed GraphQL endpoints. Uses the built-in <code>hunt_js_secrets</code> tool for entropy-based pattern matching across minified bundles.</div>
           <div class="moa-covers-title">Covers</div>
@@ -5231,7 +5278,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-conf">WSTG-CONF</span>
             <div><div class="moa-name">Config Auditor</div><div class="moa-desc">Infrastructure &amp; Deployment Security</div></div>
           </div>
           <div class="moa-body">Audits HTTP security headers (CSP, HSTS, X-Frame-Options, etc.), detects exposed admin panels and management interfaces, checks cloud storage buckets for public access, tests for DNS zone transfer vulnerabilities, and probes for open redirect flaws. Leads with a full Nuclei misconfiguration scan.</div>
@@ -5245,7 +5291,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-idnt">WSTG-IDNT</span>
             <div><div class="moa-name">Identity Mapper</div><div class="moa-desc">User Roles &amp; Account Enumeration</div></div>
           </div>
           <div class="moa-body">Enumerates user roles and privilege levels visible on the application. Tests registration flows, account provisioning processes, username enumeration via timing and error message differences, and enforces username policy checks with boundary values and special characters.</div>
@@ -5259,7 +5304,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-athn">WSTG-ATHN</span>
             <div><div class="moa-name">Auth Prober</div><div class="moa-desc">Authentication &amp; Credential Security</div></div>
           </div>
           <div class="moa-body">Tests the full authentication attack surface: credential transport over HTTP vs HTTPS, default and weak passwords, account lockout thresholds, auth schema bypasses via header injection, weak password policies, security question flaws, password reset token predictability, alternative channel weaknesses, and MFA presence and bypass vectors.</div>
@@ -5274,7 +5318,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-athz">WSTG-ATHZ</span>
             <div><div class="moa-name">Access Control Tester</div><div class="moa-desc">Authorization &amp; Privilege Escalation</div></div>
           </div>
           <div class="moa-body">Probes for broken access control: path traversal and file inclusion, direct access to admin-only endpoints without authentication, vertical privilege escalation via role-manipulation payloads, IDOR across user/order/invoice resources, RBAC boundary testing, mass assignment via privileged field injection, and OAuth/OIDC endpoint discovery.</div>
@@ -5289,7 +5332,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-sess">WSTG-SESS</span>
             <div><div class="moa-name">Session Analyst</div><div class="moa-desc">Cookie &amp; Token Security</div></div>
           </div>
           <div class="moa-body">Audits session management end-to-end: session schema analysis, cookie security flags (HttpOnly, Secure, SameSite), fixation attacks, CSRF token presence and SameSite enforcement, logout invalidation, session timeout enforcement, JWT handling including alg:none bypass, session token entropy measurement, and concurrent session policy.</div>
@@ -5304,7 +5346,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-inpv">WSTG-INPV</span>
             <div><div class="moa-name">Injection Hunter</div><div class="moa-desc">SQLi, XSS, SSTI &amp; Command Injection</div></div>
           </div>
           <div class="moa-body">Leads with 9,000+ Nuclei CVE templates, then manually tests reflected XSS, stored XSS, SQL injection (with sqlmap and manual error-detection), server-side code and command injection, SSTI (7*7=49 polyglot), SSRF against cloud metadata endpoints, XXE via XML-accepting endpoints and SOAP, malicious file upload bypass, and file-focused path traversal.</div>
@@ -5319,7 +5360,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-cryp">WSTG-CRYP</span>
             <div><div class="moa-name">Crypto Inspector</div><div class="moa-desc">TLS, Cipher &amp; Key Security</div></div>
           </div>
           <div class="moa-body">Enumerates TLS versions and cipher suites with nmap, validates certificates (self-signed, expiry, SAN, chain trust), checks HTTP-to-HTTPS redirect and HSTS headers, tests whether login forms submit over plaintext HTTP, scans for exposed sensitive files and source repositories, hunts hardcoded API keys and secrets in JS bundles, and checks debug endpoints for credential leakage.</div>
@@ -5333,7 +5373,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-clnt">WSTG-CLNT</span>
             <div><div class="moa-name">Client-Side Analyst</div><div class="moa-desc">Browser Security &amp; DOM Vulnerabilities</div></div>
           </div>
           <div class="moa-body">Scans the DOM for dangerous sinks (innerHTML, eval, document.write), audits external JS includes for XSSI, tests HTML injection and open redirect via 15 common parameter names, inspects localStorage/sessionStorage usage patterns, detects outdated libraries (jQuery, Bootstrap, Lodash, etc.) with CVE cross-reference, checks for clickjacking protection, and probes WebSocket endpoints for missing Origin checks.</div>
@@ -5348,7 +5387,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
         <div class="moa-card">
           <div class="moa-card-header">
-            <span class="moa-badge moa-badge-apit">WSTG-APIT</span>
             <div><div class="moa-name">API Security Tester</div><div class="moa-desc">REST, GraphQL &amp; OWASP API Top 10</div></div>
           </div>
           <div class="moa-body">The most comprehensive agent — covers all 10 OWASP API Security Top 10 categories. Discovers API endpoints and documentation, tests BOLA/IDOR across object IDs, checks authentication bypass and JWT alg:none, measures rate limiting on auth endpoints (20-request burst), tests BFLA via HTTP verb tampering, mass assignment via privileged field injection, CORS misconfiguration, API injection (SQLi/NoSQLi/SSTI), deprecated version discovery, and error verbosity. Also runs GraphQL introspection and WordPress REST API deep audits with automatic credential discovery.</div>
@@ -12821,6 +12859,189 @@ function slClearLogs() {
   fetch('/api/syslog/clear', {method:'POST'}).then(function(r){ return r.json(); })
     .then(function(d){ alert('Cleared ' + (d.deleted||0) + ' log entries.'); slRefresh(); })
     .catch(function(){ alert('Request failed.'); });
+}
+
+function slOpenAddSource() {
+  var modal  = document.getElementById('sl-add-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  slSourceTab('win');  // populate and show Windows tab by default
+}
+
+function slCloseAddSource() {
+  var modal = document.getElementById('sl-add-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function slSourceTab(tab) {
+  ['win','linux','splunk','generic'].forEach(function(t) {
+    var btn   = document.getElementById('sl-stab-' + t);
+    var panel = document.getElementById('sl-spanel-' + t);
+    if (btn) {
+      btn.style.borderBottomColor = (t === tab) ? '#2563eb' : 'transparent';
+      btn.style.color = (t === tab) ? '#2563eb' : '#6b7280';
+    }
+    if (panel) panel.style.display = (t === tab) ? '' : 'none';
+  });
+  slPopulateSourceSnippets(tab);
+}
+
+function slPopulateSourceSnippets(tab) {
+  var origin   = window.location.origin;
+  var hecUrl   = origin + '/api/syslog/hec';
+  var hecToken = (document.getElementById('sl-hec-token') || {}).value || '<YOUR_HEC_TOKEN>';
+
+  if (tab === 'win') {
+    var psEl = document.getElementById('sl-modal-ps');
+    if (psEl) psEl.textContent =
+      '# CyberINK Windows Event Log Forwarder\n' +
+      '$HecUrl      = "' + hecUrl + '"\n' +
+      '$HecToken    = "' + hecToken + '"\n' +
+      '$Channels    = @("Security","System","Application")\n' +
+      '$BatchSize   = 200\n' +
+      '$IntervalSec = 30\n' +
+      '$lastId = @{}\n\n' +
+      'function LevelName($lv) {\n' +
+      '  switch ($lv) { 1{"CRITICAL"} 2{"ERROR"} 3{"WARN"} 4{"INFO"} 5{"INFO"} default{"INFO"} }\n' +
+      '}\n\n' +
+      'Write-Host "CyberINK forwarder starting..."\n\n' +
+      'while ($true) {\n' +
+      '  $batch = [System.Collections.Generic.List[object]]::new()\n' +
+      '  foreach ($ch in $Channels) {\n' +
+      '    $maxId  = $lastId[$ch]\n' +
+      '    $evts   = Get-WinEvent -LogName $ch -MaxEvents $BatchSize -ErrorAction SilentlyContinue\n' +
+      '    foreach ($ev in ($evts | Where-Object { -not $maxId -or $_.RecordId -gt $maxId })) {\n' +
+      '      $batch.Add([PSCustomObject]@{\n' +
+      '        event      = [PSCustomObject]@{\n' +
+      '          level    = LevelName($ev.Level)\n' +
+      '          message  = ($ev.Message -replace "[\\r\\n]+"," ").Substring(0,[Math]::Min(500,($ev.Message.Length)))\n' +
+      '          event_id = [string]$ev.Id\n' +
+      '          channel  = $ch\n' +
+      '        }\n' +
+      '        host       = $env:COMPUTERNAME\n' +
+      '        source     = $ev.ProviderName\n' +
+      '        sourcetype = "WinEventLog:$ch"\n' +
+      '      }) | Out-Null\n' +
+      '      if (-not $maxId -or $ev.RecordId -gt $maxId) { $lastId[$ch] = $ev.RecordId }\n' +
+      '    }\n' +
+      '  }\n' +
+      '  if ($batch.Count -gt 0) {\n' +
+      '    $body = $batch | ConvertTo-Json -Depth 4\n' +
+      '    try {\n' +
+      '      Invoke-RestMethod -Uri $HecUrl -Method POST \\\n' +
+      '        -Headers @{Authorization="Splunk $HecToken"} \\\n' +
+      '        -ContentType "application/json" -Body $body -UseBasicParsing | Out-Null\n' +
+      '      Write-Host "$(Get-Date -Format \'HH:mm:ss\') Forwarded $($batch.Count) events"\n' +
+      '    } catch { Write-Warning "Ingest error: $_" }\n' +
+      '  }\n' +
+      '  Start-Sleep -Seconds $IntervalSec\n' +
+      '}';
+    var taskEl = document.getElementById('sl-modal-task');
+    if (taskEl) taskEl.textContent =
+      '# Run once manually\n' +
+      'powershell -ExecutionPolicy Bypass -File C:\\cyberink\\forwarder.ps1\n\n' +
+      '# Or register as Scheduled Task (auto-start on boot)\n' +
+      '$action  = New-ScheduledTaskAction -Execute "powershell.exe" `\n' +
+      '  -Argument "-NonInteractive -ExecutionPolicy Bypass -File C:\\cyberink\\forwarder.ps1"\n' +
+      '$trigger = New-ScheduledTaskTrigger -AtStartup\n' +
+      'Register-ScheduledTask -TaskName "CyberINK-Forwarder" `\n' +
+      '  -Action $action -Trigger $trigger -RunLevel Highest -Force';
+  }
+
+  if (tab === 'linux') {
+    var rsEl = document.getElementById('sl-modal-rsyslog');
+    if (rsEl) rsEl.textContent =
+      '# Forward all syslog messages to CyberINK via curl (omni-forwarder)\n' +
+      '# Place in /etc/rsyslog.d/99-cyberink.conf\n\n' +
+      'module(load="ommysql")  # optional — only if needed\n\n' +
+      '# Use omfwd to send as JSON to CyberINK HEC\n' +
+      'template(name="CyberINKJson" type="string"\n' +
+      '  string="{\\"event\\":{\\"level\\":\\"%syslogseverity-text%\\",\\"message\\":\\"%msg%\\",\\"facility\\":\\"%syslogfacility-text%\\"},\\"host\\":\\"%hostname%\\",\\"source\\":\\"%programname%\\",\\"sourcetype\\":\\"syslog\\"}\\n"\n' +
+      ')\n\n' +
+      'action(\n' +
+      '  type="omhttp"\n' +
+      '  server="' + (origin.replace(/^https?:\/\//, '').split(':')[0]) + '"\n' +
+      '  serverport="' + (origin.split(':').pop() || '8889') + '"\n' +
+      '  restpath="/api/syslog/hec"\n' +
+      '  template="CyberINKJson"\n' +
+      '  httpcontenttype="application/json"\n' +
+      '  httpheadernames=["Authorization"]\n' +
+      '  httpheadervalues=["Splunk ' + hecToken + '"]\n' +
+      ')';
+    var jdEl = document.getElementById('sl-modal-journald');
+    if (jdEl) jdEl.textContent =
+      '# Stream journald to CyberINK (one-liner, run in background)\n' +
+      'journalctl -f -o json | while IFS= read -r line; do\n' +
+      '  MSG=$(echo "$line" | python3 -c \'\n' +
+      'import sys,json\n' +
+      'd=json.load(sys.stdin)\n' +
+      'ev={"event":{"level":d.get("PRIORITY","6"),"message":d.get("MESSAGE","")},\n' +
+      '    "host":d.get("_HOSTNAME",""),"source":d.get("SYSLOG_IDENTIFIER","journald"),\n' +
+      '    "sourcetype":"journald"}\n' +
+      'print(json.dumps(ev))\' 2>/dev/null)\n' +
+      '  [ -n "$MSG" ] && curl -s -o /dev/null -X POST "' + hecUrl + '" \\\n' +
+      '    -H "Authorization: Splunk ' + hecToken + '" \\\n' +
+      '    -H "Content-Type: application/json" -d "$MSG"\n' +
+      'done';
+  }
+
+  if (tab === 'splunk') {
+    var outEl = document.getElementById('sl-modal-outputs');
+    if (outEl) outEl.textContent =
+      '[tcpout]\n' +
+      'defaultGroup = cyberink_hec\n\n' +
+      '[tcpout:cyberink_hec]\n' +
+      'server   = ' + (origin.replace(/^https?:\/\//, '').split(':')[0]) + ':' + (origin.split(':').pop() || '8889') + '\n\n' +
+      '# HEC stanza\n' +
+      '[httpout]\n' +
+      'server.uri = ' + hecUrl + '\n\n' +
+      '[httpout:cyberink]\n' +
+      'uri         = /api/syslog/hec\n' +
+      'token       = ' + hecToken + '\n' +
+      'ssl         = ' + (origin.startsWith('https') ? 'true' : 'false');
+    var curlEl = document.getElementById('sl-modal-curl');
+    if (curlEl) curlEl.textContent =
+      'curl -k -X POST "' + hecUrl + '" \\\n' +
+      '  -H "Authorization: Splunk ' + hecToken + '" \\\n' +
+      '  -H "Content-Type: application/json" \\\n' +
+      '  -d \'{"event":{"level":"INFO","message":"Test event from Splunk forwarder"},' +
+      '"host":"splunk-host","source":"test","sourcetype":"splunk"}\'';
+  }
+
+  if (tab === 'generic') {
+    var gcEl = document.getElementById('sl-modal-generic-curl');
+    if (gcEl) gcEl.textContent =
+      '# Send a single log event\n' +
+      'curl -X POST "' + hecUrl + '" \\\n' +
+      '  -H "Authorization: Splunk ' + hecToken + '" \\\n' +
+      '  -H "Content-Type: application/json" \\\n' +
+      '  -d \'{"event":{"level":"WARN","message":"Disk usage above 90%","event_id":"1001"},' +
+      '"host":"my-server","source":"disk-monitor","sourcetype":"custom"}\'\n\n' +
+      '# Send a batch (JSON array — also accepted)\n' +
+      'curl -X POST "' + hecUrl + '" \\\n' +
+      '  -H "Authorization: Splunk ' + hecToken + '" \\\n' +
+      '  -H "Content-Type: application/json" \\\n' +
+      '  -d \'[{"event":{"level":"INFO","message":"Service started"},"host":"srv-01","sourcetype":"custom"},' +
+      '{"event":{"level":"ERROR","message":"DB connection failed"},"host":"srv-01","sourcetype":"custom"}]\'';
+    var pyEl = document.getElementById('sl-modal-python');
+    if (pyEl) pyEl.textContent =
+      'import requests, socket\n\n' +
+      'HEC_URL   = "' + hecUrl + '"\n' +
+      'HEC_TOKEN = "' + hecToken + '"\n' +
+      'HEADERS   = {"Authorization": "Splunk " + HEC_TOKEN, "Content-Type": "application/json"}\n\n' +
+      'def send_log(message, level="INFO", source="python-app", event_id=""):\n' +
+      '    payload = {\n' +
+      '        "event": {"level": level, "message": message, "event_id": event_id},\n' +
+      '        "host": socket.gethostname(),\n' +
+      '        "source": source,\n' +
+      '        "sourcetype": "generic"\n' +
+      '    }\n' +
+      '    r = requests.post(HEC_URL, json=payload, headers=HEADERS, timeout=5, verify=False)\n' +
+      '    return r.json()\n\n' +
+      '# Usage\n' +
+      'send_log("Application started", level="INFO")\n' +
+      'send_log("Failed login attempt", level="WARN", event_id="4625")';
+  }
 }
 
 function initPricingPage() {

@@ -3848,54 +3848,87 @@ def _normalize_level(raw: str) -> str:
     if r in ('4', '5'): return 'INFO'
     return 'INFO'
 
+def _hec_process_event(ev: dict) -> None:
+    """Parse one HEC event dict and write to syslog table."""
+    if not isinstance(ev, dict):
+        return
+    inner      = ev.get('event', ev)
+    sourcetype = ev.get('sourcetype', '')
+    src_type   = 'windows' if sourcetype.startswith('WinEventLog') else \
+                 'linux'   if sourcetype.startswith(('syslog', 'rsyslog', 'journald')) else 'splunk'
+    channel    = sourcetype.split(':', 1)[1] if ':' in sourcetype else ''
+    if isinstance(inner, str):
+        message = inner
+    else:
+        message = (inner.get('message') or inner.get('msg') or
+                   inner.get('event') or _json.dumps(inner))
+        channel = channel or inner.get('channel') or inner.get('source') or ''
+    db.log_syslog(
+        source_type = src_type,
+        host        = ev.get('host', ''),
+        source      = ev.get('source', ''),
+        sourcetype  = sourcetype,
+        level       = _normalize_level(
+            inner.get('severity') or inner.get('level') or
+            ev.get('level') or ''),
+        event_id    = str(inner.get('event_id') or inner.get('id') or
+                         ev.get('event_id') or ''),
+        channel     = channel,
+        message     = message[:1000],
+        raw         = _json.dumps(ev)[:2000],
+    )
+
+
 @app.route('/api/syslog/hec', methods=['POST'])
 def api_syslog_hec():
-    """Splunk HEC-compatible endpoint — accepts HEC token OR any valid session."""
+    """Splunk HEC-compatible endpoint.
+    Accepts:
+      - HEC token via  Authorization: Splunk <token>
+      - Any valid session cookie
+    Body formats supported:
+      - JSON array:           [{...}, ...]
+      - Single JSON object:   {...}
+      - NDJSON (newline-sep): {...}\\n{...}
+    """
     auth  = request.headers.get('Authorization', '')
     token = auth.replace('Splunk ', '').strip()
     cfg   = _load_syslog_cfg()
-    # Accept HEC token OR any authenticated session (any account)
     authed = (token and token == cfg.get('hec_token', '')) or bool(session.get('user'))
     if not authed:
-        return jsonify({'text': 'Authentication required — use HEC token or log in', 'code': 4}), 403
+        return jsonify({'text': 'Invalid token or not authenticated', 'code': 4}), 403
 
-    body = request.get_data(as_text=True)
+    body = request.get_data(as_text=True).strip()
+    if not body:
+        return jsonify({'text': 'Success', 'code': 0, 'count': 0})
+
+    events = []
+    # Try full-body JSON first (array or single object — what PowerShell ConvertTo-Json produces)
+    try:
+        parsed = _json.loads(body)
+        if isinstance(parsed, list):
+            events = parsed
+        elif isinstance(parsed, dict):
+            events = [parsed]
+    except _json.JSONDecodeError:
+        # Fall back to NDJSON (real Splunk HEC / filebeat format)
+        for line in body.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = _json.loads(line)
+                if isinstance(obj, dict):
+                    events.append(obj)
+            except Exception:
+                pass
+
     count = 0
-    for line in body.splitlines():
-        line = line.strip()
-        if not line:
-            continue
+    for ev in events:
         try:
-            ev = _json.loads(line)
+            _hec_process_event(ev)
+            count += 1
         except Exception:
-            continue
-        inner      = ev.get('event', ev)
-        sourcetype = ev.get('sourcetype', '')
-        # Detect Windows Event Log origin from sourcetype (e.g. WinEventLog:Security)
-        src_type   = 'windows' if sourcetype.startswith('WinEventLog') else 'splunk'
-        channel    = ''
-        if ':' in sourcetype and sourcetype.startswith('WinEventLog'):
-            channel = sourcetype.split(':', 1)[1]
-        if isinstance(inner, str):
-            message = inner
-            raw_s   = line
-        else:
-            message = (inner.get('message') or inner.get('msg') or
-                       inner.get('event') or _json.dumps(inner))
-            channel = channel or (inner.get('channel') or inner.get('source') or '')
-            raw_s   = line
-        db.log_syslog(
-            source_type = src_type,
-            host        = ev.get('host', ''),
-            source      = ev.get('source', ''),
-            sourcetype  = sourcetype,
-            level       = _normalize_level(inner.get('severity') or inner.get('level') or ''),
-            event_id    = str(inner.get('event_id') or inner.get('id') or ''),
-            channel     = channel,
-            message     = message,
-            raw         = raw_s,
-        )
-        count += 1
+            pass
     return jsonify({'text': 'Success', 'code': 0, 'count': count})
 
 
