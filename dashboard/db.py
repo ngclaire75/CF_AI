@@ -129,6 +129,26 @@ def init_db():
         except Exception:
             pass
 
+        # ── System Logs (Splunk HEC + Windows Event Logs) ─────────────────────
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS syslog (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                received_at TEXT NOT NULL DEFAULT (datetime('now')),
+                source_type TEXT DEFAULT 'generic',
+                host        TEXT DEFAULT '',
+                source      TEXT DEFAULT '',
+                sourcetype  TEXT DEFAULT '',
+                level       TEXT DEFAULT 'INFO',
+                event_id    TEXT DEFAULT '',
+                channel     TEXT DEFAULT '',
+                message     TEXT DEFAULT '',
+                raw         TEXT DEFAULT ''
+            )
+        ''')
+        con.execute('CREATE INDEX IF NOT EXISTS idx_syslog_received ON syslog(received_at)')
+        con.execute('CREATE INDEX IF NOT EXISTS idx_syslog_level ON syslog(level)')
+        con.execute('CREATE INDEX IF NOT EXISTS idx_syslog_source_type ON syslog(source_type)')
+
         # ── Pentest Engagements ───────────────────────────────────────────────
         con.execute('''
             CREATE TABLE IF NOT EXISTS engagements (
@@ -750,6 +770,83 @@ def save_engagement_scope(eid: int, scope_doc: str = None, roe_doc: str = None) 
         elif roe_doc is not None:
             con.execute('UPDATE engagements SET roe_doc=? WHERE id=?', (roe_doc, eid))
         con.commit()
+
+
+# ── System Log functions ──────────────────────────────────────────────────────
+
+def log_syslog(*, source_type: str = 'generic', host: str = '', source: str = '',
+               sourcetype: str = '', level: str = 'INFO', event_id: str = '',
+               channel: str = '', message: str = '', raw: str = '') -> int:
+    with _connect() as con:
+        cur = con.execute(
+            '''INSERT INTO syslog (source_type, host, source, sourcetype, level,
+               event_id, channel, message, raw)
+               VALUES (?,?,?,?,?,?,?,?,?)''',
+            (source_type, host, source, sourcetype, level.upper(),
+             event_id, channel, message, raw)
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def get_syslog(limit: int = 500, source_type: str = '', level: str = '',
+               channel: str = '', search: str = '', hours: int = 24) -> list:
+    clauses, params = ['received_at >= datetime("now", ? || " hours")'], [f'-{hours}']
+    if source_type:
+        clauses.append('source_type = ?'); params.append(source_type)
+    if level:
+        clauses.append('level = ?'); params.append(level.upper())
+    if channel:
+        clauses.append('channel = ?'); params.append(channel)
+    if search:
+        clauses.append('(message LIKE ? OR host LIKE ? OR source LIKE ?)')
+        s = f'%{search}%'; params += [s, s, s]
+    where = ' AND '.join(clauses)
+    with _connect() as con:
+        rows = con.execute(
+            f'SELECT * FROM syslog WHERE {where} ORDER BY received_at DESC LIMIT ?',
+            params + [limit]
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_syslog_stats(hours: int = 24) -> dict:
+    with _connect() as con:
+        total = con.execute(
+            'SELECT COUNT(*) FROM syslog WHERE received_at >= datetime("now", ? || " hours")',
+            (f'-{hours}',)
+        ).fetchone()[0]
+        by_level = con.execute(
+            '''SELECT level, COUNT(*) as cnt FROM syslog
+               WHERE received_at >= datetime("now", ? || " hours")
+               GROUP BY level''',
+            (f'-{hours}',)
+        ).fetchall()
+        by_source = con.execute(
+            '''SELECT source_type, COUNT(*) as cnt FROM syslog
+               WHERE received_at >= datetime("now", ? || " hours")
+               GROUP BY source_type ORDER BY cnt DESC LIMIT 10''',
+            (f'-{hours}',)
+        ).fetchall()
+        by_host = con.execute(
+            '''SELECT host, COUNT(*) as cnt FROM syslog
+               WHERE received_at >= datetime("now", ? || " hours") AND host != ""
+               GROUP BY host ORDER BY cnt DESC LIMIT 10''',
+            (f'-{hours}',)
+        ).fetchall()
+    return {
+        'total': total,
+        'by_level': {r['level']: r['cnt'] for r in by_level},
+        'by_source': [dict(r) for r in by_source],
+        'by_host': [dict(r) for r in by_host],
+    }
+
+
+def clear_syslog() -> int:
+    with _connect() as con:
+        cur = con.execute('DELETE FROM syslog')
+        con.commit()
+        return cur.rowcount
 
 
 def get_plugins(target: str = '', limit: int = 1000, username=None) -> list:

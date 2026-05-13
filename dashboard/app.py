@@ -3816,6 +3816,143 @@ def api_events_stats():
     return jsonify(db.get_event_stats(days=days))
 
 
+# ── System Logs (Splunk HEC + Windows Event Log forwarder) ───────────────────
+import secrets as _secrets
+
+_SYSLOG_CFG_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'syslog_cfg.json')
+
+def _load_syslog_cfg() -> dict:
+    if not os.path.exists(_SYSLOG_CFG_FILE):
+        cfg = {'hec_token': _secrets.token_hex(24)}
+        _save_syslog_cfg(cfg)
+        return cfg
+    with open(_SYSLOG_CFG_FILE) as f:
+        return _json.load(f)
+
+def _save_syslog_cfg(cfg: dict) -> None:
+    os.makedirs(os.path.dirname(_SYSLOG_CFG_FILE), exist_ok=True)
+    with open(_SYSLOG_CFG_FILE, 'w') as f:
+        _json.dump(cfg, f)
+
+def _normalize_level(raw: str) -> str:
+    r = (raw or '').upper()
+    if r in ('CRITICAL', 'FATAL', 'EMERGENCY', 'ALERT'): return 'CRITICAL'
+    if r in ('ERROR', 'ERR', '3'):                        return 'ERROR'
+    if r in ('WARNING', 'WARN', '4', 'WARNING_L'):       return 'WARN'
+    if r in ('NOTICE', '5', 'INFORMATIONAL', 'INFO', '6', 'INFORMATION'): return 'INFO'
+    if r in ('DEBUG', '7'):                               return 'DEBUG'
+    # Windows EventType numbers: 1=Error,2=Warning,3=Info,4=Security Success,5=Security Failure
+    if r in ('1',):  return 'ERROR'
+    if r in ('2',):  return 'WARN'
+    if r in ('4', '5'): return 'INFO'
+    return 'INFO'
+
+@app.route('/api/syslog/hec', methods=['POST'])
+def api_syslog_hec():
+    """Splunk HTTP Event Collector compatible endpoint."""
+    auth = request.headers.get('Authorization', '')
+    token = auth.replace('Splunk ', '').strip()
+    cfg = _load_syslog_cfg()
+    if not token or token != cfg.get('hec_token', ''):
+        return jsonify({'text': 'Invalid token', 'code': 4}), 403
+
+    body = request.get_data(as_text=True)
+    # Splunk HEC can batch multiple JSON objects separated by newlines
+    count = 0
+    for line in body.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            ev = _json.loads(line)
+        except Exception:
+            continue
+        inner = ev.get('event', ev)
+        if isinstance(inner, str):
+            message = inner
+            raw_s   = line
+        else:
+            message = (inner.get('message') or inner.get('msg') or
+                       inner.get('event') or _json.dumps(inner))
+            raw_s   = line
+        db.log_syslog(
+            source_type = 'splunk',
+            host        = ev.get('host', ''),
+            source      = ev.get('source', ''),
+            sourcetype  = ev.get('sourcetype', ''),
+            level       = _normalize_level(inner.get('severity') or inner.get('level') or ''),
+            event_id    = str(inner.get('event_id') or inner.get('id') or ''),
+            channel     = inner.get('channel') or inner.get('source') or '',
+            message     = message,
+            raw         = raw_s,
+        )
+        count += 1
+    return jsonify({'text': 'Success', 'code': 0, 'count': count})
+
+
+@app.route('/api/syslog/ingest', methods=['POST'])
+@login_required
+def api_syslog_ingest():
+    """Generic ingest used by the Windows PowerShell forwarder agent."""
+    data = request.get_json(force=True, silent=True) or {}
+    entries = data if isinstance(data, list) else [data]
+    count = 0
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        db.log_syslog(
+            source_type = entry.get('source_type', 'windows'),
+            host        = entry.get('host', ''),
+            source      = entry.get('source', ''),
+            sourcetype  = entry.get('sourcetype', ''),
+            level       = _normalize_level(entry.get('level') or entry.get('severity') or ''),
+            event_id    = str(entry.get('event_id') or ''),
+            channel     = entry.get('channel', ''),
+            message     = entry.get('message') or entry.get('msg') or '',
+            raw         = _json.dumps(entry),
+        )
+        count += 1
+    return jsonify({'ok': True, 'ingested': count})
+
+
+@app.route('/api/syslog')
+@login_required
+def api_syslog_get():
+    limit       = min(int(request.args.get('limit', 500)), 2000)
+    source_type = request.args.get('source_type', '')
+    level       = request.args.get('level', '')
+    channel     = request.args.get('channel', '')
+    search      = request.args.get('search', '')
+    hours       = int(request.args.get('hours', 24))
+    logs  = db.get_syslog(limit=limit, source_type=source_type, level=level,
+                           channel=channel, search=search, hours=hours)
+    stats = db.get_syslog_stats(hours=hours)
+    return jsonify({'logs': logs, 'stats': stats})
+
+
+@app.route('/api/syslog/clear', methods=['POST'])
+@_admin_required
+def api_syslog_clear():
+    n = db.clear_syslog()
+    return jsonify({'ok': True, 'deleted': n})
+
+
+@app.route('/api/syslog/config')
+@_admin_required
+def api_syslog_config_get():
+    cfg = _load_syslog_cfg()
+    return jsonify({'hec_token': cfg.get('hec_token', '')})
+
+
+@app.route('/api/syslog/config/regenerate', methods=['POST'])
+@_admin_required
+def api_syslog_config_regenerate():
+    cfg = _load_syslog_cfg()
+    cfg['hec_token'] = _secrets.token_hex(24)
+    _save_syslog_cfg(cfg)
+    return jsonify({'ok': True, 'hec_token': cfg['hec_token']})
+
+
 @app.route('/api/remediation/log')
 def api_remediation_log():
     return jsonify({'actions': db.get_remediation_log(limit=200)})

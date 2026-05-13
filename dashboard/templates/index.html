@@ -1226,7 +1226,7 @@ tr.hidden-r { display: none; }
 .pt-btn-danger:hover  { background:#870000; }
 .pt-btn:disabled { opacity:.5;cursor:not-allowed; }
 .pt-label { display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;margin-bottom:5px; }
-.pt-input { width:100%;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;font-family:inherit;outline:none;transition:border-color .12s;resize:vertical; }
+.pt-input { width:100%;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;font-family:inherit;outline:none;transition:border-color .12s;resize:none; }
 .pt-input:focus { border-color:#0078d4; }
 .pt-input::-webkit-resizer { display:none; }
 select.pt-input { appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;cursor:pointer; }
@@ -1311,7 +1311,7 @@ select.pt-input { appearance:none;-webkit-appearance:none;background-image:url("
 .pt2-roe-field { margin-bottom:14px; }
 .pt2-roe-label { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;margin-bottom:4px; }
 .pt2-roe-val { font-size:13px;color:#111827;white-space:pre-wrap;line-height:1.6; }
-.pt2-roe-input { width:100%;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;font-family:inherit;outline:none;resize:vertical;min-height:56px;transition:border-color .12s; }
+.pt2-roe-input { width:100%;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;font-family:inherit;outline:none;resize:none;min-height:56px;transition:border-color .12s; }
 .pt2-roe-input:focus { border-color:#0078d4; }
 .pt2-cl-section { margin-bottom:20px; }
 .pt2-cl-section-title { font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.4px;margin:0 0 8px;padding:6px 10px;background:#f9fafb;border-radius:6px; }
@@ -1359,7 +1359,7 @@ select.pt-input { appearance:none;-webkit-appearance:none;background-image:url("
 .pt2-input:focus { border-color:#0078d4; }
 .pt2-select { background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:6px 10px;font-size:13px;color:#111827;font-family:inherit;outline:none;cursor:pointer; }
 .pt2-select:focus { border-color:#0078d4; }
-.pt2-textarea { width:100%;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;font-family:inherit;outline:none;resize:vertical;transition:border-color .12s; }
+.pt2-textarea { width:100%;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;font-family:inherit;outline:none;resize:none;transition:border-color .12s; }
 .pt2-textarea:focus { border-color:#0078d4; }
 .pt2-modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto; }
 .pt2-modal { background:#fff;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.2);width:min(760px,96vw);margin-bottom:40px; }
@@ -2155,6 +2155,10 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
     <div class="sb-divider"></div>
 
     <div class="sb-nav-label">Monitoring &amp; Logs</div>
+    <button class="sb-item" id="sb-syslog" onclick="sbNav('syslog',this)">
+      <svg viewBox="0 0 20 20" fill="none" stroke-width="1.6"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/></svg>
+      <span class="sb-label">System Logs</span>
+    </button>
     <button class="sb-item" id="sb-observability" onclick="sbNav('observability',this)">
       <span class="sb-label">Observability</span>
     </button>
@@ -3320,6 +3324,363 @@ Export Power BI
     </div>
   </div>
   </div><!-- /page-usermgmt -->
+
+  <!-- ══ SYSTEM LOGS PAGE ═══════════════════════════════════════════════════ -->
+  <div id="page-syslog" class="page-section" style="display:none">
+  <style>
+  .sl-wrap { max-width:1280px; margin:0 auto; padding:24px 28px; }
+  .sl-hdr { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+  .sl-title { font-size:20px; font-weight:700; color:#111827; margin-bottom:2px; }
+  .sl-sub { font-size:13px; color:#6b7280; }
+  .sl-hdr-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .sl-stat-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+  .sl-stat { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:12px 18px; min-width:120px; flex:1; }
+  .sl-stat-val { font-size:22px; font-weight:700; color:#111827; line-height:1.1; }
+  .sl-stat-lbl { font-size:11px; color:#6b7280; font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
+  .sl-stat.critical .sl-stat-val { color:#dc2626; }
+  .sl-stat.error    .sl-stat-val { color:#ea580c; }
+  .sl-stat.warn     .sl-stat-val { color:#d97706; }
+  .sl-stat.info     .sl-stat-val { color:#2563eb; }
+  .sl-stat.debug    .sl-stat-val { color:#7c3aed; }
+  .sl-tabs { display:flex; gap:2px; background:#f3f4f6; border-radius:8px; padding:3px; margin-bottom:18px; width:fit-content; }
+  .sl-tab { padding:6px 18px; border-radius:6px; border:none; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; color:#6b7280; background:transparent; transition:.12s; }
+  .sl-tab.active { background:#fff; color:#111827; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+  .sl-panel { display:none; }
+  .sl-panel.active { display:block; }
+  .sl-filter-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:10px 14px; margin-bottom:12px; }
+  .sl-filter-bar select, .sl-filter-bar input[type=text], .sl-filter-bar input[type=number] {
+    border:1px solid #d1d5db; border-radius:6px; padding:5px 10px; font-size:12px; color:#374151; font-family:inherit; outline:none; background:#f9fafb;
+  }
+  .sl-filter-bar select:focus, .sl-filter-bar input:focus { border-color:#2563eb; background:#fff; }
+  .sl-filter-bar label { font-size:11px; font-weight:600; color:#6b7280; white-space:nowrap; }
+  .sl-search { flex:1; min-width:160px; }
+  .sl-auto-badge { font-size:10px; background:#d1fae5; color:#065f46; border-radius:10px; padding:2px 8px; font-weight:700; }
+  .sl-auto-badge.paused { background:#fee2e2; color:#991b1b; }
+  .sl-table-wrap { background:#fff; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; }
+  .sl-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .sl-table th { background:#f9fafb; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; padding:8px 12px; border-bottom:1px solid #e5e7eb; text-align:left; white-space:nowrap; }
+  .sl-table td { padding:7px 12px; border-bottom:1px solid #f3f4f6; vertical-align:top; color:#111827; font-size:12px; }
+  .sl-table tr:last-child td { border-bottom:none; }
+  .sl-table tr:hover td { background:#f9fafb; }
+  .sl-level { display:inline-block; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; letter-spacing:.03em; }
+  .sl-level-CRITICAL { background:#fee2e2; color:#991b1b; }
+  .sl-level-ERROR    { background:#ffedd5; color:#9a3412; }
+  .sl-level-WARN     { background:#fef9c3; color:#854d0e; }
+  .sl-level-INFO     { background:#dbeafe; color:#1e40af; }
+  .sl-level-DEBUG    { background:#ede9fe; color:#5b21b6; }
+  .sl-msg { max-width:480px; white-space:pre-wrap; word-break:break-all; line-height:1.4; }
+  .sl-empty { text-align:center; padding:48px 20px; color:#9ca3af; font-size:13px; }
+  .sl-footer { display:flex; justify-content:space-between; align-items:center; padding:8px 14px; font-size:11px; color:#6b7280; border-top:1px solid #f3f4f6; background:#f9fafb; }
+  .sl-config-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:900px) { .sl-config-grid { grid-template-columns:1fr; } }
+  .sl-config-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:20px; }
+  .sl-config-title { font-size:15px; font-weight:700; color:#111827; margin-bottom:4px; }
+  .sl-config-sub { font-size:12px; color:#6b7280; margin-bottom:16px; }
+  .sl-config-field { margin-bottom:14px; }
+  .sl-config-label { font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; display:block; }
+  .sl-config-val { display:flex; gap:6px; align-items:center; }
+  .sl-config-val input { flex:1; border:1px solid #d1d5db; border-radius:6px; padding:7px 10px; font-size:12px; font-family:'Consolas','Courier New',monospace; color:#111827; background:#f9fafb; outline:none; }
+  .sl-code-block { background:#1e1e2e; color:#cdd6f4; border-radius:8px; padding:14px 16px; font-family:'Consolas','Courier New',monospace; font-size:11.5px; line-height:1.7; overflow-x:auto; white-space:pre; position:relative; margin-top:8px; }
+  .sl-copy-btn { position:absolute; top:8px; right:8px; background:rgba(255,255,255,.12); color:#cdd6f4; border:none; border-radius:4px; padding:3px 10px; font-size:10px; cursor:pointer; font-family:inherit; }
+  .sl-copy-btn:hover { background:rgba(255,255,255,.2); }
+  .sl-step { display:flex; gap:10px; margin-bottom:12px; }
+  .sl-step-num { width:22px; height:22px; background:#2563eb; color:#fff; border-radius:50%; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .sl-step-body { flex:1; font-size:13px; color:#374151; line-height:1.55; }
+  .sl-step-body strong { color:#111827; }
+  .sl-host-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .sl-host-table th { font-size:10px; color:#9ca3af; font-weight:600; text-transform:uppercase; padding:5px 8px; text-align:left; border-bottom:1px solid #f3f4f6; }
+  .sl-host-table td { padding:5px 8px; border-bottom:1px solid #f9fafb; color:#374151; }
+  .sl-bar { height:6px; border-radius:3px; background:#2563eb; display:inline-block; min-width:4px; }
+  </style>
+
+  <div class="sl-wrap">
+    <div class="sl-hdr">
+      <div>
+        <div class="sl-title">System Logs</div>
+        <div class="sl-sub">Centralised log ingestion from Splunk HEC and Windows Event Log forwarder</div>
+      </div>
+      <div class="sl-hdr-actions">
+        <span id="sl-live-badge" class="sl-auto-badge">LIVE</span>
+        <button onclick="slToggleLive()" style="font-size:12px;padding:6px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;">Pause</button>
+        <button onclick="slRefresh()" style="font-size:12px;padding:6px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;">Refresh</button>
+        <button id="sl-clear-btn" onclick="slClearLogs()" style="display:none;font-size:12px;padding:6px 14px;border:1px solid #fca5a5;border-radius:6px;background:#fff;color:#dc2626;cursor:pointer;font-family:inherit;">Clear All</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="sl-stat-row">
+      <div class="sl-stat"><div class="sl-stat-val" id="sl-s-total">—</div><div class="sl-stat-lbl">Total (24h)</div></div>
+      <div class="sl-stat critical"><div class="sl-stat-val" id="sl-s-critical">—</div><div class="sl-stat-lbl">Critical</div></div>
+      <div class="sl-stat error"><div class="sl-stat-val" id="sl-s-error">—</div><div class="sl-stat-lbl">Error</div></div>
+      <div class="sl-stat warn"><div class="sl-stat-val" id="sl-s-warn">—</div><div class="sl-stat-lbl">Warning</div></div>
+      <div class="sl-stat info"><div class="sl-stat-val" id="sl-s-info">—</div><div class="sl-stat-lbl">Info</div></div>
+      <div class="sl-stat debug"><div class="sl-stat-val" id="sl-s-debug">—</div><div class="sl-stat-lbl">Debug</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="sl-tabs">
+      <button class="sl-tab active" id="sl-tab-stream" onclick="slSetTab('stream')">Log Stream</button>
+      <button class="sl-tab" id="sl-tab-hosts" onclick="slSetTab('hosts')">Top Hosts</button>
+      <button class="sl-tab" id="sl-tab-config" onclick="slSetTab('config')">Source Config</button>
+    </div>
+
+    <!-- Log Stream Panel -->
+    <div class="sl-panel active" id="sl-panel-stream">
+      <div class="sl-filter-bar">
+        <label>Source</label>
+        <select id="sl-f-source" onchange="slRefresh()">
+          <option value="">All Sources</option>
+          <option value="splunk">Splunk</option>
+          <option value="windows">Windows</option>
+          <option value="generic">Generic</option>
+        </select>
+        <label>Level</label>
+        <select id="sl-f-level" onchange="slRefresh()">
+          <option value="">All Levels</option>
+          <option value="CRITICAL">Critical</option>
+          <option value="ERROR">Error</option>
+          <option value="WARN">Warning</option>
+          <option value="INFO">Info</option>
+          <option value="DEBUG">Debug</option>
+        </select>
+        <label>Channel</label>
+        <select id="sl-f-channel" onchange="slRefresh()">
+          <option value="">All Channels</option>
+          <option value="Security">Security</option>
+          <option value="System">System</option>
+          <option value="Application">Application</option>
+        </select>
+        <label>Last</label>
+        <select id="sl-f-hours" onchange="slRefresh()">
+          <option value="1">1 hour</option>
+          <option value="6">6 hours</option>
+          <option value="24" selected>24 hours</option>
+          <option value="72">3 days</option>
+          <option value="168">7 days</option>
+        </select>
+        <label>Search</label>
+        <input type="text" class="sl-search" id="sl-f-search" placeholder="host, source, or message…" oninput="slSearchDebounce()">
+        <label>Rows</label>
+        <select id="sl-f-limit" onchange="slRefresh()">
+          <option value="100">100</option>
+          <option value="250">250</option>
+          <option value="500" selected>500</option>
+          <option value="1000">1000</option>
+        </select>
+      </div>
+
+      <div class="sl-table-wrap">
+        <table class="sl-table">
+          <thead>
+            <tr>
+              <th>Time (UTC)</th>
+              <th>Source</th>
+              <th>Host</th>
+              <th>Channel / Sourcetype</th>
+              <th>Event ID</th>
+              <th>Level</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody id="sl-tbody">
+            <tr><td colspan="7" class="sl-empty">Loading logs…</td></tr>
+          </tbody>
+        </table>
+        <div class="sl-footer">
+          <span id="sl-row-count">0 entries</span>
+          <span id="sl-last-refresh">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Hosts Panel -->
+    <div class="sl-panel" id="sl-panel-hosts">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="sl-table-wrap" style="border-radius:8px;">
+          <div style="padding:12px 14px;font-size:13px;font-weight:700;color:#111827;border-bottom:1px solid #f3f4f6;">Top Hosts (24h)</div>
+          <table class="sl-host-table">
+            <thead><tr><th>Host</th><th>Events</th><th>Volume</th></tr></thead>
+            <tbody id="sl-host-tbody"><tr><td colspan="3" style="text-align:center;padding:20px;color:#9ca3af;">No data</td></tr></tbody>
+          </table>
+        </div>
+        <div class="sl-table-wrap" style="border-radius:8px;">
+          <div style="padding:12px 14px;font-size:13px;font-weight:700;color:#111827;border-bottom:1px solid #f3f4f6;">Volume by Source (24h)</div>
+          <table class="sl-host-table">
+            <thead><tr><th>Source Type</th><th>Events</th><th>Volume</th></tr></thead>
+            <tbody id="sl-src-tbody"><tr><td colspan="3" style="text-align:center;padding:20px;color:#9ca3af;">No data</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Source Config Panel -->
+    <div class="sl-panel" id="sl-panel-config">
+      <div class="sl-config-grid">
+
+        <!-- Splunk HEC -->
+        <div class="sl-config-card">
+          <div class="sl-config-title">Splunk HTTP Event Collector (HEC)</div>
+          <div class="sl-config-sub">Forward Splunk events to CyberINK using the standard HEC protocol. No Splunk plugin required.</div>
+
+          <div class="sl-config-field">
+            <span class="sl-config-label">HEC Endpoint URL</span>
+            <div class="sl-config-val">
+              <input id="sl-hec-url" readonly value="" onclick="this.select()">
+              <button onclick="slCopyField('sl-hec-url')" style="font-size:11px;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">Copy</button>
+            </div>
+          </div>
+
+          <div class="sl-config-field" id="sl-hec-token-field" style="display:none">
+            <span class="sl-config-label">HEC Token (admin only)</span>
+            <div class="sl-config-val">
+              <input id="sl-hec-token" type="password" readonly value="" onclick="this.type='text';this.select()">
+              <button onclick="slCopyField('sl-hec-token')" style="font-size:11px;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">Copy</button>
+              <button onclick="slRegenToken()" style="font-size:11px;padding:6px 12px;border:1px solid #fca5a5;border-radius:6px;background:#fff;color:#dc2626;cursor:pointer;font-family:inherit;white-space:nowrap;">Regenerate</button>
+            </div>
+          </div>
+
+          <div class="sl-step"><div class="sl-step-num">1</div><div class="sl-step-body">In Splunk, navigate to <strong>Settings &rarr; Data Inputs &rarr; HTTP Event Collector</strong> and add a new token. Set the <strong>Default Index</strong> to your preferred index.</div></div>
+          <div class="sl-step"><div class="sl-step-num">2</div><div class="sl-step-body">Add a <strong>forwarding output</strong> in <code>outputs.conf</code> pointing to this CyberINK endpoint, or use the <code>curl</code> snippet below to test manually.</div></div>
+          <div class="sl-step"><div class="sl-step-num">3</div><div class="sl-step-body">Configure Splunk Universal Forwarder or Heavy Forwarder to send to this HEC endpoint using your token.</div></div>
+
+          <div style="margin-top:14px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Test with curl</div>
+          <div class="sl-code-block" id="sl-curl-snippet">
+<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button># Replace TOKEN and URL with your values
+curl -X POST "https://your-cyberink-host/api/syslog/hec" \
+  -H "Authorization: Splunk YOUR_HEC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"event":{"level":"INFO","message":"Test log from Splunk"},"host":"test-host","source":"manual","sourcetype":"test"}'</div>
+
+          <div style="margin-top:14px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Splunk outputs.conf snippet</div>
+          <div class="sl-code-block">
+<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button>[httpout]
+server.uri = https://your-cyberink-host/api/syslog/hec
+[httpout:cyberink]
+uri         = /api/syslog/hec
+token       = YOUR_HEC_TOKEN
+ssl         = true</div>
+        </div>
+
+        <!-- Windows Event Log Agent -->
+        <div class="sl-config-card">
+          <div class="sl-config-title">Windows Event Log Forwarder</div>
+          <div class="sl-config-sub">Run this PowerShell agent on any Windows host to continuously forward Security, System, and Application event logs into CyberINK.</div>
+
+          <div class="sl-config-field">
+            <span class="sl-config-label">Agent Ingest URL</span>
+            <div class="sl-config-val">
+              <input id="sl-agent-url" readonly value="" onclick="this.select()">
+              <button onclick="slCopyField('sl-agent-url')" style="font-size:11px;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">Copy</button>
+            </div>
+          </div>
+
+          <div class="sl-step"><div class="sl-step-num">1</div><div class="sl-step-body">Log into the Windows host as Administrator and open <strong>PowerShell 5.1+</strong> (or PowerShell 7).</div></div>
+          <div class="sl-step"><div class="sl-step-num">2</div><div class="sl-step-body">Copy the agent script below. Update <code>$BaseUrl</code> and <code>$Username</code>/<code>$Password</code> to match your CyberINK credentials, then run the script.</div></div>
+          <div class="sl-step"><div class="sl-step-num">3</div><div class="sl-step-body">The agent sends the last 100 events from each channel every 30 seconds. Install it as a <strong>Scheduled Task</strong> or Windows Service for continuous operation.</div></div>
+
+          <div style="margin-top:14px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">PowerShell Agent Script</div>
+          <div class="sl-code-block" id="sl-ps-snippet">
+<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-ps-script"># CyberINK Windows Event Log Forwarder
+$BaseUrl  = "https://your-cyberink-host"
+$Username = "your_username"
+$Password = "your_password"
+$Channels = @("Security","System","Application")
+$BatchSize = 100
+$IntervalSec = 30
+
+# Authenticate and get session cookie
+$loginBody = @{username=$Username; password=$Password} | ConvertTo-Json
+$session   = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+try {
+  Invoke-RestMethod -Uri "$BaseUrl/login" -Method POST `
+    -ContentType "application/json" -Body $loginBody `
+    -WebSession $session -UseBasicParsing | Out-Null
+} catch { Write-Error "Login failed: $_"; exit 1 }
+
+# Track last event RecordId per channel to avoid duplicates
+$lastId = @{}
+
+Write-Host "CyberINK forwarder started. Polling every ${IntervalSec}s..."
+
+while ($true) {
+  $batch = [System.Collections.Generic.List[object]]::new()
+  foreach ($ch in $Channels) {
+    try {
+      $filter  = @{LogName=$ch}
+      $maxId   = $lastId[$ch]
+      $events  = Get-WinEvent -FilterHashtable $filter -MaxEvents $BatchSize `
+                   -ErrorAction SilentlyContinue
+      foreach ($ev in ($events | Where-Object { -not $maxId -or $ev.RecordId -gt $maxId })) {
+        $batch.Add([PSCustomObject]@{
+          source_type = "windows"
+          host        = $env:COMPUTERNAME
+          source      = $ev.ProviderName
+          channel     = $ch
+          event_id    = [string]$ev.Id
+          level       = switch ($ev.Level) {
+                          1 { "CRITICAL" } 2 { "ERROR" }
+                          3 { "WARN" }    4 { "INFO" }
+                          default { "INFO" }
+                        }
+          message     = ($ev.Message -replace "`r`n", " " -replace "`n", " ")[0..1000] -join ""
+          received_at = $ev.TimeCreated.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        }) | Out-Null
+        if (-not $maxId -or $ev.RecordId -gt $maxId) { $lastId[$ch] = $ev.RecordId }
+      }
+    } catch { Write-Warning "Channel ${ch}: $_" }
+  }
+
+  if ($batch.Count -gt 0) {
+    try {
+      $body = $batch | ConvertTo-Json -Depth 3
+      Invoke-RestMethod -Uri "$BaseUrl/api/syslog/ingest" -Method POST `
+        -ContentType "application/json" -Body $body `
+        -WebSession $session -UseBasicParsing | Out-Null
+      Write-Host "$(Get-Date -Format 'HH:mm:ss')  Forwarded $($batch.Count) events"
+    } catch { Write-Warning "Ingest error: $_" }
+  }
+  Start-Sleep -Seconds $IntervalSec
+}</span></div>
+
+          <div style="margin-top:14px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Install as Scheduled Task (runs every 30s)</div>
+          <div class="sl-code-block">
+<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button>$action  = New-ScheduledTaskAction -Execute "powershell.exe" `
+  -Argument "-NonInteractive -File C:\cyberink\forwarder.ps1"
+$trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Seconds 30) `
+  -Once -At (Get-Date)
+Register-ScheduledTask -TaskName "CyberINK-Forwarder" `
+  -Action $action -Trigger $trigger -RunLevel Highest -Force</div>
+        </div>
+
+      </div><!-- /config-grid -->
+
+      <!-- Generic REST API -->
+      <div class="sl-config-card" style="margin-top:16px;">
+        <div class="sl-config-title">Generic REST Ingest</div>
+        <div class="sl-config-sub">Any system capable of sending HTTP POST requests can forward logs. Authenticate first to get a session cookie, then POST log entries as JSON arrays.</div>
+        <div style="margin-top:10px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">JSON schema (single entry or array)</div>
+        <div class="sl-code-block">
+<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button>POST /api/syslog/ingest
+Content-Type: application/json
+Cookie: session=&lt;your-session-cookie&gt;
+
+[
+  {
+    "source_type": "generic",   // "splunk" | "windows" | "generic"
+    "host":        "srv-01",
+    "source":      "nginx",
+    "channel":     "access",
+    "level":       "WARN",      // DEBUG|INFO|WARN|ERROR|CRITICAL
+    "event_id":    "4625",
+    "message":     "Failed login from 10.0.0.45"
+  }
+]</div>
+      </div>
+
+    </div><!-- /panel-config -->
+
+  </div><!-- /sl-wrap -->
+  </div><!-- /page-syslog -->
 
   <!-- ══ OBSERVABILITY PAGE ════════════════════════════════════════════════ -->
   <div id="page-observability" class="page-section" style="display:none">
@@ -6019,6 +6380,9 @@ function sbNav(section, el) {
   if (section === 'pricing')       initPricingPage();
   if (section === 'policy')        {}  // static page, no init needed
   if (section === 'privacy')       {}  // static page, no init needed
+  if (section === 'syslog')        initSyslogPage();
+  // Stop syslog live timer when navigating away
+  if (section !== 'syslog' && _slTimer) { clearInterval(_slTimer); _slTimer = null; }
 }
 
 function toggleSidebar() {
@@ -12264,6 +12628,195 @@ function setPageLang(pageId, lang) {
     if (btn) btn.classList.toggle('active', l === lang);
   });
   if (pageId === 'pricing') initPricingPage();
+}
+
+// ── System Logs ───────────────────────────────────────────────────────────────
+var _slLive = true, _slTimer = null, _slSearchTimer = null;
+
+function initSyslogPage() {
+  var hecUrl   = window.location.origin + '/api/syslog/hec';
+  var agentUrl = window.location.origin + '/api/syslog/ingest';
+  var hecEl    = document.getElementById('sl-hec-url');
+  var agtEl    = document.getElementById('sl-agent-url');
+  if (hecEl)   hecEl.value   = hecUrl;
+  if (agtEl)   agtEl.value   = agentUrl;
+  // Update PS script base URL
+  var psEl = document.getElementById('sl-ps-script');
+  if (psEl) psEl.textContent = psEl.textContent.replace(
+    '"https://your-cyberink-host"', '"' + window.location.origin + '"');
+  // Update curl snippet
+  var curlEl = document.getElementById('sl-curl-snippet');
+  if (curlEl) curlEl.innerHTML = curlEl.innerHTML.replace(
+    'https://your-cyberink-host/api/syslog/hec', hecUrl);
+
+  // Show admin controls if admin
+  if (USER_ROLE === 'admin') {
+    var tField = document.getElementById('sl-hec-token-field');
+    if (tField) tField.style.display = '';
+    var clearBtn = document.getElementById('sl-clear-btn');
+    if (clearBtn) clearBtn.style.display = '';
+    slLoadToken();
+  }
+  slRefresh();
+  _slLive = true;
+  clearInterval(_slTimer);
+  _slTimer = setInterval(function() { if (_slLive) slRefresh(); }, 8000);
+}
+
+function slLoadToken() {
+  fetch('/api/syslog/config').then(function(r){ return r.json(); })
+    .then(function(d) {
+      var el = document.getElementById('sl-hec-token');
+      if (el) el.value = d.hec_token || '';
+    }).catch(function(){});
+}
+
+function slRegenToken() {
+  if (!confirm('Regenerate HEC token? All existing Splunk forwarder configs must be updated.')) return;
+  fetch('/api/syslog/config/regenerate', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var el = document.getElementById('sl-hec-token');
+      if (el) { el.value = d.hec_token || ''; el.type = 'text'; }
+      alert('Token regenerated. Update your Splunk HEC config.');
+    }).catch(function(){ alert('Request failed.'); });
+}
+
+function slRefresh() {
+  var source  = (document.getElementById('sl-f-source')  || {}).value || '';
+  var level   = (document.getElementById('sl-f-level')   || {}).value || '';
+  var channel = (document.getElementById('sl-f-channel') || {}).value || '';
+  var hours   = (document.getElementById('sl-f-hours')   || {}).value || '24';
+  var search  = (document.getElementById('sl-f-search')  || {}).value || '';
+  var limit   = (document.getElementById('sl-f-limit')   || {}).value || '500';
+  var url = '/api/syslog?limit='+encodeURIComponent(limit)
+    + '&hours=' + encodeURIComponent(hours)
+    + (source  ? '&source_type=' + encodeURIComponent(source)  : '')
+    + (level   ? '&level='       + encodeURIComponent(level)   : '')
+    + (channel ? '&channel='     + encodeURIComponent(channel) : '')
+    + (search  ? '&search='      + encodeURIComponent(search)  : '');
+  fetch(url).then(function(r){ return r.json(); })
+    .then(function(d) {
+      slRenderLogs(d.logs || []);
+      slRenderStats(d.stats || {});
+    }).catch(function(e){
+      var tb = document.getElementById('sl-tbody');
+      if (tb) tb.innerHTML = '<tr><td colspan="7" class="sl-empty">Failed to load logs.</td></tr>';
+    });
+}
+
+function slRenderStats(stats) {
+  var lv = stats.by_level || {};
+  function setS(id, v){ var el=document.getElementById(id); if(el) el.textContent = (v||0).toLocaleString(); }
+  setS('sl-s-total',    stats.total);
+  setS('sl-s-critical', lv['CRITICAL']);
+  setS('sl-s-error',    lv['ERROR']);
+  setS('sl-s-warn',     lv['WARN']);
+  setS('sl-s-info',     lv['INFO']);
+  setS('sl-s-debug',    lv['DEBUG']);
+
+  // Top hosts
+  var hosts = stats.by_host || [];
+  var maxH = hosts.length ? hosts[0].cnt : 1;
+  var hTb = document.getElementById('sl-host-tbody');
+  if (hTb) hTb.innerHTML = hosts.length ? hosts.map(function(h){
+    var w = Math.max(4, Math.round((h.cnt/maxH)*120));
+    return '<tr><td>'+_esc(h.host||'(unknown)')+'</td><td>'+h.cnt.toLocaleString()+'</td>'
+      +'<td><span class="sl-bar" style="width:'+w+'px"></span></td></tr>';
+  }).join('') : '<tr><td colspan="3" style="text-align:center;padding:20px;color:#9ca3af;">No data</td></tr>';
+
+  // By source
+  var srcs = stats.by_source || [];
+  var maxS = srcs.length ? srcs[0].cnt : 1;
+  var sTb = document.getElementById('sl-src-tbody');
+  if (sTb) sTb.innerHTML = srcs.length ? srcs.map(function(s){
+    var w = Math.max(4, Math.round((s.cnt/maxS)*120));
+    return '<tr><td>'+_esc(s.source_type)+'</td><td>'+s.cnt.toLocaleString()+'</td>'
+      +'<td><span class="sl-bar" style="width:'+w+'px;background:#7c3aed;"></span></td></tr>';
+  }).join('') : '<tr><td colspan="3" style="text-align:center;padding:20px;color:#9ca3af;">No data</td></tr>';
+}
+
+function slRenderLogs(logs) {
+  var tb = document.getElementById('sl-tbody');
+  var cntEl = document.getElementById('sl-row-count');
+  var tsEl  = document.getElementById('sl-last-refresh');
+  if (!tb) return;
+  if (!logs.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="sl-empty">No log entries found. Forward logs using Splunk HEC or the Windows agent.</td></tr>';
+    if (cntEl) cntEl.textContent = '0 entries';
+    if (tsEl)  tsEl.textContent  = 'Last refresh: ' + new Date().toLocaleTimeString();
+    return;
+  }
+  tb.innerHTML = logs.map(function(lg) {
+    var lvl = (lg.level || 'INFO').toUpperCase();
+    var src = _esc(lg.source_type || '');
+    var srcColor = src === 'splunk' ? '#2563eb' : src === 'windows' ? '#16a34a' : '#6b7280';
+    var ch = _esc(lg.channel || lg.sourcetype || '');
+    return '<tr>'
+      + '<td style="white-space:nowrap;color:#6b7280;">' + _esc((lg.received_at||'').replace('T',' ').substring(0,19)) + '</td>'
+      + '<td><span style="font-size:10px;font-weight:700;color:'+srcColor+';">'+src+'</span></td>'
+      + '<td style="color:#374151;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _esc(lg.host||'') + '</td>'
+      + '<td style="color:#6b7280;">' + ch + '</td>'
+      + '<td style="color:#6b7280;font-family:monospace;font-size:11px;">' + _esc(lg.event_id||'') + '</td>'
+      + '<td><span class="sl-level sl-level-'+lvl+'">'+lvl+'</span></td>'
+      + '<td class="sl-msg">' + _esc((lg.message||'').substring(0,300)) + '</td>'
+      + '</tr>';
+  }).join('');
+  if (cntEl) cntEl.textContent = logs.length.toLocaleString() + ' entries';
+  if (tsEl)  tsEl.textContent  = 'Last refresh: ' + new Date().toLocaleTimeString();
+}
+
+function slToggleLive() {
+  _slLive = !_slLive;
+  var badge = document.getElementById('sl-live-badge');
+  var btn   = badge && badge.nextElementSibling;
+  if (badge) { badge.textContent = _slLive ? 'LIVE' : 'PAUSED'; badge.className = 'sl-auto-badge' + (_slLive ? '' : ' paused'); }
+  if (btn)   btn.textContent = _slLive ? 'Pause' : 'Resume';
+}
+
+function slSetTab(tab) {
+  ['stream','hosts','config'].forEach(function(t) {
+    document.getElementById('sl-tab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('sl-panel-'+t).classList.toggle('active', t===tab);
+  });
+}
+
+function slSearchDebounce() {
+  clearTimeout(_slSearchTimer);
+  _slSearchTimer = setTimeout(slRefresh, 400);
+}
+
+function slCopyField(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var prev = el.type; el.type = 'text'; el.select();
+  try { document.execCommand('copy'); } catch(e){}
+  el.type = prev;
+}
+
+function slCopyBlock(btn) {
+  var block = btn.parentElement;
+  var text  = block.innerText.replace(/^Copy\n?/, '');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function(){
+      btn.textContent = 'Copied!';
+      setTimeout(function(){ btn.textContent = 'Copy'; }, 1800);
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+    btn.textContent = 'Copied!';
+    setTimeout(function(){ btn.textContent = 'Copy'; }, 1800);
+  }
+}
+
+function slClearLogs() {
+  if (!confirm('Delete ALL system logs? This cannot be undone.')) return;
+  fetch('/api/syslog/clear', {method:'POST'}).then(function(r){ return r.json(); })
+    .then(function(d){ alert('Cleared ' + (d.deleted||0) + ' log entries.'); slRefresh(); })
+    .catch(function(){ alert('Request failed.'); });
 }
 
 function initPricingPage() {
