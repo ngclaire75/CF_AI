@@ -13247,18 +13247,38 @@ function umOpenPagesModal(usernames) {
   var initPages  = (firstUser && firstUser.allowed_pages) ? firstUser.allowed_pages : [];
   if (usernames.length > 1) initPages = []; // start unchecked for multi
 
+  // Determine if any target user is on basic plan
+  var hasBasicUser = usernames.some(function(un) {
+    var u = _umUsers.find(function(x){ return x.username === un; });
+    return !u || (u.plan || 'basic') === 'basic';
+  });
+
   _ALL_PAGES.forEach(function(grp) {
     var col = document.createElement('div');
     col.style.cssText = 'margin-bottom:14px;';
     col.innerHTML = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:6px;border-bottom:1px solid #f3f4f6;padding-bottom:4px;">' + _esc(grp.group) + '</div>';
     grp.pages.forEach(function(p) {
-      var chk = initPages.indexOf(p.key) !== -1;
-      col.innerHTML += '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#111827;margin-bottom:5px;cursor:pointer;">'
-        + '<input type="checkbox" id="um-pg-' + p.key + '" value="' + p.key + '"' + (chk ? ' checked' : '') + ' style="cursor:pointer;">'
-        + _esc(p.label) + '</label>';
+      var chk    = initPages.indexOf(p.key) !== -1;
+      var isPro  = _PRO_PAGES.indexOf(p.key) !== -1;
+      var locked = isPro && hasBasicUser;
+      var proTag = isPro ? ' <span style="font-size:9px;font-weight:700;color:#d97706;background:#fef3c7;border:1px solid #fcd34d;border-radius:3px;padding:0 4px;">PRO</span>' : '';
+      col.innerHTML += '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:' + (locked ? '#9ca3af' : '#111827') + ';margin-bottom:5px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';"'
+        + (locked ? ' title="Upgrade user to Pro plan to enable this page"' : '') + '>'
+        + '<input type="checkbox" id="um-pg-' + p.key + '" value="' + p.key + '"'
+        + (chk && !locked ? ' checked' : '')
+        + (locked ? ' disabled' : '')
+        + ' style="cursor:' + (locked ? 'not-allowed' : 'pointer') + ';">'
+        + _esc(p.label) + proTag + '</label>';
     });
     grid.appendChild(col);
   });
+
+  if (hasBasicUser) {
+    var proNote = document.createElement('div');
+    proNote.style.cssText = 'grid-column:1/-1;margin-top:4px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;font-size:12px;color:#92400e;';
+    proNote.textContent = 'Pro-plan pages (marked PRO) are locked for Basic users. Upgrade the user\'s plan to Pro first.';
+    grid.appendChild(proNote);
+  }
 
   modal.style.display = 'flex';
 }
@@ -13287,6 +13307,22 @@ function umSavePages() {
     });
   });
   var errEl = document.getElementById('um-pages-err');
+
+  // Block assigning Pro-plan pages to Basic users
+  var proSelected = allowed.filter(function(p){ return _PRO_PAGES.indexOf(p) !== -1; });
+  if (proSelected.length > 0) {
+    var hasBasicTarget = _umPagesTarget.some(function(un) {
+      var u = _umUsers.find(function(x){ return x.username === un; });
+      return !u || (u.plan || 'basic') === 'basic';
+    });
+    if (hasBasicTarget) {
+      if (errEl) {
+        errEl.textContent = 'Cannot assign Pro-plan pages (' + proSelected.join(', ') + ') to a Basic user. Upgrade the user\'s plan to Pro first, then retry.';
+        errEl.style.display = '';
+      }
+      return;
+    }
+  }
 
   var promises = _umPagesTarget.map(function(username) {
     return fetch('/api/admin/users/' + encodeURIComponent(username) + '/pages', {
