@@ -12308,8 +12308,8 @@ function pricingToggleBilling(isAnnual) {
   var aLbl    = document.getElementById('ptoggle-annual-lbl');
   var proAlt  = document.getElementById('pricing-pro-alt');
   var isEn    = _pageLang['pricing'] === 'en';
-  mPrices.forEach(function(el){ el.style.display = isAnnual ? 'none' : ''; });
-  aPrices.forEach(function(el){ el.style.display = isAnnual ? '' : 'none'; });
+  mPrices.forEach(function(el){ el.style.display = isAnnual ? 'none' : 'block'; });
+  aPrices.forEach(function(el){ el.style.display = isAnnual ? 'block' : 'none'; });
   if (mLbl) mLbl.classList.toggle('active', !isAnnual);
   if (aLbl) aLbl.classList.toggle('active', isAnnual);
   if (proAlt) proAlt.textContent = isAnnual
