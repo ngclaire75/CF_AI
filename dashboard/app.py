@@ -546,7 +546,8 @@ def _find_user_by_identifier(identifier: str, users: dict):
     return identifier, users.get(identifier)
 
 # ── Global auth enforcement ───────────────────────────────────────────────────
-_PUBLIC_PATHS = ('/login', '/signup', '/verify/', '/logout')
+_PUBLIC_PATHS = ('/login', '/signup', '/verify/', '/logout',
+                 '/api/syslog/hec', '/api/syslog/ingest', '/api/events/ingest')
 
 @app.before_request
 def _enforce_auth():
@@ -3849,15 +3850,16 @@ def _normalize_level(raw: str) -> str:
 
 @app.route('/api/syslog/hec', methods=['POST'])
 def api_syslog_hec():
-    """Splunk HTTP Event Collector compatible endpoint."""
-    auth = request.headers.get('Authorization', '')
+    """Splunk HEC-compatible endpoint — accepts HEC token OR any valid session."""
+    auth  = request.headers.get('Authorization', '')
     token = auth.replace('Splunk ', '').strip()
-    cfg = _load_syslog_cfg()
-    if not token or token != cfg.get('hec_token', ''):
-        return jsonify({'text': 'Invalid token', 'code': 4}), 403
+    cfg   = _load_syslog_cfg()
+    # Accept HEC token OR any authenticated session (any account)
+    authed = (token and token == cfg.get('hec_token', '')) or bool(session.get('user'))
+    if not authed:
+        return jsonify({'text': 'Authentication required — use HEC token or log in', 'code': 4}), 403
 
     body = request.get_data(as_text=True)
-    # Splunk HEC can batch multiple JSON objects separated by newlines
     count = 0
     for line in body.splitlines():
         line = line.strip()
@@ -3867,22 +3869,29 @@ def api_syslog_hec():
             ev = _json.loads(line)
         except Exception:
             continue
-        inner = ev.get('event', ev)
+        inner      = ev.get('event', ev)
+        sourcetype = ev.get('sourcetype', '')
+        # Detect Windows Event Log origin from sourcetype (e.g. WinEventLog:Security)
+        src_type   = 'windows' if sourcetype.startswith('WinEventLog') else 'splunk'
+        channel    = ''
+        if ':' in sourcetype and sourcetype.startswith('WinEventLog'):
+            channel = sourcetype.split(':', 1)[1]
         if isinstance(inner, str):
             message = inner
             raw_s   = line
         else:
             message = (inner.get('message') or inner.get('msg') or
                        inner.get('event') or _json.dumps(inner))
+            channel = channel or (inner.get('channel') or inner.get('source') or '')
             raw_s   = line
         db.log_syslog(
-            source_type = 'splunk',
+            source_type = src_type,
             host        = ev.get('host', ''),
             source      = ev.get('source', ''),
-            sourcetype  = ev.get('sourcetype', ''),
+            sourcetype  = sourcetype,
             level       = _normalize_level(inner.get('severity') or inner.get('level') or ''),
             event_id    = str(inner.get('event_id') or inner.get('id') or ''),
-            channel     = inner.get('channel') or inner.get('source') or '',
+            channel     = channel,
             message     = message,
             raw         = raw_s,
         )
@@ -3890,10 +3899,30 @@ def api_syslog_hec():
     return jsonify({'text': 'Success', 'code': 0, 'count': count})
 
 
+def _syslog_auth_check() -> bool:
+    """Return True if caller is authenticated (session OR HTTP Basic Auth)."""
+    if session.get('user'):
+        return True
+    auth = request.headers.get('Authorization', '')
+    if auth.startswith('Basic '):
+        import base64 as _b64
+        try:
+            creds    = _b64.b64decode(auth[6:]).decode('utf-8', errors='replace')
+            username, password = creds.split(':', 1)
+            users    = _load_users()
+            u        = users.get(username)
+            if u and check_password_hash(u.get('password', ''), password):
+                return True
+        except Exception:
+            pass
+    return False
+
+
 @app.route('/api/syslog/ingest', methods=['POST'])
-@login_required
 def api_syslog_ingest():
-    """Generic ingest used by the Windows PowerShell forwarder agent."""
+    """Generic ingest — accepts any account via session OR HTTP Basic Auth."""
+    if not _syslog_auth_check():
+        return jsonify({'error': 'Authentication required'}), 401
     data = request.get_json(force=True, silent=True) or {}
     entries = data if isinstance(data, list) else [data]
     count = 0

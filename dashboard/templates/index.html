@@ -2156,7 +2156,6 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
     <div class="sb-nav-label">Monitoring &amp; Logs</div>
     <button class="sb-item" id="sb-syslog" onclick="sbNav('syslog',this)">
-      <svg viewBox="0 0 20 20" fill="none" stroke-width="1.6"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/></svg>
       <span class="sb-label">System Logs</span>
     </button>
     <button class="sb-item" id="sb-observability" onclick="sbNav('observability',this)">
@@ -3544,21 +3543,10 @@ Export Power BI
           <div class="sl-step"><div class="sl-step-num">3</div><div class="sl-step-body">Configure Splunk Universal Forwarder or Heavy Forwarder to send to this HEC endpoint using your token.</div></div>
 
           <div style="margin-top:14px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Test with curl</div>
-          <div class="sl-code-block" id="sl-curl-snippet">
-<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button># Replace TOKEN and URL with your values
-curl -X POST "https://your-cyberink-host/api/syslog/hec" \
-  -H "Authorization: Splunk YOUR_HEC_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"event":{"level":"INFO","message":"Test log from Splunk"},"host":"test-host","source":"manual","sourcetype":"test"}'</div>
+          <div class="sl-code-block"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-curl-snippet"></span></div>
 
           <div style="margin-top:14px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Splunk outputs.conf snippet</div>
-          <div class="sl-code-block">
-<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button>[httpout]
-server.uri = https://your-cyberink-host/api/syslog/hec
-[httpout:cyberink]
-uri         = /api/syslog/hec
-token       = YOUR_HEC_TOKEN
-ssl         = true</div>
+          <div class="sl-code-block"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-outputs-snippet"></span></div>
         </div>
 
         <!-- Windows Event Log Agent -->
@@ -3575,81 +3563,14 @@ ssl         = true</div>
           </div>
 
           <div class="sl-step"><div class="sl-step-num">1</div><div class="sl-step-body">Log into the Windows host as Administrator and open <strong>PowerShell 5.1+</strong> (or PowerShell 7).</div></div>
-          <div class="sl-step"><div class="sl-step-num">2</div><div class="sl-step-body">Copy the agent script below. Update <code>$BaseUrl</code> and <code>$Username</code>/<code>$Password</code> to match your CyberINK credentials, then run the script.</div></div>
+          <div class="sl-step"><div class="sl-step-num">2</div><div class="sl-step-body">Copy the agent script below. The URL, username, and password fields are pre-filled with your session details. Save the script and run it.</div></div>
           <div class="sl-step"><div class="sl-step-num">3</div><div class="sl-step-body">The agent sends the last 100 events from each channel every 30 seconds. Install it as a <strong>Scheduled Task</strong> or Windows Service for continuous operation.</div></div>
 
           <div style="margin-top:14px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">PowerShell Agent Script</div>
-          <div class="sl-code-block" id="sl-ps-snippet">
-<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-ps-script"># CyberINK Windows Event Log Forwarder
-$BaseUrl  = "https://your-cyberink-host"
-$Username = "your_username"
-$Password = "your_password"
-$Channels = @("Security","System","Application")
-$BatchSize = 100
-$IntervalSec = 30
-
-# Authenticate and get session cookie
-$loginBody = @{username=$Username; password=$Password} | ConvertTo-Json
-$session   = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-try {
-  Invoke-RestMethod -Uri "$BaseUrl/login" -Method POST `
-    -ContentType "application/json" -Body $loginBody `
-    -WebSession $session -UseBasicParsing | Out-Null
-} catch { Write-Error "Login failed: $_"; exit 1 }
-
-# Track last event RecordId per channel to avoid duplicates
-$lastId = @{}
-
-Write-Host "CyberINK forwarder started. Polling every ${IntervalSec}s..."
-
-while ($true) {
-  $batch = [System.Collections.Generic.List[object]]::new()
-  foreach ($ch in $Channels) {
-    try {
-      $filter  = @{LogName=$ch}
-      $maxId   = $lastId[$ch]
-      $events  = Get-WinEvent -FilterHashtable $filter -MaxEvents $BatchSize `
-                   -ErrorAction SilentlyContinue
-      foreach ($ev in ($events | Where-Object { -not $maxId -or $ev.RecordId -gt $maxId })) {
-        $batch.Add([PSCustomObject]@{
-          source_type = "windows"
-          host        = $env:COMPUTERNAME
-          source      = $ev.ProviderName
-          channel     = $ch
-          event_id    = [string]$ev.Id
-          level       = switch ($ev.Level) {
-                          1 { "CRITICAL" } 2 { "ERROR" }
-                          3 { "WARN" }    4 { "INFO" }
-                          default { "INFO" }
-                        }
-          message     = ($ev.Message -replace "`r`n", " " -replace "`n", " ")[0..1000] -join ""
-          received_at = $ev.TimeCreated.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-        }) | Out-Null
-        if (-not $maxId -or $ev.RecordId -gt $maxId) { $lastId[$ch] = $ev.RecordId }
-      }
-    } catch { Write-Warning "Channel ${ch}: $_" }
-  }
-
-  if ($batch.Count -gt 0) {
-    try {
-      $body = $batch | ConvertTo-Json -Depth 3
-      Invoke-RestMethod -Uri "$BaseUrl/api/syslog/ingest" -Method POST `
-        -ContentType "application/json" -Body $body `
-        -WebSession $session -UseBasicParsing | Out-Null
-      Write-Host "$(Get-Date -Format 'HH:mm:ss')  Forwarded $($batch.Count) events"
-    } catch { Write-Warning "Ingest error: $_" }
-  }
-  Start-Sleep -Seconds $IntervalSec
-}</span></div>
+          <div class="sl-code-block"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-ps-script"></span></div>
 
           <div style="margin-top:14px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Install as Scheduled Task (runs every 30s)</div>
-          <div class="sl-code-block">
-<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button>$action  = New-ScheduledTaskAction -Execute "powershell.exe" `
-  -Argument "-NonInteractive -File C:\cyberink\forwarder.ps1"
-$trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Seconds 30) `
-  -Once -At (Get-Date)
-Register-ScheduledTask -TaskName "CyberINK-Forwarder" `
-  -Action $action -Trigger $trigger -RunLevel Highest -Force</div>
+          <div class="sl-code-block"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-task-snippet"></span></div>
         </div>
 
       </div><!-- /config-grid -->
@@ -3659,22 +3580,7 @@ Register-ScheduledTask -TaskName "CyberINK-Forwarder" `
         <div class="sl-config-title">Generic REST Ingest</div>
         <div class="sl-config-sub">Any system capable of sending HTTP POST requests can forward logs. Authenticate first to get a session cookie, then POST log entries as JSON arrays.</div>
         <div style="margin-top:10px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">JSON schema (single entry or array)</div>
-        <div class="sl-code-block">
-<button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button>POST /api/syslog/ingest
-Content-Type: application/json
-Cookie: session=&lt;your-session-cookie&gt;
-
-[
-  {
-    "source_type": "generic",   // "splunk" | "windows" | "generic"
-    "host":        "srv-01",
-    "source":      "nginx",
-    "channel":     "access",
-    "level":       "WARN",      // DEBUG|INFO|WARN|ERROR|CRITICAL
-    "event_id":    "4625",
-    "message":     "Failed login from 10.0.0.45"
-  }
-]</div>
+        <div class="sl-code-block"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-rest-snippet"></span></div>
       </div>
 
     </div><!-- /panel-config -->
@@ -12634,29 +12540,128 @@ function setPageLang(pageId, lang) {
 var _slLive = true, _slTimer = null, _slSearchTimer = null;
 
 function initSyslogPage() {
-  var hecUrl   = window.location.origin + '/api/syslog/hec';
-  var agentUrl = window.location.origin + '/api/syslog/ingest';
-  var hecEl    = document.getElementById('sl-hec-url');
-  var agtEl    = document.getElementById('sl-agent-url');
-  if (hecEl)   hecEl.value   = hecUrl;
-  if (agtEl)   agtEl.value   = agentUrl;
-  // Update PS script base URL
-  var psEl = document.getElementById('sl-ps-script');
-  if (psEl) psEl.textContent = psEl.textContent.replace(
-    '"https://your-cyberink-host"', '"' + window.location.origin + '"');
-  // Update curl snippet
-  var curlEl = document.getElementById('sl-curl-snippet');
-  if (curlEl) curlEl.innerHTML = curlEl.innerHTML.replace(
-    'https://your-cyberink-host/api/syslog/hec', hecUrl);
+  var origin   = window.location.origin;
+  var hecUrl   = origin + '/api/syslog/hec';
+  var agentUrl = origin + '/api/syslog/ingest';
 
-  // Show admin controls if admin
+  // URL fields
+  var hecEl = document.getElementById('sl-hec-url');
+  var agtEl = document.getElementById('sl-agent-url');
+  if (hecEl) hecEl.value = hecUrl;
+  if (agtEl) agtEl.value = agentUrl;
+
+  // Dynamically render every code block — zero hardcoded strings
+  var curlEl = document.getElementById('sl-curl-snippet');
+  if (curlEl) curlEl.textContent =
+    '# Replace TOKEN with your HEC token shown above\n' +
+    'curl -X POST "' + hecUrl + '" \\\n' +
+    '  -H "Authorization: Splunk <YOUR_HEC_TOKEN>" \\\n' +
+    '  -H "Content-Type: application/json" \\\n' +
+    '  -d \'{"event":{"level":"INFO","message":"Test log from Splunk"},' +
+    '"host":"test-host","source":"manual","sourcetype":"test"}\'';
+
+  var outEl = document.getElementById('sl-outputs-snippet');
+  if (outEl) outEl.textContent =
+    '[httpout]\n' +
+    'server.uri = ' + hecUrl + '\n' +
+    '[httpout:cyberink]\n' +
+    'uri         = /api/syslog/hec\n' +
+    'token       = <YOUR_HEC_TOKEN>\n' +
+    'ssl         = ' + (origin.startsWith('https') ? 'true' : 'false');
+
+  var psEl = document.getElementById('sl-ps-script');
+  if (psEl) psEl.textContent =
+    '# CyberINK Windows Event Log Forwarder\n' +
+    '$BaseUrl     = "' + origin + '"\n' +
+    '$Username    = "' + (USER_NAME || 'your_username') + '"\n' +
+    '$Password    = "your_password"   # replace with actual password\n' +
+    '$Channels    = @("Security","System","Application")\n' +
+    '$BatchSize   = 100\n' +
+    '$IntervalSec = 30\n\n' +
+    '# Authenticate and get session cookie\n' +
+    '$loginBody = @{username=$Username; password=$Password} | ConvertTo-Json\n' +
+    '$session   = New-Object Microsoft.PowerShell.Commands.WebRequestSession\n' +
+    'try {\n' +
+    '  Invoke-RestMethod -Uri "$BaseUrl/login" -Method POST `\n' +
+    '    -ContentType "application/json" -Body $loginBody `\n' +
+    '    -WebSession $session -UseBasicParsing | Out-Null\n' +
+    '} catch { Write-Error "Login failed: $_"; exit 1 }\n\n' +
+    '# Track last RecordId per channel to avoid duplicate forwarding\n' +
+    '$lastId = @{}\n\n' +
+    'Write-Host "CyberINK forwarder started. Polling every ${IntervalSec}s..."\n\n' +
+    'while ($true) {\n' +
+    '  $batch = [System.Collections.Generic.List[object]]::new()\n' +
+    '  foreach ($ch in $Channels) {\n' +
+    '    try {\n' +
+    '      $maxId  = $lastId[$ch]\n' +
+    '      $events = Get-WinEvent -FilterHashtable @{LogName=$ch} `\n' +
+    '                  -MaxEvents $BatchSize -ErrorAction SilentlyContinue\n' +
+    '      foreach ($ev in ($events | Where-Object { -not $maxId -or $ev.RecordId -gt $maxId })) {\n' +
+    '        $batch.Add([PSCustomObject]@{\n' +
+    '          source_type = "windows"\n' +
+    '          host        = $env:COMPUTERNAME\n' +
+    '          source      = $ev.ProviderName\n' +
+    '          channel     = $ch\n' +
+    '          event_id    = [string]$ev.Id\n' +
+    '          level       = switch ($ev.Level) {\n' +
+    '                          1 { "CRITICAL" } 2 { "ERROR" }\n' +
+    '                          3 { "WARN" }    4 { "INFO" }\n' +
+    '                          default { "INFO" }\n' +
+    '                        }\n' +
+    '          message     = ($ev.Message -replace "`r`n"," " -replace "`n"," ")[0..1000] -join ""\n' +
+    '          received_at = $ev.TimeCreated.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")\n' +
+    '        }) | Out-Null\n' +
+    '        if (-not $maxId -or $ev.RecordId -gt $maxId) { $lastId[$ch] = $ev.RecordId }\n' +
+    '      }\n' +
+    '    } catch { Write-Warning "Channel ${ch}: $_" }\n' +
+    '  }\n' +
+    '  if ($batch.Count -gt 0) {\n' +
+    '    try {\n' +
+    '      $body = $batch | ConvertTo-Json -Depth 3\n' +
+    '      Invoke-RestMethod -Uri "$BaseUrl/api/syslog/ingest" -Method POST `\n' +
+    '        -ContentType "application/json" -Body $body `\n' +
+    '        -WebSession $session -UseBasicParsing | Out-Null\n' +
+    '      Write-Host "$(Get-Date -Format \'HH:mm:ss\')  Forwarded $($batch.Count) events"\n' +
+    '    } catch { Write-Warning "Ingest error: $_" }\n' +
+    '  }\n' +
+    '  Start-Sleep -Seconds $IntervalSec\n' +
+    '}';
+
+  var taskEl = document.getElementById('sl-task-snippet');
+  if (taskEl) taskEl.textContent =
+    '$action  = New-ScheduledTaskAction -Execute "powershell.exe" `\n' +
+    '  -Argument "-NonInteractive -File C:\\cyberink\\forwarder.ps1"\n' +
+    '$trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Seconds 30) `\n' +
+    '  -Once -At (Get-Date)\n' +
+    'Register-ScheduledTask -TaskName "CyberINK-Forwarder" `\n' +
+    '  -Action $action -Trigger $trigger -RunLevel Highest -Force';
+
+  var restEl = document.getElementById('sl-rest-snippet');
+  if (restEl) restEl.textContent =
+    'POST ' + agentUrl + '\n' +
+    'Content-Type: application/json\n' +
+    'Cookie: session=<your-session-cookie>\n\n' +
+    '[\n' +
+    '  {\n' +
+    '    "source_type": "generic",\n' +
+    '    "host":        "srv-01",\n' +
+    '    "source":      "nginx",\n' +
+    '    "channel":     "access",\n' +
+    '    "level":       "WARN",\n' +
+    '    "event_id":    "4625",\n' +
+    '    "message":     "Failed login from 10.0.0.45"\n' +
+    '  }\n' +
+    ']';
+
+  // Show admin-only controls
   if (USER_ROLE === 'admin') {
-    var tField = document.getElementById('sl-hec-token-field');
-    if (tField) tField.style.display = '';
+    var tField   = document.getElementById('sl-hec-token-field');
     var clearBtn = document.getElementById('sl-clear-btn');
+    if (tField)   tField.style.display   = '';
     if (clearBtn) clearBtn.style.display = '';
     slLoadToken();
   }
+
   slRefresh();
   _slLive = true;
   clearInterval(_slTimer);
