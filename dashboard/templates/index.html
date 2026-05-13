@@ -113,6 +113,9 @@ code {
 .sb-badge-yellow { background: #fef9c3; color: #ca8a04; }
 
 .sb-divider { height: 1px; background: #eaecf0; margin: 8px 12px; }
+.sb-pricing-btn { margin: 8px 8px 4px; border: 1px solid #e0e7ff; background: #f5f3ff; color: #4f46e5; font-weight: 600; }
+.sb-pricing-btn:hover { background: #ede9fe; color: #3730a3; }
+.sb-pricing-btn.active { background: #ede9fe; color: #3730a3; border-color: #c4b5fd; }
 
 .sb-footer {
     border-top: 1px solid #eaecf0; padding: 12px 14px;
@@ -2070,6 +2073,10 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
 
   <nav class="sb-nav">
 
+    <button class="sb-item sb-pricing-btn" id="sb-pricing" onclick="sbNav('pricing',this)">
+      <span class="sb-label">Pricing Plans</span>
+    </button>
+
     <div class="sb-nav-label">AI Assistant</div>
     <button class="sb-item" id="sb-chatbot" onclick="sbNav('chatbot',this)">
       <span class="sb-label">AI Chatbot</span>
@@ -3290,9 +3297,9 @@ Export Power BI
       <table class="mdef-tbl" id="um-tbl" style="background:#fff;">
         <thead><tr>
           <th style="width:32px;"><input type="checkbox" id="um-check-all" onchange="umToggleAll(this)" title="Select all"></th>
-          <th>Username</th><th>Email</th><th>Verified</th><th>Role</th><th>Pages</th><th>Actions</th>
+          <th>Username</th><th>Email</th><th>Verified</th><th>Role</th><th>Plan</th><th>Pages</th><th>Actions</th>
         </tr></thead>
-        <tbody id="um-tbody"><tr><td colspan="7" class="mdef-empty">Loading…</td></tr></tbody>
+        <tbody id="um-tbody"><tr><td colspan="8" class="mdef-empty">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -5078,6 +5085,106 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     </div><!-- /moa-wrap -->
   </div><!-- /page-agents -->
 
+  <!-- ══ PRICING PAGE ══════════════════════════════════════════════════════ -->
+  <div id="page-pricing" class="page-section" style="display:none">
+  <style>
+    .pricing-wrap { max-width:900px; margin:0 auto; padding:40px 24px 60px; }
+    .pricing-header { margin-bottom:8px; }
+    .pricing-title { font-size:22px; font-weight:700; color:#1a1d23; }
+    .pricing-sub { font-size:13px; color:#6b7280; margin-top:6px; margin-bottom:32px; }
+    #pricing-upgrade-banner { display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:12px 16px; margin-bottom:24px; font-size:13px; color:#7a4f00; font-weight:500; }
+    .pricing-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:640px){ .pricing-grid { grid-template-columns:1fr; } }
+    .pricing-card { background:#fff; border:1.5px solid #e5e7eb; border-radius:10px; padding:28px 28px 24px; display:flex; flex-direction:column; position:relative; }
+    .pricing-card.plan-pro { border-color:#2563eb; box-shadow:0 0 0 1px #2563eb20; }
+    .pricing-card.plan-current { outline:2px solid #16a34a; outline-offset:2px; }
+    .pricing-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 10px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:12px; }
+    .pricing-badge.badge-basic { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+    .pricing-badge.badge-pro { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
+    .pricing-badge.badge-current { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+    .pricing-plan-name { font-size:20px; font-weight:700; color:#111827; margin-bottom:4px; }
+    .pricing-price { font-size:28px; font-weight:800; color:#111827; margin-bottom:4px; }
+    .pricing-price span { font-size:13px; font-weight:400; color:#6b7280; }
+    .pricing-desc { font-size:12px; color:#6b7280; margin-bottom:20px; }
+    .pricing-divider { border:none; border-top:1px solid #e5e7eb; margin:0 0 18px; }
+    .pricing-features { list-style:none; padding:0; margin:0 0 24px; flex:1; }
+    .pricing-features li { font-size:13px; color:#374151; padding:5px 0; display:flex; align-items:flex-start; gap:8px; line-height:1.45; }
+    .pricing-features li .pf-check { width:15px; height:15px; flex-shrink:0; margin-top:1px; color:#16a34a; stroke:#16a34a; }
+    .pricing-features li .pf-lock { width:15px; height:15px; flex-shrink:0; margin-top:1px; color:#9ca3af; stroke:#9ca3af; }
+    .pricing-features li.locked { color:#9ca3af; }
+    .pricing-cta { text-align:center; font-size:12px; color:#6b7280; padding:10px 0 0; border-top:1px solid #e5e7eb; margin-top:auto; }
+    .pricing-cta strong { color:#374151; }
+    .pricing-admin-note { margin-top:28px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:16px 20px; font-size:13px; color:#6b7280; }
+    .pricing-admin-note strong { color:#374151; }
+  </style>
+
+  <div class="pricing-wrap">
+    <div class="pricing-header">
+      <div class="pricing-title">Pricing Plans</div>
+      <div class="pricing-sub">Choose the plan that fits your workflow. Pro unlocks AI-driven agent scans and full pentest engagement management.</div>
+    </div>
+
+    <div id="pricing-upgrade-banner">
+      This page requires a Pro plan. Upgrade your account or contact your administrator to gain access.
+    </div>
+
+    <div class="pricing-grid">
+
+      <!-- Basic Plan -->
+      <div class="pricing-card" id="pricing-card-basic">
+        <span class="pricing-badge badge-basic" id="pricing-basic-badge">Basic</span>
+        <div class="pricing-plan-name">Basic</div>
+        <div class="pricing-price">Free <span>/ forever</span></div>
+        <div class="pricing-desc">Full visibility and threat monitoring for your sites.</div>
+        <hr class="pricing-divider">
+        <ul class="pricing-features">
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Security Dashboard &amp; KPI Overview</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> AI Chatbot Assistant</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Log Explorer &amp; Plugin Activity Logs</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Incident Management</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Threat Analytics &amp; Security Signals</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> MITRE ATT&amp;CK / Cloud SIEM</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Vulnerability Overview, Weaknesses &amp; Recommendations</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> GRC Compliance Analyzer</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Inventories &amp; Network Monitor</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> WordPress File Scanner &amp; Domain Health</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Secure Score &amp; Priority Actions</li>
+          <li class="locked"><svg class="pf-lock" viewBox="0 0 16 16" fill="none" stroke-width="2"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg> Connect &amp; Scan with Agent — Pro only</li>
+          <li class="locked"><svg class="pf-lock" viewBox="0 0 16 16" fill="none" stroke-width="2"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg> Pentest Engagement Management — Pro only</li>
+        </ul>
+        <div class="pricing-cta" id="pricing-basic-cta"><strong>Contact your administrator</strong> to change your plan.</div>
+      </div>
+
+      <!-- Pro Plan -->
+      <div class="pricing-card plan-pro" id="pricing-card-pro">
+        <span class="pricing-badge badge-pro" id="pricing-pro-badge">Pro</span>
+        <div class="pricing-plan-name">Pro</div>
+        <div class="pricing-price">Paid <span>/ per seat</span></div>
+        <div class="pricing-desc">Everything in Basic, plus live AI agent scanning and full pentest workflow.</div>
+        <hr class="pricing-divider">
+        <ul class="pricing-features">
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Everything in Basic</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Connect &amp; Scan with Agent — 11 WSTG agents, real shell commands</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Full OWASP WSTG checklist coverage (69 test items)</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Pentest Engagement Management — findings, checklist, RoE, AI report</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Scan History &amp; Security Analytics</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Automated remediation recommendations from scan output</li>
+          <li><svg class="pf-check" viewBox="0 0 16 16" fill="none" stroke-width="2"><polyline points="2,8 6,12 14,4"/></svg> Priority support</li>
+        </ul>
+        <div class="pricing-cta" id="pricing-pro-cta"><strong>Contact your administrator</strong> to upgrade your account.</div>
+      </div>
+
+    </div><!-- /pricing-grid -->
+
+    <div class="pricing-admin-note" id="pricing-admin-note" style="display:none">
+      <strong>Administrator note:</strong> Plan assignments are managed per-user in
+      <a href="#" onclick="sbNav('usermgmt', document.getElementById('sb-usermgmt')); return false;" style="color:#2563eb;text-decoration:none;">User Management</a>.
+      Select a user and use the Plan column to switch between Basic and Pro.
+    </div>
+
+  </div><!-- /pricing-wrap -->
+  </div><!-- /page-pricing -->
+
   </div><!-- /page-content -->
 </div><!-- /main-shell -->
 
@@ -5275,6 +5382,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 /* ── Auth context injected from Flask ── */
 var USER_ROLE          = "{{ current_user.role }}";
 var USER_NAME          = "{{ current_user.username }}";
+var USER_PLAN          = "{{ user_plan }}";
 // null = admin (unrestricted); array = explicit page whitelist for this user
 var USER_ALLOWED_PAGES = {{ user_allowed_pages | tojson }};
 
@@ -5373,7 +5481,10 @@ var _PAGE_TITLES = {
   'pentest':       'Pentest Engagements',
   'grc':           'GRC Compliance',
   'agents':        'Meet Our Agents',
+  'pricing':       'Pricing Plans',
 };
+
+var _PRO_PAGES = ['scan', 'pentest'];
 
 var _currentPage = 'dashboard';
 
@@ -5381,6 +5492,14 @@ function sbNav(section, el) {
   // Role-based access guard
   if (USER_ROLE !== 'admin' && _USER_SECTIONS.indexOf(section) === -1) {
     alert('Access restricted. Contact your admin to upgrade your account.');
+    return;
+  }
+  // Plan-based gate — Pro pages redirect to pricing for Basic users
+  if (USER_PLAN !== 'pro' && USER_ROLE !== 'admin' && _PRO_PAGES.indexOf(section) !== -1) {
+    var pricingEl = document.getElementById('sb-pricing');
+    sbNav('pricing', pricingEl);
+    var banner = document.getElementById('pricing-upgrade-banner');
+    if (banner) { banner.style.display = 'block'; }
     return;
   }
   // Hide all pages
@@ -5420,6 +5539,7 @@ function sbNav(section, el) {
   if (section === 'usermgmt')      loadUserMgmt();
   if (section === 'pentest')       loadPentestPage();
   if (section === 'grc')           loadGrcPage();
+  if (section === 'pricing')       initPricingPage();
 }
 
 function toggleSidebar() {
@@ -11568,14 +11688,14 @@ var _umPagesTarget = [];     // usernames currently being edited in the pages mo
 function loadUserMgmt() {
   var tbody = document.getElementById('um-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty">Loading…</td></tr>';
   umClearSelection();
   fetch('/api/admin/users')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (d.error) { tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty" style="color:#a80000;">'+_esc(d.error)+'</td></tr>'; return; }
+      if (d.error) { tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#a80000;">'+_esc(d.error)+'</td></tr>'; return; }
       _umUsers = d.users || [];
-      if (!_umUsers.length) { tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty">No users found.</td></tr>'; return; }
+      if (!_umUsers.length) { tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty">No users found.</td></tr>'; return; }
       tbody.innerHTML = _umUsers.map(function(u){
         var isAdmin    = u.role === 'admin';
         var isVerified = u.verified !== false;
@@ -11589,6 +11709,19 @@ function loadUserMgmt() {
           ? '<span style="background:#e9f8ee;color:#107c10;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">VERIFIED</span>'
           : '<span style="background:#fff4ce;color:#7a4f00;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">PENDING</span>';
         var emailCell = _esc(u.email || '—');
+
+        // Plan cell
+        var userPlan = u.plan || 'basic';
+        var planBadge = userPlan === 'pro'
+          ? '<span style="background:#eff6ff;color:#2563eb;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid #bfdbfe;">PRO</span>'
+          : '<span style="background:#f3f4f6;color:#374151;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid #d1d5db;">BASIC</span>';
+        var planCell;
+        if (isAdmin) {
+          planCell = planBadge;
+        } else {
+          var togglePlan = userPlan === 'pro' ? 'basic' : 'pro';
+          planCell = planBadge + ' <button onclick="umSetPlan(\''+_esc(u.username)+'\',\''+togglePlan+'\')" style="font-size:10px;padding:2px 8px;border:1px solid #c8c6c4;border-radius:4px;background:#f3f2f1;cursor:pointer;margin-left:4px;">Set '+(togglePlan==='pro'?'Pro':'Basic')+'</button>';
+        }
 
         // Pages cell
         var pagesCell;
@@ -11622,12 +11755,51 @@ function loadUserMgmt() {
           + '<td style="font-size:12px;color:#605e5c;">'+emailCell+'</td>'
           + '<td>'+verifiedBadge+'</td>'
           + '<td>'+roleBadge+'</td>'
+          + '<td style="white-space:nowrap;">'+planCell+'</td>'
           + '<td>'+pagesCell+'</td>'
           + '<td style="white-space:nowrap;">'+actions+'</td>'
           + '</tr>';
       }).join('');
     })
-    .catch(function(){ tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty" style="color:#a80000;">Failed to load users.</td></tr>'; });
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#a80000;">Failed to load users.</td></tr>'; });
+}
+
+function umSetPlan(username, newPlan) {
+  if (!confirm('Set ' + username + ' to ' + newPlan + ' plan?')) return;
+  fetch('/api/admin/users/' + encodeURIComponent(username) + '/plan', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({plan: newPlan})
+  }).then(function(r){ return r.json(); })
+    .then(function(d){ if (d.error) alert(d.error); else loadUserMgmt(); })
+    .catch(function(){ alert('Request failed.'); });
+}
+
+function initPricingPage() {
+  // Highlight the card matching the current user's plan
+  var basicCard = document.getElementById('pricing-card-basic');
+  var proCard   = document.getElementById('pricing-card-pro');
+  var basicBadge = document.getElementById('pricing-basic-badge');
+  var proBadge   = document.getElementById('pricing-pro-badge');
+  var basicCta   = document.getElementById('pricing-basic-cta');
+  var proCta     = document.getElementById('pricing-pro-cta');
+  var adminNote  = document.getElementById('pricing-admin-note');
+
+  if (basicCard)  basicCard.classList.remove('plan-current');
+  if (proCard)    proCard.classList.remove('plan-current');
+  if (basicBadge) { basicBadge.className = 'pricing-badge badge-basic'; basicBadge.textContent = 'Basic'; }
+  if (proBadge)   { proBadge.className   = 'pricing-badge badge-pro';   proBadge.textContent   = 'Pro'; }
+
+  if (USER_PLAN === 'pro') {
+    if (proCard)  proCard.classList.add('plan-current');
+    if (proBadge) { proBadge.className = 'pricing-badge badge-current'; proBadge.textContent = 'Pro — Your Plan'; }
+    if (proCta)   proCta.innerHTML = '<strong>You are on the Pro plan.</strong> All features are unlocked.';
+  } else {
+    if (basicCard)  basicCard.classList.add('plan-current');
+    if (basicBadge) { basicBadge.className = 'pricing-badge badge-current'; basicBadge.textContent = 'Basic — Your Plan'; }
+    if (basicCta)   basicCta.innerHTML = '<strong>You are on the Basic plan.</strong> Contact your administrator to upgrade to Pro.';
+  }
+
+  if (adminNote) adminNote.style.display = USER_ROLE === 'admin' ? 'block' : 'none';
 }
 
 function umSetRole(username, newRole) {

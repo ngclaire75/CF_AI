@@ -509,6 +509,10 @@ def _load_users() -> dict:
         if u.get('role') != 'admin' and 'allowed_pages' not in u:
             u['allowed_pages'] = _DEFAULT_USER_PAGES[:]
             changed = True
+        # Migrate: add plan field — admins default to pro, users to basic
+        if 'plan' not in u:
+            u['plan'] = 'pro' if u.get('role') == 'admin' else 'basic'
+            changed = True
     # Ensure default admin always exists with admin role
     if _DEFAULT_ADMIN not in users:
         users[_DEFAULT_ADMIN] = {
@@ -708,6 +712,7 @@ def admin_list_users():
             'email':         v.get('email', ''),
             'verified':      v.get('verified', True),
             'allowed_pages': v.get('allowed_pages'),  # None for admins = unrestricted
+            'plan':          v.get('plan', 'basic'),
         }
         for k, v in users.items()
     ]})
@@ -752,6 +757,20 @@ def admin_set_role(username):
     if username == session['user']['username'] and new_role != 'admin':
         return jsonify({'error': 'Cannot demote yourself'}), 400
     users[username]['role'] = new_role
+    _save_users(users)
+    return jsonify({'ok': True})
+
+@app.route('/api/admin/users/<username>/plan', methods=['POST'])
+@_admin_required
+def admin_set_plan(username):
+    data     = request.get_json() or {}
+    new_plan = data.get('plan')
+    if new_plan not in ('basic', 'pro'):
+        return jsonify({'error': 'Plan must be basic or pro'}), 400
+    users = _load_users()
+    if username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    users[username]['plan'] = new_plan
     _save_users(users)
     return jsonify({'ok': True})
 
@@ -1825,12 +1844,14 @@ def index():
     # Inject per-user page permissions (None for admins = sees everything)
     if user.get('role') == 'admin':
         ctx['user_allowed_pages'] = None
+        ctx['user_plan'] = 'pro'
     else:
         users = _load_users()
         u = users.get(user['username'], {})
         ctx['user_allowed_pages'] = u.get('allowed_pages', [
             'dashboard', 'chatbot', 'pluginlogs', 'logexplorer', 'inventories', 'network',
         ])
+        ctx['user_plan'] = u.get('plan', 'basic')
     return render_template('index.html', **ctx)
 
 
