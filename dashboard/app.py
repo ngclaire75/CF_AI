@@ -566,20 +566,30 @@ def _midtrans_snap_create(order_id: str, amount: int, customer: dict, item_name:
     import base64 as _b64
     url  = f'{_midtrans_api_base()}/snap/v1/transactions'
     auth = _b64.b64encode(f'{_MIDTRANS_SERVER_KEY}:'.encode()).decode()
-    payload = {
-        'transaction_details': {'order_id': order_id, 'gross_amount': amount},
-        'item_details': [{'id': plan_type, 'price': amount, 'quantity': 1, 'name': item_name}],
-        'customer_details': {
-            'first_name': customer.get('name', customer.get('username', '')),
-            'email':      customer.get('email', ''),
-        },
+    payload: dict = {
+        'transaction_details': {'order_id': order_id, 'gross_amount': int(amount)},
     }
+    email = customer.get('email', '').strip()
+    name  = (customer.get('name') or customer.get('username') or '').strip()
+    if email or name:
+        cust: dict = {}
+        if name:  cust['first_name'] = name
+        if email: cust['email']      = email
+        payload['customer_details'] = cust
+    payload['item_details'] = [
+        {'id': plan_type[:50], 'price': int(amount), 'quantity': 1, 'name': item_name[:50]}
+    ]
     resp = _requests.post(url, json=payload, headers={
         'Authorization': f'Basic {auth}',
         'Content-Type':  'application/json',
         'Accept':        'application/json',
     }, timeout=15)
-    resp.raise_for_status()
+    if not resp.ok:
+        try:
+            detail = resp.json()
+        except Exception:
+            detail = resp.text
+        raise RuntimeError(f'Midtrans {resp.status_code}: {detail}')
     return resp.json()
 
 def _midtrans_verify_signature(order_id: str, status_code: str, gross_amount: str) -> str:
