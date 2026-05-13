@@ -2259,7 +2259,7 @@ body,button,input,select,textarea{font-family:'Segoe UI',system-ui,-apple-system
   </div>
 
   <!-- Page content -->
-  <div class="page-content" id="page-content">
+  <div class="page-content" id="page-content" onscroll="slScrollCheck(this)">
   <div class="wrap">
 
   <!-- ══ DASHBOARD — MICROSOFT DEFENDER VULNERABILITY MANAGEMENT STYLE ════════ -->
@@ -6043,6 +6043,17 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   </div><!-- /page-privacy -->
 
   </div><!-- /page-content -->
+
+  <!-- Scroll-to-top button (System Logs) -->
+  <button id="sl-scroll-top-btn" onclick="slScrollToTop()"
+    style="display:none;position:fixed;bottom:28px;right:32px;z-index:8000;
+           padding:9px 16px;border:none;border-radius:20px;
+           background:#1e3a5f;color:#fff;font-size:13px;font-weight:600;
+           box-shadow:0 4px 16px rgba(0,0,0,.22);cursor:pointer;
+           align-items:center;gap:7px;transition:opacity .2s,transform .2s;">
+    &#8679; Scroll to Top
+  </button>
+
 </div><!-- /main-shell -->
 
 <!-- ── User Page Permissions Modal ──────────────────────────────────────────── -->
@@ -6422,6 +6433,7 @@ function sbNav(section, el) {
   if (section === 'syslog')        initSyslogPage();
   // Stop syslog live timer when navigating away
   if (section !== 'syslog' && _slTimer) { clearInterval(_slTimer); _slTimer = null; }
+  if (section !== 'syslog') { var _stb = document.getElementById('sl-scroll-top-btn'); if (_stb) _stb.style.display = 'none'; }
 }
 
 function toggleSidebar() {
@@ -12671,6 +12683,20 @@ function setPageLang(pageId, lang) {
 
 // ── System Logs ───────────────────────────────────────────────────────────────
 var _slLive = true, _slTimer = null, _slSearchTimer = null;
+
+function slScrollCheck(el) {
+  var btn = document.getElementById('sl-scroll-top-btn');
+  if (!btn) return;
+  var show = (document.getElementById('page-syslog') || {}).style &&
+             document.getElementById('page-syslog').style.display !== 'none' &&
+             el.scrollTop > 220;
+  btn.style.display = show ? 'inline-flex' : 'none';
+}
+
+function slScrollToTop() {
+  var pc = document.getElementById('page-content');
+  if (pc) pc.scrollTo({top: 0, behavior: 'smooth'});
+}
 
 function initSyslogPage() {
   var origin   = window.location.origin;
