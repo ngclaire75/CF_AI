@@ -334,11 +334,11 @@ table.tbl tbody tr:hover td { background: var(--c10); }
 /* ── BADGES ── */
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
   font-size: 11px; font-weight: 700; letter-spacing: .3px; }
-.badge-crit  { background: var(--c1); color: var(--c11); }
-.badge-high  { background: var(--c3); color: var(--c11); }
-.badge-med   { background: var(--c5); color: var(--c11); }
-.badge-low   { background: var(--c8); color: var(--c1); }
-.badge-info  { background: var(--c10); color: var(--c4); border: 1px solid var(--c8); }
+.badge-crit, .badge-CRITICAL { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.badge-high, .badge-HIGH     { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
+.badge-med,  .badge-MEDIUM   { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+.badge-low,  .badge-LOW      { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.badge-info, .badge-INFO     { background: var(--c10); color: var(--c4); border: 1px solid var(--c8); }
 .badge-ok    { background: var(--c9); color: var(--c2); }
 .badge-blue  { background: var(--c4); color: var(--c11); }
 .badge-light { background: var(--c10); color: var(--c3); border: 1px solid var(--c8); }
@@ -941,11 +941,11 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
   white-space:nowrap; border:1px solid transparent; }
 .inc-sev-badge { display:inline-block; padding:1px 7px; border-radius:3px;
   font-size:10px; font-weight:700; letter-spacing:.3px; }
-.inc-sev-CRITICAL { background:#172554; color:#dbeafe; }
-.inc-sev-HIGH     { background:#1e3a8a; color:#eff6ff; }
-.inc-sev-MEDIUM   { background:#dbeafe; color:#1e40af; }
-.inc-sev-LOW      { background:#eff6ff; color:#2563eb; }
-.inc-sev-INFO     { background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; }
+.inc-sev-CRITICAL { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+.inc-sev-HIGH     { background:#ffedd5; color:#c2410c; border:1px solid #fdba74; }
+.inc-sev-MEDIUM   { background:#fef9c3; color:#a16207; border:1px solid #fde047; }
+.inc-sev-LOW      { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+.inc-sev-INFO     { background:#f0f9ff; color:#0369a1; border:1px solid #bae6fd; }
 
 /* ── INC ACTION BUTTONS ── */
 .inc-action-btn { height:24px; padding:0 10px; border-radius:3px;
@@ -1546,6 +1546,122 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   color:var(--c0); vertical-align:top; }
 .pl-table-wrap tbody tr:last-child td { border-bottom:none; }
 .pl-table-wrap tbody tr:hover { background:var(--c12); }
+
+/* ── SCANNING PAGES — shared table + status styles ── */
+.scroll-panel { overflow-x:auto; width:100%; }
+.scroll-panel table, table#hist, table#targets-table {
+  width:100%; border-collapse:collapse; font-size:12px; }
+.scroll-panel table th, table#hist th, table#targets-table th {
+  background:var(--c10); color:var(--c1); font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.4px; padding:8px 12px; text-align:left;
+  border-bottom:1px solid var(--c8); white-space:nowrap; }
+.scroll-panel table td, table#hist td, table#targets-table td {
+  padding:8px 12px; border-bottom:1px solid var(--c9); color:var(--c0); vertical-align:middle; }
+.scroll-panel table tr:last-child td, table#hist tr:last-child td, table#targets-table tr:last-child td { border-bottom:none; }
+.scroll-panel table tbody tr:hover td, table#hist tbody tr:hover td, table#targets-table tbody tr:hover td { background:var(--c10); }
+
+/* status chips */
+.st-ok  { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;
+  background:#dcfce7; color:#166534; border:1px solid #86efac; }
+.st-err { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;
+  background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+.st-int { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;
+  background:#fef9c3; color:#a16207; border:1px solid #fde047; }
+
+/* table cell helpers */
+.td-target { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:12px; color:var(--c0); font-weight:500; }
+.td-mono   { font-family:var(--mono); font-size:11px; color:var(--c5); }
+.td-dim    { font-size:11px; color:var(--c5); }
+.td-light  { font-size:12px; color:var(--c3); }
+
+/* priority page elements */
+.rec-text  { font-size:12px; color:var(--c0); line-height:1.5; }
+.rec-agent { font-size:11px; color:var(--c5); }
+.fix-pill  { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:4px;
+  background:#dbeafe; color:#1e40af; font-size:10px; font-weight:700; }
+.maint-badge { display:inline-block; margin-left:5px; padding:1px 6px; border-radius:3px;
+  background:#fef9c3; color:#a16207; font-size:9px; font-weight:700; letter-spacing:.3px; }
+.btn-lock { height:24px; padding:0 10px; border-radius:4px; font-size:11px; font-weight:600;
+  background:var(--c10); color:var(--c1); border:1px solid var(--c8); cursor:pointer; font-family:var(--font); }
+.btn-lock:hover { background:var(--c9); }
+
+/* domain filter */
+.domain-filter-wrap { display:flex; align-items:center; gap:0; border:1px solid var(--c8);
+  border-radius:4px; overflow:hidden; background:var(--c11); }
+.domain-filter-wrap input { height:28px; padding:0 10px; border:none; font-size:12px;
+  font-family:var(--font); color:var(--c0); background:transparent; outline:none; min-width:160px; }
+.domain-filter-wrap button { height:28px; padding:0 8px; background:none; border:none;
+  border-left:1px solid var(--c8); color:var(--c5); cursor:pointer; font-size:12px; }
+.domain-filter-wrap button:hover { background:var(--c10); }
+
+/* filter bar */
+.filter-bar { display:flex; align-items:center; gap:4px; margin-bottom:12px; flex-wrap:wrap; }
+.filt { height:26px; padding:0 10px; border:1px solid var(--c8); border-radius:4px;
+  background:var(--c11); color:var(--c3); font-size:11px; font-weight:600;
+  cursor:pointer; font-family:var(--font); }
+.filt:hover { background:var(--c10); }
+.filt.active { background:var(--c4); color:var(--c11); border-color:var(--c4); }
+
+/* sec-count / empty */
+.sec-count { font-size:12px; color:var(--c5); white-space:nowrap; }
+.empty     { padding:32px; text-align:center; color:var(--c5); font-size:13px; line-height:1.6; }
+.empty code { background:var(--c10); padding:2px 6px; border-radius:3px; font-family:var(--mono);
+  font-size:12px; color:var(--c3); }
+
+/* Connect & Scan form */
+.connect-form { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px; }
+.connect-form label { display:block; font-size:11px; font-weight:700; color:var(--c2);
+  text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+.url-input { height:34px; padding:0 12px; border:1px solid var(--c8); border-radius:6px;
+  font-size:13px; font-family:var(--font); color:var(--c0); background:var(--c11); outline:none;
+  min-width:260px; flex:1 1 260px; }
+.url-input:focus { border-color:var(--c5); }
+.agent-select { height:34px; padding:0 10px; border:1px solid var(--c8); border-radius:6px;
+  font-size:12px; font-family:var(--font); color:var(--c0); background:var(--c11); outline:none;
+  min-width:200px; }
+.btn-connect { height:34px; padding:0 18px; background:var(--c4); color:var(--c11);
+  border:1px solid var(--c4); border-radius:6px; font-size:13px; font-weight:600;
+  cursor:pointer; font-family:var(--font); white-space:nowrap; }
+.btn-connect:hover { background:var(--c3); border-color:var(--c3); }
+
+/* credential panel */
+.cred-toggle-btn { height:28px; padding:0 12px; background:var(--c10); color:var(--c4);
+  border:1px solid var(--c8); border-radius:4px; font-size:12px; font-weight:600;
+  cursor:pointer; font-family:var(--font); }
+.cred-toggle-btn:hover { background:var(--c9); }
+.cred-panel { background:var(--c10); border:1px solid var(--c8); border-radius:6px;
+  margin-bottom:12px; }
+.cred-panel-inner { padding:14px 16px; }
+.cred-row { display:flex; gap:10px; flex-wrap:wrap; }
+.cred-row > div { flex:1 1 140px; }
+.cred-label { display:block; font-size:10px; font-weight:700; color:var(--c2);
+  text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+.cred-select, .cred-input { width:100%; height:30px; padding:0 10px; border:1px solid var(--c8);
+  border-radius:4px; font-size:12px; font-family:var(--font); color:var(--c0);
+  background:var(--c11); outline:none; }
+.cred-select:focus, .cred-input:focus { border-color:var(--c5); }
+.cred-group { padding-top:10px; }
+.cred-hint { font-size:11px; color:var(--c5); margin-top:8px; line-height:1.5; }
+.cred-notice { margin-top:10px; padding:8px 12px; background:var(--c9); border:1px solid var(--c7);
+  border-radius:4px; font-size:11px; color:var(--c2); }
+
+/* scan output */
+.connect-status { margin-top:8px; font-size:12px; }
+.cs-error { color:#991b1b; }
+.live-output { background:var(--c0); border-radius:6px; padding:12px 14px; font-family:var(--mono);
+  font-size:11px; color:#93c5fd; line-height:1.7; max-height:320px; overflow-y:auto;
+  margin-top:10px; display:none; white-space:pre-wrap; word-break:break-word; }
+.live-output::-webkit-scrollbar { width:4px; }
+.live-output::-webkit-scrollbar-thumb { background:var(--c2); }
+
+/* done bar */
+.connect-done-bar { display:none; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px;
+  padding:10px 14px; background:var(--c10); border:1px solid var(--c8); border-radius:6px; }
+.cdb-title { font-size:13px; font-weight:700; color:var(--c0); }
+.cdb-meta  { font-size:11px; color:var(--c5); margin-top:2px; }
+.connect-done-bar a { font-size:12px; font-weight:600; color:var(--c4); text-decoration:none; }
+.connect-done-bar a:hover { text-decoration:underline; }
 
 </style>
 </head>
@@ -3967,7 +4083,7 @@ Export Power BI
 
     <!-- ── User Activity pane ──────────────────────────────────────────── -->
     <div id="pual-pane-user">
-      <div class="pl-controls">
+      <div class="pl-controls" style="margin-top:20px;">
         <label style="font-size:12px;color:#3b82f6;font-weight:600;white-space:nowrap;">Target site</label>
         <select id="pl-target-sel" class="pl-target-sel">
           <option value="">All targets</option>
@@ -4005,7 +4121,7 @@ Export Power BI
     </div>
 
     <!-- ── Plugin Logs pane ───────────────────────────────────────────── -->
-    <div id="pual-pane-plugins" style="display:none;">
+    <div id="pual-pane-plugins" style="display:none;padding-top:20px;">
       <div class="mdef-toolbar">
         <div id="pual-plugin-domain-bar" style="display:flex;align-items:center;gap:6px;">
           <select id="pual-plugin-domain-sel" style="height:28px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;min-width:200px;">
