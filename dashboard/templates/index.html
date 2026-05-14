@@ -35,7 +35,7 @@
   --mono: "IBM Plex Mono", monospace;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; font-family: var(--font); font-size: 14px;
+html, body { height: 100%; font-family: var(--font); font-size: 13px;
   background: var(--c12); color: var(--c0); overflow: hidden; }
 
 /* ── SIDEBAR ── */
@@ -726,6 +726,88 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 /* ── DASH EDIT BAR ── */
 .dash-edit-bar { min-height:0; }
 
+/* ══ COMPACT MODE — smaller, tighter, more professional ══ */
+/* KPI values */
+.kpi-value { font-size:22px !important; }
+.mvd-threat-kpi-val { font-size:16px !important; }
+.mvd-card-h { font-size:13px !important; }
+.mvd-card-p { font-size:11px !important; }
+.mvd-card-section-title { font-size:9px !important; }
+.ta-kpi-val { font-size:15px !important; }
+.sec-hd { font-size:14px !important; }
+.card-hd { font-size:11px !important; }
+.pci-hdr-title { font-size:13px !important; }
+.mvd-page-title { font-size:14px !important; padding-bottom:10px !important; }
+.mdef-page-title { font-size:14px !important; }
+.pt2-detail-name { font-size:13px !important; }
+.ss-ring-val { font-size:22px !important; }
+.grc-score { font-size:18px !important; }
+.agent-name { font-size:13px !important; }
+
+/* Shrink enterprise analytics KPI numbers */
+#ek-velocity, #ek-threats, #ek-coverage, #ek-mttd,
+#ek-cves, #ek-cvss, #ek-highrisk, #ek-today { font-size:15px !important; }
+
+/* Gauge label */
+.mvd-gauge-label { font-size:20px !important; }
+.mvd-gauge-wrap { width:140px !important; height:70px !important; }
+
+/* Content area padding */
+.wrap { padding:16px !important; }
+
+/* Card padding */
+.card { padding:14px !important; }
+.mvd-card { padding:14px 16px !important; }
+.mvd-card-b { padding:14px 16px !important; }
+
+/* Table cells tighter */
+table.tbl th { padding:7px 10px !important; font-size:10px !important; }
+table.tbl td { padding:7px 10px !important; font-size:12px !important; }
+.mvd-evt-tbl th, .mvd-rec-tbl th, .mvd-rem-tbl th { padding:5px 8px !important; }
+.mvd-evt-tbl td, .mvd-rec-tbl td, .mvd-rem-tbl td { padding:5px 8px !important; font-size:11px !important; }
+
+/* Btn topbar tighter */
+.btn-topbar { height:26px !important; padding:0 10px !important; font-size:11px !important; }
+.topbar-title { font-size:13px !important; }
+.topbar { height:44px !important; }
+.main-shell { }
+:root { --topbar-h: 44px; }
+
+/* Sidebar tighter */
+.sb-item { padding:5px 12px !important; font-size:11px !important; }
+.sb-nav-label { padding:8px 12px 2px !important; font-size:9px !important; }
+.sb-brand { padding:0 14px !important; height:44px !important; }
+.sb-brand-text { font-size:13px !important; }
+.sb-search-wrap { padding:8px 10px !important; }
+.sb-search-wrap input { padding:5px 8px !important; font-size:11px !important; }
+
+/* Pricing */
+.pricing-price { font-size:22px !important; }
+
+/* Legal */
+.legal-title { font-size:17px !important; }
+.legal-section h2 { font-size:13px !important; }
+.legal-section p, .legal-section ul { font-size:12px !important; }
+
+/* Stats filter bar */
+.mvd-filter-bar { font-size:11px !important; padding:6px 0 10px !important; }
+
+/* Progress labels */
+.mvd-prog-name { font-size:10px !important; }
+.mvd-prog-num { font-size:9px !important; }
+
+/* ── BRAND COLORS for section consistency ── */
+.sec-title { font-size:13px !important; }
+.sec-desc { font-size:11px !important; }
+.stat-lbl { font-size:10px !important; }
+.stat-val { font-size:22px !important; }
+.stat-hint { font-size:10px !important; }
+
+/* Topbar AI pill */
+.topbar-ai-wrap { height:26px !important; min-width:180px !important; padding:0 10px 0 10px !important; }
+.topbar-ai-label { font-size:10px !important; }
+.topbar-ai-wrap input { font-size:11px !important; }
+
 </style>
 </head>
 <body>
@@ -908,17 +990,34 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 
     <div class="topbar-right">
       <div id="topbar-dashboard-actions" style="display:none;"></div>
+      <button class="btn-topbar" onclick="pageInfoShow()" id="page-info-btn" title="What is this page?">? Info</button>
       <button class="btn-topbar" onclick="toggleDashboardEdit()" id="dash-edit-btn">Customize</button>
       <button class="btn-topbar primary" onclick="loadDefDashboard()">Refresh</button>
       <button class="btn-topbar" onclick="window.print()">Print</button>
-      <div style="width:1px;height:18px;background:#bfdbfe;margin:0 4px;flex-shrink:0;"></div>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:1px;height:16px;background:#bfdbfe;margin:0 2px;flex-shrink:0;"></div>
+      <div style="display:flex;align-items:center;gap:6px;">
         <div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;">
-          <span style="font-size:12px;font-weight:600;color:#0f172a;">{{ current_user.username }}</span>
-          <span style="font-size:10px;color:{{ '#2563eb' if current_user.role == 'admin' else '#3b82f6' }};font-weight:700;text-transform:uppercase;letter-spacing:.4px;">{{ current_user.role }}</span>
+          <span style="font-size:11px;font-weight:600;color:#0f172a;">{{ current_user.username }}</span>
+          <span style="font-size:9px;color:{{ '#2563eb' if current_user.role == 'admin' else '#3b82f6' }};font-weight:700;text-transform:uppercase;letter-spacing:.4px;">{{ current_user.role }}</span>
         </div>
-        <a href="/logout" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#eff6ff;border:1px solid #bfdbfe;cursor:pointer;text-decoration:none;color:#2563eb;font-size:13px;font-weight:700;" title="Sign out">X</a>
+        <a href="/logout" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#eff6ff;border:1px solid #bfdbfe;cursor:pointer;text-decoration:none;color:#2563eb;font-size:11px;font-weight:700;" title="Sign out">X</a>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ PAGE INFO MODAL ══ -->
+  <div id="page-info-backdrop" onclick="pageInfoHide()" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:8900;"></div>
+  <div id="page-info-modal" style="display:none;position:fixed;top:56px;right:16px;width:340px;background:#fff;border:1px solid #bfdbfe;border-radius:8px;box-shadow:0 12px 40px rgba(15,23,42,.2);z-index:8901;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#172554,#2563eb);padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;">
+      <div>
+        <div id="pim-title" style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;"></div>
+        <div id="pim-subtitle" style="font-size:10px;color:#93c5fd;font-weight:500;text-transform:uppercase;letter-spacing:.5px;"></div>
+      </div>
+      <button onclick="pageInfoHide()" style="background:none;border:none;color:#93c5fd;font-size:18px;cursor:pointer;line-height:1;padding:0 2px;flex-shrink:0;">&times;</button>
+    </div>
+    <div style="padding:14px 16px;">
+      <p id="pim-desc" style="font-size:12px;color:#1e3a8a;line-height:1.65;margin-bottom:12px;"></p>
+      <div id="pim-tips" style="display:flex;flex-direction:column;gap:5px;"></div>
     </div>
   </div>
 
@@ -15139,5 +15238,162 @@ function grcExport() {
 {% if midtrans_configured %}
 <script src="{{ midtrans_snap_js_url }}" data-client-key="{{ midtrans_client_key }}"></script>
 {% endif %}
+
+<!-- ══ PAGE INFO SYSTEM ══ -->
+<script>
+(function(){
+  var PAGE_INFO = {
+    dashboard: {
+      title: 'Security Dashboard',
+      subtitle: 'Command Center',
+      desc: 'Executive-level overview of your security posture. Shows exposure score, threat awareness, secure score breakdowns, top events, and live enterprise analytics including threat velocity, MITRE coverage, and per-target risk distribution.',
+      tips: ['Use the time range filter (7/30/90 days) to adjust the data window','Click "Improve score" to jump to actionable remediation tasks','The enterprise analytics strip at the bottom updates automatically after each scan']
+    },
+    chatbot: {
+      title: 'AI Assistant',
+      subtitle: 'Powered by Claude AI',
+      desc: 'Chat interface for security analysis. Ask about vulnerabilities, get explanations of findings, request remediation guidance, or analyze raw scan output. Maintains conversation history during your session.',
+      tips: ['Paste raw scan output and ask the AI to summarize or prioritize it','Ask "What should I fix first?" after running a scan','Use it to draft security reports or incident summaries']
+    },
+    gsc: {
+      title: 'Search Console',
+      subtitle: 'Google Search Analytics',
+      desc: 'Integrates with Google Search Console to display keyword performance, page indexing status, Core Web Vitals, and PageSpeed metrics. Helps you detect SEO-impact from security incidents.',
+      tips: ['Connect via Google OAuth for live Search Console data','PageSpeed score below 50 may indicate injected scripts or heavy payloads','Sudden traffic drops can indicate a Google blacklisting event']
+    },
+    filescan: {
+      title: 'File Scanner',
+      subtitle: 'WordPress Malware Detection',
+      desc: 'Scans WordPress installations for malware, PHP files in uploads directories, modified core files, and suspicious plugins using the Wordfence vulnerability database and WordPress REST API.',
+      tips: ['Enter the full site URL including https://', 'Scan may take 15–30 seconds depending on site size','Mark findings as Known Safe, Suspicious, or Malware to track your review']
+    },
+    agents: {
+      title: 'AI Security Agents',
+      subtitle: 'Agent Catalog',
+      desc: 'Overview of all available AI security agents. Each agent is specialized for a different domain: reconnaissance, authentication testing, injection hunting, cryptography inspection, and more.',
+      tips: ['Use the Security Scanner page to deploy these agents against a target','Combine multiple agents by selecting "Full Pentest (all agents)"','Agent results feed directly into your scan history and threat analytics']
+    },
+    threatanalytics: {
+      title: 'Threat Intelligence',
+      subtitle: 'Deep Threat Analysis',
+      desc: 'Aggregated threat analysis from all scan data. Shows severity distributions, vulnerability trends over time, attack surface radar, MITRE ATT&CK technique coverage, and top vulnerable targets.',
+      tips: ['Click "Refresh All" to recalculate from latest scan data','The area chart shows threat velocity over the last 14 days','Use the target bar chart to identify your highest-risk sites']
+    },
+    incidents: {
+      title: 'Incident Management',
+      subtitle: 'Security Event Tracker',
+      desc: 'Create, track, and resolve security incidents. Each incident has a severity level, status (open / investigating / resolved), description, and audit trail. Critical incidents appear as badges in the sidebar.',
+      tips: ['Use "Edit" to update incident details or reassign severity','Set status to "Investigating" when an analyst is actively working the issue','Resolved incidents are retained for audit history — never deleted']
+    },
+    priority: {
+      title: 'Action Center',
+      subtitle: 'Priority Remediations',
+      desc: 'Prioritized security actions and Cloudflare quick-apply tools. Apply Under Attack Mode, Bot Fight Mode, HTTPS enforcement, and SSL upgrades directly to your domains from this page.',
+      tips: ['Enter your Cloudflare domain and click "Load Status" to see current protection levels','Actions are applied instantly via the Cloudflare API','Scroll down to see the full AI-ranked priority recommendations list']
+    },
+    syslog: {
+      title: 'System Logs',
+      subtitle: 'Real-time Log Stream',
+      desc: 'Live log stream from your monitored hosts. Shows syslog, application logs, and security events with filterable severity levels (ERROR, WARN, INFO, DEBUG). Use the stream tab for real-time tailing.',
+      tips: ['Switch between Log Stream (live) and Host Statistics tabs at the top','Use the filter input to search by keyword, hostname, or log level','Red error indicators in the stats panel identify problematic hosts']
+    },
+    pluginlogs: {
+      title: 'Activity Audit',
+      subtitle: 'WordPress User Activity',
+      desc: 'Tracks all user actions recorded by Simple History or similar WordPress audit plugins. Shows who changed what, when — login events, post edits, plugin activations, settings changes.',
+      tips: ['Connect your WordPress database credentials in Settings for direct DB access','Filter by user or action type using the search bar','Unusual admin actions after business hours may indicate account compromise']
+    },
+    logexplorer: {
+      title: 'Log Explorer',
+      subtitle: 'Structured Log Search',
+      desc: 'Advanced log querying interface. Search, filter, and analyze structured logs from multiple sources. Supports Cloudflare firewall logs, syslog entries, and application event logs with time-range filtering.',
+      tips: ['Use the Cloudflare tab to fetch WAF firewall events by zone','The Timeline tab renders a chart of event frequency over time','Export filtered results using the Download button at the bottom']
+    },
+    network: {
+      title: 'Network Monitor',
+      subtitle: 'Infrastructure Visibility',
+      desc: 'Scans and maps network infrastructure. Discovers open ports using Shodan, resolves DNS records (A, MX, NS, TXT), shows geographic IP locations on a world map, and displays Cloudflare zone configurations.',
+      tips: ['Enter any domain or IP to start a network probe','The world map plots the IP geolocation of your target servers','DNS tab shows all record types — check for suspicious TXT or MX records']
+    },
+    scan: {
+      title: 'Security Scanner',
+      subtitle: 'AI-Powered Web Security Testing',
+      desc: 'The core scanning engine. Enter a target URL, select an AI agent (or multiple), optionally provide credentials for authenticated scanning, then run. Results appear in real time in the output log and are saved to Scan History.',
+      tips: ['For a comprehensive test, select "Full Pentest (all agents)"','Add WordPress or Hostinger credentials for a deeper authenticated scan','Scan results automatically populate Threat Analytics and Scan Results pages']
+    },
+    targets: {
+      title: 'Scan Results',
+      subtitle: 'Historical Scan Database',
+      desc: 'Browse all past scan results organized by target URL. Each entry shows scan date, agent used, severity breakdown, and a full expandable findings list. Search and filter by target, severity, or date range.',
+      tips: ['Click on any row to expand the full finding details','Use the severity filter to focus on Critical and High findings only','Results persist indefinitely — use the delete button to clean up old scans']
+    },
+    history: {
+      title: 'Scan Analytics',
+      subtitle: 'Historical Trend Analysis',
+      desc: 'Statistical analysis of your scan history. Shows scan frequency charts, severity trends over time, most-scanned targets, agent usage breakdown, and success/failure ratios.',
+      tips: ['The trend chart shows whether your security posture is improving over time','Most-scanned targets indicates which sites receive the most attention','Low success rate may indicate connectivity or authentication issues']
+    },
+    pentest: {
+      title: 'Penetration Testing',
+      subtitle: 'Engagement Manager',
+      desc: 'Full pentest lifecycle management. Create engagements with client details, define scope and Rules of Engagement, run OWASP WSTG checklists, document findings with severity ratings, and generate AI-written reports.',
+      tips: ['Create a new engagement with "+ New" and fill in client and scope details','Use the Targets & Scan tab to run agents directly within an engagement','The Report tab generates a professional PDF-ready security report using AI']
+    },
+    usermgmt: {
+      title: 'User Management',
+      subtitle: 'Admin — Account Control',
+      desc: 'Manage all CyberINK user accounts. View verification status, assigned plan, and role. Promote users to admin, reset passwords, resend verification emails, or delete accounts. Admin accounts cannot be modified or deleted.',
+      tips: ['Unverified users cannot log in until their email is verified','Use "Resend Verification" if a user did not receive the confirmation email','Plan assignments control which pages and features each user can access']
+    },
+    invoices: {
+      title: 'Billing',
+      subtitle: 'Admin — Invoice Management',
+      desc: 'View and manage all customer invoices. Shows payment status (Paid / Unpaid / Pending), amount, plan, and dates. Integrates with Midtrans for Indonesian payment methods (GoPay, QRIS, Virtual Account).',
+      tips: ['Click on any invoice row to view payment details and Midtrans transaction ID','Pending invoices have been created but not yet confirmed by the payment gateway','Export the invoice list for accounting reconciliation using the Export button']
+    },
+    policy: {
+      title: 'Terms of Service',
+      subtitle: 'Subscription Policy',
+      desc: 'CyberINK subscription terms and conditions. Covers acceptable use, service availability SLA, data handling commitments, payment terms, and cancellation policy. Available in Indonesian and English.',
+      tips: ['Toggle between Bahasa Indonesia and English using the language switcher','Acceptable Use Policy section explains what scanning targets are permitted','Review the refund policy before making a payment decision']
+    },
+    privacy: {
+      title: 'Privacy Policy',
+      subtitle: 'Data Protection Statement',
+      desc: 'Data collection and privacy practices. Explains what personal data is collected, how it is used, retention periods, third-party sharing, and your rights under Indonesian UU PDP and GDPR principles.',
+      tips: ['Scan target data is stored locally on your server — not sent to Anthropic','API keys are stored in server environment variables, never in the database','Contact the DPO email listed for any data deletion or portability requests']
+    }
+  };
+
+  window.pageInfoShow = function() {
+    var page = (window._currentPage || 'dashboard').replace('page-','');
+    var info = PAGE_INFO[page] || PAGE_INFO['dashboard'];
+    document.getElementById('pim-title').textContent = info.title;
+    document.getElementById('pim-subtitle').textContent = info.subtitle;
+    document.getElementById('pim-desc').textContent = info.desc;
+    var tipsEl = document.getElementById('pim-tips');
+    tipsEl.innerHTML = '';
+    if (info.tips && info.tips.length) {
+      var hd = document.createElement('div');
+      hd.style.cssText = 'font-size:9px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;';
+      hd.textContent = 'How to use';
+      tipsEl.appendChild(hd);
+      info.tips.forEach(function(t){
+        var li = document.createElement('div');
+        li.style.cssText = 'font-size:11px;color:#374151;padding:4px 8px;background:#eff6ff;border-left:2px solid #2563eb;border-radius:2px;';
+        li.textContent = t;
+        tipsEl.appendChild(li);
+      });
+    }
+    document.getElementById('page-info-backdrop').style.display = 'block';
+    document.getElementById('page-info-modal').style.display = 'block';
+  };
+
+  window.pageInfoHide = function() {
+    document.getElementById('page-info-backdrop').style.display = 'none';
+    document.getElementById('page-info-modal').style.display = 'none';
+  };
+})();
+</script>
 </body>
 </html>
