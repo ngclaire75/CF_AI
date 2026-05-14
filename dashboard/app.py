@@ -8384,8 +8384,11 @@ def api_admin_invoices():
     status    = request.args.get('status', '') or None
     plan_type = request.args.get('plan_type', '') or None
     search    = request.args.get('search', '') or None
-    limit     = min(int(request.args.get('limit', 100)), 500)
-    offset    = int(request.args.get('offset', 0))
+    try:
+        limit  = min(int(request.args.get('limit') or 100), 500)
+        offset = int(request.args.get('offset') or 0)
+    except (ValueError, TypeError):
+        limit, offset = 100, 0
     subs  = db.get_all_subscriptions(status=status, plan_type=plan_type,
                                      search=search, limit=limit, offset=offset)
     total = db.count_all_subscriptions(status=status, plan_type=plan_type, search=search)

@@ -9,21 +9,29 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap-grid.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/recharts@2.12.7/umd/recharts.min.js"></script>
+  <!-- Chart.js loads first as the reliable fallback renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <!-- Recharts + React: when available, the shim below overrides window.Chart with Recharts -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/recharts.min.js"></script>
   <script>
 /* ── RECHARTS CHART SHIM — replaces Chart.js 4.x with React 18 + Recharts ── */
 (function(){
 'use strict';
 var R=window.Recharts, _R=window.React, _RD=window.ReactDOM;
 if(!R||!_R||!_RD){
-  console.warn('Recharts/React not loaded — Chart stub active');
-  window.Chart=function(){this.data={};this.options={};this.destroy=function(){};this.update=function(){};};
-  window.Chart.register=function(){};
-  window.Chart.defaults={font:{size:12,family:'Inter,system-ui,sans-serif'},color:'#1e3a8a',
-    plugins:{legend:{labels:{color:'#1e3a8a'}},tooltip:{backgroundColor:'#fff',titleColor:'#0b1426',
-    bodyColor:'#1e3a8a',borderColor:'#e1dfdd',borderWidth:1,padding:10}},scales:{},elements:{}};
+  // Recharts/React CDN didn't load — keep Chart.js if it loaded, else minimal stub
+  if(!window.Chart){
+    console.warn('No chart library loaded — using stub');
+    window.Chart=function(){this.data={};this.options={};this.destroy=function(){};this.update=function(){};};
+    window.Chart.register=function(){};
+    window.Chart.defaults={font:{size:12,family:'Inter,system-ui,sans-serif'},color:'#1e3a8a',
+      plugins:{legend:{labels:{color:'#1e3a8a'}},tooltip:{backgroundColor:'#fff',titleColor:'#0b1426',
+      bodyColor:'#1e3a8a',borderColor:'#e1dfdd',borderWidth:1,padding:10}},scales:{},elements:{}};
+  } else {
+    console.log('Recharts not available — using Chart.js as renderer');
+  }
   return;
 }
 var h=_R.createElement;
@@ -7187,8 +7195,7 @@ function _buildHistoryChart() {
   var rows = document.querySelectorAll('#hist tbody tr.hist-row');
   var byDate = {};
   rows.forEach(function(r) {
-    var el = r.querySelector('.utc-ts');
-    var raw = el ? el.getAttribute('data-utc') : null;
+    var raw = r.getAttribute('data-date') || '';
     if (!raw) return;
     var d = raw.substring(0, 10);
     if (!byDate[d]) byDate[d] = {high:0, med:0, low:0};
@@ -13780,7 +13787,7 @@ function invFetch() {
   var status   = (document.getElementById('inv-filter-status') || {}).value || '';
   var plan     = (document.getElementById('inv-filter-plan')   || {}).value || '';
   var search   = (document.getElementById('inv-search')        || {}).value || '';
-  var url = '/api/admin/invoices?limit=' + _invPageSize + '&offset=' + _invOffset;
+  var url = '/api/admin/invoices?limit=' + (parseInt(_invPageSize)||50) + '&offset=' + (parseInt(_invOffset)||0);
   if (status) url += '&status=' + encodeURIComponent(status);
   if (plan)   url += '&plan_type=' + encodeURIComponent(plan);
   if (search) url += '&search=' + encodeURIComponent(search);
