@@ -1563,6 +1563,18 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   background:var(--c10); border:1px solid var(--c8); border-radius:4px;
   padding:8px 12px; margin-top:8px; }
 
+/* ── log-form: SSH credential row shared by Log Explorer / Network Monitor / Grafana ── */
+.log-form { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:12px 0 6px; }
+.log-form input[type="text"],
+.log-form input[type="password"],
+.log-form input[type="number"] {
+  height:34px; padding:0 10px; border:1px solid var(--c8); border-radius:6px;
+  font-size:12px; font-family:var(--font); color:var(--c0); background:var(--c11);
+  outline:none; min-width:80px; flex:1 1 auto;
+}
+.log-form input:focus { border-color:var(--c5) !important; box-shadow:0 0 0 2px rgba(37,99,235,.1); }
+.log-form button { flex-shrink:0; }
+
 /* ══ OBSERVABILITY PAGE CSS ═══════════════════════════════════════════════ */
 .obs-card { background:var(--c11); border:1px solid var(--c8);
   border-radius:var(--radius); padding:16px 18px; margin-bottom:14px; }
