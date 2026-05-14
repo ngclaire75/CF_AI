@@ -1655,7 +1655,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .pt2-input:focus { border-color:var(--c5); }
 .pt2-textarea { width:100%; padding:8px 10px; border:1px solid var(--c8);
   border-radius:4px; font-size:12px; font-family:var(--font); color:var(--c0);
-  background:var(--c11); outline:none; resize:vertical; }
+  background:var(--c11); outline:none; resize:none; }
 .pt2-textarea:focus { border-color:var(--c5); }
 .pt2-findings-layout { display:grid; grid-template-columns:200px 1fr; gap:16px; min-height:300px; }
 .pt2-findings-sidebar { background:var(--c10); border:1px solid var(--c8);
@@ -13892,7 +13892,7 @@ function umOpenPagesModal(usernames) {
 
   if (hasBasicUser) {
     var proNote = document.createElement('div');
-    proNote.style.cssText = 'grid-column:1/-1;margin-top:4px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;font-size:12px;color:#92400e;';
+    proNote.style.cssText = 'grid-column:1/-1;margin-top:4px;padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af;';
     proNote.textContent = 'Pro-plan pages (marked PRO) are locked for Basic users. Upgrade the user\'s plan to Pro first.';
     grid.appendChild(proNote);
   }
@@ -14816,48 +14816,32 @@ function _gscRenderSummary(data) {
     saHtml += '</div>';
 
     // Devices + Countries side by side
-    var _gscTblStyle = 'width:100%;border-collapse:collapse;font-size:12px;';
-    var _gscThStyle  = 'background:#eff6ff;color:#1e40af;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:7px 10px;text-align:left;border-bottom:1px solid #bfdbfe;';
-    var _gscTdStyle  = 'padding:7px 10px;border-bottom:1px solid #e0edff;color:#0f172a;';
-    var _gscTdRStyle = 'padding:7px 10px;border-bottom:1px solid #e0edff;color:#0f172a;text-align:right;';
-    var dcHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;">';
+    var dcHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">';
     if (sa.devices && sa.devices.length) {
       var dRows = sa.devices.map(function(d){
         return '<tr>'
-          + '<td style="'+_gscTdStyle+'font-weight:500;">'+_esc(d.device)+'</td>'
-          + '<td style="'+_gscTdRStyle+'">'+d.clicks+'</td>'
-          + '<td style="'+_gscTdRStyle+'">'+d.impressions+'</td>'
+          + '<td>'+_esc(d.device)+'</td>'
+          + '<td style="text-align:right;">'+d.clicks+'</td>'
+          + '<td style="text-align:right;">'+d.impressions+'</td>'
           + '</tr>';
       }).join('');
-      dcHtml += '<div>'
-        + '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;">Devices</div>'
-        + '<div style="border:1px solid #bfdbfe;border-radius:6px;overflow:hidden;">'
-        + '<table style="'+_gscTblStyle+'">'
-        + '<thead><tr>'
-        + '<th style="'+_gscThStyle+'">Device</th>'
-        + '<th style="'+_gscThStyle+'text-align:right;">Clicks</th>'
-        + '<th style="'+_gscThStyle+'text-align:right;">Impr.</th>'
-        + '</tr></thead>'
-        + '<tbody>'+dRows+'</tbody></table></div></div>';
+      dcHtml += '<div><div style="font-size:11px;font-weight:600;color:#3b82f6;margin-bottom:4px;">Devices</div>'
+        + '<div class="scroll-panel"><table><thead><tr>'
+        + '<th>Device</th><th style="text-align:right;">Clicks</th><th style="text-align:right;">Impr.</th>'
+        + '</tr></thead><tbody>'+dRows+'</tbody></table></div></div>';
     }
     if (sa.countries && sa.countries.length) {
       var cRows = sa.countries.map(function(c){
         return '<tr>'
-          + '<td style="'+_gscTdStyle+'font-weight:500;">'+_esc(c.country)+'</td>'
-          + '<td style="'+_gscTdRStyle+'">'+c.clicks+'</td>'
-          + '<td style="'+_gscTdRStyle+'">'+c.impressions+'</td>'
+          + '<td>'+_esc(c.country)+'</td>'
+          + '<td style="text-align:right;">'+c.clicks+'</td>'
+          + '<td style="text-align:right;">'+c.impressions+'</td>'
           + '</tr>';
       }).join('');
-      dcHtml += '<div>'
-        + '<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;">Top Countries</div>'
-        + '<div style="border:1px solid #bfdbfe;border-radius:6px;overflow:hidden;">'
-        + '<table style="'+_gscTblStyle+'">'
-        + '<thead><tr>'
-        + '<th style="'+_gscThStyle+'">Country</th>'
-        + '<th style="'+_gscThStyle+'text-align:right;">Clicks</th>'
-        + '<th style="'+_gscThStyle+'text-align:right;">Impr.</th>'
-        + '</tr></thead>'
-        + '<tbody>'+cRows+'</tbody></table></div></div>';
+      dcHtml += '<div><div style="font-size:11px;font-weight:600;color:#3b82f6;margin-bottom:4px;">Top Countries</div>'
+        + '<div class="scroll-panel"><table><thead><tr>'
+        + '<th>Country</th><th style="text-align:right;">Clicks</th><th style="text-align:right;">Impr.</th>'
+        + '</tr></thead><tbody>'+cRows+'</tbody></table></div></div>';
     }
     dcHtml += '</div>';
     if (sa.devices || sa.countries) saHtml += dcHtml;
@@ -14904,7 +14888,7 @@ function _gscRenderSummary(data) {
   if (!slWrap) {
     slWrap = document.createElement('div');
     slWrap.id = 'gsc-suspicious-links-panel';
-    slWrap.style.cssText = 'margin-bottom:16px;';
+    slWrap.style.cssText = 'margin-top:24px;margin-bottom:24px;';
     smWrap.parentNode.insertBefore(slWrap, smWrap.nextSibling);
   }
   if (slData && (slData.links_checked > 0 || slData.total > 0)) {
