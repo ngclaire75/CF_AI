@@ -1061,10 +1061,52 @@ td .status-high, .sev-high-badge { background:var(--c3) !important; color:var(--
 td .status-medium { background:var(--c4) !important; color:var(--c11) !important; }
 td .status-low { background:var(--c6) !important; color:var(--c11) !important; }
 
-/* PCI config status indicators */
-.pci-cfg-g, .pci-cfg-pass { background:var(--c9) !important; color:var(--c2) !important; border:none !important; }
-.pci-cfg-y, .pci-cfg-warn { background:var(--c8) !important; color:var(--c1) !important; border:none !important; }
-.pci-cfg-r, .pci-cfg-fail { background:var(--c2) !important; color:var(--c11) !important; border:none !important; }
+/* PCI config status indicators — subtle colored text, no jarring backgrounds */
+.pci-cfg-g, .pci-cfg-pass { color:#1e40af; font-weight:700; }
+.pci-cfg-y, .pci-cfg-warn { color:#6366f1; font-weight:700; }
+.pci-cfg-r, .pci-cfg-fail { color:#1e3a8a; font-weight:700; }
+
+/* ── SCAN MODAL meta-item rows (label + value pairs) ── */
+.meta-item { display:flex; align-items:baseline; padding:3px 0; font-size:12px; line-height:1.5; }
+.meta-item label { color:var(--c5); font-weight:600; min-width:96px; margin-right:8px; flex-shrink:0; font-size:11px; text-transform:uppercase; letter-spacing:.3px; }
+.meta-item span { color:var(--c0); }
+
+/* ── PCI / THREAT ANALYTICS table & card components ── */
+.pci-card-hdr { background:var(--c10); border-bottom:1px solid var(--c8); padding:10px 14px;
+  font-size:11px; font-weight:700; color:var(--c0); display:flex; align-items:center;
+  justify-content:space-between; gap:8px; }
+.pci-card-foot { background:var(--c10); border-top:1px solid var(--c8); padding:6px 14px;
+  font-size:10px; color:var(--c6); }
+.pci-card-count { font-size:10px; color:var(--c5); font-weight:600; display:flex;
+  align-items:center; gap:4px; flex-wrap:wrap; }
+.pci-card-pg button { background:none; border:1px solid var(--c8); border-radius:3px;
+  font-size:9px; cursor:pointer; padding:1px 5px; color:var(--c4); line-height:1.4; }
+.pci-card-pg button:hover { background:var(--c9); }
+/* PCI table */
+.pci-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.pci-tbl thead th { background:var(--c10); color:var(--c2); font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.4px; padding:7px 10px; text-align:center;
+  border-bottom:1px solid var(--c8); white-space:nowrap; }
+.pci-tbl thead th.pci-l { text-align:left; }
+.pci-tbl tbody td { padding:7px 10px; border-bottom:1px solid var(--c9); color:var(--c0);
+  font-size:12px; text-align:center; vertical-align:middle; }
+.pci-tbl tbody td.pci-l { text-align:left; font-weight:500; }
+.pci-tbl tbody tr:last-child td { border-bottom:none; }
+.pci-tbl tbody tr.pci-row-total { background:var(--c10); }
+.pci-tbl tbody tr.pci-row-total td { font-weight:700; }
+.pci-l { text-align:left !important; }
+.pci-pct-cell { font-size:10px; color:var(--c5); display:block; margin-top:1px; }
+/* PCI severity badges */
+.pci-sev-crit { display:inline-block; background:#1e3a8a; color:#dbeafe; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; }
+.pci-sev-high { display:inline-block; background:#2563eb; color:#eff6ff; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; }
+.pci-sev-med  { display:inline-block; background:#dbeafe; color:#1e40af; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; border:1px solid #bfdbfe; }
+.pci-sev-low  { display:inline-block; background:#eff6ff; color:#2563eb; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; border:1px solid #bfdbfe; }
+/* PCI bar charts */
+.pci-bar-wrap { display:flex; height:8px; background:#e8f0fb; border-radius:4px; overflow:hidden; width:100%; min-width:50px; }
+.pci-bar-c { background:#1e3a8a; }
+.pci-bar-h { background:#2563eb; }
+/* PCI check mark */
+.pci-chk-ok { color:#2563eb; font-weight:700; font-size:14px; }
 
 /* Force all form inputs blue border */
 input, select, textarea {
