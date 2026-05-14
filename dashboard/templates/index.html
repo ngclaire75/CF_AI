@@ -11,13 +11,21 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/recharts.min.js"></script>
   <script>
 /* ── RECHARTS CHART SHIM — replaces Chart.js 4.x with React 18 + Recharts ── */
 (function(){
 'use strict';
 var R=window.Recharts, _R=window.React, _RD=window.ReactDOM;
-if(!R||!_R||!_RD){console.warn('Recharts/React not loaded');return;}
+if(!R||!_R||!_RD){
+  console.warn('Recharts/React not loaded — Chart stub active');
+  window.Chart=function(){this.data={};this.options={};this.destroy=function(){};this.update=function(){};};
+  window.Chart.register=function(){};
+  window.Chart.defaults={font:{size:12,family:'Inter,system-ui,sans-serif'},color:'#1e3a8a',
+    plugins:{legend:{labels:{color:'#1e3a8a'}},tooltip:{backgroundColor:'#fff',titleColor:'#0b1426',
+    bodyColor:'#1e3a8a',borderColor:'#e1dfdd',borderWidth:1,padding:10}},scales:{},elements:{}};
+  return;
+}
 var h=_R.createElement;
 
 function _fmt(v){if(v>=1e6)return(v/1e6).toFixed(1)+'M';if(v>=1e3)return(v/1e3).toFixed(1)+'k';return v;}
@@ -1256,7 +1264,35 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .pt2-kpi-strip > div { background:var(--c10); border:1px solid var(--c8);
   border-top:3px solid var(--c4); border-radius:6px; padding:10px 14px; }
 .pt2-scan-target { font-size:12px; font-weight:500; color:var(--c0); }
-.pt2-finding-title { font-size:13px; font-weight:600; color:var(--c0); margin-bottom:4px; }
+
+/* ── Pentest finding cards ── */
+.pt2-finding-card { background:var(--c11) !important; color:var(--c0) !important;
+  border:1px solid var(--c8); border-left:3px solid var(--c4); border-radius:var(--radius);
+  margin-bottom:10px; padding:14px 16px; }
+.pt2-finding-card.sev-critical { border-left-color:#172554 !important; background:var(--c11) !important; color:var(--c0) !important; }
+.pt2-finding-card.sev-high     { border-left-color:#1e3a8a !important; background:var(--c11) !important; color:var(--c0) !important; }
+.pt2-finding-card.sev-medium   { border-left-color:#2563eb !important; background:var(--c11) !important; color:var(--c0) !important; }
+.pt2-finding-card.sev-low      { border-left-color:#60a5fa !important; background:var(--c11) !important; color:var(--c0) !important; }
+.pt2-finding-card.sev-informational { border-left-color:#bfdbfe !important; background:var(--c11) !important; color:var(--c0) !important; }
+.pt2-finding-section { margin-top:10px; }
+.pt2-finding-section-label { font-size:10px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.5px; color:var(--c5); margin-bottom:4px; }
+.pt2-finding-section-body { font-size:12px; color:var(--c0); line-height:1.55;
+  white-space:pre-wrap; word-break:break-word; }
+.pt2-finding-evidence { font-size:11px; font-family:monospace; background:var(--c10);
+  border:1px solid var(--c8); border-radius:3px; padding:8px 10px; color:var(--c1);
+  white-space:pre-wrap; word-break:break-all; line-height:1.5; margin-top:4px; }
+
+/* ── Pentest checklist ── */
+.pt2-cl-section { margin-bottom:18px; }
+.pt2-cl-section-title { font-size:12px; font-weight:700; color:var(--c0); margin-bottom:8px; }
+.pt2-cl-item { display:flex; align-items:flex-start; gap:8px; padding:5px 8px;
+  border-radius:3px; font-size:12px; color:var(--c0); line-height:1.45;
+  border:1px solid transparent; cursor:pointer; }
+.pt2-cl-item:hover { background:var(--c10); border-color:var(--c8); }
+.pt2-cl-item input[type=checkbox] { margin-top:2px; flex-shrink:0; accent-color:var(--c4); }
+.pt2-cl-item.checked-item { color:var(--c5); text-decoration:line-through; }
+.pt2-finding-title { font-size:13px; font-weight:600; color:var(--c0) !important; margin-bottom:6px; }
 .pt2-finding-meta  { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
 /* ROE fields */
 .pt2-roe-field { margin-bottom:14px; }
@@ -1293,7 +1329,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .pt2-select:focus { border-color:var(--c5); }
 
 /* ── THREAT ANALYTICS PAGE — more left spacing ── */
-#page-threatanalytics { padding-left:8px; }
+#page-threatanalytics { padding-left:8px; padding-right:24px; }
 #ta-pci-grid .pci-card { border:none; background:var(--c11);
   border:1px solid var(--c8); border-radius:var(--radius); }
 
@@ -14917,7 +14953,7 @@ function pt2RenderOverview(eng) {
         var pct=(sevs[s]/total*100).toFixed(1);
         return sevs[s]?'<div class="pt2-sev-bar-seg" style="width:'+pct+'%;background:'+clr[s]+';" title="'+s+': '+sevs[s]+'"></div>':'';
       }).join('');
-      if (leg) leg.textContent = Object.keys(sevs).filter(function(s){return sevs[s]>0;}).map(function(s){return s+': '+sevs[s];}).join(' | ');
+      if (leg) leg.textContent = Object.keys(sevs).filter(function(s){return sevs[s]>0;}).map(function(s){return s.charAt(0).toUpperCase()+s.slice(1)+': '+sevs[s];}).join(' | ');
     } else if (bar) {
       bar.innerHTML = '<div style="background:#dbeafe;width:100%;"></div>';
       if (leg) leg.textContent = 'No findings yet';
