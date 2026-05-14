@@ -9957,7 +9957,7 @@ function renderIncidents(incidents) {
     tbody.innerHTML = '<tr><td colspan="8" style="padding:28px;text-align:center;color:#60a5fa;font-size:13px;">No incidents' + (_incStatus !== 'all' ? ' with status "' + _incStatus + '"' : '') + '. Click <strong>+ New Incident</strong> to create one.</td></tr>';
     return;
   }
-  var SEV_COL = {CRITICAL:'#172554',HIGH:'#1e3a8a',MEDIUM:'#2563eb',LOW:'#60a5fa',INFO:'#93c5fd'};
+  var SEV_COL = {CRITICAL:'#fff',HIGH:'#fff',MEDIUM:'#1e40af',LOW:'#fff',INFO:'#fff'};
   var ST_STYLE = {
     open:          'background:#eff6ff;color:#1e3a8a;border-color:#bfdbfe;',
     investigating: 'background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;',
