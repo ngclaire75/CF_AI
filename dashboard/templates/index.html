@@ -1091,7 +1091,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .btn-topbar { height:26px !important; padding:0 10px !important; font-size:11px !important; }
 .topbar-title { font-size:13px !important; }
 .topbar { height:44px !important; }
-.main-shell { }
+.main-shell { min-height: 0; }
+.topbar-role-admin { color: #2563eb; }
+.topbar-role-user  { color: #3b82f6; }
 :root { --topbar-h: 44px; }
 
 /* Sidebar tighter */
@@ -1667,7 +1669,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
       <div style="display:flex;align-items:center;gap:6px;">
         <div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;">
           <span style="font-size:11px;font-weight:600;color:#0f172a;">{{ current_user.username }}</span>
-          <span style="font-size:9px;color:{{ '#2563eb' if current_user.role == 'admin' else '#3b82f6' }};font-weight:700;text-transform:uppercase;letter-spacing:.4px;">{{ current_user.role }}</span>
+          <span class="topbar-role {{ 'topbar-role-admin' if current_user.role == 'admin' else 'topbar-role-user' }}" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">{{ current_user.role }}</span>
         </div>
         <a href="/logout" style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;cursor:pointer;text-decoration:none;color:#1e3a8a;font-size:11px;font-weight:600;white-space:nowrap;" title="Sign out">Sign out</a>
       </div>
@@ -2128,22 +2130,22 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
         <div class="vsev-bars">
           <div class="vsev-bar-row">
             <span class="vsev-bar-label">High</span>
-            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-high" style="width:{{ (t.HIGH / mx * 100)|int }}%"></div></div>
+            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-high" data-pct="{{ (t.HIGH / mx * 100)|int }}"></div></div>
             <span class="vsev-bar-count">{{ t.HIGH }}</span>
           </div>
           <div class="vsev-bar-row">
             <span class="vsev-bar-label">Medium</span>
-            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-medium" style="width:{{ (t.MEDIUM / mx * 100)|int }}%"></div></div>
+            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-medium" data-pct="{{ (t.MEDIUM / mx * 100)|int }}"></div></div>
             <span class="vsev-bar-count">{{ t.MEDIUM }}</span>
           </div>
           <div class="vsev-bar-row">
             <span class="vsev-bar-label">Low</span>
-            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-low" style="width:{{ (t.LOW / mx * 100)|int }}%"></div></div>
+            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-low" data-pct="{{ (t.LOW / mx * 100)|int }}"></div></div>
             <span class="vsev-bar-count">{{ t.LOW }}</span>
           </div>
           <div class="vsev-bar-row">
             <span class="vsev-bar-label">Info</span>
-            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-info" style="width:{{ (t.INFO / mx * 100)|int }}%"></div></div>
+            <div class="vsev-bar-track"><div class="vsev-bar-fill sev-info" data-pct="{{ (t.INFO / mx * 100)|int }}"></div></div>
             <span class="vsev-bar-count">{{ t.INFO }}</span>
           </div>
         </div>
@@ -2492,7 +2494,7 @@ Export Power BI
               </td>
               <td><div class="rec-agent">{{ rec.agent }}</div></td>
               <td class="td-dim">{{ rec.date }}</td>
-              <td><button class="btn btn-sm" onclick="openModal({{ rec.scan_id }})">View Fix</button></td>
+              <td><button class="btn btn-sm" data-id="{{ rec.scan_id }}" onclick="openModal(+this.dataset.id)">View Fix</button></td>
               <td>
                 <button class="btn-lock" id="lock-btn-{{ rec.target|lower|replace('.','_')|replace('/','_') }}"
                   onclick="toggleSiteLock('{{ rec.target }}', this)">Lock</button>
@@ -2720,7 +2722,7 @@ Export Power BI
                 {% else %}<span class="st-err">Error</span>{% endif %}
               </td>
               <td style="white-space:nowrap;">
-                <button class="btn btn-sm" onclick="openModal({{ t.id }})" style="margin-right:4px;">Report</button>
+                <button class="btn btn-sm" data-id="{{ t.id }}" onclick="openModal(+this.dataset.id)" style="margin-right:4px;">Report</button>
                 <button class="btn btn-sm" onclick="openInsightsModal('{{ t.target|e }}')" style="background:#0f172a;color:#fff;border-color:#0f172a;">Insights</button>
               </td>
             </tr>
@@ -2825,8 +2827,8 @@ Export Power BI
               </td>
               <td class="td-dim utc-ts" data-utc="{{ s.display_date }}">{{ s.display_date }}</td>
               <td style="white-space:nowrap;">
-                <button class="csa-det-btn" onclick="openDetailsModal({{ s.id }})">Details</button>
-                <button class="csa-del-btn" onclick="deleteScan({{ s.id }}, this)">Delete</button>
+                <button class="csa-det-btn" data-id="{{ s.id }}" onclick="openDetailsModal(+this.dataset.id)">Details</button>
+                <button class="csa-del-btn" data-id="{{ s.id }}" onclick="deleteScan(+this.dataset.id, this)">Delete</button>
               </td>
             </tr>
           {% endfor %}
@@ -5849,15 +5851,19 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   </div>
 </div>
 
+<script type="application/json" id="cfai-init-data">
+{"midtrans_configured":{{ midtrans_configured | tojson }},"user_allowed_pages":{{ user_allowed_pages | tojson }},"stats":{{ stats | tojson }},"severity_summary_total":{{ severity_summary.total | tojson }},"targets":{{ targets | tojson }},"scans":{{ scans | tojson }}}
+</script>
 <script>
 /* ── Auth context injected from Flask ── */
 var USER_ROLE          = "{{ current_user.role }}";
 var USER_NAME          = "{{ current_user.username }}";
 var USER_PLAN          = "{{ user_plan }}";
-var MIDTRANS_CONFIGURED = {{ 'true' if midtrans_configured else 'false' }};
 var MIDTRANS_CLIENT_KEY = "{{ midtrans_client_key }}";
+var _cfai_data = JSON.parse(document.getElementById('cfai-init-data').textContent);
+var MIDTRANS_CONFIGURED = _cfai_data.midtrans_configured;
 // null = admin (unrestricted); array = explicit page whitelist for this user
-var USER_ALLOWED_PAGES = {{ user_allowed_pages | tojson }};
+var USER_ALLOWED_PAGES = _cfai_data.user_allowed_pages;
 
 // Resolved allowed sections — used by sbNav guard and sidebar visibility
 var _USER_SECTIONS = USER_ALLOWED_PAGES !== null
@@ -6204,7 +6210,7 @@ function _loadWidgetData() {
   // Stats
   var ws = document.getElementById('w-stats');
   if (ws) {
-    var s = {{ stats | tojson }};
+    var s = _cfai_data.stats;
     ws.innerHTML =
       '<div class="w-stat-box"><div class="w-stat-val">' + (s.total_scans||0) + '</div><div class="w-stat-lbl">Total Scans</div></div>' +
       '<div class="w-stat-box"><div class="w-stat-val">' + (s.unique_targets||0) + '</div><div class="w-stat-lbl">Targets</div></div>' +
@@ -6216,7 +6222,7 @@ function _loadWidgetData() {
   var vc = document.getElementById('w-vuln-chart');
   if (vc) {
     if (_wVulnChart) { _wVulnChart.destroy(); }
-    var sev = {{ severity_summary.total | tojson }};
+    var sev = _cfai_data.severity_summary_total;
     _wVulnChart = new Chart(vc.getContext('2d'), {
       type: 'bar',
       data: {
@@ -6233,7 +6239,7 @@ function _loadWidgetData() {
   // Top targets
   var tt = document.getElementById('w-top-targets');
   if (tt) {
-    var targets = {{ targets | tojson }};
+    var targets = _cfai_data.targets;
     var rankCls = ['w-rank-1','w-rank-2','w-rank-3','w-rank-n'];
     if (!targets.length) { tt.innerHTML = '<li style="padding:16px;color:#60a5fa;font-size:12px;">No targets yet.</li>'; }
     else tt.innerHTML = targets.slice(0,5).map(function(t,i){
@@ -6247,7 +6253,7 @@ function _loadWidgetData() {
   // Recent scans
   var rs = document.getElementById('w-recent-scans');
   if (rs) {
-    var scans = {{ scans | tojson }};
+    var scans = _cfai_data.scans;
     if (!scans.length) { rs.innerHTML = '<li style="padding:16px;color:#60a5fa;font-size:12px;">No scans yet.</li>'; }
     else rs.innerHTML = scans.slice(0,6).map(function(s){
       return '<li class="w-list-item" style="padding:6px 16px;">' +
@@ -6843,6 +6849,10 @@ document.addEventListener('DOMContentLoaded', function(){
   _hideLoadingOverlay();
   _dashInitPanels();
   loadDefDashboard();
+  // Initialise vsev bar widths from data-pct attributes (avoids Jinja2 in inline CSS)
+  document.querySelectorAll('.vsev-bar-fill[data-pct]').forEach(function(el){
+    el.style.width = (el.dataset.pct || 0) + '%';
+  });
 
   // Apply per-user page access — hide sidebar items not in USER_ALLOWED_PAGES
   _applySidebarAccess();
