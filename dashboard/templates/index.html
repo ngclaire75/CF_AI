@@ -801,7 +801,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
   border-top:none; border-radius:0 0 var(--radius) var(--radius); }
 .pci-card { background:var(--c11); border:1px solid var(--c8);
   border-radius:6px; overflow:hidden; }
-.pci-card-body { padding:14px 16px; }
+.pci-card-body { padding:14px 16px; overflow-x:auto; }
 .pci-empty { color:var(--c6); font-size:13px; text-align:center; padding:40px; }
 .pci-kpi-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:8px;
   margin-bottom:12px; grid-column:1/-1; }
@@ -1377,7 +1377,8 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 /* ── THREAT ANALYTICS PAGE ── */
 #page-threatanalytics { padding-left:8px; padding-right:8px; overflow-x:auto; scrollbar-width:none; }
 #page-threatanalytics::-webkit-scrollbar { display:none; }
-#ta-pci-grid { min-width:900px; }
+#ta-pci-grid { min-width:960px !important; }
+#ta-pci-grid .pci-tbl { min-width:max-content; }
 #ta-pci-grid .pci-card { background:var(--c11); border:1px solid var(--c8); border-radius:var(--radius); }
 /* Pagination bar — separate row below card header */
 .pci-card-pg-bar { display:flex; align-items:center; gap:4px; padding:5px 12px;
@@ -12107,7 +12108,7 @@ function loadEventTimeline() {
    THREAT ANALYTICS PAGE
    ═══════════════════════════════════════════════════════ */
 /* ─── PCI-style Threat Analytics ─────────────────────────────────────── */
-var _taChart = null, _taChart2 = null, _taChart3 = null, _taChart4 = null;
+var _taChart = null, _taChart2 = null, _taChart3 = null, _taChart4 = null, _taChart5 = null;
 var _taData  = null;
 
 // Paginated table state: {panelKey: {page, perPage, data, renderFn}}
@@ -12165,7 +12166,8 @@ function loadThreatAnalytics() {
   if (!grid) return;
   grid.innerHTML = '<div class="pci-card" style="grid-column:1/-1"><div class="pci-card-body pci-empty">Loading from scan database…</div></div>';
   _taPg = {};
-  if (_taChart) { try { _taChart.destroy(); } catch(e){} _taChart = null; }
+  [_taChart,_taChart2,_taChart3,_taChart4,_taChart5].forEach(function(c){try{if(c)c.destroy();}catch(e){}});
+  _taChart=_taChart2=_taChart3=_taChart4=_taChart5=null;
 
   fetch('/api/analytics/pci')
     .then(function(r){ return r.json(); })
@@ -12431,6 +12433,24 @@ function _taDrawCharts(d) {
   if (aC) {
     if (_taChart) { try{_taChart.destroy();}catch(e){} }
     _taChart = new Chart(aC, {
+      type:'line',
+      data:{labels:aLabels,datasets:[
+        {label:'Vulnerabilities',data:aVuln,borderColor:'#172554',backgroundColor:'rgba(23,37,84,.18)',fill:true,tension:0.4,borderWidth:2,pointRadius:2,pointBackgroundColor:'#172554'},
+        {label:'Compliance',data:aComp,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.1)',fill:true,tension:0.4,borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#2563eb'}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{bodyFont:{size:9},titleFont:{size:9}}},
+        scales:{
+          x:{ticks:{font:{size:8},color:'#94a3b8'},grid:{display:false},border:{display:false}},
+          y:{beginAtZero:true,ticks:{font:{size:8},color:'#94a3b8',maxTicksLimit:4},grid:{color:'#f1f5f9'},border:{display:false}}
+        },animation:{duration:500}}
+    });
+  }
+  // Same trend data drawn to the card canvas (ta-trend-chart)
+  var aC2 = document.getElementById('ta-trend-chart');
+  if (aC2) {
+    if (_taChart5) { try{_taChart5.destroy();}catch(e){} }
+    _taChart5 = new Chart(aC2, {
       type:'line',
       data:{labels:aLabels,datasets:[
         {label:'Vulnerabilities',data:aVuln,borderColor:'#172554',backgroundColor:'rgba(23,37,84,.18)',fill:true,tension:0.4,borderWidth:2,pointRadius:2,pointBackgroundColor:'#172554'},
