@@ -1147,6 +1147,50 @@ td .status-low { background:var(--c6) !important; color:var(--c11) !important; }
   font-family:var(--font); }
 .toggle-link:hover { background:var(--c9); }
 
+/* ── FINDING / REMEDIATION CARDS ── */
+.finding-card { border:1px solid var(--c8); border-radius:6px; margin-bottom:8px; overflow:hidden; }
+.finding-card-hd { display:flex; align-items:center; gap:8px; padding:9px 14px;
+  background:var(--c10); cursor:pointer; user-select:none; }
+.finding-card-hd:hover { background:var(--c9); }
+.finding-title { flex:1; font-size:12px; font-weight:600; color:var(--c0); }
+.finding-id { font-family:monospace; font-size:10px; color:var(--c5); flex-shrink:0;
+  background:var(--c9); border-radius:3px; padding:1px 5px; }
+.finding-toggle { flex-shrink:0; font-size:13px; font-weight:700; color:var(--c5); width:14px; text-align:center; }
+.finding-body { display:none; padding:12px 14px; background:var(--c11); border-top:1px solid var(--c9); }
+.finding-body.open { display:block; }
+.finding-body > p { font-size:12px; color:var(--c2); line-height:1.6; margin:0 0 10px; }
+.finding-steps p { font-size:12px; color:var(--c2); line-height:1.6; margin:0 0 6px; }
+
+/* ── FIX CODE TABS & PANELS ── */
+.fix-tabs-wrap { margin-top:10px; }
+.fix-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px; }
+.fix-tab { height:24px; padding:0 10px; border-radius:4px; font-size:11px; font-weight:600;
+  cursor:pointer; font-family:var(--font); background:var(--c10); color:var(--c4);
+  border:1px solid var(--c8); }
+.fix-tab:hover { background:var(--c9); }
+.fix-tab.active { background:var(--c4); color:#fff; border-color:var(--c4); }
+.fix-panel { display:none; }
+.fix-panel.active { display:block; }
+.copy-btn { display:block; margin-bottom:5px; height:22px; padding:0 10px; border-radius:3px;
+  font-size:10px; font-weight:700; cursor:pointer; font-family:var(--font);
+  background:var(--c4); color:#fff; border:none; }
+.copy-btn:hover { background:var(--c3); }
+.copy-btn.copied { background:var(--c2); }
+.fix-code { background:var(--c10); border:1px solid var(--c8); border-radius:5px;
+  padding:10px 12px; font-size:11px; font-family:monospace; color:var(--c1);
+  white-space:pre-wrap; word-break:break-all; margin:0; line-height:1.6; }
+
+/* ── CVE CARDS ── */
+.cve-card { border:1px solid var(--c8); border-radius:6px; margin-bottom:8px; overflow:hidden; }
+.cve-card-hd { display:flex; align-items:center; gap:8px; padding:9px 14px; flex-wrap:wrap;
+  background:var(--c10); cursor:pointer; user-select:none; }
+.cve-card-hd:hover { background:var(--c9); }
+.cve-id-badge { font-family:monospace; font-size:11px; font-weight:700; color:var(--c1);
+  background:var(--c9); border-radius:3px; padding:1px 6px; flex-shrink:0; }
+.cve-score-lbl { font-size:11px; font-weight:700; flex-shrink:0; }
+.cve-desc-snip { flex:1; font-size:11px; color:var(--c5); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+
 /* ── PCI / THREAT ANALYTICS table & card components ── */
 .pci-card-hdr { background:var(--c10); border-bottom:1px solid var(--c8); padding:10px 14px;
   font-size:11px; font-weight:700; color:var(--c0); display:flex; align-items:center;
