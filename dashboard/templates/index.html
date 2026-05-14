@@ -13878,7 +13878,7 @@ function umOpenPagesModal(usernames) {
       var chk    = initPages.indexOf(p.key) !== -1;
       var isPro  = _PRO_PAGES.indexOf(p.key) !== -1;
       var locked = isPro && hasBasicUser;
-      var proTag = isPro ? ' <span style="font-size:9px;font-weight:700;color:#2563eb;background:#fef3c7;border:1px solid #fcd34d;border-radius:3px;padding:0 4px;">PRO</span>' : '';
+      var proTag = isPro ? ' <span style="font-size:9px;font-weight:700;color:#fff;background:#2563eb;border:1px solid #1d4ed8;border-radius:3px;padding:0 4px;">PRO</span>' : '';
       col.innerHTML += '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:' + (locked ? '#9ca3af' : '#0f172a') + ';margin-bottom:5px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';"'
         + (locked ? ' title="Upgrade user to Pro plan to enable this page"' : '') + '>'
         + '<input type="checkbox" id="um-pg-' + p.key + '" value="' + p.key + '"'
