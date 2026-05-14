@@ -7636,7 +7636,7 @@ function _pualPluginRender() {
     var namePart = _esc(r.name);
     if (r.risk === 'HIGH') namePart += ' <span style="background:#1e3a8a;color:#dbeafe;font-size:9px;padding:1px 4px;border-radius:2px;font-weight:700;vertical-align:middle;">VULNERABLE</span>';
     var srcBadge = r.source && r.source !== 'scan' ? ' <span style="background:#dbeafe;color:#1e3a8a;font-size:9px;padding:1px 4px;border-radius:2px;">'+_esc(r.source)+'</span>' : '';
-    var statusBadge = r.status && r.status !== 'active' ? ' <span style="background:#eff6ff;color:#3b82f6;font-size:9px;padding:1px 4px;border-radius:2px;">'+_esc(r.status)+'</span>' : '';
+    var statusBadge = r.status && r.status !== 'active' ? ' <span style="background:#eff6ff;color:#3b82f6;font-size:9px;padding:1px 4px;border-radius:2px;">'+_esc(r.status.charAt(0).toUpperCase()+r.status.slice(1))+'</span>' : '';
     var flagBadges = {
       suspicious:'<span style="background:linear-gradient(135deg,#172554,#1e3a8a);color:#93c5fd;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;">SUSPICIOUS</span>',
       safe:      '<span style="background:#eff6ff;color:#1e3a8a;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;">SAFE</span>',
