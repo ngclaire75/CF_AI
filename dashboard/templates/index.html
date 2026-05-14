@@ -216,6 +216,7 @@ window.Chart.defaults={
   --mono: "IBM Plex Mono", monospace;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+textarea { resize: none; }
 html, body { height: 100%; font-family: var(--font); font-size: 13px;
   background: var(--c12); color: var(--c0); overflow: hidden; }
 
@@ -3028,7 +3029,7 @@ Export Power BI
             <div class="cred-hint">Reads wp_simple_history and similar log tables directly. Enable Remote MySQL in Hostinger hPanel → Databases → Remote MySQL and add your IP.</div>
           </div>
 
-          <div class="cred-notice">&#9888; Credentials are used only for this scan session and are never stored in the database or transmitted externally.</div>
+          <div class="cred-notice">Credentials are used only for this scan session and are never stored in the database or transmitted externally.</div>
         </div>
       </div>
 
@@ -3303,7 +3304,7 @@ Export Power BI
     <div class="mdef-page-title">Invoice Management</div>
 
     <!-- Stats row -->
-    <div id="inv-stats-row" class="mdef-banner" style="margin:0 20px 20px;"></div>
+    <div id="inv-stats-row" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:0 20px 20px;"></div>
 
     <!-- Toolbar -->
     <div class="mdef-toolbar" style="flex-wrap:wrap;padding:0 20px 14px;">
@@ -14014,9 +14015,9 @@ function invRenderStats(s) {
     {label:'Revenue (Active)',val: fmt(s.revenue_active), big:true},
   ];
   row.innerHTML = cards.map(function(c){
-    return '<div class="mdef-kpi mdef-kpi-blue">'
-      + '<div class="mdef-kpi-label">' + c.label + '</div>'
-      + '<div class="mdef-kpi-val" style="font-size:' + (c.big ? '15px' : '22px') + ';">' + c.val + '</div>'
+    return '<div style="background:var(--c10);border:1px solid var(--c8);border-radius:8px;padding:14px 16px;">'
+      + '<div style="font-size:11px;color:var(--c4);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">' + c.label + '</div>'
+      + '<div style="font-size:' + (c.big ? '16px' : '22px') + ';font-weight:800;color:var(--c0);">' + c.val + '</div>'
       + '</div>';
   }).join('');
 }
