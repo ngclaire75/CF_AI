@@ -434,7 +434,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 /* ── DASHBOARD LAYOUT ── */
 .mvd-top { display: grid; grid-template-columns: 260px 1fr; gap: 16px; margin-bottom: 16px; }
 .mvd-gauge-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 12px; }
-.mvd-gauge-wrap { position: relative; width: 200px; height: 112px; overflow: hidden; }
+.mvd-gauge-wrap { position:relative; width:min(200px,100%); height:110px; overflow:visible; }
 #mvd-gauge-chart { display: block; }
 .mvd-gauge-label { display:block; text-align:center; font-size:28px; font-weight:800;
   color:var(--c0); white-space:nowrap; margin-top:-18px; line-height:1; }
@@ -732,7 +732,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
   text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
 .mvd-card-h { font-size:15px; font-weight:700; color:var(--c0); margin-bottom:6px; }
 .mvd-card-p { font-size:12px; color:var(--c5); line-height:1.55; margin-bottom:12px; }
-.mvd-gauge-wrap { position:relative; width:200px; height:112px; margin:8px auto; overflow:hidden; }
+.mvd-gauge-wrap { position:relative; width:min(200px,100%); height:110px; margin:8px auto; overflow:visible; }
 #mvd-gauge-chart { display:block; }
 .mvd-gauge-label { display:block; text-align:center; font-size:26px; font-weight:800;
   color:var(--c0); white-space:nowrap; margin-top:-18px; line-height:1; }
@@ -779,7 +779,11 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 .mvd-evt-tbl tr:last-child td, .mvd-rec-tbl tr:last-child td,
 .mvd-rem-tbl tr:last-child td { border-bottom:none; }
 .mvd-donut-wrap { height:140px; position:relative; margin:10px 0; }
-.mvd-donut-leg { display:flex; flex-direction:column; gap:4px; }
+.mvd-donut-leg { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+.mvd-donut-leg-item { display:flex; align-items:center; justify-content:space-between;
+  font-size:11px; color:var(--c1); padding:2px 0; }
+.mvd-donut-leg-item strong { font-size:13px; font-weight:700; color:var(--c0); }
+.mvd-donut-leg-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; display:inline-block; }
 
 /* ── ENTERPRISE ANALYTICS STRIP ── */
 .ent-analytics { margin-top:6px; }
@@ -1138,7 +1142,7 @@ input:focus, select:focus, textarea:focus {
 
 /* Gauge label */
 .mvd-gauge-label { font-size:20px !important; margin-top:-14px !important; }
-.mvd-gauge-wrap { width:160px !important; height:90px !important; overflow:hidden !important; }
+.mvd-gauge-wrap { width:min(160px,100%) !important; height:88px !important; overflow:visible !important; }
 
 /* Content area padding */
 .wrap { padding:16px !important; }
@@ -6695,9 +6699,10 @@ function _mvdRenderGauge(scans) {
   }
 
   var svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('width',w); svg.setAttribute('height',h);
+  svg.setAttribute('viewBox','0 0 '+w+' '+h);
   svg.setAttribute('class','mvd-gauge-svg');
-  svg.style.cssText='position:absolute;top:0;left:0;pointer-events:none;';
+  svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+  svg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
 
   // Draw zone arcs
   zones.forEach(function(z){
