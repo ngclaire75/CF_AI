@@ -1077,11 +1077,7 @@ td .status-low { background:var(--c6) !important; color:var(--c11) !important; }
   justify-content:space-between; gap:8px; }
 .pci-card-foot { background:var(--c10); border-top:1px solid var(--c8); padding:6px 14px;
   font-size:10px; color:var(--c6); }
-.pci-card-count { font-size:10px; color:var(--c5); font-weight:600; display:flex;
-  align-items:center; gap:4px; flex-wrap:wrap; }
-.pci-card-pg button { background:none; border:1px solid var(--c8); border-radius:3px;
-  font-size:9px; cursor:pointer; padding:1px 5px; color:var(--c4); line-height:1.4; }
-.pci-card-pg button:hover { background:var(--c9); }
+.pci-card-count { font-size:10px; color:var(--c5); font-weight:600; }
 /* PCI table */
 .pci-tbl { width:100%; border-collapse:collapse; font-size:12px; }
 .pci-tbl thead th { background:var(--c10); color:var(--c2); font-size:10px; font-weight:700;
@@ -1378,10 +1374,21 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   font-size:12px; font-family:var(--font); color:var(--c0); background:var(--c11); outline:none; }
 .pt2-select:focus { border-color:var(--c5); }
 
-/* ── THREAT ANALYTICS PAGE — more left spacing ── */
-#page-threatanalytics { padding-left:8px; padding-right:24px; }
-#ta-pci-grid .pci-card { border:none; background:var(--c11);
-  border:1px solid var(--c8); border-radius:var(--radius); }
+/* ── THREAT ANALYTICS PAGE ── */
+#page-threatanalytics { padding-left:8px; padding-right:8px; overflow-x:auto; scrollbar-width:none; }
+#page-threatanalytics::-webkit-scrollbar { display:none; }
+#ta-pci-grid { min-width:900px; }
+#ta-pci-grid .pci-card { background:var(--c11); border:1px solid var(--c8); border-radius:var(--radius); }
+/* Pagination bar — separate row below card header */
+.pci-card-pg-bar { display:flex; align-items:center; gap:4px; padding:5px 12px;
+  background:var(--c10); border-bottom:1px solid var(--c8); font-size:10px; color:var(--c2); }
+.pci-card-pg-bar button { background:none; border:1px solid var(--c8); border-radius:3px;
+  font-size:9px; cursor:pointer; padding:2px 6px; color:var(--c4); line-height:1.4;
+  font-family:var(--font); }
+.pci-card-pg-bar button:hover { background:var(--c9); }
+.pci-card-pg-bar .pg-label { font-size:10px; font-weight:600; color:var(--c2); margin:0 4px; }
+.pci-card-pg-bar .pg-range { margin-left:auto; color:var(--c5); }
+.pci-pg-count { font-size:10px; color:var(--c5); font-weight:500; margin-left:auto; }
 
 /* ── LEGAL PAGES — content left-aligned, up, spacious ── */
 .legal-wrap { max-width:none !important; margin:0 !important;
@@ -12125,26 +12132,27 @@ function _pciPgCard(title, key, data, perPage, renderBodyFn, footerTs) {
   _taPg[key] = { page:1, perPage:perPage, data:data, renderFn: function(s) {
     var start = (s.page-1)*s.perPage, slice = s.data.slice(start, start+s.perPage);
     var maxPage = Math.max(1, Math.ceil(s.data.length / s.perPage));
-    var el = document.getElementById('pci-pg-body-'+key);
-    var cnt = document.getElementById('pci-pg-cnt-'+key);
-    var pgLabel = document.getElementById('pci-pg-lbl-'+key);
-    if (el) el.innerHTML = renderBodyFn(slice);
-    if (cnt) cnt.textContent = data.length + ' Item(s)';
+    var el       = document.getElementById('pci-pg-body-'+key);
+    var pgLabel  = document.getElementById('pci-pg-lbl-'+key);
+    var pgRange  = document.getElementById('pci-pg-range-'+key);
+    if (el)      el.innerHTML = renderBodyFn(slice);
     if (pgLabel) pgLabel.textContent = 'Page ' + s.page + ' of ' + maxPage;
+    if (pgRange) pgRange.textContent = (start+1) + '–' + Math.min(start+s.perPage, s.data.length) + ' of ' + s.data.length;
   }};
   var maxPage = Math.max(1, Math.ceil(data.length / perPage));
-  var countHtml = '<span id="pci-pg-cnt-'+key+'">' + data.length + ' Item(s)</span>'
-    + '<span class="pci-card-pg">'
-    + '&nbsp;&nbsp;1 to ' + Math.min(perPage, data.length) + ' of ' + data.length
-    + '&nbsp;<button onclick="_taPage(\''+key+'\',-999)">&#x25C0;&#x25C0;</button>'
-    + '<button onclick="_taPage(\''+key+'\',-1)">&#x25C0;</button>'
-    + '&nbsp;<span id="pci-pg-lbl-'+key+'">Page 1 of '+maxPage+'</span>'
-    + '&nbsp;<button onclick="_taPage(\''+key+'\',1)">&#x25B6;</button>'
-    + '<button onclick="_taPage(\''+key+'\',999)">&#x25B6;&#x25B6;</button>'
-    + '</span>';
   var firstSlice = data.slice(0, perPage);
+  var pgBar = '<div class="pci-card-pg-bar">'
+    + '<button onclick="_taPage(\''+key+'\',-999)">&#x25C0;&#x25C0;</button>'
+    + '<button onclick="_taPage(\''+key+'\',-1)">&#x25C0;</button>'
+    + '<span class="pg-label" id="pci-pg-lbl-'+key+'">Page 1 of '+maxPage+'</span>'
+    + '<button onclick="_taPage(\''+key+'\',1)">&#x25B6;</button>'
+    + '<button onclick="_taPage(\''+key+'\',999)">&#x25B6;&#x25B6;</button>'
+    + '<span class="pg-range" id="pci-pg-range-'+key+'">1–'+Math.min(perPage,data.length)+' of '+data.length+'</span>'
+    + '</div>';
   return '<div class="pci-card">'
-    + '<div class="pci-card-hdr">' + escHtml(title) + '<span class="pci-card-count">' + countHtml + '</span></div>'
+    + '<div class="pci-card-hdr">' + escHtml(title)
+    + '<span class="pci-pg-count" id="pci-pg-cnt-'+key+'">' + data.length + ' Item(s)</span></div>'
+    + pgBar
     + '<div class="pci-card-body"><table class="pci-tbl"><tbody id="pci-pg-body-'+key+'">'
     + renderBodyFn(firstSlice)
     + '</tbody></table></div>'
