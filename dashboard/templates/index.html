@@ -805,7 +805,11 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
   border-top:none; border-radius:0 0 var(--radius) var(--radius); }
 .pci-card { background:var(--c11); border:1px solid var(--c8);
   border-radius:6px; overflow:hidden; }
-.pci-card-body { padding:14px 16px; overflow-x:auto; }
+.pci-card-body { padding:14px 16px; overflow-x:auto; scrollbar-width:thin; scrollbar-color:#bfdbfe #eff6ff; }
+.pci-card-body::-webkit-scrollbar { height:4px; }
+.pci-card-body::-webkit-scrollbar-track { background:#eff6ff; border-radius:2px; }
+.pci-card-body::-webkit-scrollbar-thumb { background:linear-gradient(90deg,#2563eb,#60a5fa); border-radius:2px; }
+.pci-card-body::-webkit-scrollbar-thumb:hover { background:#1d4ed8; }
 .pci-empty { color:var(--c6); font-size:13px; text-align:center; padding:40px; }
 .pci-kpi-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:8px;
   margin-bottom:12px; grid-column:1/-1; }
@@ -1379,8 +1383,11 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .pt2-select:focus { border-color:var(--c5); }
 
 /* ── THREAT ANALYTICS PAGE ── */
-#page-threatanalytics { padding-left:8px; padding-right:8px; overflow-x:auto; scrollbar-width:none; }
-#page-threatanalytics::-webkit-scrollbar { display:none; }
+#page-threatanalytics { padding-left:8px; padding-right:8px; overflow-x:auto; scrollbar-width:thin; scrollbar-color:#93c5fd #eff6ff; }
+#page-threatanalytics::-webkit-scrollbar { height:5px; }
+#page-threatanalytics::-webkit-scrollbar-track { background:#eff6ff; border-radius:3px; }
+#page-threatanalytics::-webkit-scrollbar-thumb { background:linear-gradient(90deg,#1e40af,#3b82f6,#93c5fd); border-radius:3px; }
+#page-threatanalytics::-webkit-scrollbar-thumb:hover { background:#1d4ed8; }
 #ta-pci-grid { min-width:960px !important; }
 #ta-pci-grid .pci-tbl { min-width:max-content; }
 #ta-pci-grid .pci-card { background:var(--c11); border:1px solid var(--c8); border-radius:var(--radius); }
