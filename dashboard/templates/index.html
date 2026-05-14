@@ -15052,11 +15052,11 @@ function _gscRenderIssues(cat) {
 
 function _gscDoRender(issues) {
   var sevCfg = {
-    critical: {bg:'#fde7e9', col:'#1e3a8a', border:'#f1b3b7'},
-    high:     {bg:'#fff4ce', col:'#7a4f00', border:'#f0d080'},
-    medium:   {bg:'#eff6fc', col:'#004578', border:'#b0d0f0'},
-    low:      {bg:'#eff6ff', col:'#323130', border:'#c8c6c4'},
-    info:     {bg:'#e9f8ee', col:'#1e3a8a', border:'#9fd9ae'},
+    critical: {bg:'#eff6ff', col:'#1e3a8a', border:'#1e3a8a'},
+    high:     {bg:'#eff6ff', col:'#1e40af', border:'#2563eb'},
+    medium:   {bg:'#f0f7ff', col:'#1e40af', border:'#60a5fa'},
+    low:      {bg:'#f8faff', col:'#3b82f6', border:'#bfdbfe'},
+    info:     {bg:'#f8faff', col:'#60a5fa', border:'#dbeafe'},
   };
   var html = '';
   (issues || []).forEach(function(issue) {
