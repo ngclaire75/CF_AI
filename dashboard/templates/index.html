@@ -14600,11 +14600,11 @@ function _gscRenderSummary(data) {
   // Severity badges
   var badges = document.getElementById('gsc-severity-badges');
   var sevCfg = [
-    {k:'critical', label:'Critical', bg:'#fde7e9', col:'#1e3a8a'},
-    {k:'high',     label:'High',     bg:'#fff4ce', col:'#7a4f00'},
-    {k:'medium',   label:'Medium',   bg:'#eff6fc', col:'#004578'},
-    {k:'low',      label:'Low',      bg:'#eff6ff', col:'#323130'},
-    {k:'info',     label:'Info',     bg:'#e9f8ee', col:'#1e3a8a'},
+    {k:'critical', label:'Critical', bg:'#1e3a8a', col:'#fff'},
+    {k:'high',     label:'High',     bg:'#2563eb', col:'#fff'},
+    {k:'medium',   label:'Medium',   bg:'#60a5fa', col:'#fff'},
+    {k:'low',      label:'Low',      bg:'#bfdbfe', col:'#1e40af'},
+    {k:'info',     label:'Info',     bg:'#dbeafe', col:'#1e40af'},
   ];
   badges.innerHTML = sevCfg.map(function(s){
     var n = sum[s.k] || 0;
