@@ -996,6 +996,22 @@ input.mdef-filter-input { width:200px; }
 .inc-action-btn.danger { background:var(--c1); color:var(--c11); border-color:var(--c1); }
 .inc-action-btn.danger:hover { background:var(--c0); }
 
+/* ── INCIDENT EXPAND ROW ── */
+.inc-expand-row td { padding:0 !important; background:var(--c12); }
+.inc-expand-body { display:flex; flex-wrap:wrap; gap:20px; padding:14px 18px 16px;
+  border-top:1px solid var(--c9); }
+.inc-expand-field { display:flex; flex-direction:column; gap:5px; flex:1; min-width:140px; }
+.inc-expand-field label { font-size:10px; font-weight:700; color:var(--c5);
+  text-transform:uppercase; letter-spacing:.4px; }
+.inc-expand-field > div { font-size:12px; color:var(--c1); line-height:1.55; }
+.inc-expand-field > div[style*="monospace"] { font-family:monospace; font-size:12px;
+  color:var(--c0); background:var(--c10); border:1px solid var(--c8); border-radius:4px;
+  padding:3px 8px; display:inline-block; }
+.inc-notes-input { padding:7px 10px; border:1px solid var(--c8); border-radius:4px;
+  font-size:12px; font-family:var(--font); color:var(--c0); background:var(--c11);
+  outline:none; resize:none; width:100%; box-sizing:border-box; min-height:56px; }
+.inc-notes-input:focus { border-color:var(--c5); }
+
 /* ── MODAL GENERIC ── */
 .modal-wrap { display:none; position:fixed; inset:0; background:rgba(15,23,42,.55);
   align-items:center; justify-content:center; z-index:9000; padding:20px; }
@@ -1312,7 +1328,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .inc-field input,.inc-field select,.inc-field textarea { padding:7px 10px;
   border:1px solid var(--c8); border-radius:4px; font-size:12px;
   font-family:var(--font); color:var(--c0); background:var(--c11); outline:none; }
-.inc-field textarea { resize:vertical; min-height:72px; }
+.inc-field textarea { resize:none; min-height:72px; }
 .inc-modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
 
 /* ── PENTEST ENGAGEMENT CARD CSS ── */
