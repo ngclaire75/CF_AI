@@ -3553,7 +3553,7 @@ Export Power BI
 
     <!-- Source Config Panel -->
     <div class="sl-panel" id="sl-panel-config">
-      <div class="sl-config-grid">
+      <div style="display:flex;flex-direction:column;gap:16px;">
 
         <!-- Splunk HEC -->
         <div class="sl-config-card">
@@ -3612,15 +3612,15 @@ Export Power BI
           <div class="sl-code-block"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-task-snippet"></span></div>
         </div>
 
-      </div><!-- /config-grid -->
+        <!-- Generic REST API -->
+        <div class="sl-config-card">
+          <div class="sl-config-title">Generic REST Ingest</div>
+          <div class="sl-config-sub">Any system capable of sending HTTP POST requests can forward logs. Authenticate first to get a session cookie, then POST log entries as JSON arrays.</div>
+          <div style="margin-top:10px;font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">JSON schema (single entry or array)</div>
+          <div class="sl-code-block"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-rest-snippet"></span></div>
+        </div>
 
-      <!-- Generic REST API -->
-      <div class="sl-config-card" style="margin-top:16px;">
-        <div class="sl-config-title">Generic REST Ingest</div>
-        <div class="sl-config-sub">Any system capable of sending HTTP POST requests can forward logs. Authenticate first to get a session cookie, then POST log entries as JSON arrays.</div>
-        <div style="margin-top:10px;font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">JSON schema (single entry or array)</div>
-        <div class="sl-code-block"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-rest-snippet"></span></div>
-      </div>
+      </div><!-- /flex-column -->
 
     </div><!-- /panel-config -->
 
