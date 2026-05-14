@@ -22,10 +22,11 @@ var h=_R.createElement;
 
 function _fmt(v){if(v>=1e6)return(v/1e6).toFixed(1)+'M';if(v>=1e3)return(v/1e3).toFixed(1)+'k';return v;}
 
+function _dk(i){return '_d'+i;}  // safe dataKey: _d0, _d1, _d2 ...
 function _toData(labels,datasets){
   return(labels||[]).map(function(name,i){
     var pt={name:name};
-    (datasets||[]).forEach(function(ds){pt[ds.label||'_v']=ds.data?+(ds.data[i]||0):0;});
+    (datasets||[]).forEach(function(ds,di){pt[_dk(di)]=ds.data?+(ds.data[i]||0):0;});
     return pt;
   });
 }
@@ -43,7 +44,7 @@ function _mkLine(cfg,ht){
         domain:yOpts.min!=null?[yOpts.min,'auto']:['auto','auto']}),
       h(R.Tooltip,{contentStyle:{fontSize:11,borderRadius:4}}),
       ds.map(function(d,i){
-        return h(ST,{key:(d.label||'_v')+i,type:'monotone',dataKey:d.label||'_v',
+        return h(ST,{key:'ds'+i,type:'monotone',dataKey:_dk(i),name:d.label||('Series '+(i+1)),
           stroke:d.borderColor||'#2563eb',
           fill:d.fill?(typeof d.backgroundColor==='string'?d.backgroundColor:'rgba(37,99,235,.15)'):'none',
           dot:false,strokeWidth:d.borderWidth||1.5,fillOpacity:0.7,
@@ -71,7 +72,7 @@ function _mkBar(cfg,ht){
         var fillCol=Array.isArray(d.backgroundColor)
           ?undefined
           :(d.backgroundColor||['#172554','#1e3a8a','#2563eb','#60a5fa','#93c5fd','#bfdbfe'][i%6]);
-        var bars=h(R.Bar,Object.assign({key:(d.label||'_v')+i,dataKey:d.label||'_v',
+        var bars=h(R.Bar,Object.assign({key:'ds'+i,dataKey:_dk(i),name:d.label||('Series '+(i+1)),
           fill:fillCol||'#2563eb',
           radius:d.borderRadius?[2,2,0,0]:[2,2,0,0],maxBarSize:36},stk),
           Array.isArray(d.backgroundColor)?d.backgroundColor.map(function(c,ci){
@@ -110,14 +111,14 @@ function _mkPie(cfg,ht,isDoughnut){
 
 function _mkRadar(cfg,ht){
   var ds=cfg.data.datasets||[],labs=cfg.data.labels||[];
-  var data=labs.map(function(n,i){var pt={subject:n};ds.forEach(function(d){pt[d.label||'v']=+(d.data?d.data[i]:0)||0;});return pt;});
+  var data=labs.map(function(n,i){var pt={subject:n};ds.forEach(function(d,di){pt[_dk(di)]=+(d.data?d.data[i]:0)||0;});return pt;});
   var c=['#2563eb','#bfdbfe','#60a5fa'];
   return h(R.ResponsiveContainer,{width:'100%',height:ht},
     h(R.RadarChart,{data:data,margin:{top:10,right:14,bottom:10,left:14}},
       h(R.PolarGrid,{stroke:'#e2e8f0'}),
       h(R.PolarAngleAxis,{dataKey:'subject',tick:{fontSize:8,fill:'#1e3a8a'}}),
       h(R.PolarRadiusAxis,{angle:90,domain:[0,100],tick:false,axisLine:false}),
-      ds.map(function(d,i){return h(R.Radar,{key:(d.label||'v')+i,name:d.label||'v',dataKey:d.label||'v',
+      ds.map(function(d,i){return h(R.Radar,{key:'ds'+i,name:d.label||('Series '+(i+1)),dataKey:_dk(i),
         stroke:d.borderColor||c[i%3],fill:d.borderColor||c[i%3],fillOpacity:0.15,dot:false});}),
       h(R.Tooltip,{contentStyle:{fontSize:11}})
     )
@@ -416,8 +417,8 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 
 /* ── DASHBOARD LAYOUT ── */
 .mvd-top { display: grid; grid-template-columns: 260px 1fr; gap: 16px; margin-bottom: 16px; }
-.mvd-gauge-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; }
-.mvd-gauge-wrap { position: relative; width: 180px; height: 90px; }
+.mvd-gauge-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 12px; }
+.mvd-gauge-wrap { position: relative; width: 200px; height: 112px; overflow: hidden; }
 #mvd-gauge-chart { display: block; }
 .mvd-gauge-label { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
   font-size: 28px; font-weight: 800; color: var(--c0); }
@@ -715,7 +716,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
   text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
 .mvd-card-h { font-size:15px; font-weight:700; color:var(--c0); margin-bottom:6px; }
 .mvd-card-p { font-size:12px; color:var(--c5); line-height:1.55; margin-bottom:12px; }
-.mvd-gauge-wrap { position:relative; width:180px; height:90px; margin:12px auto; }
+.mvd-gauge-wrap { position:relative; width:200px; height:112px; margin:8px auto; overflow:hidden; }
 #mvd-gauge-chart { display:block; }
 .mvd-gauge-label { position:absolute; bottom:0; left:50%; transform:translateX(-50%);
   font-size:26px; font-weight:800; color:var(--c0); }
@@ -926,6 +927,18 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 .pt2-finding-row { display:flex; align-items:center; gap:8px; padding:8px 0;
   border-bottom:1px solid var(--c9); font-size:12px; }
 
+/* ── INCIDENT STATUS & SEVERITY PILLS ── */
+.inc-status-pill { display:inline-block; padding:2px 9px; border-radius:999px;
+  font-size:10px; font-weight:700; text-transform:capitalize; letter-spacing:.2px;
+  white-space:nowrap; border:1px solid transparent; }
+.inc-sev-badge { display:inline-block; padding:1px 7px; border-radius:3px;
+  font-size:10px; font-weight:700; letter-spacing:.3px; }
+.inc-sev-CRITICAL { background:#172554; color:#dbeafe; }
+.inc-sev-HIGH     { background:#1e3a8a; color:#eff6ff; }
+.inc-sev-MEDIUM   { background:#dbeafe; color:#1e40af; }
+.inc-sev-LOW      { background:#eff6ff; color:#2563eb; }
+.inc-sev-INFO     { background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; }
+
 /* ── INC ACTION BUTTONS ── */
 .inc-action-btn { height:24px; padding:0 10px; border-radius:3px;
   background:var(--c10); color:var(--c4); border:1px solid var(--c8);
@@ -1071,7 +1084,7 @@ input:focus, select:focus, textarea:focus {
 
 /* Gauge label */
 .mvd-gauge-label { font-size:20px !important; }
-.mvd-gauge-wrap { width:140px !important; height:70px !important; }
+.mvd-gauge-wrap { width:160px !important; height:90px !important; overflow:hidden !important; }
 
 /* Content area padding */
 .wrap { padding:16px !important; }
@@ -1478,6 +1491,25 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .obs-tab-panel.active { display:block; }
 @media (max-width:900px) { .obs-grid { grid-template-columns:1fr; }
   .obs-grid-3 { grid-template-columns:1fr; } }
+
+/* ── Plugin & User Activity Logs table (pl-*) ── */
+.pl-controls { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+.pl-target-sel { height:28px; border:1px solid var(--c8); border-radius:var(--radius); padding:0 8px;
+  font-size:12px; font-family:var(--font); min-width:160px; background:var(--c11); color:var(--c0);
+  outline:none; cursor:pointer; }
+.pl-load-btn { height:28px; padding:0 14px; background:var(--c4); color:var(--c11);
+  border:1px solid var(--c4); border-radius:var(--radius); font-size:12px; font-weight:600;
+  cursor:pointer; font-family:var(--font); }
+.pl-load-btn:hover { background:var(--c3); border-color:var(--c3); }
+.pl-table-wrap { border:1px solid var(--c8); border-radius:var(--radius); overflow:hidden; }
+.pl-table-wrap table { width:100%; border-collapse:collapse; font-size:12px; }
+.pl-table-wrap thead th { background:var(--c10); color:var(--c1); font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.4px; padding:8px 12px; text-align:left;
+  white-space:nowrap; border-bottom:1px solid var(--c8); }
+.pl-table-wrap tbody td { padding:9px 12px; border-bottom:1px solid var(--c9);
+  color:var(--c0); vertical-align:top; }
+.pl-table-wrap tbody tr:last-child td { border-bottom:none; }
+.pl-table-wrap tbody tr:hover { background:var(--c12); }
 
 </style>
 </head>
@@ -1969,25 +2001,25 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
       <div style="background:#fff;border:1px solid #bfdbfe;border-radius:3px;padding:7px 10px;min-width:0;">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background:linear-gradient(90deg,#172554,#2563eb);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:5px;">Live Metric Sparklines · 7d</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;">
+          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;min-width:0;overflow:hidden;">
             <div style="font-size:8px;color:#2563eb;font-weight:600;">Scan Rate</div>
             <div id="ek-scanrate" style="font-size:13px;font-weight:700;color:#172554;">—/day</div>
-            <div style="height:30px;margin-top:2px;"><canvas id="ent-spark-scan"></canvas></div>
+            <div style="height:30px;margin-top:2px;overflow:hidden;"><canvas id="ent-spark-scan" style="max-width:100%;"></canvas></div>
           </div>
-          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;">
+          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;min-width:0;overflow:hidden;">
             <div style="font-size:8px;color:#2563eb;font-weight:600;">Risk Score</div>
             <div id="ek-riskscore" style="font-size:13px;font-weight:700;color:#1e3a8a;">—</div>
-            <div style="height:30px;margin-top:2px;"><canvas id="ent-spark-risk"></canvas></div>
+            <div style="height:30px;margin-top:2px;overflow:hidden;"><canvas id="ent-spark-risk" style="max-width:100%;"></canvas></div>
           </div>
-          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;">
+          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;min-width:0;overflow:hidden;">
             <div style="font-size:8px;color:#2563eb;font-weight:600;">Incidents</div>
             <div id="ek-inccount" style="font-size:13px;font-weight:700;color:#2563eb;">—</div>
-            <div style="height:30px;margin-top:2px;"><canvas id="ent-spark-inc"></canvas></div>
+            <div style="height:30px;margin-top:2px;overflow:hidden;"><canvas id="ent-spark-inc" style="max-width:100%;"></canvas></div>
           </div>
-          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;">
+          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;min-width:0;overflow:hidden;">
             <div style="font-size:8px;color:#2563eb;font-weight:600;">Remediated</div>
             <div id="ek-remediated" style="font-size:13px;font-weight:700;color:#3b82f6;">—%</div>
-            <div style="height:30px;margin-top:2px;"><canvas id="ent-spark-rem"></canvas></div>
+            <div style="height:30px;margin-top:2px;overflow:hidden;"><canvas id="ent-spark-rem" style="max-width:100%;"></canvas></div>
           </div>
         </div>
       </div>
@@ -2815,7 +2847,7 @@ Export Power BI
           </thead>
           <tbody>
           {% for s in scans %}
-            <tr data-risk="{{ s.risk }}" data-target="{{ s.target|lower }}" class="hist-row">
+            <tr data-risk="{{ s.risk }}" data-target="{{ s.target|lower }}" data-date="{{ s.display_date[:10] }}" class="hist-row">
               <td class="td-mono">{{ s.id }}</td>
               <td class="td-target" title="{{ s.target }}">{{ s.target }}</td>
               <td>{{ s.agent_label }}</td>
@@ -7158,8 +7190,8 @@ var _pualPluginData = [];
 function pualTab(name, btn) {
   document.querySelectorAll('#page-pluginlogs .mdef-detail-tab').forEach(function(b){ b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
-  document.getElementById('pual-pane-user').style.display    = (name === 'user')    ? '' : 'none';
-  document.getElementById('pual-pane-plugins').style.display = (name === 'plugins') ? '' : 'none';
+  document.getElementById('pual-pane-user').style.display    = (name === 'user')    ? 'block' : 'none';
+  document.getElementById('pual-pane-plugins').style.display = (name === 'plugins') ? 'block' : 'none';
   if (name === 'plugins') _pualPopulateDomains();
 }
 
@@ -9201,7 +9233,7 @@ function refreshScanHistory() {
           : s.status === 'interrupted'
           ? '<span class="st-int">Stopped</span>'
           : '<span class="st-err">Error</span>';
-        return '<tr data-risk="'+esc(s.risk||'')+'" data-target="'+esc((s.target||'').toLowerCase())+'">'+
+        return '<tr class="hist-row" data-risk="'+esc(s.risk||'')+'" data-target="'+esc((s.target||'').toLowerCase())+'" data-date="'+esc((s.display_date||'').slice(0,10))+'">'+
           '<td class="td-mono">'+esc(String(s.id||''))+'</td>'+
           '<td class="td-target" title="'+esc(s.target||'')+'">'+esc(s.target||'')+'</td>'+
           '<td>'+esc(s.agent_label||'')+'</td>'+
@@ -9645,10 +9677,10 @@ function renderIncidents(incidents) {
   }
   var SEV_COL = {CRITICAL:'#172554',HIGH:'#1e3a8a',MEDIUM:'#2563eb',LOW:'#60a5fa',INFO:'#93c5fd'};
   var ST_STYLE = {
-    open:          'background:linear-gradient(135deg,#172554,#1e3a8a);color:#93c5fd;',
-    investigating: 'background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#dbeafe;',
-    resolved:      'background:linear-gradient(135deg,#2563eb,#3b82f6);color:#eff6ff;',
-    dismissed:     'background:linear-gradient(135deg,#dbeafe,#eff6ff);color:#3d5a8a;',
+    open:          'background:#eff6ff;color:#1e3a8a;border-color:#bfdbfe;',
+    investigating: 'background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;',
+    resolved:      'background:#1e3a8a;color:#dbeafe;border-color:#1e3a8a;',
+    dismissed:     'background:#f1f5f9;color:#64748b;border-color:#e2e8f0;',
   };
   tbody.innerHTML = incidents.map(function(inc){
     var sev  = (inc.severity||'MEDIUM').toUpperCase();
