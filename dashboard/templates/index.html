@@ -7337,9 +7337,9 @@ function _buildHistoryChart() {
     data: {
       labels: dates,
       datasets: [
-        { label:'High Risk', data: dates.map(function(d){return byDate[d].high;}), borderColor:'#172554', backgroundColor:'rgba(23,37,84,.15)', tension:.35, fill:true, pointRadius:3, borderWidth:2 },
-        { label:'Medium', data: dates.map(function(d){return byDate[d].med;}), borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.1)', tension:.35, fill:true, pointRadius:3, borderWidth:2 },
-        { label:'Low/Info', data: dates.map(function(d){return byDate[d].low;}), borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.1)', tension:.35, fill:true, pointRadius:3, borderWidth:2 }
+        { label:'High Risk', data: dates.map(function(d){return byDate[d].high;}), borderColor:'#172554', backgroundColor:'rgba(23,37,84,.15)', pointBackgroundColor:'#172554', tension:.35, fill:true, pointRadius:3, borderWidth:2 },
+        { label:'Medium', data: dates.map(function(d){return byDate[d].med;}), borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.1)', pointBackgroundColor:'#2563eb', tension:.35, fill:true, pointRadius:3, borderWidth:2 },
+        { label:'Low/Info', data: dates.map(function(d){return byDate[d].low;}), borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.1)', pointBackgroundColor:'#3b82f6', tension:.35, fill:true, pointRadius:3, borderWidth:2 }
       ]
     },
     options: {
