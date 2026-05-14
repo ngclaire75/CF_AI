@@ -1695,6 +1695,12 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .le-hint { font-size:11px; color:var(--c5); line-height:1.6;
   background:var(--c10); border:1px solid var(--c8); border-radius:4px;
   padding:8px 12px; margin-top:8px; }
+.cf-tbl-scroll { overflow-x:auto; }
+.cf-tbl-scroll::-webkit-scrollbar { height:6px; }
+.cf-tbl-scroll::-webkit-scrollbar-track { background:#eff6ff; border-radius:3px; }
+.cf-tbl-scroll::-webkit-scrollbar-thumb { background:#93c5fd; border-radius:3px; }
+.cf-tbl-scroll::-webkit-scrollbar-thumb:hover { background:#2563eb; }
+.cf-tbl-scroll { scrollbar-width:thin; scrollbar-color:#93c5fd #eff6ff; }
 
 /* ── log-form: SSH credential row shared by Log Explorer / Network Monitor / Grafana ── */
 .log-form { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:12px 0 6px; }
@@ -4234,7 +4240,7 @@ Export Power BI
       <div id="le-cf-error" style="display:none;padding:12px 14px;background:linear-gradient(135deg,#172554,#1e3a8a);border-radius:6px;color:#93c5fd;font-size:12px;margin-bottom:10px;"></div>
       <div id="le-cf-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#3b82f6;"></div>
       <div id="le-cf-zones-out" style="display:none;padding:10px 14px;background:#eff6ff;border-radius:6px;font-size:12px;margin-bottom:10px;"></div>
-      <div style="overflow-x:auto;">
+      <div class="cf-tbl-scroll">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-cf-table">
           <thead><tr style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
             <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Severity</th>
@@ -10619,9 +10625,9 @@ function runCfInsights() {
     }
     var sevColors = {
       critical: {bg:'#1e3a8a', fg:'#fff'},
-      high:     {bg:'#d13438', fg:'#fff'},
-      moderate: {bg:'#f6821f', fg:'#fff'},
-      low:      {bg:'#605e5c', fg:'#fff'}
+      high:     {bg:'#2563eb', fg:'#fff'},
+      moderate: {bg:'#60a5fa', fg:'#fff'},
+      low:      {bg:'#bfdbfe', fg:'#1e40af'}
     };
     var rows = '';
     issues.forEach(function(issue) {
