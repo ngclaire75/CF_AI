@@ -855,6 +855,10 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 .mdef-toolbar-btn.primary { background:var(--c4); color:var(--c11); border-color:var(--c4); }
 .mdef-toolbar-btn:not(.primary) { background:var(--c10); color:var(--c4); border-color:var(--c8); }
 .mdef-toolbar-btn:hover { opacity:.85; }
+.mdef-filter-input { height:30px; padding:0 10px; border:1px solid var(--c8); border-radius:4px;
+  font-size:12px; font-family:var(--font); color:var(--c0); background:var(--c11); outline:none; }
+.mdef-filter-input:focus { border-color:var(--c5); }
+input.mdef-filter-input { width:200px; }
 /* KPI banner */
 .mdef-banner { display:flex; gap:0; background:var(--c11); border:1px solid var(--c8);
   border-radius:var(--radius); margin-bottom:14px; overflow:hidden; }
@@ -3239,15 +3243,12 @@ Export Power BI
     <div class="mdef-page-title">Invoice Management</div>
 
     <!-- Stats row -->
-    <div id="inv-stats-row" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:0 20px 20px;"></div>
+    <div id="inv-stats-row" class="mdef-banner" style="margin:0 20px 20px;"></div>
 
     <!-- Toolbar -->
-    <div class="mdef-toolbar" style="gap:10px;flex-wrap:wrap;padding:0 20px 14px;background:transparent;border-bottom:none;">
-      <input id="inv-search" type="text" placeholder="Search username, email, order ID…"
-             style="padding:6px 10px;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;width:220px;"
-             oninput="invFilter()">
-      <select id="inv-filter-status" onchange="invFilter()"
-              style="padding:6px 10px;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;">
+    <div class="mdef-toolbar" style="flex-wrap:wrap;padding:0 20px 14px;">
+      <input id="inv-search" class="mdef-filter-input" type="text" placeholder="Search username, email, order ID…" oninput="invFilter()">
+      <select id="inv-filter-status" class="mdef-filter-input" onchange="invFilter()">
         <option value="">All Status</option>
         <option value="active">Active</option>
         <option value="pending">Pending</option>
@@ -3255,8 +3256,7 @@ Export Power BI
         <option value="expired">Expired</option>
         <option value="failed">Failed</option>
       </select>
-      <select id="inv-filter-plan" onchange="invFilter()"
-              style="padding:6px 10px;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;">
+      <select id="inv-filter-plan" class="mdef-filter-input" onchange="invFilter()">
         <option value="">All Plans</option>
         <option value="monthly">Monthly</option>
         <option value="annual">Annual</option>
@@ -3266,30 +3266,23 @@ Export Power BI
     </div>
 
     <!-- Table -->
-    <div style="overflow-x:auto;padding:0 20px;margin-top:12px;">
-      <table style="width:100%;border-collapse:collapse;font-size:13px;">
-        <thead>
-          <tr style="border-bottom:2px solid #bfdbfe;text-align:left;">
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Username</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Email</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Plan</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Amount</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Method</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Status</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Subscribed</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Expires</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Order ID</th>
-            <th style="padding:8px 10px;color:#3b82f6;font-weight:600;">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="inv-tbody">
-          <tr><td colspan="10" style="padding:20px;color:#60a5fa;text-align:center;">Loading…</td></tr>
-        </tbody>
-      </table>
+    <div style="padding:0 20px;margin-top:12px;">
+      <div class="mdef-tbl-wrap">
+        <table class="mdef-tbl" id="inv-tbl">
+          <thead><tr>
+            <th>Username</th><th>Email</th><th>Plan</th><th>Amount</th>
+            <th>Method</th><th>Status</th><th>Subscribed</th><th>Expires</th>
+            <th>Order ID</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="inv-tbody">
+            <tr><td colspan="10" class="mdef-empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Pagination -->
-    <div id="inv-pagination" style="display:flex;align-items:center;gap:10px;padding:14px 20px;font-size:13px;color:#3b82f6;"></div>
+    <div id="inv-pagination" style="display:flex;align-items:center;gap:8px;padding:12px 20px;font-size:12px;color:var(--c5);"></div>
 
     <!-- Cancel confirm modal -->
     <div id="inv-cancel-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
@@ -13961,9 +13954,9 @@ function invRenderStats(s) {
     {label:'Revenue (Active)',val: fmt(s.revenue_active), big:true},
   ];
   row.innerHTML = cards.map(function(c){
-    return '<div style="background:#f3f4f6;border-radius:8px;padding:14px 16px;">'
-      + '<div style="font-size:11px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">' + c.label + '</div>'
-      + '<div style="font-size:' + (c.big ? '16px' : '22px') + ';font-weight:800;color:#0f172a;">' + c.val + '</div>'
+    return '<div class="mdef-kpi mdef-kpi-blue">'
+      + '<div class="mdef-kpi-label">' + c.label + '</div>'
+      + '<div class="mdef-kpi-val" style="font-size:' + (c.big ? '15px' : '22px') + ';">' + c.val + '</div>'
       + '</div>';
   }).join('');
 }
@@ -13993,19 +13986,19 @@ function invRenderTable(rows) {
     var exp  = r.expires_at    ? r.expires_at.split(' ')[0]    : '—';
     var canCancel = (r.status === 'active' || r.status === 'pending');
     var actions = canCancel
-      ? '<button onclick="invConfirmCancel(' + r.id + ',\'' + _esc(r.username) + '\')" style="padding:3px 10px;border:1px solid #f1b3b7;border-radius:4px;background:linear-gradient(135deg,#172554,#1e3a8a);color:#93c5fd;font-size:11px;cursor:pointer;">Cancel</button>'
-      : '<span style="color:#60a5fa;font-size:11px;">' + r.status + '</span>';
-    return '<tr style="border-bottom:1px solid #f3f4f6;">'
-      + '<td style="padding:9px 10px;font-weight:500;">' + _esc(r.username) + '</td>'
-      + '<td style="padding:9px 10px;color:#3b82f6;font-size:12px;">' + _esc(r.email || '—') + '</td>'
-      + '<td style="padding:9px 10px;">' + pt + '</td>'
-      + '<td style="padding:9px 10px;font-weight:600;">' + amt + '</td>'
-      + '<td style="padding:9px 10px;font-size:12px;color:#1e3a8a;">' + _esc(pm) + '</td>'
-      + '<td style="padding:9px 10px;"><span style="' + ss + ';font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">' + r.status.toUpperCase() + '</span></td>'
-      + '<td style="padding:9px 10px;font-size:12px;">' + sub + '</td>'
-      + '<td style="padding:9px 10px;font-size:12px;">' + exp + '</td>'
-      + '<td style="padding:9px 10px;font-size:11px;color:#60a5fa;font-family:monospace;">' + _esc(r.order_id) + '</td>'
-      + '<td style="padding:9px 10px;">' + actions + '</td>'
+      ? '<button class="mdef-toolbar-btn" style="color:#172554;border-color:#f1b3b7;" onclick="invConfirmCancel(' + r.id + ',\'' + _esc(r.username) + '\')">Cancel</button>'
+      : '<span style="color:var(--c6);font-size:11px;">' + r.status + '</span>';
+    return '<tr>'
+      + '<td style="font-weight:600;">' + _esc(r.username) + '</td>'
+      + '<td style="color:var(--c4);">' + _esc(r.email || '—') + '</td>'
+      + '<td>' + pt + '</td>'
+      + '<td style="font-weight:600;">' + amt + '</td>'
+      + '<td style="color:var(--c2);">' + _esc(pm) + '</td>'
+      + '<td><span style="' + ss + ';font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">' + r.status.toUpperCase() + '</span></td>'
+      + '<td>' + sub + '</td>'
+      + '<td>' + exp + '</td>'
+      + '<td style="font-family:monospace;font-size:11px;color:var(--c5);">' + _esc(r.order_id) + '</td>'
+      + '<td>' + actions + '</td>'
       + '</tr>';
   }).join('');
 }
@@ -14016,8 +14009,8 @@ function invRenderPagination() {
   var pages = Math.ceil(_invTotal / _invPageSize) || 1;
   var cur   = Math.floor(_invOffset / _invPageSize) + 1;
   el.innerHTML = 'Showing ' + (_invOffset + 1) + '–' + Math.min(_invOffset + _invPageSize, _invTotal) + ' of ' + _invTotal
-    + (cur > 1 ? ' &nbsp;<button onclick="invPage(-1)" style="padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#eff6ff;cursor:pointer;font-size:12px;">Prev</button>' : '')
-    + (cur < pages ? ' &nbsp;<button onclick="invPage(1)" style="padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#eff6ff;cursor:pointer;font-size:12px;">Next</button>' : '');
+    + (cur > 1 ? ' &nbsp;<button class="mdef-toolbar-btn" onclick="invPage(-1)">&#8592; Prev</button>' : '')
+    + (cur < pages ? ' &nbsp;<button class="mdef-toolbar-btn" onclick="invPage(1)">Next &#8594;</button>' : '');
 }
 
 function invPage(dir) {
