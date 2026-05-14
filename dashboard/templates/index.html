@@ -6675,7 +6675,7 @@ function _mvdRenderGauge(scans) {
   if (lbl) lbl.textContent = score+'/100';
 
   // Three-zone background + score arc using D3
-  var w=200, h=110, cx=w/2, cy=h-8, r=82, rIn=58;
+  var w=200, h=110, cx=w/2, cy=h, r=84, rIn=60;
   // Remove old SVG if any
   var existing = ctx.parentNode.querySelector('svg.mvd-gauge-svg');
   if (existing) existing.remove();
@@ -6702,7 +6702,8 @@ function _mvdRenderGauge(scans) {
   svg.setAttribute('viewBox','0 0 '+w+' '+h);
   svg.setAttribute('class','mvd-gauge-svg');
   svg.setAttribute('preserveAspectRatio','xMidYMid meet');
-  svg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+  svg.setAttribute('overflow','visible');
+  svg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;';
 
   // Draw zone arcs
   zones.forEach(function(z){
