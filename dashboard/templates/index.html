@@ -12948,50 +12948,35 @@ function loadFileScanPage() {
 /* ══ USER MANAGEMENT ══════════════════════════════════════════════════════ */
 // ── All page definitions (section key → label) ───────────────────────────────
 var _ALL_PAGES = [
-  { group: 'AI Assistant',           pages: [
-    { key: 'chatbot',        label: 'AI Chatbot' },
+  { group: 'AI Tools',               pages: [
+    { key: 'chatbot',        label: 'AI Assistant' },
     { key: 'gsc',            label: 'Domain Health & Search Console' },
     { key: 'filescan',       label: 'File Scanner' },
   ]},
   { group: 'Overview',               pages: [
+    { key: 'agents',         label: 'AI Agents' },
     { key: 'dashboard',      label: 'Dashboard' },
-    { key: 'securescore',    label: 'Secure Score' },
     { key: 'threatanalytics',label: 'Threat Analytics' },
   ]},
-  { group: 'Incidents & Alerts',     pages: [
-    { key: 'incidents',      label: 'Incidents' },
-    { key: 'signals',        label: 'Security Signals' },
-    { key: 'eventtimeline',  label: 'Event Timeline' },
-    { key: 'mitre',          label: 'MITRE ATT&CK' },
-  ]},
-  { group: 'Actions',                pages: [
-    { key: 'priority',       label: 'Priority Actions' },
-    { key: 'recommendations',label: 'Recommendations' },
-    { key: 'remediation',    label: 'Remediation' },
-  ]},
-  { group: 'Vulnerability Mgmt',     pages: [
-    { key: 'weaknesses',     label: 'Weaknesses' },
-    { key: 'inventories',    label: 'Inventories' },
-    { key: 'targets',        label: 'Scan Results' },
-  ]},
-  { group: 'Monitoring & Logs',      pages: [
-    { key: 'observability',  label: 'Observability' },
+  { group: 'Incidents & Monitoring', pages: [
+    { key: 'incidents',      label: 'Incident Management' },
+    { key: 'priority',       label: 'Action Center' },
+    { key: 'pluginlogs',     label: 'Plugin & User Activity' },
     { key: 'logexplorer',    label: 'Log Explorer' },
-    { key: 'pluginlogs',     label: 'User Activity Logs' },
     { key: 'network',        label: 'Network Monitor' },
   ]},
   { group: 'Scanning',               pages: [
-    { key: 'scan',           label: 'Connect & Scan with Agent' },
-    { key: 'history',        label: 'Security Analytics' },
-    { key: 'pentest',        label: 'Pentest Engagements' },
+    { key: 'scan',           label: 'Security Scanner' },
+    { key: 'targets',        label: 'Scan Results' },
+    { key: 'history',        label: 'Scan Analytics' },
+    { key: 'pentest',        label: 'Penetration Testing' },
   ]},
 ];
 
 // Presets
 var _PAGE_PRESETS = {
-  default:  ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network'],
-  analyst:  ['dashboard','chatbot','gsc','filescan','securescore','threatanalytics','incidents','signals','eventtimeline',
-             'mitre','priority','weaknesses','inventories','targets','observability','logexplorer','pluginlogs','network','history'],
+  default:  ['dashboard','chatbot','pluginlogs','logexplorer','network'],
+  analyst:  ['dashboard','chatbot','gsc','filescan','threatanalytics','incidents','priority','targets','logexplorer','pluginlogs','network','history'],
   readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
   all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
   none:     [],
