@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for, flash, send_file
+from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for, flash, send_file, make_response
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import smtplib
@@ -1904,7 +1904,10 @@ def index():
     ctx['midtrans_client_key'] = _MIDTRANS_CLIENT_KEY
     ctx['midtrans_snap_js_url'] = _midtrans_snap_js_url()
     ctx['midtrans_configured'] = bool(_MIDTRANS_SERVER_KEY and _MIDTRANS_CLIENT_KEY)
-    return render_template('index.html', **ctx)
+    resp = make_response(render_template('index.html', **ctx))
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    return resp
 
 
 def _build_template_context() -> dict:
