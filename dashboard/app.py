@@ -4378,6 +4378,15 @@ def grafana_proxy(path):
                   'border-radius:6px;padding:2px 7px;'
                   'font-size:.82rem;color:#1e40af;'
                 '}'
+                '::-webkit-scrollbar{width:8px;height:8px;}'
+                '::-webkit-scrollbar-track{background:#eff6ff;border-radius:8px;}'
+                '::-webkit-scrollbar-thumb{'
+                  'background:linear-gradient(180deg,#3b82f6,#1d4ed8);'
+                  'border-radius:8px;border:2px solid #eff6ff;'
+                '}'
+                '::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#2563eb,#1e40af);}'
+                '::-webkit-scrollbar-corner{background:#eff6ff;}'
+                '*{scrollbar-width:thin;scrollbar-color:#3b82f6 #eff6ff;}'
                 '</style>'
             )
             body = body.replace('</head>', _gf_css + '</head>', 1)
