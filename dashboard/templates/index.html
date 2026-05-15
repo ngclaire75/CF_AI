@@ -4018,6 +4018,7 @@ Export Power BI
       <button class="le-tab" id="le-tab-btn-hostinger" onclick="leTab('hostinger',this)">Hostinger / MySQL</button>
       <button class="le-tab" id="le-tab-btn-history" onclick="leTab('history',this)">Scan History Logs</button>
       <button class="le-tab" id="le-tab-btn-cf" onclick="leTab('cf',this)">Cloudflare</button>
+      <button class="le-tab" id="le-tab-btn-ftp" onclick="leTab('ftp',this)">FTP</button>
     </div>
 
     <!-- ── SSH tab ── -->
@@ -4252,6 +4253,43 @@ Export Power BI
           </tr></thead>
           <tbody id="le-cf-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your Cloudflare API token and account ID, then click Fetch Security Insights.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── FTP tab ── -->
+    <div id="le-pane-ftp" class="le-tab-pane" style="display:none;">
+      <div class="le-cred-form">
+        <div class="le-cred-row">
+          <div><label class="le-cred-label">FTP Host</label><input type="text" id="le-ftp-host" class="le-cred-input" placeholder="46.202.139.13" style="width:200px;" autocomplete="off"></div>
+          <div><label class="le-cred-label">FTP Port</label><input type="number" id="le-ftp-port" class="le-cred-input" value="21" style="width:70px;"></div>
+          <div><label class="le-cred-label">Username</label><input type="text" id="le-ftp-user" class="le-cred-input" placeholder="u723386879.domain.com" autocomplete="off"></div>
+          <div><label class="le-cred-label">Password</label><input type="password" id="le-ftp-pass" class="le-cred-input" placeholder="FTP password" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Path</label><input type="text" id="le-ftp-path" class="le-cred-input" placeholder="public_html" value="public_html" style="width:140px;"></div>
+        </div>
+        <div class="le-cred-actions">
+          <button class="btn btn-sm" onclick="runFtpBrowse()" id="le-ftp-browse-btn" style="background:#2563eb;color:#fff;border-color:#2563eb;border-radius:8px;padding:7px 20px;">Browse &amp; List Files</button>
+          <button class="btn btn-sm" onclick="runFtpScan()" id="le-ftp-scan-btn" style="background:#1e3a8a;color:#fff;border-color:#1e3a8a;border-radius:8px;padding:7px 20px;">Scan for Malware</button>
+          <button class="btn btn-sm" onclick="runFtpLogs()" id="le-ftp-logs-btn" style="background:#3b82f6;color:#fff;border-color:#3b82f6;border-radius:8px;padding:7px 20px;">View Access Logs</button>
+        </div>
+        <div class="le-hint">Connect via FTP to browse files, scan for malware patterns (<code>eval</code>, <code>base64_decode</code>, <code>gzinflate</code>), or read server access logs. Works with Hostinger, cPanel, and any standard FTP host.</div>
+      </div>
+      <div id="le-ftp-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Connecting to FTP…</div>
+      <div id="le-ftp-error" style="display:none;padding:12px 14px;background:linear-gradient(135deg,#172554,#1e3a8a);border-radius:6px;color:#93c5fd;font-size:12px;margin-bottom:10px;"></div>
+      <div id="le-ftp-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#3b82f6;padding:8px 12px;background:#eff6ff;border-radius:6px;"></div>
+      <div id="le-ftp-breadcrumb" style="display:none;padding:6px 0;font-size:12px;color:#1e3a8a;margin-bottom:6px;font-weight:600;"></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-ftp-table">
+          <thead><tr style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Name</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Modified</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Size</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Type</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Flag</th>
+          </tr></thead>
+          <tbody id="le-ftp-body">
+            <tr><td colspan="5" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter FTP credentials and click Browse &amp; List Files or Scan for Malware.</td></tr>
           </tbody>
         </table>
       </div>
@@ -10969,6 +11007,100 @@ function _renderLePatterns(patterns, probes) {
       '</div></div>');
   });
   list.innerHTML = items.length ? items.join('') : '<em style="color:#60a5fa;font-size:13px;">No threats detected.</em>';
+}
+
+// ── FTP Log Explorer ─────────────────────────────────────────────────────────
+function _ftpCreds() {
+  return {
+    host: (document.getElementById('le-ftp-host').value||'').trim().replace(/^ftp:\/\//i,''),
+    port: parseInt(document.getElementById('le-ftp-port').value||'21')||21,
+    user: (document.getElementById('le-ftp-user').value||'').trim(),
+    pass: (document.getElementById('le-ftp-pass').value||'').trim(),
+    path: (document.getElementById('le-ftp-path').value||'public_html').trim(),
+  };
+}
+function _ftpSetLoading(on, msg) {
+  document.getElementById('le-ftp-loading').style.display = on ? 'block' : 'none';
+  if (msg) document.getElementById('le-ftp-loading').textContent = msg;
+  document.getElementById('le-ftp-error').style.display = 'none';
+  ['le-ftp-browse-btn','le-ftp-scan-btn','le-ftp-logs-btn'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.disabled = on;
+  });
+}
+function _ftpRenderFiles(files, stats, path) {
+  var bc = document.getElementById('le-ftp-breadcrumb');
+  bc.textContent = 'Path: /' + path; bc.style.display = 'block';
+  var statsEl = document.getElementById('le-ftp-stats');
+  if (stats) { statsEl.textContent = stats; statsEl.style.display = 'block'; }
+  var _SUSP = ['php','exe','bat','sh','cmd','py','cgi','pl'];
+  var _SAFE_PAT = [/wpforms\/cache/i, /unlimited_elements_cache/i, /hostinger-/i, /cfai-scanner/i];
+  var rows = files.map(function(f){
+    var ext = (f.name.split('.').pop()||'').toLowerCase();
+    var isDir = f.type === 'dir';
+    var isSusp = !isDir && _SUSP.indexOf(ext) !== -1 && !_SAFE_PAT.some(function(p){ return p.test(f.name); });
+    var flag = isDir ? '' : (isSusp
+      ? '<span style="background:linear-gradient(135deg,#172554,#1e3a8a);color:#93c5fd;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">SUSPICIOUS</span>'
+      : '<span style="background:#eff6ff;color:#1e3a8a;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">OK</span>');
+    var nameHtml = isDir
+      ? '<span style="color:#2563eb;font-weight:600;cursor:pointer;" onclick="_ftpNavDir(\''+f.path.replace(/'/g,"\\'")+'\')">📁 '+_esc(f.name)+'</span>'
+      : '<span style="color:#0f172a;">'+_esc(f.name)+'</span>';
+    return '<tr style="border-bottom:1px solid #eff6ff;">'
+      + '<td style="padding:7px 12px;">'+nameHtml+'</td>'
+      + '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;white-space:nowrap;">'+_esc(f.modified||'')+'</td>'
+      + '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;">'+(f.size != null && !isDir ? (f.size > 1024 ? Math.round(f.size/1024)+'KB' : f.size+'B') : '')+'</td>'
+      + '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;">'+(isDir?'DIR':ext.toUpperCase()||'—')+'</td>'
+      + '<td style="padding:7px 12px;">'+flag+'</td>'
+      + '</tr>';
+  }).join('');
+  document.getElementById('le-ftp-body').innerHTML = rows || '<tr><td colspan="5" style="padding:20px;text-align:center;color:#60a5fa;font-size:12px;">Empty directory.</td></tr>';
+}
+function _ftpPost(action, extra) {
+  var c = _ftpCreds();
+  if (!c.host || !c.user || !c.pass) { alert('Please enter FTP host, username and password.'); return; }
+  _ftpSetLoading(true, action === 'scan' ? 'Scanning for malware via FTP…' : action === 'logs' ? 'Fetching access logs via FTP…' : 'Connecting to FTP…');
+  return fetch('/api/logs/ftp', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(Object.assign({action: action}, c, extra||{})),
+  }).then(function(r){ return r.json(); }).then(function(d){
+    _ftpSetLoading(false);
+    if (d.error) {
+      var el = document.getElementById('le-ftp-error');
+      el.textContent = d.error; el.style.display = 'block'; return null;
+    }
+    return d;
+  }).catch(function(err){
+    _ftpSetLoading(false);
+    var el = document.getElementById('le-ftp-error');
+    el.textContent = 'Request failed: ' + err.message; el.style.display = 'block'; return null;
+  });
+}
+function runFtpBrowse() {
+  _ftpPost('browse').then(function(d){
+    if (!d) return;
+    _ftpRenderFiles(d.files||[], 'Found ' + (d.files||[]).length + ' items in /' + d.path, d.path);
+  });
+}
+function _ftpNavDir(path) {
+  document.getElementById('le-ftp-path').value = path;
+  runFtpBrowse();
+}
+function runFtpScan() {
+  _ftpPost('scan').then(function(d){
+    if (!d) return;
+    var flagged = (d.files||[]).filter(function(f){ return f.flag === 'MALWARE' || f.flag === 'SUSPICIOUS'; });
+    _ftpRenderFiles(d.files||[], 'Scanned ' + (d.files||[]).length + ' PHP files — ' + flagged.length + ' flagged', d.path);
+    document.getElementById('le-ftp-stats').style.display = 'block';
+  });
+}
+function runFtpLogs() {
+  _ftpPost('logs').then(function(d){
+    if (!d) return;
+    var el = document.getElementById('le-ftp-stats');
+    el.style.display = 'block';
+    el.innerHTML = '<strong>Access Log Preview</strong> (' + _esc(d.log_file||'') + ')<br><pre style="font-size:10px;margin-top:6px;max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-all;">' + _esc((d.content||'').slice(0,8000)) + '</pre>';
+    document.getElementById('le-ftp-body').innerHTML = '<tr><td colspan="5" style="padding:8px;"><em style="color:#60a5fa;font-size:12px;">Log content displayed above.</em></td></tr>';
+  });
 }
 
 // ── Network Monitor ───────────────────────────────────────────────────────────

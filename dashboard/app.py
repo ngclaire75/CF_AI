@@ -3223,6 +3223,162 @@ def _cf_request(path: str, cf_token: str, timeout: int = 20):
         return 0, str(e)
 
 
+@app.route('/api/logs/ftp', methods=['POST'])
+def api_logs_ftp():
+    """Browse files, scan for malware, or read access logs via FTP."""
+    import ftplib, io, re as _re
+    data   = request.get_json(force=True, silent=True) or {}
+    host   = (data.get('host') or '').strip()
+    port   = int(data.get('port') or 21)
+    user   = (data.get('user') or '').strip()
+    passwd = (data.get('pass') or '').strip()
+    path   = (data.get('path') or 'public_html').strip().lstrip('/')
+    action = (data.get('action') or 'browse').strip()
+
+    if not host or not user or not passwd:
+        return jsonify({'error': 'FTP host, username and password are required'}), 400
+
+    _MALWARE_PAT = [
+        (re.compile(rb'eval\s*\(\s*base64_decode', re.I), 'eval(base64_decode)'),
+        (re.compile(rb'eval\s*\(\s*gzinflate',    re.I), 'eval(gzinflate)'),
+        (re.compile(rb'eval\s*\(\s*str_rot13',     re.I), 'eval(str_rot13)'),
+        (re.compile(rb'eval\s*\(\s*gzuncompress',  re.I), 'eval(gzuncompress)'),
+        (re.compile(rb'preg_replace\s*\(\s*[\'"]/.+/e', re.I), 'preg_replace /e'),
+        (re.compile(rb'assert\s*\(\s*\$_(POST|GET|REQUEST|COOKIE)', re.I), 'assert($_REQUEST)'),
+        (re.compile(rb'\$[a-z_]+\s*=\s*str_rot13', re.I), 'str_rot13 assign'),
+    ]
+    _SAFE_PAT = [re.compile(p, re.I) for p in [
+        r'wpforms/cache', r'unlimited_elements_cache', r'hostinger-', r'cfai-scanner'
+    ]]
+
+    try:
+        ftp = ftplib.FTP()
+        ftp.connect(host, port, timeout=20)
+        ftp.login(user, passwd)
+        ftp.set_pasv(True)
+
+        if action == 'browse':
+            ftp.cwd(path)
+            entries = []
+            try:
+                mlsd = list(ftp.mlsd())
+                for name, facts in mlsd:
+                    if name in ('.', '..'):
+                        continue
+                    ftype = facts.get('type', 'file')
+                    size  = int(facts.get('size', 0)) if facts.get('size') else None
+                    mtime = facts.get('modify', '')
+                    if mtime and len(mtime) >= 14:
+                        mtime = f'{mtime[:4]}-{mtime[4:6]}-{mtime[6:8]} {mtime[8:10]}:{mtime[10:12]}'
+                    entries.append({'name': name, 'type': 'dir' if ftype == 'dir' else 'file',
+                                    'size': size, 'modified': mtime, 'path': f'{path}/{name}'})
+            except Exception:
+                lines = []
+                ftp.retrlines('LIST', lines.append)
+                for line in lines:
+                    parts = line.split(None, 8)
+                    if len(parts) < 9:
+                        continue
+                    name  = parts[8]
+                    if name in ('.', '..'):
+                        continue
+                    isdir = line.startswith('d')
+                    size  = int(parts[4]) if parts[4].isdigit() else None
+                    mtime = ' '.join(parts[5:8])
+                    entries.append({'name': name, 'type': 'dir' if isdir else 'file',
+                                    'size': size, 'modified': mtime, 'path': f'{path}/{name}'})
+            entries.sort(key=lambda e: (e['type'] != 'dir', e['name'].lower()))
+            ftp.quit()
+            return jsonify({'files': entries, 'path': path})
+
+        elif action == 'scan':
+            results = []
+            def _scan_dir(dpath, depth=0):
+                if depth > 4:
+                    return
+                try:
+                    ftp.cwd('/' + dpath if not dpath.startswith('/') else dpath)
+                except Exception:
+                    return
+                lines = []
+                try:
+                    ftp.retrlines('LIST', lines.append)
+                except Exception:
+                    return
+                for line in lines:
+                    parts = line.split(None, 8)
+                    if len(parts) < 9:
+                        continue
+                    name = parts[8]
+                    if name in ('.', '..'):
+                        continue
+                    full = f'{dpath}/{name}'
+                    isdir = line.startswith('d')
+                    if isdir:
+                        _scan_dir(full, depth + 1)
+                    elif name.lower().endswith('.php'):
+                        if any(p.search(name.encode()) for p in _SAFE_PAT):
+                            continue
+                        size = int(parts[4]) if parts[4].isdigit() else 0
+                        if size > 500_000:
+                            continue
+                        buf = io.BytesIO()
+                        try:
+                            ftp.retrbinary(f'RETR {full}', buf.write)
+                        except Exception:
+                            continue
+                        content = buf.getvalue()
+                        flag = 'OK'
+                        detail = ''
+                        for pat, label in _MALWARE_PAT:
+                            if pat.search(content):
+                                flag = 'MALWARE'
+                                detail = label
+                                break
+                        mtime = ' '.join(parts[5:8])
+                        results.append({'name': full, 'type': 'file', 'size': size,
+                                        'modified': mtime, 'flag': flag, 'detail': detail,
+                                        'ext': 'php', 'path': full})
+                        if len(results) >= 200:
+                            return
+            _scan_dir(path)
+            ftp.quit()
+            results.sort(key=lambda r: (r['flag'] == 'OK', r['name']))
+            return jsonify({'files': results, 'path': path})
+
+        elif action == 'logs':
+            log_candidates = [
+                f'{path}/logs/access_log', f'{path}/logs/access.log',
+                'logs/access_log', 'logs/access.log',
+                f'{path}/../logs/access_log', 'access_log', 'access.log',
+            ]
+            content = ''
+            log_file = ''
+            for candidate in log_candidates:
+                buf = io.BytesIO()
+                try:
+                    ftp.retrbinary(f'RETR {candidate}', buf.write)
+                    content = buf.getvalue().decode('utf-8', errors='replace')
+                    log_file = candidate
+                    break
+                except Exception:
+                    continue
+            ftp.quit()
+            if not content:
+                return jsonify({'error': 'No access log found. Common paths checked: ' + ', '.join(log_candidates[:4])})
+            lines = content.splitlines()
+            preview = '\n'.join(lines[-500:])
+            return jsonify({'content': preview, 'log_file': log_file, 'total_lines': len(lines)})
+
+        ftp.quit()
+        return jsonify({'error': 'Unknown action'}), 400
+
+    except ftplib.all_errors as e:
+        return jsonify({'error': f'FTP error: {e}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/cloudflare/insights', methods=['POST'])
 def api_cloudflare_insights():
     """Fetch Cloudflare Security Insights via real Cloudflare v4 API (direct, no proxy)."""
