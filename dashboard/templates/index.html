@@ -14307,7 +14307,7 @@ function _fsRender(data) {
       + '<div style="font-size:13px;font-weight:700;color:#1e3a8a;margin-bottom:8px;">PHP files found in uploads/ — likely malware ('+upFiles.length+')</div>'
       + '<div style="font-size:12px;color:#1e3a8a;margin-bottom:8px;">PHP files should NEVER exist in the uploads folder. These must be deleted immediately.</div>'
       + '<div class="scroll-panel"><table><thead><tr><th>File Path</th></tr></thead><tbody>'+upRows+'</tbody></table></div>'
-      + '<div style="font-size:11px;color:#3b82f6;margin-top:8px;">Delete via cPanel File Manager → public_html → wp-content → uploads → find and delete each file.</div>'
+      + '<div style="font-size:11px;color:#3b82f6;margin-top:8px;">Delete via Hostinger hPanel → Files → File Manager (or cPanel File Manager) → public_html → wp-content → uploads → find and delete each file.</div>'
       + '</div>';
   } else {
     upPanel.innerHTML = '<div style="background:#eff6ff;border:1px solid #9fd4a3;border-radius:6px;padding:10px 16px;font-size:13px;color:#1e3a8a;font-weight:600;">'
@@ -14439,7 +14439,7 @@ function _fsRender(data) {
     muNotice.style.cssText = 'background:#eff6ff;border:1px solid #c7e0f4;border-radius:6px;padding:12px 16px;margin-top:12px;font-size:12px;color:#1e3a8a;';
     muNotice.innerHTML = '<strong>Enable deep file scanning</strong> — scans all upload year/month folders, detects recently modified PHP, shows WP &amp; PHP version.<br><br>'
       + '<strong>Step 1:</strong> <a href="/api/wp/filescan-plugin" style="color:#2563eb;font-weight:600;">Download cfai-scanner.php</a><br>'
-      + '<strong>Step 2:</strong> In cPanel File Manager → go to <code>public_html/wp-content/mu-plugins/</code><br>'
+      + '<strong>Step 2:</strong> In <strong>Hostinger hPanel</strong> → Files → File Manager (or cPanel File Manager) → navigate to <code>public_html/wp-content/mu-plugins/</code><br>'
       + '<strong>Step 3:</strong> Upload the file (no activation needed — mu-plugins run automatically)<br>'
       + '<strong>Step 4:</strong> Click Scan Now again';
     document.getElementById('fs-results').appendChild(muNotice);
