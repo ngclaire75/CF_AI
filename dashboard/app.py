@@ -4442,9 +4442,11 @@ def api_grafana_probe():
 @app.route('/api/grafana/install', methods=['POST'])
 @login_required
 def api_grafana_install():
-    """Write + launch an elevated PowerShell script that installs Grafana,
-    Prometheus, and Windows Exporter on the local machine."""
-    import subprocess
+    """Install Grafana + Prometheus + Node/Windows Exporter on the local machine.
+    On Linux: runs a bash script via subprocess.
+    On Windows: launches an elevated PowerShell script.
+    """
+    import subprocess, sys as _sys
 
     script = r"""
 # CyberINK — Grafana Auto-Setup
@@ -4549,20 +4551,119 @@ Write-Host "`nPress Enter to close this window..."
 Read-Host
 """
 
-    # Encode script as UTF-16LE base64 and use -EncodedCommand — avoids
-    # any file path / spaces / permissions issue entirely.
-    import base64 as _b64
-    encoded = _b64.b64encode(script.encode('utf-16-le')).decode('ascii')
+    if _sys.platform == 'win32':
+        # Windows — launch elevated PowerShell
+        import base64 as _b64
+        encoded = _b64.b64encode(script.encode('utf-16-le')).decode('ascii')
+        ps = 'powershell.exe'
+        try:
+            subprocess.Popen(
+                [ps, '-Command',
+                 f'Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -EncodedCommand {encoded}"'],
+                shell=False
+            )
+            return jsonify({'ok': True})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)})
+    else:
+        # Linux — run bash install script
+        linux_script = r"""#!/bin/bash
+set -e
+echo "==> Installing Grafana + Prometheus + Node Exporter..."
 
-    try:
-        subprocess.Popen(
-            ['powershell', '-Command',
-             f'Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -EncodedCommand {encoded}"'],
-            shell=False
-        )
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
+# ── Node Exporter ──────────────────────────────────────────────────────────────
+if ! systemctl is-active --quiet node_exporter 2>/dev/null; then
+    NE_VER=$(curl -s https://api.github.com/repos/prometheus/node_exporter/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | tr -d v)
+    NE_VER=${NE_VER:-1.8.2}
+    wget -q "https://github.com/prometheus/node_exporter/releases/download/v${NE_VER}/node_exporter-${NE_VER}.linux-amd64.tar.gz" -O /tmp/ne.tar.gz
+    tar xzf /tmp/ne.tar.gz -C /tmp
+    cp /tmp/node_exporter-${NE_VER}.linux-amd64/node_exporter /usr/local/bin/
+    useradd -rs /bin/false node_exporter 2>/dev/null || true
+    cat > /etc/systemd/system/node_exporter.service <<EOF
+[Unit]
+Description=Node Exporter
+After=network.target
+[Service]
+User=node_exporter
+ExecStart=/usr/local/bin/node_exporter
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now node_exporter
+    echo "==> Node Exporter installed on :9100"
+else
+    echo "==> Node Exporter already running"
+fi
+
+# ── Prometheus ────────────────────────────────────────────────────────────────
+if ! systemctl is-active --quiet prometheus 2>/dev/null; then
+    P_VER=$(curl -s https://api.github.com/repos/prometheus/prometheus/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | tr -d v)
+    P_VER=${P_VER:-2.53.0}
+    wget -q "https://github.com/prometheus/prometheus/releases/download/v${P_VER}/prometheus-${P_VER}.linux-amd64.tar.gz" -O /tmp/prom.tar.gz
+    tar xzf /tmp/prom.tar.gz -C /tmp
+    cp /tmp/prometheus-${P_VER}.linux-amd64/prometheus /usr/local/bin/
+    cp /tmp/prometheus-${P_VER}.linux-amd64/promtool /usr/local/bin/
+    mkdir -p /etc/prometheus /var/lib/prometheus
+    cat > /etc/prometheus/prometheus.yml <<EOF
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+EOF
+    useradd -rs /bin/false prometheus 2>/dev/null || true
+    chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+    cat > /etc/systemd/system/prometheus.service <<EOF
+[Unit]
+Description=Prometheus
+After=network.target
+[Service]
+User=prometheus
+ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now prometheus
+    echo "==> Prometheus installed on :9090"
+else
+    echo "==> Prometheus already running"
+fi
+
+# ── Grafana ───────────────────────────────────────────────────────────────────
+if ! systemctl is-active --quiet grafana-server 2>/dev/null; then
+    apt-get install -y apt-transport-https software-properties-common wget gnupg 2>/dev/null || true
+    wget -q -O /usr/share/keyrings/grafana.key https://apt.grafana.com/gpg.key
+    echo "deb [signed-by=/usr/share/keyrings/grafana.key] https://apt.grafana.com stable main" > /etc/apt/sources.list.d/grafana.list
+    apt-get update -qq
+    apt-get install -y grafana
+    # Enable embedding + anonymous access
+    INI=/etc/grafana/grafana.ini
+    grep -q 'allow_embedding' $INI || echo -e '\n[security]\nallow_embedding = true\n\n[auth.anonymous]\nenabled = true\norg_name = Main Org.\norg_role = Viewer\n\n[server]\nserve_from_sub_path = true' >> $INI
+    systemctl daemon-reload
+    systemctl enable --now grafana-server
+    echo "==> Grafana installed on :3000"
+else
+    echo "==> Grafana already running"
+fi
+
+echo ""
+echo "[OK] Setup complete — Grafana :3000, Prometheus :9090, Node Exporter :9100"
+"""
+        import tempfile, os as _os
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+                f.write(linux_script)
+                tmp = f.name
+            _os.chmod(tmp, 0o755)
+            subprocess.Popen(['bash', tmp], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return jsonify({'ok': True})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)})
 
 
 @app.route('/api/grafana/patch-ini', methods=['POST'])
