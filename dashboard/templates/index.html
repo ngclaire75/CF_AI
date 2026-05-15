@@ -14298,7 +14298,8 @@ function _fsRender(data) {
 
   // ── PHP files in uploads ────────────────────────────────────────────────
   var upPanel = document.getElementById('fs-uploads-panel');
-  var upFiles = data.upload_php_files || [];
+  var _UP_SAFE = [/\/uploads\/wpforms\/cache\//i, /\/uploads\/unlimited_elements_cache\//i];
+  var upFiles = (data.upload_php_files || []).filter(function(f){ return !_UP_SAFE.some(function(p){ return p.test(f); }); });
   if (upFiles.length) {
     var upRows = upFiles.map(function(f){
       return '<tr><td style="font-size:11px;word-break:break-all;color:#1e3a8a;font-weight:600;">'+_esc(f)+'</td></tr>';
@@ -14369,15 +14370,22 @@ function _fsRender(data) {
   // ── Recently modified files (from mu-plugin deep scan) ─────────────────
   var modRecentPanel = document.createElement('div');
   modRecentPanel.id = 'fs-recent-panel';
-  modRecentPanel.style.cssText = 'margin-bottom:16px;';
+  modRecentPanel.style.cssText = 'margin-top:20px;margin-bottom:16px;';
   var recentFiles = data.recent_modified || [];
   if (data.plugin_installed && recentFiles.length) {
     var _SUSP_EXT = ['php','exe','bat','sh','cmd','py'];
+    // Known-safe path patterns — never auto-flag these as suspicious
+    var _KNOWN_SAFE_PATTERNS = [
+      /\/uploads\/wpforms\/cache\//i,
+      /\/wp-content\/mu-plugins\/hostinger-/i,
+      /\/wp-content\/mu-plugins\/cfai-scanner\.php$/i,
+    ];
     var _fsStatuses = JSON.parse(localStorage.getItem('cfai_fs_statuses') || '{}');
     _fsCurrentFiles = []; // reset for bulk ops
     var flaggedCount = 0;
     var rRows = recentFiles.map(function(f, idx){
-      var isSusp = _SUSP_EXT.indexOf((f.ext||'').toLowerCase()) !== -1;
+      var isKnownSafe = _KNOWN_SAFE_PATTERNS.some(function(p){ return p.test(f.file); });
+      var isSusp = !isKnownSafe && _SUSP_EXT.indexOf((f.ext||'').toLowerCase()) !== -1;
       var fileKey = f.file;
       _fsCurrentFiles.push({key: fileKey, idx: idx, defaultSusp: isSusp}); // track for bulk ops
       var status  = _fsStatuses[fileKey] || (isSusp ? 'suspicious' : 'ok');
