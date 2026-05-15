@@ -4318,14 +4318,33 @@ def grafana_proxy(path):
         _ORANGE_VARIANTS = ('#eb7b18', '#EB7B18', '#Eb7b18',
                             'rgb(235, 123, 24)', 'rgb(235,123,24)',
                             'rgba(235, 123, 24', 'rgba(235,123,24')
-        # Patch HTML: replace orange + inject catch-all CSS override
+        _PROXY_BASE = '/grafana-proxy'
+
+        def _fix_orange(text):
+            for _o in _ORANGE_VARIANTS:
+                text = text.replace(_o, '#3b82f6')
+            return text
+
+        # Patch HTML: rewrite asset paths + fix orange + inject base tag
         if 'text/html' in ct:
             body = resp.content.decode('utf-8', errors='replace')
-            for _o in _ORANGE_VARIANTS:
-                body = body.replace(_o, '#3b82f6')
+            # Rewrite absolute asset paths so browser fetches them via our proxy
+            body = body.replace('href="/public/', f'href="{_PROXY_BASE}/public/')
+            body = body.replace('src="/public/',  f'src="{_PROXY_BASE}/public/')
+            body = body.replace('href="/avatar/', f'href="{_PROXY_BASE}/avatar/')
+            body = body.replace('src="/avatar/',  f'src="{_PROXY_BASE}/avatar/')
+            # Fix Grafana's JS public path variable
+            body = body.replace('"__grafana_public_path__":"/"',
+                                f'"__grafana_public_path__":"{_PROXY_BASE}/public/"')
+            body = body.replace("'__grafana_public_path__':'/'",
+                                f"'__grafana_public_path__':'{_PROXY_BASE}/public/'")
+            # Ensure <base> tag points to our proxy root so relative URLs resolve correctly
+            _base_tag = f'<base href="{_PROXY_BASE}/">'
+            if '<base ' not in body:
+                body = body.replace('<head>', '<head>' + _base_tag, 1)
+            body = _fix_orange(body)
             _gf_css = (
                 '<style>'
-                # catch any remaining orange via a broad selector on the error page
                 'body>div h1,body>div h2,body>div p,body>div li,'
                 'body>div ol,body>div ul{color:#3b82f6!important}'
                 'body>div h1{color:#1d4ed8!important;font-size:1.6rem}'
@@ -4336,11 +4355,11 @@ def grafana_proxy(path):
                 body = _gf_css + body
             return Response(body.encode('utf-8'), status=resp.status_code,
                             headers=resp_headers, content_type=ct)
-        # Patch CSS files: replace orange color values inline
-        if 'text/css' in ct or (path and path.endswith('.css')):
+        # Patch CSS/JS: replace orange color values
+        if 'text/css' in ct or 'javascript' in ct or \
+           (path and (path.endswith('.css') or path.endswith('.js'))):
             body = resp.content.decode('utf-8', errors='replace')
-            for _o in _ORANGE_VARIANTS:
-                body = body.replace(_o, '#3b82f6')
+            body = _fix_orange(body)
             return Response(body.encode('utf-8'), status=resp.status_code,
                             headers=resp_headers, content_type=ct)
         return Response(
