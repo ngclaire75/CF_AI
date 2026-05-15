@@ -4314,11 +4314,30 @@ def grafana_proxy(path):
         resp_headers = [(k, v) for k, v in resp.raw.headers.items()
                         if k.lower() not in drop]
 
+        ct = resp.headers.get('Content-Type', 'application/octet-stream')
+        # For HTML responses replace Grafana's orange (#eb7b18) with CyberINK blue
+        if 'text/html' in ct:
+            html = resp.content.decode('utf-8', errors='replace')
+            # Replace every occurrence of Grafana's brand orange in inline styles / CSS
+            for _orange in ('#eb7b18', '#EB7B18', 'rgb(235, 123, 24)', 'rgb(235,123,24)'):
+                html = html.replace(_orange, '#3b82f6')
+            # Inject a catch-all override in case colors come from bundled CSS classes
+            _gf_css = (
+                '<style>'
+                '.css-1qhpsh8,.css-1qhpsh8 *{color:#3b82f6!important}'
+                'h1[style],[class*="page-"] h1{color:#1d4ed8!important}'
+                '</style>'
+            )
+            html = html.replace('</head>', _gf_css + '</head>', 1)
+            if '</head>' not in html:
+                html = _gf_css + html
+            return Response(html.encode('utf-8'), status=resp.status_code,
+                            headers=resp_headers, content_type=ct)
         return Response(
             stream_with_context(resp.iter_content(chunk_size=16384)),
             status       = resp.status_code,
             headers      = resp_headers,
-            content_type = resp.headers.get('Content-Type', 'application/octet-stream'),
+            content_type = ct,
         )
     except Exception as exc:
         return f'Grafana proxy error: {exc}', 502
