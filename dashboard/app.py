@@ -4325,73 +4325,115 @@ def grafana_proxy(path):
                 text = text.replace(_o, '#3b82f6')
             return text
 
-        # Patch HTML: rewrite asset paths + fix orange + inject base tag
+        # Patch HTML: rewrite asset paths, and replace Grafana's error page with a polished one
         if 'text/html' in ct:
             body = resp.content.decode('utf-8', errors='replace')
-            # Rewrite absolute asset paths so browser fetches them via our proxy
+
+            # ── Grafana fallback error page — replace entirely ──────────────────
+            if 'Grafana has failed to load its application files' in body:
+                body = (
+                    '<!DOCTYPE html><html><head>'
+                    '<meta charset="utf-8">'
+                    '<meta name="viewport" content="width=device-width,initial-scale=1">'
+                    '<style>'
+                    '*{box-sizing:border-box;margin:0;padding:0}'
+                    'body{'
+                      'font-family:"Inter",system-ui,sans-serif;'
+                      'background:#eef2ff;'
+                      'display:flex;align-items:center;justify-content:center;'
+                      'min-height:100vh;padding:24px;'
+                    '}'
+                    '.card{'
+                      'background:#fff;border:1px solid #c7d7fe;'
+                      'border-radius:20px;'
+                      'box-shadow:0 8px 32px rgba(99,102,241,.12);'
+                      'max-width:580px;width:100%;padding:36px 40px;'
+                    '}'
+                    '.badge{'
+                      'display:inline-flex;align-items:center;gap:6px;'
+                      'background:#eef2ff;color:#4f46e5;'
+                      'border:1px solid #c7d7fe;border-radius:20px;'
+                      'font-size:.72rem;font-weight:700;letter-spacing:.05em;'
+                      'padding:4px 12px;margin-bottom:18px;'
+                    '}'
+                    'h1{'
+                      'font-size:1.15rem;font-weight:700;color:#1e1b4b;'
+                      'line-height:1.45;margin-bottom:6px;'
+                    '}'
+                    '.sub{'
+                      'font-size:.82rem;color:#6366f1;margin-bottom:24px;'
+                    '}'
+                    '.divider{height:1px;background:#e0e7ff;margin-bottom:22px;}'
+                    'ol{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:14px;}'
+                    'li{'
+                      'display:flex;gap:12px;align-items:flex-start;'
+                      'font-size:.875rem;color:#374151;line-height:1.6;'
+                    '}'
+                    '.num{'
+                      'flex-shrink:0;width:24px;height:24px;border-radius:50%;'
+                      'background:#eef2ff;border:1px solid #c7d7fe;'
+                      'display:flex;align-items:center;justify-content:center;'
+                      'font-size:.72rem;font-weight:700;color:#4f46e5;margin-top:1px;'
+                    '}'
+                    'code{'
+                      'background:#eef2ff;color:#4338ca;border:1px solid #c7d7fe;'
+                      'border-radius:5px;padding:1px 6px;font-size:.8rem;'
+                      'font-family:ui-monospace,monospace;'
+                    '}'
+                    '::-webkit-scrollbar{width:8px;height:8px;}'
+                    '::-webkit-scrollbar-track{background:#eef2ff;border-radius:8px;}'
+                    '::-webkit-scrollbar-thumb{'
+                      'background:linear-gradient(180deg,#6366f1,#4f46e5);'
+                      'border-radius:8px;border:2px solid #eef2ff;'
+                    '}'
+                    '::-webkit-scrollbar-thumb:hover{background:#4338ca;}'
+                    '*{scrollbar-width:thin;scrollbar-color:#6366f1 #eef2ff;}'
+                    '</style></head><body>'
+                    '<div class="card">'
+                      '<div class="badge">&#9888; Grafana</div>'
+                      '<h1>Application files failed to load</h1>'
+                      '<p class="sub">Grafana is running but its frontend assets could not be served through the reverse proxy.</p>'
+                      '<div class="divider"></div>'
+                      '<ol>'
+                        '<li><span class="num">1</span><span>Reverse proxy subpath — set <code>root_url</code> in <code>grafana.ini</code> to include the subpath, and enable <code>serve_from_sub_path = true</code>.</span></li>'
+                        '<li><span class="num">2</span><span>Restart Grafana after any config change: <code>systemctl restart grafana-server</code></span></li>'
+                        '<li><span class="num">3</span><span>Try the <strong>Fix automatically</strong> button below to patch <code>grafana.ini</code> without SSH.</span></li>'
+                        '<li><span class="num">4</span><span>Check browser console for blocked asset requests — Grafana loads JS from <code>/public/build/</code>.</span></li>'
+                      '</ol>'
+                    '</div>'
+                    '</body></html>'
+                )
+                return Response(body.encode('utf-8'), status=resp.status_code,
+                                headers=resp_headers, content_type=ct)
+
+            # ── Normal Grafana page — rewrite asset paths + orange fix ──────────
             body = body.replace('href="/public/', f'href="{_PROXY_BASE}/public/')
             body = body.replace('src="/public/',  f'src="{_PROXY_BASE}/public/')
             body = body.replace('href="/avatar/', f'href="{_PROXY_BASE}/avatar/')
             body = body.replace('src="/avatar/',  f'src="{_PROXY_BASE}/avatar/')
-            # Fix Grafana's JS public path variable
             body = body.replace('"__grafana_public_path__":"/"',
                                 f'"__grafana_public_path__":"{_PROXY_BASE}/public/"')
             body = body.replace("'__grafana_public_path__':'/'",
                                 f"'__grafana_public_path__':'{_PROXY_BASE}/public/'")
-            # Ensure <base> tag points to our proxy root so relative URLs resolve correctly
             _base_tag = f'<base href="{_PROXY_BASE}/">'
             if '<base ' not in body:
                 body = body.replace('<head>', '<head>' + _base_tag, 1)
             body = _fix_orange(body)
-            _gf_css = (
+            _gf_scrollbar = (
                 '<style>'
-                '@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");'
-                'body{'
-                  'font-family:"Inter",system-ui,sans-serif;'
-                  'background:#f0f4ff;'
-                  'display:flex;align-items:center;justify-content:center;'
-                  'min-height:100vh;margin:0;padding:20px;box-sizing:border-box;'
-                '}'
-                'body>div{'
-                  'background:#fff;'
-                  'border:1px solid #dbeafe;'
-                  'border-radius:16px;'
-                  'box-shadow:0 4px 24px rgba(59,130,246,.10);'
-                  'max-width:680px;width:100%;'
-                  'padding:40px 44px;'
-                '}'
-                'body>div h1{'
-                  'color:#1d4ed8!important;'
-                  'font-size:1.25rem!important;font-weight:600;'
-                  'margin:0 0 20px;line-height:1.4;'
-                  'padding-bottom:16px;border-bottom:1px solid #dbeafe;'
-                '}'
-                'body>div ol{'
-                  'margin:0;padding-left:20px;display:flex;flex-direction:column;gap:10px;'
-                '}'
-                'body>div li{'
-                  'color:#2563eb!important;font-size:.92rem;line-height:1.6;'
-                '}'
-                'body>div p{color:#3b82f6!important;font-size:.92rem;}'
-                'code,kbd,pre{'
-                  'background:#eff6ff;border:1px solid #bfdbfe;'
-                  'border-radius:6px;padding:2px 7px;'
-                  'font-size:.82rem;color:#1e40af;'
-                '}'
                 '::-webkit-scrollbar{width:8px;height:8px;}'
-                '::-webkit-scrollbar-track{background:#eff6ff;border-radius:8px;}'
+                '::-webkit-scrollbar-track{background:#eef2ff;border-radius:8px;}'
                 '::-webkit-scrollbar-thumb{'
-                  'background:linear-gradient(180deg,#3b82f6,#1d4ed8);'
-                  'border-radius:8px;border:2px solid #eff6ff;'
+                  'background:linear-gradient(180deg,#6366f1,#4f46e5);'
+                  'border-radius:8px;border:2px solid #eef2ff;'
                 '}'
-                '::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#2563eb,#1e40af);}'
-                '::-webkit-scrollbar-corner{background:#eff6ff;}'
-                '*{scrollbar-width:thin;scrollbar-color:#3b82f6 #eff6ff;}'
+                '::-webkit-scrollbar-thumb:hover{background:#4338ca;}'
+                '*{scrollbar-width:thin;scrollbar-color:#6366f1 #eef2ff;}'
                 '</style>'
             )
-            body = body.replace('</head>', _gf_css + '</head>', 1)
+            body = body.replace('</head>', _gf_scrollbar + '</head>', 1)
             if '</head>' not in body:
-                body = _gf_css + body
+                body = _gf_scrollbar + body
             return Response(body.encode('utf-8'), status=resp.status_code,
                             headers=resp_headers, content_type=ct)
         # Patch CSS/JS: replace orange color values
