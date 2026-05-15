@@ -1864,6 +1864,66 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .connect-done-bar a { font-size:12px; font-weight:600; color:var(--c4); text-decoration:none; }
 .connect-done-bar a:hover { text-decoration:underline; }
 
+/* ── Grafana Monitor ────────────────────────────────────── */
+.gf-status-bar {
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+  margin-bottom:12px;
+}
+.gf-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11px; font-weight:600; font-family:inherit;
+  padding:4px 10px; border-radius:20px; white-space:nowrap;
+}
+.gf-chip-up   { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+.gf-chip-down { background:#fff1f2; color:#be123c;  border:1px solid #fecdd3; }
+.gf-chip-info { background:#f0fdf4; color:#166534;  border:1px solid #bbf7d0; }
+
+.gf-metrics-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  gap:10px; margin-bottom:14px;
+}
+.gf-metric-card {
+  background:#fff; border:1px solid #dbeafe; border-radius:12px;
+  padding:14px 16px;
+  display:flex; flex-direction:column; gap:4px;
+  box-shadow:0 1px 4px rgba(59,130,246,.08);
+  transition:box-shadow .15s;
+}
+.gf-metric-card:hover { box-shadow:0 4px 14px rgba(59,130,246,.15); }
+.gf-metric-val {
+  font-size:1.25rem; font-weight:700; line-height:1; letter-spacing:-.01em;
+}
+.gf-metric-lbl {
+  font-size:.72rem; font-weight:500; color:#64748b; text-transform:uppercase; letter-spacing:.06em;
+}
+.gf-metric-bar {
+  height:4px; background:#e2e8f0; border-radius:2px; margin-top:6px; overflow:hidden;
+}
+.gf-metric-fill {
+  height:100%; border-radius:2px; transition:width .4s ease;
+}
+
+.gf-embed-wrap {
+  border:1px solid #dbeafe; border-radius:12px; overflow:hidden;
+  box-shadow:0 2px 12px rgba(59,130,246,.08);
+}
+.gf-embed-hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 14px; background:#eff6ff; border-bottom:1px solid #dbeafe;
+}
+#gf-embed-title {
+  font-size:12px; font-weight:600; color:#1e3a8a;
+}
+
+.gf-rec-dash {
+  font-family:inherit; font-size:11px; font-weight:600;
+  padding:4px 12px; border-radius:6px; cursor:pointer;
+  background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;
+  margin:3px 4px 3px 0; transition:background .15s;
+}
+.gf-rec-dash:hover { background:#dbeafe; }
+
 </style>
 </head>
 <body>
