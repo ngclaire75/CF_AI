@@ -12964,6 +12964,8 @@ function toggleDashboardEdit() {
     drawer.style.display   = 'flex';
     backdrop.style.display = 'block';
     _custRenderDrawer();
+    var _hd = drawer.querySelector('.cust-hd');
+    if (_hd) { _hd.querySelectorAll('button').forEach(function(b){ b.remove(); }); }
   } else {
     drawer.style.display   = 'none';
     backdrop.style.display = 'none';
