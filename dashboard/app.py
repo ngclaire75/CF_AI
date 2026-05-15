@@ -4390,7 +4390,7 @@ def grafana_proxy(path):
                     '*{scrollbar-width:thin;scrollbar-color:#6366f1 #eef2ff;}'
                     '</style></head><body>'
                     '<div class="card">'
-                      '<div class="badge">&#9888; Grafana</div>'
+                      '<div class="badge">Grafana</div>'
                       '<h1>Application files failed to load</h1>'
                       '<p class="sub">Grafana is running but its frontend assets could not be served through the reverse proxy.</p>'
                       '<div class="divider"></div>'
