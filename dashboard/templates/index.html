@@ -11807,7 +11807,7 @@ function runGrafanaMonitor() {
 
 function _gfChip(running, label) {
   var cls = running ? 'gf-chip gf-chip-up' : 'gf-chip gf-chip-down';
-  return '<span class="' + cls + '">' + (running ? '●' : '○') + ' ' + label + (running ? '' : ' — Offline') + '</span>';
+  return '<span class="' + cls + '">' + label + (running ? '' : ' — Offline') + '</span>';
 }
 
 function _gfRenderStatus(d) {
@@ -11817,7 +11817,7 @@ function _gfRenderStatus(d) {
              _gfChip(d.prometheus.running, 'Prometheus') +
              _gfChip(d.node_exporter.running, 'Windows/Node Exporter');
   if (d.targets.length) {
-    html += '<span class="gf-chip gf-chip-info" style="margin-left:auto;">&#9679; ' + d.targets.length + ' target' + (d.targets.length !== 1 ? 's' : '') + ' scraping</span>';
+    html += '<span class="gf-chip gf-chip-up" style="margin-left:auto;">' + d.targets.length + ' target' + (d.targets.length !== 1 ? 's' : '') + ' scraping</span>';
   }
   bar.innerHTML = html;
   bar.style.display = 'flex';
