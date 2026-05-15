@@ -4315,23 +4315,33 @@ def grafana_proxy(path):
                         if k.lower() not in drop]
 
         ct = resp.headers.get('Content-Type', 'application/octet-stream')
-        # For HTML responses replace Grafana's orange (#eb7b18) with CyberINK blue
+        _ORANGE_VARIANTS = ('#eb7b18', '#EB7B18', '#Eb7b18',
+                            'rgb(235, 123, 24)', 'rgb(235,123,24)',
+                            'rgba(235, 123, 24', 'rgba(235,123,24')
+        # Patch HTML: replace orange + inject catch-all CSS override
         if 'text/html' in ct:
-            html = resp.content.decode('utf-8', errors='replace')
-            # Replace every occurrence of Grafana's brand orange in inline styles / CSS
-            for _orange in ('#eb7b18', '#EB7B18', 'rgb(235, 123, 24)', 'rgb(235,123,24)'):
-                html = html.replace(_orange, '#3b82f6')
-            # Inject a catch-all override in case colors come from bundled CSS classes
+            body = resp.content.decode('utf-8', errors='replace')
+            for _o in _ORANGE_VARIANTS:
+                body = body.replace(_o, '#3b82f6')
             _gf_css = (
                 '<style>'
-                '.css-1qhpsh8,.css-1qhpsh8 *{color:#3b82f6!important}'
-                'h1[style],[class*="page-"] h1{color:#1d4ed8!important}'
+                # catch any remaining orange via a broad selector on the error page
+                'body>div h1,body>div h2,body>div p,body>div li,'
+                'body>div ol,body>div ul{color:#3b82f6!important}'
+                'body>div h1{color:#1d4ed8!important;font-size:1.6rem}'
                 '</style>'
             )
-            html = html.replace('</head>', _gf_css + '</head>', 1)
-            if '</head>' not in html:
-                html = _gf_css + html
-            return Response(html.encode('utf-8'), status=resp.status_code,
+            body = body.replace('</head>', _gf_css + '</head>', 1)
+            if '</head>' not in body:
+                body = _gf_css + body
+            return Response(body.encode('utf-8'), status=resp.status_code,
+                            headers=resp_headers, content_type=ct)
+        # Patch CSS files: replace orange color values inline
+        if 'text/css' in ct or (path and path.endswith('.css')):
+            body = resp.content.decode('utf-8', errors='replace')
+            for _o in _ORANGE_VARIANTS:
+                body = body.replace(_o, '#3b82f6')
+            return Response(body.encode('utf-8'), status=resp.status_code,
                             headers=resp_headers, content_type=ct)
         return Response(
             stream_with_context(resp.iter_content(chunk_size=16384)),
