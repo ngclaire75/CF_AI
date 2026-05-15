@@ -5496,7 +5496,7 @@ def api_geoip():
 _GOOGLE_CLIENT_ID     = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
 _GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
 _GSC_TOKEN_FILE       = Path(__file__).parent.parent / '.gsc_token.json'
-_GSC_REDIRECT_URI     = f'http://localhost:{os.environ.get("CFAI_PORT", "8889")}/auth/google/callback'
+_GSC_REDIRECT_URI     = os.environ.get('CFAI_BASE_URL', 'http://localhost:8889').rstrip('/') + '/auth/google/callback'
 _GSC_SCOPES           = 'https://www.googleapis.com/auth/webmasters.readonly'
 
 
