@@ -1646,7 +1646,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   display:flex; align-items:center; justify-content:center; z-index:9100; padding:20px; }
 .pt2-modal { background:var(--c11); border:1px solid var(--c8); border-radius:var(--radius);
   width:100%; max-width:700px; max-height:90vh; overflow-y:auto;
-  box-shadow:0 20px 60px rgba(15,23,42,.3); }
+  box-shadow:0 20px 60px rgba(15,23,42,.3);
+  scrollbar-width:none; }
+.pt2-modal::-webkit-scrollbar { display:none; }
 .pt2-modal-header { display:flex; align-items:center; justify-content:space-between;
   padding:18px 20px; border-bottom:1px solid var(--c9); }
 .pt2-modal-title { font-size:15px; font-weight:700; color:var(--c0); }
