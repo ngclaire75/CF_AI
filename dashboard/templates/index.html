@@ -2058,6 +2058,10 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-pentest" onclick="sbNav('pentest',this)">
       <span class="sb-label">Generate Pentest Report</span>
     </button>
+    <button class="sb-item" id="sb-sca" onclick="sbNav('sca',this)">
+      <span class="sb-icon">⟨/⟩</span>
+      <span class="sb-label">Static Code Analysis</span>
+    </button>
 
     {% if current_user.role == 'admin' %}
     <div class="sb-divider"></div>
@@ -3133,6 +3137,139 @@ Export Power BI
   </section>
 
   </div><!-- /page-scan -->
+
+  <!-- ══ STATIC CODE ANALYSIS PAGE ════════════════════════════════════════ -->
+  <div id="page-sca" class="page-section" style="display:none">
+  <style>
+    .sca-wrap { display:grid; grid-template-columns:320px 1fr; gap:20px; padding:20px; max-width:1400px; margin:0 auto; }
+    @media(max-width:900px){ .sca-wrap { grid-template-columns:1fr; } }
+    .sca-panel { background:var(--c11); border:1px solid var(--c8); border-radius:10px; padding:20px; }
+    .sca-panel-title { font-size:13px; font-weight:700; color:var(--c1); margin-bottom:14px; text-transform:uppercase; letter-spacing:.06em; }
+    .sca-upload-zone { border:2px dashed var(--c5); border-radius:8px; padding:28px 16px; text-align:center; cursor:pointer; transition:background .2s, border-color .2s; }
+    .sca-upload-zone:hover, .sca-upload-zone.drag-over { background:var(--c10); border-color:var(--c4); }
+    .sca-upload-icon { font-size:28px; margin-bottom:6px; color:var(--c5); }
+    .sca-upload-hint { font-size:12px; color:var(--c5); line-height:1.5; }
+    .sca-file-list { margin-top:10px; max-height:120px; overflow-y:auto; font-size:11px; }
+    .sca-file-item { display:flex; align-items:center; gap:6px; padding:3px 6px; border-radius:4px; background:var(--c10); margin-bottom:3px; color:var(--c2); }
+    .sca-file-item span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sca-label { font-size:11px; font-weight:600; color:var(--c2); margin:12px 0 4px; }
+    .sca-select { width:100%; padding:7px 10px; border:1px solid var(--c8); border-radius:6px; font-size:12px; color:var(--c1); background:var(--c11); outline:none; }
+    .sca-select:focus { border-color:var(--c4); }
+    .sca-toggle-link { font-size:11px; color:var(--c4); cursor:pointer; margin-top:10px; display:inline-block; }
+    .sca-toggle-link:hover { text-decoration:underline; }
+    .sca-custom-box { margin-top:8px; }
+    .sca-textarea { width:100%; padding:8px 10px; border:1px solid var(--c8); border-radius:6px; font-size:11px; font-family:monospace; color:var(--c1); background:#f8faff; resize:vertical; min-height:140px; box-sizing:border-box; }
+    .sca-textarea:focus { border-color:var(--c4); outline:none; }
+    .sca-btn { display:block; width:100%; margin-top:14px; padding:10px; background:var(--c4); color:#fff; border:none; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer; transition:background .2s; }
+    .sca-btn:hover { background:var(--c5); }
+    .sca-btn:disabled { background:var(--c8); cursor:not-allowed; }
+    .sca-results-panel { display:flex; flex-direction:column; gap:14px; }
+    .sca-stats-row { display:flex; gap:10px; flex-wrap:wrap; }
+    .sca-stat-box { flex:1; min-width:90px; background:var(--c11); border:1px solid var(--c8); border-radius:8px; padding:12px 14px; text-align:center; }
+    .sca-stat-num { font-size:26px; font-weight:700; color:var(--c1); }
+    .sca-stat-label { font-size:11px; color:var(--c5); margin-top:2px; }
+    .sca-stat-box.error-box { border-color:#fca5a5; background:#fff5f5; }
+    .sca-stat-box.error-box .sca-stat-num { color:#dc2626; }
+    .sca-stat-box.warn-box  { border-color:#fde68a; background:#fffbeb; }
+    .sca-stat-box.warn-box  .sca-stat-num { color:#d97706; }
+    .sca-stat-box.info-box  { border-color:var(--c8); background:var(--c10); }
+    .sca-stat-box.info-box  .sca-stat-num { color:var(--c4); }
+    .sca-table-wrap { background:var(--c11); border:1px solid var(--c8); border-radius:10px; overflow:hidden; }
+    .sca-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .sca-table th { background:var(--c10); color:var(--c2); font-weight:700; text-align:left; padding:9px 12px; border-bottom:1px solid var(--c8); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+    .sca-finding-row { border-bottom:1px solid var(--c9); transition:background .15s; }
+    .sca-finding-row:last-child { border-bottom:none; }
+    .sca-finding-row:hover { background:var(--c10); }
+    .sca-finding-row td { padding:9px 12px; vertical-align:top; }
+    .sca-badge-error   { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:#fee2e2; color:#dc2626; }
+    .sca-badge-warning { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:#fef3c7; color:#d97706; }
+    .sca-badge-info    { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:var(--c9); color:var(--c4); }
+    .sca-badge-low     { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:#f0fdf4; color:#16a34a; }
+    .sca-rule-id { font-size:10px; color:var(--c5); font-family:monospace; word-break:break-all; }
+    .sca-msg { font-size:12px; color:var(--c1); line-height:1.4; }
+    .sca-location { font-size:11px; color:var(--c2); font-family:monospace; white-space:nowrap; }
+    .sca-code { font-family:monospace; font-size:11px; background:#1e293b; color:#94a3b8; padding:5px 8px; border-radius:4px; white-space:pre; overflow:hidden; text-overflow:ellipsis; max-width:320px; display:block; margin-top:4px; }
+    .sca-empty { text-align:center; padding:48px 20px; color:var(--c5); }
+    .sca-empty-icon { font-size:36px; margin-bottom:10px; }
+    .sca-empty-text { font-size:13px; }
+    .sca-loading { text-align:center; padding:48px 20px; color:var(--c5); }
+    .sca-spinner { width:32px; height:32px; border:3px solid var(--c9); border-top-color:var(--c4); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 12px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .sca-error-box { background:#fff5f5; border:1px solid #fca5a5; border-radius:8px; padding:14px 16px; color:#dc2626; font-size:12px; line-height:1.5; }
+    .sca-error-box code { display:block; margin-top:8px; font-size:11px; background:#fee2e2; padding:6px 10px; border-radius:4px; }
+    .sca-header { padding:20px 20px 0; }
+    .sca-title { font-size:20px; font-weight:700; color:var(--c1); }
+    .sca-subtitle { font-size:12px; color:var(--c5); margin-top:3px; }
+    .sca-semgrep-badge { display:inline-block; margin-left:6px; font-size:10px; font-weight:700; background:var(--c9); color:var(--c4); padding:2px 7px; border-radius:4px; vertical-align:middle; }
+  </style>
+
+  <div class="sca-header">
+    <div class="sca-title">Static Code Analysis <span class="sca-semgrep-badge">powered by semgrep</span></div>
+    <div class="sca-subtitle">Upload source files to scan for security vulnerabilities, code quality issues, and custom patterns.</div>
+  </div>
+
+  <div class="sca-wrap">
+    <!-- Left panel: upload + options -->
+    <div>
+      <div class="sca-panel">
+        <div class="sca-panel-title">Upload Files</div>
+
+        <div class="sca-upload-zone" id="scaDropZone"
+             ondragover="scaDragOver(event)"
+             ondragleave="document.getElementById('scaDropZone').classList.remove('drag-over')"
+             ondrop="scaDrop(event)"
+             onclick="scaPickFiles()">
+          <div class="sca-upload-icon">&#128196;</div>
+          <div class="sca-upload-hint">Drag &amp; drop source files here<br>or click to browse<br><small>Python, JS, TS, PHP, Java, Go, Ruby, …</small></div>
+        </div>
+        <input type="file" id="scaFileInput" multiple style="display:none" onchange="scaRenderFiles()">
+        <div id="scaFileList" class="sca-file-list"></div>
+
+        <div class="sca-label">Ruleset</div>
+        <select id="scaRuleset" class="sca-select">
+          <option value="auto">auto (semgrep default — language-aware)</option>
+          <option value="owasp-top-ten">OWASP Top Ten</option>
+          <option value="python">Python security</option>
+          <option value="javascript">JavaScript security</option>
+          <option value="typescript">TypeScript security</option>
+          <option value="php">PHP security</option>
+          <option value="java">Java security</option>
+          <option value="golang">Go security</option>
+          <option value="react">React security</option>
+          <option value="docker">Docker / container</option>
+          <option value="terraform">Terraform / IaC</option>
+          <option value="secrets">Secrets detection</option>
+        </select>
+
+        <span class="sca-toggle-link" onclick="scaToggleCustomRules()">&#9881; Use custom YAML rules</span>
+        <div id="scaCustomBox" class="sca-custom-box" style="display:none">
+          <div class="sca-label">Custom Rules (YAML)</div>
+          <textarea id="scaCustomRules" class="sca-textarea">rules:
+  - id: no-hardcoded-secrets
+    patterns:
+      - pattern: $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (password|secret|api_key|token|passwd)
+    message: Potential hardcoded secret in variable '$VAR'
+    languages: [python, javascript, java, go]
+    severity: ERROR</textarea>
+        </div>
+
+        <button class="sca-btn" id="scaRunBtn" onclick="scaRun()">&#128269; Run Scan</button>
+      </div>
+    </div>
+
+    <!-- Right panel: results -->
+    <div class="sca-results-panel" id="scaResultsPanel">
+      <div class="sca-empty" id="scaEmpty">
+        <div class="sca-empty-icon">&#128202;</div>
+        <div class="sca-empty-text">Upload files and click <strong>Run Scan</strong> to see findings.</div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /page-sca -->
 
   <!-- ══ SCAN RESULTS PAGE ══════════════════════════════════════════════════ -->
   <div id="page-targets" class="page-section" style="display:none">
@@ -7361,6 +7498,7 @@ function _applySidebarAccess() {
     'sb-weaknesses':'weaknesses','sb-inventories':'inventories','sb-targets':'targets',
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
     'sb-scan':'scan','sb-history':'history','sb-pentest':'pentest','sb-grc':'grc',
+    'sb-sca':'sca',
   };
 
   Object.keys(_SB_MAP).forEach(function(id) {
@@ -13181,6 +13319,7 @@ var _ALL_PAGES = [
     { key: 'targets',        label: 'Scan Results' },
     { key: 'history',        label: 'Scan Analytics' },
     { key: 'pentest',        label: 'Generate Pentest Report' },
+    { key: 'sca',            label: 'Static Code Analysis' },
   ]},
 ];
 
@@ -16806,6 +16945,12 @@ function grcExport() {
       subtitle: 'Data Protection Statement',
       desc: 'Data collection and privacy practices. Explains what personal data is collected, how it is used, retention periods, third-party sharing, and your rights under Indonesian UU PDP and GDPR principles.',
       tips: ['Scan target data is stored locally on your server — not sent to Anthropic','API keys are stored in server environment variables, never in the database','Contact the DPO email listed for any data deletion or portability requests']
+    },
+    sca: {
+      title: 'Static Code Analysis',
+      subtitle: 'Semgrep Security Scanning',
+      desc: 'Upload source code files and scan them with semgrep for security vulnerabilities, dangerous patterns, secrets, and custom rules. Supports Python, JavaScript, TypeScript, PHP, Java, Go, and more.',
+      tips: ['Use "auto" ruleset for automatic language detection and default security rules','Upload multiple files at once — the scan runs across all of them','Write custom YAML rules to detect project-specific anti-patterns or policy violations']
     }
   };
 
@@ -16837,6 +16982,157 @@ function grcExport() {
     document.getElementById('page-info-backdrop').style.display = 'none';
     document.getElementById('page-info-modal').style.display = 'none';
   };
+
+  // ── Static Code Analysis (SCA) ─────────────────────────────────────────────
+  var _scaFiles = [];
+
+  window.scaDragOver = function(e) {
+    e.preventDefault();
+    document.getElementById('scaDropZone').classList.add('drag-over');
+  };
+
+  window.scaDrop = function(e) {
+    e.preventDefault();
+    document.getElementById('scaDropZone').classList.remove('drag-over');
+    var dt = e.dataTransfer;
+    if (dt && dt.files && dt.files.length) {
+      _scaFiles = Array.from(dt.files);
+      scaRenderFiles();
+    }
+  };
+
+  window.scaPickFiles = function() {
+    document.getElementById('scaFileInput').click();
+  };
+
+  window.scaRenderFiles = function() {
+    var input = document.getElementById('scaFileInput');
+    if (input.files && input.files.length) {
+      _scaFiles = Array.from(input.files);
+    }
+    var list = document.getElementById('scaFileList');
+    if (!_scaFiles.length) { list.innerHTML = ''; return; }
+    list.innerHTML = _scaFiles.map(function(f) {
+      return '<div class="sca-file-item"><span>&#128196; ' + f.name + '</span>' +
+             '<small style="color:#94a3b8">' + (f.size > 1024 ? (f.size/1024).toFixed(1)+'KB' : f.size+'B') + '</small></div>';
+    }).join('');
+  };
+
+  window.scaToggleCustomRules = function() {
+    var box = document.getElementById('scaCustomBox');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  };
+
+  window.scaRun = function() {
+    if (!_scaFiles.length) {
+      alert('Please upload at least one file before scanning.');
+      return;
+    }
+    var btn = document.getElementById('scaRunBtn');
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+
+    var panel = document.getElementById('scaResultsPanel');
+    panel.innerHTML = '<div class="sca-loading"><div class="sca-spinner"></div>' +
+      '<div style="font-size:13px;color:var(--c5)">Running semgrep — this may take a moment…</div></div>';
+
+    var fd = new FormData();
+    _scaFiles.forEach(function(f) { fd.append('files', f, f.name); });
+    fd.append('ruleset', document.getElementById('scaRuleset').value);
+    var customBox = document.getElementById('scaCustomBox');
+    if (customBox.style.display !== 'none') {
+      fd.append('custom_rules', document.getElementById('scaCustomRules').value);
+    }
+
+    fetch('/api/sca/scan', { method: 'POST', body: fd })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = '🔍 Run Scan';
+        scaRenderResults(data);
+      })
+      .catch(function(err) {
+        btn.disabled = false;
+        btn.textContent = '🔍 Run Scan';
+        panel.innerHTML = '<div class="sca-error-box">Network error: ' + err.message + '</div>';
+      });
+  };
+
+  window.scaSeverityBadge = function(sev) {
+    sev = (sev || 'INFO').toUpperCase();
+    if (sev === 'ERROR')   return '<span class="sca-badge-error">ERROR</span>';
+    if (sev === 'WARNING') return '<span class="sca-badge-warning">WARNING</span>';
+    if (sev === 'LOW')     return '<span class="sca-badge-low">LOW</span>';
+    return '<span class="sca-badge-info">INFO</span>';
+  };
+
+  window.scaRenderResults = function(data) {
+    var panel = document.getElementById('scaResultsPanel');
+    if (!data.ok) {
+      var errMsg = data.error || 'Unknown error';
+      var extra = '';
+      if (errMsg.indexOf('semgrep not installed') !== -1) {
+        extra = '<code>pip install semgrep</code>' +
+          '<div style="margin-top:8px;font-size:11px;color:#92400e">After installing, restart the Flask server.</div>';
+      } else if (data.stderr) {
+        extra = '<code>' + data.stderr + '</code>';
+      }
+      panel.innerHTML = '<div class="sca-error-box">&#9888; ' + errMsg + extra + '</div>';
+      return;
+    }
+
+    var findings = data.findings || [];
+    var errCount  = findings.filter(function(f){ return (f.extra && f.extra.severity || '').toUpperCase() === 'ERROR'; }).length;
+    var warnCount = findings.filter(function(f){ return (f.extra && f.extra.severity || '').toUpperCase() === 'WARNING'; }).length;
+    var infoCount = findings.length - errCount - warnCount;
+
+    var statsHtml = '<div class="sca-stats-row">' +
+      '<div class="sca-stat-box"><div class="sca-stat-num">' + findings.length + '</div><div class="sca-stat-label">Total Findings</div></div>' +
+      '<div class="sca-stat-box error-box"><div class="sca-stat-num">' + errCount + '</div><div class="sca-stat-label">ERROR</div></div>' +
+      '<div class="sca-stat-box warn-box"><div class="sca-stat-num">' + warnCount + '</div><div class="sca-stat-label">WARNING</div></div>' +
+      '<div class="sca-stat-box info-box"><div class="sca-stat-num">' + infoCount + '</div><div class="sca-stat-label">INFO / LOW</div></div>' +
+    '</div>';
+
+    if (!findings.length) {
+      var versionNote = data.version ? ' <span style="font-size:10px;color:var(--c8)">semgrep v' + data.version + '</span>' : '';
+      panel.innerHTML = statsHtml +
+        '<div class="sca-empty"><div class="sca-empty-icon">&#10003;</div>' +
+        '<div class="sca-empty-text"><strong>No findings detected.</strong>' + versionNote + '<br>' +
+        'Your code passed all rules in the selected ruleset.</div></div>';
+      return;
+    }
+
+    var rows = findings.map(function(f) {
+      var sev    = (f.extra && f.extra.severity) ? f.extra.severity : 'INFO';
+      var file   = f.path || '';
+      var line   = (f.start && f.start.line) ? f.start.line : '';
+      var ruleId = f.check_id || '';
+      var msg    = (f.extra && f.extra.message) ? f.extra.message : '';
+      var snippet = (f.extra && f.extra.lines) ? f.extra.lines.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+      return '<tr class="sca-finding-row">' +
+        '<td>' + scaSeverityBadge(sev) + '</td>' +
+        '<td class="sca-location">' + file + (line ? ':' + line : '') + '</td>' +
+        '<td class="sca-rule-id">' + ruleId + '</td>' +
+        '<td><div class="sca-msg">' + msg + '</div>' +
+          (snippet ? '<code class="sca-code">' + snippet + '</code>' : '') +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    var versionBadge = data.version ? '<span style="font-size:10px;color:var(--c5);margin-left:8px;">semgrep v' + data.version + '</span>' : '';
+    panel.innerHTML = statsHtml +
+      '<div class="sca-table-wrap">' +
+      '<div style="padding:10px 14px 0;font-size:13px;font-weight:700;color:var(--c1)">' +
+        findings.length + ' Finding' + (findings.length !== 1 ? 's' : '') + versionBadge +
+      '</div>' +
+      '<table class="sca-table"><thead><tr>' +
+        '<th style="width:80px">Severity</th>' +
+        '<th style="width:180px">File : Line</th>' +
+        '<th style="width:220px">Rule ID</th>' +
+        '<th>Message / Snippet</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  };
+
 })();
 </script>
 <script>

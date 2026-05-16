@@ -8807,6 +8807,66 @@ def api_admin_cancel_subscription(sub_id):
     return jsonify({'ok': True})
 
 
+@app.route('/api/sca/scan', methods=['POST'])
+@login_required
+def api_sca_scan():
+    import tempfile, subprocess as _sp, json as _json
+    from werkzeug.utils import secure_filename as _sf
+
+    files   = request.files.getlist('files')
+    ruleset = request.form.get('ruleset', 'auto')
+    custom  = request.form.get('custom_rules', '').strip()
+
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({'ok': False, 'error': 'No files uploaded'}), 400
+
+    with tempfile.TemporaryDirectory() as tdir:
+        saved = []
+        for f in files:
+            name = _sf(f.filename) or 'upload.txt'
+            path = os.path.join(tdir, name)
+            f.save(path)
+            saved.append(path)
+
+        cmd = ['semgrep', '--json', '--quiet', '--no-git-ignore']
+
+        if custom:
+            rfile = os.path.join(tdir, '_rules.yaml')
+            with open(rfile, 'w') as rf:
+                rf.write(custom)
+            cmd += ['--config', rfile]
+        elif ruleset == 'auto':
+            cmd += ['--config', 'auto']
+        else:
+            cmd += ['--config', f'p/{ruleset}']
+
+        cmd.append(tdir)
+
+        try:
+            res = _sp.run(cmd, capture_output=True, text=True, timeout=180)
+            try:
+                data = _json.loads(res.stdout)
+            except _json.JSONDecodeError:
+                return jsonify({'ok': False, 'error': 'Semgrep output could not be parsed',
+                                'stderr': res.stderr[:400]}), 500
+            findings = data.get('results', [])
+            # Strip temp dir prefix from file paths
+            for r in findings:
+                r['path'] = os.path.basename(r.get('path', ''))
+            return jsonify({'ok': True,
+                            'findings': findings,
+                            'errors':   data.get('errors', []),
+                            'stats':    data.get('stats', {}),
+                            'version':  data.get('version', '')})
+        except FileNotFoundError:
+            return jsonify({'ok': False,
+                            'error': 'semgrep not installed on this server. Run: pip install semgrep'}), 503
+        except _sp.TimeoutExpired:
+            return jsonify({'ok': False, 'error': 'Scan timed out (>180s)'}), 504
+        except Exception as exc:
+            return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('CFAI_DASHBOARD_PORT', 8889))
     print(f'CF_AI Dashboard running on http://0.0.0.0:{port}')
