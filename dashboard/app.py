@@ -9613,29 +9613,63 @@ def api_admin_cancel_subscription(sub_id):
 
 
 def _semgrep_bin():
-    """Return path to semgrep binary, checking pipx and common locations."""
-    import shutil as _sh
-    for candidate in [
+    """Return path to semgrep binary, checking pipx, venv, and common locations."""
+    import shutil as _sh, subprocess as _sp_sg, sys as _sys_sg
+    candidates = [
         '/root/.local/bin/semgrep',
+        '/root/.local/share/pipx/venvs/semgrep/bin/semgrep',
+        '/home/' + (os.environ.get('SUDO_USER') or 'root') + '/.local/bin/semgrep',
         '/usr/local/bin/semgrep',
         '/usr/bin/semgrep',
         _sh.which('semgrep') or '',
-    ]:
-        if candidate and os.path.isfile(candidate):
-            return candidate
+    ]
+    # Also try `which semgrep` via subprocess (honours runtime PATH)
+    try:
+        r = _sp_sg.run(['which', 'semgrep'], capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            candidates.insert(0, r.stdout.strip())
+    except Exception:
+        pass
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    # Last resort: python -m semgrep (same interpreter)
+    try:
+        r = _sp_sg.run([_sys_sg.executable, '-m', 'semgrep', '--version'],
+                       capture_output=True, text=True, timeout=10)
+        if r.returncode == 0:
+            return _sys_sg.executable + ' -m semgrep'
+    except Exception:
+        pass
     return None
+
+
+def _semgrep_cmd(extra_args=None):
+    """Return a list suitable for subprocess for semgrep + extra_args."""
+    import sys as _sys_sc
+    bin_path = _semgrep_bin()
+    if not bin_path:
+        return None
+    if ' -m semgrep' in bin_path:
+        cmd = [_sys_sc.executable, '-m', 'semgrep']
+    else:
+        cmd = [bin_path]
+    if extra_args:
+        cmd += extra_args
+    return cmd
 
 
 @app.route('/api/sca/check', methods=['GET'])
 @login_required
 def api_sca_check():
     import subprocess as _sp
-    bin_path = _semgrep_bin()
-    if not bin_path:
+    cmd = _semgrep_cmd(['--version'])
+    if not cmd:
         return jsonify({'installed': False})
     try:
-        r = _sp.run([bin_path, '--version'], capture_output=True, text=True, timeout=10)
-        return jsonify({'installed': True, 'version': r.stdout.strip()})
+        r = _sp.run(cmd, capture_output=True, text=True, timeout=10)
+        version = (r.stdout or r.stderr or '').strip().split('\n')[0]
+        return jsonify({'installed': True, 'version': version})
     except Exception:
         return jsonify({'installed': False})
 
@@ -9684,11 +9718,10 @@ def api_sca_scan():
             f.save(path)
             saved.append(path)
 
-        semgrep_bin = _semgrep_bin()
-        if not semgrep_bin:
+        cmd = _semgrep_cmd(['--json', '--quiet', '--no-git-ignore'])
+        if not cmd:
             return jsonify({'ok': False,
                             'error': 'semgrep not installed on this server. Run: pipx install semgrep'}), 503
-        cmd = [semgrep_bin, '--json', '--quiet', '--no-git-ignore']
 
         if custom:
             rfile = os.path.join(tdir, '_rules.yaml')

@@ -17869,7 +17869,7 @@ function grcExport() {
       } else if (e.data.startsWith('__ERROR__')) {
         es.close();
         if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
-        if (log) log.textContent = e.data.replace('__ERROR__', '⚠');
+        if (log) log.textContent = e.data.replace('__ERROR__', 'Error:');
       } else {
         if (log) log.textContent = e.data.slice(-80);
       }
@@ -17902,12 +17902,12 @@ function grcExport() {
       .then(function(r) { return r.json(); })
       .then(function(data) {
         btn.disabled = false;
-        btn.textContent = '🔍 Run Scan';
+        btn.textContent = 'Run Scan';
         scaRenderResults(data);
       })
       .catch(function(err) {
         btn.disabled = false;
-        btn.textContent = '🔍 Run Scan';
+        btn.textContent = 'Run Scan';
         panel.innerHTML = '<div class="sca-error-box">Network error: ' + err.message + '</div>';
       });
   };
@@ -17942,15 +17942,15 @@ function grcExport() {
 
     var statsHtml = '<div class="sca-stats-row">' +
       '<div class="sca-stat-box"><div class="sca-stat-num">' + findings.length + '</div><div class="sca-stat-label">Total Findings</div></div>' +
-      '<div class="sca-stat-box error-box"><div class="sca-stat-num">' + errCount + '</div><div class="sca-stat-label">ERROR</div></div>' +
-      '<div class="sca-stat-box warn-box"><div class="sca-stat-num">' + warnCount + '</div><div class="sca-stat-label">WARNING</div></div>' +
-      '<div class="sca-stat-box info-box"><div class="sca-stat-num">' + infoCount + '</div><div class="sca-stat-label">INFO / LOW</div></div>' +
+      '<div class="sca-stat-box"><div class="sca-stat-num" style="color:#dc2626">' + errCount + '</div><div class="sca-stat-label">ERROR</div></div>' +
+      '<div class="sca-stat-box"><div class="sca-stat-num" style="color:#d97706">' + warnCount + '</div><div class="sca-stat-label">WARNING</div></div>' +
+      '<div class="sca-stat-box"><div class="sca-stat-num" style="color:var(--c4)">' + infoCount + '</div><div class="sca-stat-label">INFO / LOW</div></div>' +
     '</div>';
 
     if (!findings.length) {
       var versionNote = data.version ? ' <span style="font-size:10px;color:var(--c8)">semgrep v' + data.version + '</span>' : '';
       panel.innerHTML = statsHtml +
-        '<div class="sca-empty"><div class="sca-empty-icon">&#10003;</div>' +
+        '<div class="sca-empty">' +
         '<div class="sca-empty-text"><strong>No findings detected.</strong>' + versionNote + '<br>' +
         'Your code passed all rules in the selected ruleset.</div></div>';
       return;
