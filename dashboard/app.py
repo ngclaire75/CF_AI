@@ -9612,14 +9612,31 @@ def api_admin_cancel_subscription(sub_id):
     return jsonify({'ok': True})
 
 
+def _semgrep_bin():
+    """Return path to semgrep binary, checking pipx and common locations."""
+    import shutil as _sh
+    for candidate in [
+        '/root/.local/bin/semgrep',
+        '/usr/local/bin/semgrep',
+        '/usr/bin/semgrep',
+        _sh.which('semgrep') or '',
+    ]:
+        if candidate and os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 @app.route('/api/sca/check', methods=['GET'])
 @login_required
 def api_sca_check():
     import subprocess as _sp
+    bin_path = _semgrep_bin()
+    if not bin_path:
+        return jsonify({'installed': False})
     try:
-        r = _sp.run(['semgrep', '--version'], capture_output=True, text=True, timeout=10)
+        r = _sp.run([bin_path, '--version'], capture_output=True, text=True, timeout=10)
         return jsonify({'installed': True, 'version': r.stdout.strip()})
-    except FileNotFoundError:
+    except Exception:
         return jsonify({'installed': False})
 
 
@@ -9667,7 +9684,11 @@ def api_sca_scan():
             f.save(path)
             saved.append(path)
 
-        cmd = ['semgrep', '--json', '--quiet', '--no-git-ignore']
+        semgrep_bin = _semgrep_bin()
+        if not semgrep_bin:
+            return jsonify({'ok': False,
+                            'error': 'semgrep not installed on this server. Run: pipx install semgrep'}), 503
+        cmd = [semgrep_bin, '--json', '--quiet', '--no-git-ignore']
 
         if custom:
             rfile = os.path.join(tdir, '_rules.yaml')
@@ -9697,9 +9718,6 @@ def api_sca_scan():
                             'errors':   data.get('errors', []),
                             'stats':    data.get('stats', {}),
                             'version':  data.get('version', '')})
-        except FileNotFoundError:
-            return jsonify({'ok': False,
-                            'error': 'semgrep not installed on this server. Run: pip install semgrep'}), 503
         except _sp.TimeoutExpired:
             return jsonify({'ok': False, 'error': 'Scan timed out (>180s)'}), 504
         except Exception as exc:
