@@ -3206,6 +3206,11 @@ Export Power BI
   <div class="sca-header">
     <div class="sca-title">Static Code Analysis <span class="sca-semgrep-badge">powered by semgrep</span></div>
     <div class="sca-subtitle">Upload source files to scan for security vulnerabilities, code quality issues, and custom patterns.</div>
+    <div id="scaInstallBanner" style="display:none;margin-top:10px;padding:10px 16px;background:#fefce8;border:1px solid #fde047;border-radius:8px;font-size:12px;color:#713f12;display:flex;align-items:center;gap:12px;">
+      <span>&#9888; semgrep is not installed on this server.</span>
+      <button onclick="scaInstall()" id="scaInstallBtn" style="background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:4px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Install Now</button>
+      <span id="scaInstallLog" style="font-family:monospace;font-size:11px;color:#1e3a8a;"></span>
+    </div>
   </div>
 
   <div class="sca-wrap">
@@ -17021,6 +17026,38 @@ function grcExport() {
   window.scaToggleCustomRules = function() {
     var box = document.getElementById('scaCustomBox');
     box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  };
+
+  window.scaCheck = function() {
+    fetch('/api/sca/check').then(function(r){ return r.json(); }).then(function(d) {
+      var banner = document.getElementById('scaInstallBanner');
+      if (banner) banner.style.display = d.installed ? 'none' : 'flex';
+      var badge = document.querySelector('.sca-semgrep-badge');
+      if (badge && d.installed && d.version) badge.textContent = 'semgrep ' + d.version;
+    }).catch(function(){});
+  };
+
+  window.scaInstall = function() {
+    var btn = document.getElementById('scaInstallBtn');
+    var log = document.getElementById('scaInstallLog');
+    if (btn) { btn.disabled = true; btn.textContent = 'Installing…'; }
+    if (log) log.textContent = '';
+    var es = new EventSource('/api/sca/install');
+    es.onmessage = function(e) {
+      if (e.data === '__DONE__') {
+        es.close();
+        if (btn) { btn.textContent = '✓ Installed'; btn.style.background = '#16a34a'; }
+        if (log) log.textContent = 'Done — semgrep ready.';
+        setTimeout(window.scaCheck, 500);
+      } else if (e.data.startsWith('__ERROR__')) {
+        es.close();
+        if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
+        if (log) log.textContent = e.data.replace('__ERROR__', '⚠');
+      } else {
+        if (log) log.textContent = e.data.slice(-80);
+      }
+    };
+    es.onerror = function() { es.close(); if (btn) { btn.disabled = false; btn.textContent = 'Retry'; } };
   };
 
   window.scaRun = function() {

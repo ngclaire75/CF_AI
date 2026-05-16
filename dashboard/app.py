@@ -8807,6 +8807,40 @@ def api_admin_cancel_subscription(sub_id):
     return jsonify({'ok': True})
 
 
+@app.route('/api/sca/check', methods=['GET'])
+@login_required
+def api_sca_check():
+    import subprocess as _sp
+    try:
+        r = _sp.run(['semgrep', '--version'], capture_output=True, text=True, timeout=10)
+        return jsonify({'installed': True, 'version': r.stdout.strip()})
+    except FileNotFoundError:
+        return jsonify({'installed': False})
+
+
+@app.route('/api/sca/install', methods=['POST'])
+@login_required
+def api_sca_install():
+    import subprocess as _sp
+    import sys as _sys
+    def _gen():
+        try:
+            proc = _sp.Popen(
+                [_sys.executable, '-m', 'pip', 'install', '--upgrade', 'semgrep'],
+                stdout=_sp.PIPE, stderr=_sp.STDOUT, text=True
+            )
+            for line in proc.stdout:
+                yield f"data: {line.rstrip()}\n\n"
+            proc.wait()
+            if proc.returncode == 0:
+                yield "data: __DONE__\n\n"
+            else:
+                yield f"data: __ERROR__ Exit code {proc.returncode}\n\n"
+        except Exception as exc:
+            yield f"data: __ERROR__ {exc}\n\n"
+    return Response(stream_with_context(_gen()), content_type='text/event-stream')
+
+
 @app.route('/api/sca/scan', methods=['POST'])
 @login_required
 def api_sca_scan():
