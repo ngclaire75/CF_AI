@@ -1838,7 +1838,8 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .url-input:focus { border-color:var(--c5); }
 .agent-select { height:34px; padding:0 10px; border:1px solid var(--c8); border-radius:6px;
   font-size:12px; font-family:var(--font); color:var(--c0); background:var(--c11); outline:none;
-  min-width:200px; }
+  min-width:200px; scrollbar-width:none; -ms-overflow-style:none; }
+.agent-select::-webkit-scrollbar { display:none; }
 .btn-connect { height:34px; padding:0 18px; background:var(--c4); color:var(--c11);
   border:1px solid var(--c4); border-radius:6px; font-size:13px; font-weight:600;
   cursor:pointer; font-family:var(--font); white-space:nowrap; }
@@ -17943,7 +17944,7 @@ function grcExport() {
     var statsHtml = '<div class="sca-stats-row">' +
       '<div class="sca-stat-box"><div class="sca-stat-num">' + findings.length + '</div><div class="sca-stat-label">Total Findings</div></div>' +
       '<div class="sca-stat-box"><div class="sca-stat-num" style="color:#dc2626">' + errCount + '</div><div class="sca-stat-label">ERROR</div></div>' +
-      '<div class="sca-stat-box"><div class="sca-stat-num" style="color:#d97706">' + warnCount + '</div><div class="sca-stat-label">WARNING</div></div>' +
+      '<div class="sca-stat-box"><div class="sca-stat-num" style="color:#2563eb">' + warnCount + '</div><div class="sca-stat-label">WARNING</div></div>' +
       '<div class="sca-stat-box"><div class="sca-stat-num" style="color:var(--c4)">' + infoCount + '</div><div class="sca-stat-label">INFO / LOW</div></div>' +
     '</div>';
 
