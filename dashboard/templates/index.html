@@ -3052,11 +3052,26 @@ Export Power BI
               <label class="cred-label">Connection Type</label>
               <select id="cwCredType" class="cred-select" onchange="cwUpdateCredFields()">
                 <option value="none">No credentials (public scan)</option>
-                <option value="wordpress">WordPress Admin</option>
-                <option value="cpanel">cPanel Hosting</option>
-                <option value="ssh">SSH / Root Access</option>
-                <option value="sftp">SFTP / FTP</option>
-                <option value="mysql">MySQL / Database</option>
+                <optgroup label="CMS / Web Platforms">
+                  <option value="wordpress">WordPress</option>
+                  <option value="drupal">Drupal</option>
+                  <option value="joomla">Joomla</option>
+                  <option value="generic">Generic Web App (Laravel / Django / Flask / custom)</option>
+                </optgroup>
+                <optgroup label="Hosting Panels">
+                  <option value="cpanel">cPanel</option>
+                  <option value="plesk">Plesk</option>
+                  <option value="ssh">SSH / Root Access</option>
+                  <option value="sftp">SFTP / FTP</option>
+                </optgroup>
+                <optgroup label="Databases">
+                  <option value="mysql">MySQL / MariaDB</option>
+                  <option value="postgresql">PostgreSQL</option>
+                  <option value="mongodb">MongoDB</option>
+                  <option value="firebase">Firebase / Firestore</option>
+                  <option value="redis">Redis</option>
+                  <option value="mssql">Microsoft SQL Server</option>
+                </optgroup>
               </select>
             </div>
           </div>
@@ -3115,6 +3130,143 @@ Export Power BI
               <div><label class="cred-label">Table Prefix</label><input type="text" id="cwDbPrefix" class="cred-input" placeholder="wp_" style="width:80px;" autocomplete="off"/></div>
             </div>
             <div class="cred-hint">Reads wp_simple_history and similar log tables directly. Enable Remote MySQL in Hostinger hPanel → Databases → Remote MySQL and add your IP.</div>
+          </div>
+
+          <!-- Drupal fields -->
+          <div id="cred-drupal" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">Admin URL</label><input type="text" id="cwDrupalUrl" class="cred-input" placeholder="https://yourdomain.com" autocomplete="off"/></div>
+              <div><label class="cred-label">Username</label><input type="text" id="cwDrupalUser" class="cred-input" placeholder="admin" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwDrupalPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+            </div>
+            <div class="cred-hint">Authenticates via Drupal's JSON:API to audit installed modules, user roles, update status, and security configuration.</div>
+          </div>
+
+          <!-- Joomla fields -->
+          <div id="cred-joomla" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">Username</label><input type="text" id="cwJoomlaUser" class="cred-input" placeholder="admin" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwJoomlaPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">API Token <span style="font-weight:400;color:#60a5fa;">(Joomla 4+, optional)</span></label><input type="password" id="cwJoomlaToken" class="cred-input" placeholder="token from User Manager" autocomplete="new-password"/></div>
+            </div>
+            <div class="cred-hint">Connects via Joomla Web Services API to audit extensions, user accounts, 2FA status, and core security settings.</div>
+          </div>
+
+          <!-- Generic Web App fields -->
+          <div id="cred-generic" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div style="flex:2"><label class="cred-label">Admin Login URL</label><input type="text" id="cwGenUrl" class="cred-input" placeholder="https://yourdomain.com/admin/login" autocomplete="off"/></div>
+              <div><label class="cred-label">Username / Email</label><input type="text" id="cwGenUser" class="cred-input" placeholder="admin@domain.com" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwGenPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+            </div>
+            <div class="cred-row" style="margin-top:8px;">
+              <div><label class="cred-label">API Key / Bearer Token <span style="font-weight:400;color:#60a5fa;">(optional)</span></label><input type="password" id="cwGenApiKey" class="cred-input" placeholder="Bearer token or API key" autocomplete="new-password"/></div>
+              <div><label class="cred-label">Framework</label>
+                <select id="cwGenFramework" class="cred-input">
+                  <option value="auto">Auto-detect</option>
+                  <option value="laravel">Laravel</option>
+                  <option value="django">Django</option>
+                  <option value="flask">Flask</option>
+                  <option value="rails">Ruby on Rails</option>
+                  <option value="express">Node / Express</option>
+                  <option value="nextjs">Next.js</option>
+                  <option value="custom">Custom CMS</option>
+                </select>
+              </div>
+            </div>
+            <div class="cred-hint">For any web application with a login page. The agent will attempt form-based authentication and check for common security misconfigurations.</div>
+          </div>
+
+          <!-- Plesk fields -->
+          <div id="cred-plesk" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">Plesk Host</label><input type="text" id="cwPleskHost" class="cred-input" placeholder="server.yourdomain.com" autocomplete="off"/></div>
+              <div><label class="cred-label">Username</label><input type="text" id="cwPleskUser" class="cred-input" placeholder="admin" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwPleskPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">Port</label><input type="text" id="cwPleskPort" class="cred-input" placeholder="8443" style="width:70px;" autocomplete="off"/></div>
+            </div>
+            <div class="cred-hint">Connects via Plesk REST API (port 8443) to audit hosted domains, SSL certificates, PHP versions, and server configuration.</div>
+          </div>
+
+          <!-- PostgreSQL fields -->
+          <div id="cred-postgresql" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">Host</label><input type="text" id="cwPgHost" class="cred-input" placeholder="localhost" autocomplete="off"/></div>
+              <div><label class="cred-label">Port</label><input type="text" id="cwPgPort" class="cred-input" placeholder="5432" style="width:70px;" autocomplete="off"/></div>
+              <div><label class="cred-label">Database</label><input type="text" id="cwPgName" class="cred-input" placeholder="mydb" autocomplete="off"/></div>
+            </div>
+            <div class="cred-row" style="margin-top:8px;">
+              <div><label class="cred-label">Username</label><input type="text" id="cwPgUser" class="cred-input" placeholder="postgres" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwPgPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">SSL Mode</label>
+                <select id="cwPgSsl" class="cred-input" style="width:110px;">
+                  <option value="prefer">prefer</option>
+                  <option value="require">require</option>
+                  <option value="disable">disable</option>
+                </select>
+              </div>
+            </div>
+            <div class="cred-hint">Audits PostgreSQL for weak roles, excessive public schema privileges, unencrypted connections, and dangerous extensions.</div>
+          </div>
+
+          <!-- MongoDB fields -->
+          <div id="cred-mongodb" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div style="flex:2"><label class="cred-label">Connection URI <span style="font-weight:400;color:#60a5fa;">(or fill fields below)</span></label><input type="text" id="cwMongoUri" class="cred-input" placeholder="mongodb://user:pass@host:27017/dbname" autocomplete="off"/></div>
+            </div>
+            <div class="cred-row" style="margin-top:8px;">
+              <div><label class="cred-label">Host</label><input type="text" id="cwMongoHost" class="cred-input" placeholder="localhost" autocomplete="off"/></div>
+              <div><label class="cred-label">Port</label><input type="text" id="cwMongoPort" class="cred-input" placeholder="27017" style="width:70px;" autocomplete="off"/></div>
+              <div><label class="cred-label">Database</label><input type="text" id="cwMongoDb" class="cred-input" placeholder="mydb" autocomplete="off"/></div>
+              <div><label class="cred-label">Username</label><input type="text" id="cwMongoUser" class="cred-input" placeholder="mongouser" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwMongoPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+            </div>
+            <div class="cred-hint">Checks for unauthenticated access, world-readable collections, missing auth enforcement, and exposed admin interfaces on port 27017.</div>
+          </div>
+
+          <!-- Firebase fields -->
+          <div id="cred-firebase" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">Project ID</label><input type="text" id="cwFbProject" class="cred-input" placeholder="my-project-id" autocomplete="off"/></div>
+              <div style="flex:2"><label class="cred-label">Database URL <span style="font-weight:400;color:#60a5fa;">(optional)</span></label><input type="text" id="cwFbDbUrl" class="cred-input" placeholder="https://my-project-default-rtdb.firebaseio.com" autocomplete="off"/></div>
+            </div>
+            <div class="cred-row" style="margin-top:8px;">
+              <div><label class="cred-label">API Key <span style="font-weight:400;color:#60a5fa;">(Web API key)</span></label><input type="password" id="cwFbApiKey" class="cred-input" placeholder="AIzaSy..." autocomplete="new-password"/></div>
+              <div style="flex:2"><label class="cred-label">Service Account JSON <span style="font-weight:400;color:#60a5fa;">(paste contents for full audit)</span></label><textarea id="cwFbJson" class="cred-input" rows="2" placeholder='{"type":"service_account","project_id":"...","private_key":"..."}' style="height:52px;resize:none;font-family:monospace;font-size:10px;"></textarea></div>
+            </div>
+            <div class="cred-hint">Audits Firestore/Realtime DB security rules, unauthenticated read/write access, Storage bucket permissions, and Auth provider configuration.</div>
+          </div>
+
+          <!-- Redis fields -->
+          <div id="cred-redis" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">Host</label><input type="text" id="cwRedisHost" class="cred-input" placeholder="localhost" autocomplete="off"/></div>
+              <div><label class="cred-label">Port</label><input type="text" id="cwRedisPort" class="cred-input" placeholder="6379" style="width:70px;" autocomplete="off"/></div>
+              <div><label class="cred-label">Password <span style="font-weight:400;color:#60a5fa;">(optional)</span></label><input type="password" id="cwRedisPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">DB Index</label><input type="text" id="cwRedisDb" class="cred-input" placeholder="0" style="width:60px;" autocomplete="off"/></div>
+            </div>
+            <div class="cred-hint">Tests for no-auth access, protected-mode disabled, dangerous commands (KEYS, FLUSHALL, CONFIG), and sensitive session/token data exposure.</div>
+          </div>
+
+          <!-- MSSQL fields -->
+          <div id="cred-mssql" class="cred-group" style="display:none;">
+            <div class="cred-row">
+              <div><label class="cred-label">Host / Server</label><input type="text" id="cwMssqlHost" class="cred-input" placeholder="server.database.windows.net" autocomplete="off"/></div>
+              <div><label class="cred-label">Port</label><input type="text" id="cwMssqlPort" class="cred-input" placeholder="1433" style="width:70px;" autocomplete="off"/></div>
+              <div><label class="cred-label">Database</label><input type="text" id="cwMssqlDb" class="cred-input" placeholder="mydb" autocomplete="off"/></div>
+            </div>
+            <div class="cred-row" style="margin-top:8px;">
+              <div><label class="cred-label">Username</label><input type="text" id="cwMssqlUser" class="cred-input" placeholder="sa" autocomplete="off"/></div>
+              <div><label class="cred-label">Password</label><input type="password" id="cwMssqlPass" class="cred-input" placeholder="••••••••" autocomplete="new-password"/></div>
+              <div><label class="cred-label">Auth Type</label>
+                <select id="cwMssqlAuth" class="cred-input" style="width:140px;">
+                  <option value="sql">SQL Server Auth</option>
+                  <option value="windows">Windows Auth</option>
+                  <option value="azure">Azure AD</option>
+                </select>
+              </div>
+            </div>
+            <div class="cred-hint">Audits SQL Server for weak sa accounts, xp_cmdshell enabled, linked servers, excessive sysadmin roles, and unencrypted connections.</div>
           </div>
 
           <div class="cred-notice">Credentials are used only for this scan session and are never stored in the database or transmitted externally.</div>
@@ -9485,9 +9637,13 @@ function cwToggleCreds() {
 }
 function cwUpdateCredFields() {
   var t = document.getElementById('cwCredType').value;
-  var map = {wordpress: 'wp', cpanel: 'cpanel', ssh: 'ssh', sftp: 'sftp', mysql: 'db'};
+  var map = {wordpress:'wp', cpanel:'cpanel', ssh:'ssh', sftp:'sftp', mysql:'db',
+             drupal:'drupal', joomla:'joomla', generic:'generic', plesk:'plesk',
+             postgresql:'postgresql', mongodb:'mongodb', firebase:'firebase',
+             redis:'redis', mssql:'mssql'};
   var key = map[t] || t;
-  ['wp','cpanel','ssh','sftp','db'].forEach(function(k){
+  ['wp','cpanel','ssh','sftp','db','drupal','joomla','generic','plesk',
+   'postgresql','mongodb','firebase','redis','mssql'].forEach(function(k){
     var el = document.getElementById('cred-' + k);
     if (el) el.style.display = (k === key) ? 'block' : 'none';
   });
@@ -9495,14 +9651,29 @@ function cwUpdateCredFields() {
 function cwGetCreds() {
   var t = document.getElementById('cwCredType').value;
   var g = function(id){ var el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+  var fbJsonEl = document.getElementById('cwFbJson');
   return {
-    site_type:   t,
-    wp_user:     g('cwWpUser'),   wp_pass:    g('cwWpPass'),   wp_app_pass: g('cwWpApp'),
-    cpanel_user: g('cwCpUser'),   cpanel_pass: g('cwCpPass'),
-    ssh_host:    g('cwSshHost'),  ssh_user:   g('cwSshUser'),  ssh_pass:    g('cwSshPass'), ssh_port: g('cwSshPort'),
-    ftp_host:    g('cwFtpHost'),  ftp_user:   g('cwFtpUser'),  ftp_pass:    g('cwFtpPass'), ftp_port: g('cwFtpPort'),
-    db_host:     g('cwDbHost'),   db_port:    g('cwDbPort'),   db_name:     g('cwDbName'),
-    db_user:     g('cwDbUser'),   db_pass:    g('cwDbPass'),   db_prefix:   g('cwDbPrefix'),
+    site_type:       t,
+    wp_user:         g('cwWpUser'),    wp_pass:       g('cwWpPass'),    wp_app_pass:   g('cwWpApp'),
+    cpanel_user:     g('cwCpUser'),    cpanel_pass:   g('cwCpPass'),
+    ssh_host:        g('cwSshHost'),   ssh_user:      g('cwSshUser'),   ssh_pass:      g('cwSshPass'),  ssh_port:     g('cwSshPort'),
+    ftp_host:        g('cwFtpHost'),   ftp_user:      g('cwFtpUser'),   ftp_pass:      g('cwFtpPass'),  ftp_port:     g('cwFtpPort'),
+    db_host:         g('cwDbHost'),    db_port:       g('cwDbPort'),    db_name:       g('cwDbName'),
+    db_user:         g('cwDbUser'),    db_pass:       g('cwDbPass'),    db_prefix:     g('cwDbPrefix'),
+    drupal_url:      g('cwDrupalUrl'), drupal_user:   g('cwDrupalUser'), drupal_pass:  g('cwDrupalPass'),
+    joomla_user:     g('cwJoomlaUser'), joomla_pass:  g('cwJoomlaPass'), joomla_token: g('cwJoomlaToken'),
+    gen_url:         g('cwGenUrl'),    gen_user:      g('cwGenUser'),   gen_pass:      g('cwGenPass'),
+    gen_api_key:     g('cwGenApiKey'), gen_framework: g('cwGenFramework'),
+    plesk_host:      g('cwPleskHost'), plesk_user:    g('cwPleskUser'), plesk_pass:    g('cwPleskPass'), plesk_port: g('cwPleskPort'),
+    pg_host:         g('cwPgHost'),    pg_port:       g('cwPgPort'),    pg_name:       g('cwPgName'),
+    pg_user:         g('cwPgUser'),    pg_pass:       g('cwPgPass'),    pg_ssl:        g('cwPgSsl'),
+    mongo_uri:       g('cwMongoUri'),  mongo_host:    g('cwMongoHost'), mongo_port:    g('cwMongoPort'),
+    mongo_db:        g('cwMongoDb'),   mongo_user:    g('cwMongoUser'), mongo_pass:    g('cwMongoPass'),
+    fb_project:      g('cwFbProject'), fb_db_url:     g('cwFbDbUrl'),  fb_api_key:    g('cwFbApiKey'),
+    fb_json:         fbJsonEl ? (fbJsonEl.value || '').trim() : '',
+    redis_host:      g('cwRedisHost'), redis_port:    g('cwRedisPort'), redis_pass:    g('cwRedisPass'), redis_db: g('cwRedisDb'),
+    mssql_host:      g('cwMssqlHost'), mssql_port:    g('cwMssqlPort'), mssql_db:      g('cwMssqlDb'),
+    mssql_user:      g('cwMssqlUser'), mssql_pass:    g('cwMssqlPass'), mssql_auth:    g('cwMssqlAuth'),
   };
 }
 
