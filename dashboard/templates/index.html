@@ -17772,8 +17772,32 @@ function grcExport() {
     sca: {
       title: 'Static Code Analysis',
       subtitle: 'Semgrep Security Scanning',
-      desc: 'Upload source code files and scan them with semgrep for security vulnerabilities, dangerous patterns, secrets, and custom rules. Supports Python, JavaScript, TypeScript, PHP, Java, Go, and more.',
-      tips: ['Use "auto" ruleset for automatic language detection and default security rules','Upload multiple files at once — the scan runs across all of them','Write custom YAML rules to detect project-specific anti-patterns or policy violations']
+      desc: 'Upload source code files and scan them with semgrep for security vulnerabilities, dangerous patterns, secrets, and custom rules. Supports Python, JavaScript, TypeScript, PHP, Java, Go, Ruby, and more. Results are grouped by severity (Error, Warning, Info) with file location and rule ID.',
+      tips: ['Use "auto" ruleset for automatic language detection and default security rules','Upload multiple files at once — the scan runs across all of them simultaneously','Write custom YAML rules to detect project-specific anti-patterns or policy violations']
+    },
+    dca: {
+      title: 'Dynamic Code Analysis',
+      subtitle: 'DAST — Runtime Security Testing',
+      desc: 'Proof-based dynamic application security testing against live targets. Runs Nikto, Nuclei, Wapiti, or OWASP ZAP against a URL and returns real findings with severity, affected URL, HTTP method, and description. Integrates with Jira, GitHub, Jenkins, and Azure DevOps to push findings directly into your workflow.',
+      tips: ['Select "Auto" scanner to use the best available tool installed on the server','Use the Test Connection button in each integration tab before pushing findings','Bulk-push findings to Jira or GitHub with the severity filter to skip low-priority items','Export findings as CSV or HTML report for executive or technical reporting']
+    },
+    filescan: {
+      title: 'File Scanner',
+      subtitle: 'Multi-Platform Security Scanner',
+      desc: 'HTTP-based security scanner supporting WordPress, Drupal, Joomla, Laravel, Django, Node.js, and generic web apps. Checks for exposed sensitive files (.env, config, backups), missing security headers (CSP, HSTS, X-Frame), and platform-specific vulnerabilities — no agent or plugin required.',
+      tips: ['Select the correct platform for targeted checks relevant to that framework','WordPress scans use the Wordfence vulnerability database via the WP REST API','Non-WordPress scans are HTTP-based and require no credentials or plugin installation']
+    },
+    logexplorer: {
+      title: 'Log Explorer',
+      subtitle: 'Analyze Real-Time Access Logs',
+      desc: 'Multi-source log analysis supporting Cloudflare WAF events, WordPress Simple History, MySQL direct access, Drupal Watchdog (JSON:API), Joomla Action Logs (Web Services API), and generic application logs via SSH. Filter, search, and export log entries across all connected sources.',
+      tips: ['Use the Drupal tab with your site URL and admin credentials to fetch watchdog logs','The App Logs (SSH) tab tails any log file on any server — useful for nginx, apache, or custom apps','Cloudflare tab requires your API token and Zone ID from the Cloudflare dashboard']
+    },
+    pluginlogs: {
+      title: 'Plugin & User Activity Logs',
+      subtitle: 'Multi-Platform Package & Activity Monitor',
+      desc: 'Inventory and activity logs across multiple platforms. WordPress fetches plugins via REST API, Drupal via JSON:API, Joomla via Web Services API. Composer, npm, and pip package lists are fetched via SSH from your server. User activity logs show admin actions, logins, and content changes.',
+      tips: ['Select the correct platform from the dropdown to see the right credential fields','Composer/npm/pip modes connect via SSH — enter the path where your lock file or requirements.txt lives','Unusual admin logins or plugin changes outside business hours may indicate compromise']
     }
   };
 
