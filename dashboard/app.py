@@ -9724,6 +9724,455 @@ def api_sca_scan():
             return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
+# ── Dynamic Code Analysis (DAST) ─────────────────────────────────────────────
+
+def _dca_find_bin(*names):
+    import shutil as _sh
+    extra = ['/root/.local/bin', '/usr/local/bin', '/usr/bin', '/bin',
+             '/usr/share/nikto', '/usr/lib/nikto']
+    for name in names:
+        found = _sh.which(name)
+        if found:
+            return found
+        for d in extra:
+            p = os.path.join(d, name)
+            if os.path.isfile(p):
+                return p
+    return None
+
+
+@app.route('/api/dca/scanners', methods=['GET'])
+@login_required
+def api_dca_scanners():
+    import subprocess as _sp
+    import json as _jd
+    results = {}
+    for name, key in [('nikto','nikto'), ('nuclei','nuclei'), ('wapiti','wapiti'), ('wapiti3','wapiti')]:
+        bin_path = _dca_find_bin(name)
+        if bin_path and key not in results:
+            try:
+                r = _sp.run([bin_path, '--version' if name != 'nikto' else '-Version'],
+                            capture_output=True, text=True, timeout=10)
+                ver = ((r.stdout or '') + (r.stderr or '')).strip().split('\n')[0][:80]
+                results[key] = {'available': True, 'path': bin_path, 'version': ver}
+            except Exception:
+                results[key] = {'available': True, 'path': bin_path, 'version': 'unknown'}
+    for key in ['nikto', 'nuclei', 'wapiti']:
+        if key not in results:
+            results[key] = {'available': False}
+    try:
+        import urllib.request as _ureq
+        with _ureq.urlopen('http://localhost:8080/JSON/core/view/version/', timeout=3) as r:
+            ver_data = _jd.loads(r.read())
+            results['zap'] = {'available': True, 'path': 'localhost:8080', 'api': True,
+                              'version': ver_data.get('version', 'running')}
+    except Exception:
+        zap_bin = _dca_find_bin('zaproxy', 'zap.sh', 'zap')
+        results['zap'] = {'available': bool(zap_bin), 'path': zap_bin or ''}
+    return jsonify(results)
+
+
+@app.route('/api/dca/scan', methods=['POST'])
+@login_required
+def api_dca_scan():
+    import subprocess as _sp
+    import tempfile as _tmp
+    import json as _jd
+    import base64 as _b64d
+
+    data = request.get_json(silent=True) or {}
+    target      = (data.get('target') or '').strip()
+    scanner     = (data.get('scanner') or 'auto').lower()
+    auth_user   = (data.get('auth_user') or '').strip()
+    auth_pass   = (data.get('auth_pass') or '').strip()
+    auth_cookie = (data.get('auth_cookie') or '').strip()
+
+    if not target:
+        return jsonify({'ok': False, 'error': 'target URL is required'}), 400
+    if not target.startswith('http'):
+        target = 'https://' + target
+
+    findings = []
+    scanner_used = None
+    warning = None
+
+    if scanner == 'auto':
+        for s in ['nuclei', 'nikto', 'wapiti', 'wapiti3']:
+            if _dca_find_bin(s):
+                scanner = s.replace('3', '') if s == 'wapiti3' else s
+                break
+        else:
+            return jsonify({'ok': False,
+                'error': 'No DAST scanner installed. Run: apt install nikto nuclei wapiti'}), 503
+
+    with _tmp.TemporaryDirectory() as tdir:
+        out_file = os.path.join(tdir, 'results.json')
+
+        if scanner == 'nikto':
+            bin_path = _dca_find_bin('nikto')
+            if not bin_path:
+                return jsonify({'ok': False, 'error': 'nikto not installed. Run: apt install nikto'}), 503
+            cmd = [bin_path, '-h', target, '-Format', 'json', '-o', out_file, '-nointeractive', '-Tuning', 'x']
+            if auth_user and auth_pass:
+                cmd += ['-id', f'{auth_user}:{auth_pass}']
+            if auth_cookie:
+                cmd += ['-c', auth_cookie]
+            try:
+                _sp.run(cmd, capture_output=True, timeout=180)
+                if os.path.exists(out_file):
+                    with open(out_file) as f:
+                        raw = _jd.load(f)
+                    sev_words = [(['critical','remote code','rce','sql inject'], 'critical'),
+                                 (['xss','csrf','auth bypass','directory traversal'], 'high'),
+                                 (['disclosure','header','cookie'], 'low')]
+                    for v in raw.get('vulnerabilities', []):
+                        msg = v.get('msg', '')
+                        sev = 'medium'
+                        ml = msg.lower()
+                        for words, s in sev_words:
+                            if any(w in ml for w in words):
+                                sev = s; break
+                        findings.append({'id': v.get('id',''), 'title': msg[:120] or 'Finding',
+                            'severity': sev, 'url': v.get('url', target),
+                            'method': v.get('method','GET'), 'description': msg,
+                            'references': v.get('references',''), 'scanner': 'Nikto'})
+                scanner_used = 'Nikto'
+            except _sp.TimeoutExpired:
+                warning = 'Scan timed out (180s)'
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': str(exc)}), 500
+
+        elif scanner == 'nuclei':
+            bin_path = _dca_find_bin('nuclei')
+            if not bin_path:
+                return jsonify({'ok': False, 'error': 'nuclei not installed. Run: apt install nuclei'}), 503
+            cmd = [bin_path, '-u', target, '-json', '-o', out_file, '-silent',
+                   '-timeout', '10', '-retries', '1', '-bulk-size', '10']
+            if auth_user and auth_pass:
+                cred = _b64d.b64encode(f'{auth_user}:{auth_pass}'.encode()).decode()
+                cmd += ['-H', f'Authorization: Basic {cred}']
+            if auth_cookie:
+                cmd += ['-H', f'Cookie: {auth_cookie}']
+            try:
+                _sp.run(cmd, capture_output=True, timeout=300)
+                if os.path.exists(out_file):
+                    with open(out_file) as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                item = _jd.loads(line)
+                                info = item.get('info', {})
+                                refs = info.get('reference', [])
+                                findings.append({
+                                    'id': item.get('template-id', ''),
+                                    'title': info.get('name', item.get('template-id', 'Finding')),
+                                    'severity': info.get('severity', 'info').lower(),
+                                    'url': item.get('matched-at', target),
+                                    'method': item.get('type', 'http').upper(),
+                                    'description': info.get('description', ''),
+                                    'references': ', '.join(refs if isinstance(refs, list) else [refs or '']),
+                                    'scanner': 'Nuclei',
+                                    'tags': ', '.join(info.get('tags', []) if isinstance(info.get('tags'), list) else []),
+                                })
+                            except Exception:
+                                continue
+                scanner_used = 'Nuclei'
+            except _sp.TimeoutExpired:
+                warning = 'Scan timed out (300s)'
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': str(exc)}), 500
+
+        elif scanner == 'wapiti':
+            bin_path = _dca_find_bin('wapiti', 'wapiti3')
+            if not bin_path:
+                return jsonify({'ok': False, 'error': 'wapiti not installed. Run: apt install wapiti'}), 503
+            cmd = [bin_path, '-u', target, '-f', 'json', '-o', out_file,
+                   '--no-bugreport', '-v', '0', '--timeout', '10']
+            if auth_user and auth_pass:
+                cmd += ['--auth-cred', f'{auth_user}%{auth_pass}']
+            if auth_cookie:
+                cmd += ['--cookie', auth_cookie]
+            try:
+                _sp.run(cmd, capture_output=True, timeout=300)
+                if os.path.exists(out_file):
+                    with open(out_file) as f:
+                        raw = _jd.load(f)
+                    sev_levels = ['info', 'low', 'medium', 'high', 'critical']
+                    for vuln_type, vulns in raw.get('vulnerabilities', {}).items():
+                        for v in vulns:
+                            lv = v.get('level', 2)
+                            sev = sev_levels[min(int(lv) if str(lv).isdigit() else 2, 4)]
+                            findings.append({'id': '', 'title': vuln_type, 'severity': sev,
+                                'url': v.get('path', target), 'method': v.get('method', 'GET'),
+                                'description': v.get('info', ''), 'references': '', 'scanner': 'Wapiti'})
+                    for anom_type, anoms in raw.get('anomalies', {}).items():
+                        for a in anoms:
+                            findings.append({'id': '', 'title': anom_type, 'severity': 'info',
+                                'url': a.get('path', target), 'method': a.get('method', 'GET'),
+                                'description': a.get('info', ''), 'references': '', 'scanner': 'Wapiti'})
+                scanner_used = 'Wapiti'
+            except _sp.TimeoutExpired:
+                warning = 'Scan timed out (300s)'
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': str(exc)}), 500
+
+        elif scanner == 'zap':
+            import urllib.request as _ureq
+            import urllib.parse as _up
+            import time as _tz
+            ZAP = 'http://localhost:8080'
+            try:
+                enc = _up.quote(target, safe='')
+                with _ureq.urlopen(f'{ZAP}/JSON/spider/action/scan/?url={enc}&recurse=true', timeout=10) as r:
+                    spider_id = _jd.loads(r.read()).get('scan', '0')
+                for _ in range(30):
+                    with _ureq.urlopen(f'{ZAP}/JSON/spider/view/status/?scanId={spider_id}', timeout=5) as r:
+                        if int(_jd.loads(r.read()).get('status', 0)) >= 100:
+                            break
+                    _tz.sleep(2)
+                with _ureq.urlopen(f'{ZAP}/JSON/alert/view/alerts/?baseurl={enc}&start=0&count=500', timeout=10) as r:
+                    alerts = _jd.loads(r.read()).get('alerts', [])
+                sev_map = {'0': 'info', '1': 'low', '2': 'medium', '3': 'high'}
+                for a in alerts:
+                    findings.append({'id': a.get('pluginId',''), 'title': a.get('alert','Finding'),
+                        'severity': sev_map.get(str(a.get('risk','1')), 'medium'),
+                        'url': a.get('url', target), 'method': a.get('method','GET'),
+                        'description': a.get('description',''), 'references': a.get('reference',''),
+                        'solution': a.get('solution',''), 'scanner': 'OWASP ZAP'})
+                scanner_used = 'OWASP ZAP'
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': f'ZAP API error: {exc}. Ensure ZAP is running on localhost:8080 with REST API enabled.'}), 503
+
+    if not scanner_used:
+        return jsonify({'ok': False, 'error': 'Scan produced no output. The scanner may have failed silently.'}), 500
+
+    return jsonify({'ok': True, 'scanner': scanner_used, 'target': target,
+                    'count': len(findings), 'findings': findings, 'warning': warning})
+
+
+@app.route('/api/dca/jira/test', methods=['POST'])
+@login_required
+def api_dca_jira_test():
+    import urllib.request as _ureq
+    import json as _jd, base64 as _b64
+    d = request.get_json(silent=True) or {}
+    jira_url = (d.get('url') or '').rstrip('/')
+    username = (d.get('username') or '').strip()
+    api_token = (d.get('api_token') or '').strip()
+    if not all([jira_url, username, api_token]):
+        return jsonify({'ok': False, 'error': 'url, username, and api_token required'}), 400
+    auth = _b64.b64encode(f'{username}:{api_token}'.encode()).decode()
+    req = _ureq.Request(f'{jira_url}/rest/api/3/myself',
+                        headers={'Authorization': f'Basic {auth}', 'Content-Type': 'application/json'})
+    try:
+        with _ureq.urlopen(req, timeout=10) as r:
+            me = _jd.loads(r.read())
+        return jsonify({'ok': True, 'displayName': me.get('displayName', username)})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
+@app.route('/api/dca/jira/issue', methods=['POST'])
+@login_required
+def api_dca_jira_issue():
+    import urllib.request as _ureq
+    import json as _jd, base64 as _b64
+    d = request.get_json(silent=True) or {}
+    jira_url = (d.get('url') or '').rstrip('/')
+    username = (d.get('username') or '').strip()
+    api_token = (d.get('api_token') or '').strip()
+    project = (d.get('project') or '').strip().upper()
+    finding = d.get('finding', {})
+    if not all([jira_url, username, api_token, project]):
+        return jsonify({'ok': False, 'error': 'url, username, api_token, project required'}), 400
+    sev_pri = {'critical': 'Highest', 'high': 'High', 'medium': 'Medium', 'low': 'Low', 'info': 'Lowest'}
+    body = _jd.dumps({'fields': {
+        'project': {'key': project},
+        'summary': f"[DAST] {finding.get('title','Finding')} — {finding.get('url','')}",
+        'description': {'type': 'doc', 'version': 1, 'content': [{'type': 'paragraph', 'content': [{'type': 'text',
+            'text': (f"Scanner: {finding.get('scanner','')}\nSeverity: {finding.get('severity','')}\n"
+                     f"URL: {finding.get('url','')}\nMethod: {finding.get('method','')}\n\n"
+                     f"Description:\n{finding.get('description','')}\n\nReferences: {finding.get('references','')}")}]}]},
+        'issuetype': {'name': 'Bug'},
+        'priority': {'name': sev_pri.get(finding.get('severity', 'medium'), 'Medium')},
+    }}).encode()
+    auth = _b64.b64encode(f'{username}:{api_token}'.encode()).decode()
+    req = _ureq.Request(f'{jira_url}/rest/api/3/issue', data=body,
+                        headers={'Authorization': f'Basic {auth}', 'Content-Type': 'application/json'})
+    try:
+        with _ureq.urlopen(req, timeout=15) as r:
+            resp = _jd.loads(r.read())
+        key = resp.get('key', '')
+        return jsonify({'ok': True, 'issue_key': key, 'url': f'{jira_url}/browse/{key}'})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
+@app.route('/api/dca/github/test', methods=['POST'])
+@login_required
+def api_dca_github_test():
+    import urllib.request as _ureq
+    import json as _jd
+    d = request.get_json(silent=True) or {}
+    token = (d.get('token') or '').strip()
+    if not token:
+        return jsonify({'ok': False, 'error': 'token required'}), 400
+    req = _ureq.Request('https://api.github.com/user',
+                        headers={'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json'})
+    try:
+        with _ureq.urlopen(req, timeout=10) as r:
+            me = _jd.loads(r.read())
+        return jsonify({'ok': True, 'login': me.get('login',''), 'name': me.get('name','')})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
+@app.route('/api/dca/github/issue', methods=['POST'])
+@login_required
+def api_dca_github_issue():
+    import urllib.request as _ureq
+    import json as _jd
+    d = request.get_json(silent=True) or {}
+    token = (d.get('token') or '').strip()
+    owner = (d.get('owner') or '').strip()
+    repo = (d.get('repo') or '').strip()
+    finding = d.get('finding', {})
+    if not all([token, owner, repo]):
+        return jsonify({'ok': False, 'error': 'token, owner, repo required'}), 400
+    sev = finding.get('severity', 'medium')
+    body_text = (f"**Scanner:** {finding.get('scanner','')}\n**Severity:** {sev}\n"
+                 f"**URL:** {finding.get('url','')}\n**Method:** {finding.get('method','')}\n\n"
+                 f"### Description\n{finding.get('description','')}\n\n"
+                 f"### References\n{finding.get('references','')}")
+    payload = _jd.dumps({'title': f"[DAST] {finding.get('title','Finding')}",
+                         'body': body_text, 'labels': ['security', sev]}).encode()
+    req = _ureq.Request(f'https://api.github.com/repos/{owner}/{repo}/issues', data=payload,
+                        headers={'Authorization': f'Bearer {token}',
+                                 'Accept': 'application/vnd.github+json',
+                                 'Content-Type': 'application/json'})
+    try:
+        with _ureq.urlopen(req, timeout=15) as r:
+            resp = _jd.loads(r.read())
+        return jsonify({'ok': True, 'issue_number': resp.get('number',''), 'url': resp.get('html_url','')})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
+@app.route('/api/dca/jenkins/test', methods=['POST'])
+@login_required
+def api_dca_jenkins_test():
+    import urllib.request as _ureq
+    import json as _jd, base64 as _b64
+    d = request.get_json(silent=True) or {}
+    url = (d.get('url') or '').rstrip('/')
+    username = (d.get('username') or '').strip()
+    token = (d.get('api_token') or '').strip()
+    if not all([url, username, token]):
+        return jsonify({'ok': False, 'error': 'url, username, api_token required'}), 400
+    auth = _b64.b64encode(f'{username}:{token}'.encode()).decode()
+    req = _ureq.Request(f'{url}/api/json', headers={'Authorization': f'Basic {auth}'})
+    try:
+        with _ureq.urlopen(req, timeout=10) as r:
+            info = _jd.loads(r.read())
+        return jsonify({'ok': True, 'jobs': len(info.get('jobs', [])), 'mode': info.get('mode','Jenkins')})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
+@app.route('/api/dca/jenkins/trigger', methods=['POST'])
+@login_required
+def api_dca_jenkins_trigger():
+    import urllib.request as _ureq
+    import urllib.parse as _up, base64 as _b64
+    d = request.get_json(silent=True) or {}
+    url = (d.get('url') or '').rstrip('/')
+    username = (d.get('username') or '').strip()
+    token = (d.get('api_token') or '').strip()
+    job = (d.get('job') or '').strip()
+    params = d.get('params', {})
+    if not all([url, username, token, job]):
+        return jsonify({'ok': False, 'error': 'url, username, api_token, job required'}), 400
+    auth = _b64.b64encode(f'{username}:{token}'.encode()).decode()
+    trigger_url = (f'{url}/job/{job}/buildWithParameters?{_up.urlencode(params)}'
+                   if params else f'{url}/job/{job}/build')
+    req = _ureq.Request(trigger_url, data=b'', method='POST',
+                        headers={'Authorization': f'Basic {auth}'})
+    try:
+        with _ureq.urlopen(req, timeout=10) as r:
+            location = r.headers.get('Location', '')
+        return jsonify({'ok': True, 'queue_url': location})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
+@app.route('/api/dca/azure/test', methods=['POST'])
+@login_required
+def api_dca_azure_test():
+    import urllib.request as _ureq
+    import json as _jd, base64 as _b64
+    d = request.get_json(silent=True) or {}
+    org = (d.get('org') or '').strip()
+    pat = (d.get('pat') or '').strip()
+    if not all([org, pat]):
+        return jsonify({'ok': False, 'error': 'org and pat required'}), 400
+    auth = _b64.b64encode(f':{pat}'.encode()).decode()
+    req = _ureq.Request(f'https://dev.azure.com/{org}/_apis/projects?api-version=7.0',
+                        headers={'Authorization': f'Basic {auth}', 'Content-Type': 'application/json'})
+    try:
+        with _ureq.urlopen(req, timeout=10) as r:
+            resp = _jd.loads(r.read())
+        return jsonify({'ok': True, 'projects': [p['name'] for p in resp.get('value', [])]})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
+@app.route('/api/dca/azure/workitem', methods=['POST'])
+@login_required
+def api_dca_azure_workitem():
+    import urllib.request as _ureq
+    import json as _jd, base64 as _b64
+    d = request.get_json(silent=True) or {}
+    org = (d.get('org') or '').strip()
+    project = (d.get('project') or '').strip()
+    pat = (d.get('pat') or '').strip()
+    finding = d.get('finding', {})
+    wi_type = (d.get('type') or 'Bug').strip()
+    if not all([org, project, pat]):
+        return jsonify({'ok': False, 'error': 'org, project, pat required'}), 400
+    sev_map = {'critical': '1 - Critical', 'high': '2 - High', 'medium': '3 - Medium', 'low': '4 - Low', 'info': '4 - Low'}
+    patch = [
+        {'op': 'add', 'path': '/fields/System.Title',
+         'value': f"[DAST] {finding.get('title','Finding')} — {finding.get('url','')}"},
+        {'op': 'add', 'path': '/fields/Microsoft.VSTS.Common.Severity',
+         'value': sev_map.get(finding.get('severity', 'medium'), '3 - Medium')},
+        {'op': 'add', 'path': '/fields/System.Description',
+         'value': (f"<b>Scanner:</b> {finding.get('scanner','')}<br>"
+                   f"<b>Severity:</b> {finding.get('severity','')}<br>"
+                   f"<b>URL:</b> {finding.get('url','')}<br>"
+                   f"<b>Method:</b> {finding.get('method','')}<br><br>"
+                   f"<b>Description:</b><br>{finding.get('description','')}<br><br>"
+                   f"<b>References:</b><br>{finding.get('references','')}")},
+        {'op': 'add', 'path': '/fields/System.Tags', 'value': 'security; dast; vulnerability'},
+    ]
+    auth = _b64.b64encode(f':{pat}'.encode()).decode()
+    body = _jd.dumps(patch).encode()
+    req = _ureq.Request(
+        f'https://dev.azure.com/{org}/{project}/_apis/wit/workitems/${wi_type}?api-version=7.0',
+        data=body, method='PATCH',
+        headers={'Authorization': f'Basic {auth}', 'Content-Type': 'application/json-patch+json'})
+    try:
+        with _ureq.urlopen(req, timeout=15) as r:
+            resp = _jd.loads(r.read())
+        wi_id = resp.get('id', '')
+        wi_url = (resp.get('_links', {}).get('html', {}).get('href', '')
+                  or f'https://dev.azure.com/{org}/{project}/_workitems/edit/{wi_id}')
+        return jsonify({'ok': True, 'id': wi_id, 'url': wi_url})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('CFAI_DASHBOARD_PORT', 8889))
     print(f'CF_AI Dashboard running on http://0.0.0.0:{port}')

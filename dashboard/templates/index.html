@@ -2061,6 +2061,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-sca" onclick="sbNav('sca',this)">
       <span class="sb-label">Static Code Analysis</span>
     </button>
+    <button class="sb-item" id="sb-dca" onclick="sbNav('dca',this)">
+      <span class="sb-label">Dynamic Code Analysis</span>
+    </button>
 
     {% if current_user.role == 'admin' %}
     <div class="sb-divider"></div>
@@ -3437,6 +3440,251 @@ Export Power BI
   </div>
 
   </div><!-- /page-sca -->
+
+  <!-- ══ DYNAMIC CODE ANALYSIS PAGE ════════════════════════════════════════ -->
+  <div id="page-dca" class="page-section" style="display:none">
+  <style>
+    .dca-header{padding:20px 24px 10px}
+    .dca-title{font-size:20px;font-weight:700;color:var(--c1)}
+    .dca-subtitle{font-size:12px;color:var(--c5);margin-top:3px}
+    .dca-scanner-bar{display:flex;gap:10px;flex-wrap:wrap;padding:0 24px 14px}
+    .dca-chip{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid}
+    .dca-chip.avail{background:#f0fdf4;border-color:#86efac;color:#166534}
+    .dca-chip.unavail{background:#fef2f2;border-color:#fca5a5;color:#991b1b}
+    .dca-chip.loading{background:#f8fafc;border-color:#cbd5e1;color:#64748b}
+    .dca-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+    .dca-dot.on{background:#22c55e}.dca-dot.off{background:#ef4444}.dca-dot.pend{background:#94a3b8}
+    .dca-wrap{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:0 20px 20px;max-width:1400px;margin:0 auto}
+    @media(max-width:900px){.dca-wrap{grid-template-columns:1fr}}
+    .dca-panel{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:20px}
+    .dca-pt{font-size:11px;font-weight:700;color:var(--c2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em}
+    .dca-lbl{font-size:11px;font-weight:600;color:var(--c2);margin:10px 0 3px}
+    .dca-inp{width:100%;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none;box-sizing:border-box}
+    .dca-inp:focus{border-color:var(--c4)}
+    .dca-sel{width:100%;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none}
+    .dca-run{width:100%;margin-top:16px;padding:10px;background:var(--c4);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+    .dca-run:disabled{opacity:.5;cursor:not-allowed}
+    .dca-sev{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+    .dca-sev-critical{background:#fef2f2;color:#991b1b;border:1px solid #fca5a5}
+    .dca-sev-high{background:#fff7ed;color:#9a3412;border:1px solid #fdba74}
+    .dca-sev-medium{background:#fffbeb;color:#92400e;border:1px solid #fcd34d}
+    .dca-sev-low{background:#f0fdf4;color:#166534;border:1px solid #86efac}
+    .dca-sev-info{background:#f8fafc;color:#475569;border:1px solid #cbd5e1}
+    .dca-tbl{width:100%;border-collapse:collapse;font-size:12px}
+    .dca-tbl th{text-align:left;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c5);border-bottom:2px solid var(--c8)}
+    .dca-tbl td{padding:8px 10px;border-bottom:1px solid var(--c8);color:var(--c1);vertical-align:top}
+    .dca-tbl tr:hover td{background:var(--c10)}
+    .dca-empty{text-align:center;padding:48px 20px;color:var(--c5);font-size:13px}
+    .dca-abtn{padding:3px 8px;border-radius:4px;border:1px solid var(--c8);background:var(--c11);color:var(--c4);font-size:10px;font-weight:600;cursor:pointer;margin-right:3px}
+    .dca-abtn:hover{background:var(--c4);color:#fff;border-color:var(--c4)}
+    .dca-int-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--c8)}
+    .dca-int-tab{padding:8px 16px;font-size:12px;font-weight:600;color:var(--c5);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+    .dca-int-tab.active{color:var(--c4);border-bottom-color:var(--c4)}
+    .dca-int-pane{display:none}.dca-int-pane.active{display:block}
+    .dca-int-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media(max-width:700px){.dca-int-grid{grid-template-columns:1fr}}
+    .dca-cs{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600}
+    .dca-cs-ok{background:#f0fdf4;color:#166534}.dca-cs-fail{background:#fef2f2;color:#991b1b}
+    .dca-xbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+    .dca-xbtn{padding:5px 14px;border:1px solid var(--c8);border-radius:6px;background:var(--c11);color:var(--c2);font-size:11px;font-weight:600;cursor:pointer}
+    .dca-xbtn:hover{background:var(--c10)}
+  </style>
+
+  <div class="dca-header">
+    <div class="dca-title">Dynamic Code Analysis</div>
+    <div class="dca-subtitle">Proof-based dynamic application security testing with real scanner integrations — Jira, GitHub, Jenkins, and Azure DevOps.</div>
+  </div>
+
+  <div class="dca-scanner-bar" id="dca-scanner-bar">
+    <div class="dca-chip loading" id="dca-chip-nikto"><div class="dca-dot pend"></div>Nikto</div>
+    <div class="dca-chip loading" id="dca-chip-nuclei"><div class="dca-dot pend"></div>Nuclei</div>
+    <div class="dca-chip loading" id="dca-chip-wapiti"><div class="dca-dot pend"></div>Wapiti</div>
+    <div class="dca-chip loading" id="dca-chip-zap"><div class="dca-dot pend"></div>OWASP ZAP</div>
+  </div>
+
+  <div class="dca-wrap">
+    <div>
+      <div class="dca-panel">
+        <div class="dca-pt">Scan Configuration</div>
+        <div class="dca-lbl">Target URL</div>
+        <input class="dca-inp" id="dca-target" placeholder="https://example.com" type="url">
+        <div class="dca-lbl">Scanner</div>
+        <select class="dca-sel" id="dca-scanner">
+          <option value="auto">Auto (best available)</option>
+          <option value="nikto">Nikto</option>
+          <option value="nuclei">Nuclei</option>
+          <option value="wapiti">Wapiti</option>
+          <option value="zap">OWASP ZAP (API daemon)</option>
+        </select>
+        <div class="dca-lbl">Auth Username (optional)</div>
+        <input class="dca-inp" id="dca-auth-user" placeholder="username">
+        <div class="dca-lbl">Auth Password (optional)</div>
+        <input class="dca-inp" id="dca-auth-pass" type="password" placeholder="password">
+        <div class="dca-lbl">Session Cookie (optional)</div>
+        <input class="dca-inp" id="dca-auth-cookie" placeholder="PHPSESSID=abc123...">
+        <button class="dca-run" id="dca-run-btn" onclick="dcaRunScan()">Run Scan</button>
+        <div id="dca-scan-status" style="margin-top:10px;font-size:11px;color:var(--c5);text-align:center;"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="dca-panel" style="min-height:320px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="dca-pt" style="margin-bottom:0">Findings</div>
+          <div class="dca-xbar" id="dca-export-bar" style="display:none">
+            <button class="dca-xbtn" onclick="dcaExportCSV()">Export CSV</button>
+            <button class="dca-xbtn" onclick="dcaExportHTML()">Export Report</button>
+          </div>
+        </div>
+        <div id="dca-findings-wrap">
+          <div class="dca-empty">Configure a scan on the left and click Run Scan to see findings.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:0 20px 30px;max-width:1400px;margin:0 auto">
+    <div class="dca-panel">
+      <div class="dca-pt">Integrations</div>
+      <div class="dca-int-tabs">
+        <button class="dca-int-tab active" onclick="dcaIntTab('jira',this)">Jira</button>
+        <button class="dca-int-tab" onclick="dcaIntTab('github',this)">GitHub</button>
+        <button class="dca-int-tab" onclick="dcaIntTab('jenkins',this)">Jenkins</button>
+        <button class="dca-int-tab" onclick="dcaIntTab('azure',this)">Azure DevOps</button>
+      </div>
+
+      <!-- Jira -->
+      <div class="dca-int-pane active" id="dca-int-pane-jira">
+        <div class="dca-int-grid">
+          <div>
+            <div class="dca-lbl">Jira URL</div>
+            <input class="dca-inp" id="dca-jira-url" placeholder="https://yourorg.atlassian.net">
+            <div class="dca-lbl">Email / Username</div>
+            <input class="dca-inp" id="dca-jira-user" placeholder="you@company.com">
+            <div class="dca-lbl">API Token</div>
+            <input class="dca-inp" id="dca-jira-token" type="password" placeholder="Atlassian API token">
+            <div class="dca-lbl">Project Key</div>
+            <input class="dca-inp" id="dca-jira-project" placeholder="SEC">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button class="dca-abtn" style="padding:6px 16px;font-size:12px" onclick="dcaTestInt('jira')">Test Connection</button>
+              <span id="dca-jira-status" style="display:none" class="dca-cs"></span>
+            </div>
+            <div style="font-size:11px;color:var(--c5);line-height:1.7">Get an API token at <b>id.atlassian.com → Security → API tokens</b>. Findings are created as Bug issues with severity mapped to priority.</div>
+            <div id="dca-jira-push-wrap" style="display:none">
+              <div class="dca-lbl">Severity filter</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <select class="dca-sel" id="dca-jira-sev" style="width:auto;padding:4px 8px;font-size:11px">
+                  <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
+                </select>
+                <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('jira')">Push to Jira</button>
+              </div>
+              <div id="dca-jira-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GitHub -->
+      <div class="dca-int-pane" id="dca-int-pane-github">
+        <div class="dca-int-grid">
+          <div>
+            <div class="dca-lbl">Personal Access Token</div>
+            <input class="dca-inp" id="dca-gh-token" type="password" placeholder="ghp_...">
+            <div class="dca-lbl">Repository Owner</div>
+            <input class="dca-inp" id="dca-gh-owner" placeholder="your-org-or-username">
+            <div class="dca-lbl">Repository Name</div>
+            <input class="dca-inp" id="dca-gh-repo" placeholder="your-repo">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button class="dca-abtn" style="padding:6px 16px;font-size:12px" onclick="dcaTestInt('github')">Test Connection</button>
+              <span id="dca-github-status" style="display:none" class="dca-cs"></span>
+            </div>
+            <div style="font-size:11px;color:var(--c5);line-height:1.7">Token needs <b>repo</b> scope. Issues are created with <b>security</b> label and severity label auto-applied.</div>
+            <div id="dca-github-push-wrap" style="display:none">
+              <div class="dca-lbl">Severity filter</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <select class="dca-sel" id="dca-github-sev" style="width:auto;padding:4px 8px;font-size:11px">
+                  <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
+                </select>
+                <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('github')">Push to GitHub</button>
+              </div>
+              <div id="dca-github-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jenkins -->
+      <div class="dca-int-pane" id="dca-int-pane-jenkins">
+        <div class="dca-int-grid">
+          <div>
+            <div class="dca-lbl">Jenkins URL</div>
+            <input class="dca-inp" id="dca-jenkins-url" placeholder="https://jenkins.yourcompany.com">
+            <div class="dca-lbl">Username</div>
+            <input class="dca-inp" id="dca-jenkins-user" placeholder="admin">
+            <div class="dca-lbl">API Token</div>
+            <input class="dca-inp" id="dca-jenkins-token" type="password" placeholder="Jenkins API token">
+            <div class="dca-lbl">Job / Pipeline Name</div>
+            <input class="dca-inp" id="dca-jenkins-job" placeholder="security-scan-pipeline">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button class="dca-abtn" style="padding:6px 16px;font-size:12px" onclick="dcaTestInt('jenkins')">Test Connection</button>
+              <span id="dca-jenkins-status" style="display:none" class="dca-cs"></span>
+            </div>
+            <div style="font-size:11px;color:var(--c5);line-height:1.7">Get your API token from <b>Jenkins → User → Configure → API Token</b>.</div>
+            <div id="dca-jenkins-trigger-wrap" style="display:none">
+              <div class="dca-lbl">Build parameters (key=value per line, optional)</div>
+              <textarea class="dca-inp" id="dca-jenkins-params" rows="3" placeholder="TARGET_URL=https://example.com&#10;SCAN_TYPE=full"></textarea>
+              <button class="dca-abtn" style="padding:5px 14px;margin-top:6px" onclick="dcaTriggerJenkins()">Trigger Pipeline</button>
+              <div id="dca-jenkins-trigger-log" style="margin-top:6px;font-size:11px;color:var(--c5)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Azure DevOps -->
+      <div class="dca-int-pane" id="dca-int-pane-azure">
+        <div class="dca-int-grid">
+          <div>
+            <div class="dca-lbl">Organization</div>
+            <input class="dca-inp" id="dca-azure-org" placeholder="your-org">
+            <div class="dca-lbl">Project</div>
+            <input class="dca-inp" id="dca-azure-project" placeholder="MyProject">
+            <div class="dca-lbl">Personal Access Token (PAT)</div>
+            <input class="dca-inp" id="dca-azure-pat" type="password" placeholder="Azure DevOps PAT">
+            <div class="dca-lbl">Work Item Type</div>
+            <select class="dca-sel" id="dca-azure-type">
+              <option value="Bug">Bug</option>
+              <option value="Task">Task</option>
+              <option value="Issue">Issue</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button class="dca-abtn" style="padding:6px 16px;font-size:12px" onclick="dcaTestInt('azure')">Test Connection</button>
+              <span id="dca-azure-status" style="display:none" class="dca-cs"></span>
+            </div>
+            <div style="font-size:11px;color:var(--c5);line-height:1.7">PAT requires <b>Work Items (Read, Write & Manage)</b> scope. Get it from <b>Azure DevOps → User Settings → Personal Access Tokens</b>.</div>
+            <div id="dca-azure-push-wrap" style="display:none">
+              <div class="dca-lbl">Severity filter</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <select class="dca-sel" id="dca-azure-sev" style="width:auto;padding:4px 8px;font-size:11px">
+                  <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
+                </select>
+                <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('azure')">Push to Azure</button>
+              </div>
+              <div id="dca-azure-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /page-dca -->
 
   <!-- ══ SCAN RESULTS PAGE ══════════════════════════════════════════════════ -->
   <div id="page-targets" class="page-section" style="display:none">
@@ -6886,6 +7134,8 @@ var _PAGE_TITLES = {
   'privacy':       'Privacy Policy',
   'syslog':        'System Logs',
   'invoices':      'Invoice Management',
+  'sca':           'Static Code Analysis',
+  'dca':           'Dynamic Code Analysis',
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
@@ -6963,6 +7213,7 @@ function sbNav(section, el) {
   if (section === 'syslog')        initSyslogPage();
   // Stop syslog live timer when navigating away
   if (section !== 'syslog' && _slTimer) { clearInterval(_slTimer); _slTimer = null; }
+  if (section === 'dca') dcaLoadScanners();
   if (section !== 'syslog') { var _stb = document.getElementById('sl-scroll-top-btn'); if (_stb) _stb.style.display = 'none'; }
 }
 
@@ -7794,6 +8045,7 @@ function _applySidebarAccess() {
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
     'sb-scan':'scan','sb-history':'history','sb-pentest':'pentest','sb-grc':'grc',
     'sb-sca':'sca',
+    'sb-dca':'dca',
   };
 
   Object.keys(_SB_MAP).forEach(function(id) {
@@ -13797,6 +14049,7 @@ var _ALL_PAGES = [
     { key: 'history',        label: 'Scan Analytics' },
     { key: 'pentest',        label: 'Generate Pentest Report' },
     { key: 'sca',            label: 'Static Code Analysis' },
+    { key: 'dca',            label: 'Dynamic Code Analysis' },
   ]},
 ];
 
@@ -17735,6 +17988,236 @@ function grcExport() {
   };
 
 })();
+
+// ── Dynamic Code Analysis (DAST) ──────────────────────────────────────────────
+var _dcaFindings = [];
+
+function dcaLoadScanners() {
+  var labels = {nikto:'Nikto', nuclei:'Nuclei', wapiti:'Wapiti', zap:'OWASP ZAP'};
+  Object.keys(labels).forEach(function(s) {
+    var c = document.getElementById('dca-chip-'+s);
+    if (c) { c.className='dca-chip loading'; c.innerHTML='<div class="dca-dot pend"></div>'+labels[s]; }
+  });
+  fetch('/api/dca/scanners').then(function(r){return r.json();}).then(function(data){
+    Object.keys(labels).forEach(function(s) {
+      var c = document.getElementById('dca-chip-'+s); if (!c) return;
+      var info = data[s] || {};
+      c.className = 'dca-chip ' + (info.available ? 'avail' : 'unavail');
+      var ver = info.version ? ' <span style="font-weight:400;opacity:.8">'+info.version.split(/\s+/).pop()+'</span>' : '';
+      c.innerHTML = '<div class="dca-dot '+(info.available?'on':'off')+'"></div>'+labels[s]+ver;
+    });
+  }).catch(function(){});
+}
+
+function dcaRunScan() {
+  var target = (document.getElementById('dca-target').value||'').trim();
+  if (!target) { alert('Please enter a target URL.'); return; }
+  var btn = document.getElementById('dca-run-btn');
+  var status = document.getElementById('dca-scan-status');
+  btn.disabled = true;
+  status.textContent = 'Scanning... this may take 1-3 minutes.';
+  document.getElementById('dca-findings-wrap').innerHTML = '<div class="dca-empty">Scan in progress...</div>';
+  document.getElementById('dca-export-bar').style.display = 'none';
+  fetch('/api/dca/scan', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      target: target,
+      scanner: document.getElementById('dca-scanner').value,
+      auth_user: document.getElementById('dca-auth-user').value,
+      auth_pass: document.getElementById('dca-auth-pass').value,
+      auth_cookie: document.getElementById('dca-auth-cookie').value,
+    })
+  }).then(function(r){return r.json();}).then(function(data){
+    btn.disabled = false;
+    if (!data.ok) {
+      status.textContent = 'Error: ' + data.error;
+      document.getElementById('dca-findings-wrap').innerHTML = '<div class="dca-empty" style="color:#ef4444">'+_dcaEsc(data.error)+'</div>';
+      return;
+    }
+    _dcaFindings = data.findings || [];
+    status.textContent = 'Done via ' + data.scanner + ' — ' + data.count + ' finding(s).' + (data.warning ? ' Warning: '+data.warning : '');
+    dcaRenderFindings(_dcaFindings);
+    if (_dcaFindings.length) document.getElementById('dca-export-bar').style.display = '';
+  }).catch(function(e){ btn.disabled=false; status.textContent='Request failed: '+e; });
+}
+
+function dcaRenderFindings(findings) {
+  var wrap = document.getElementById('dca-findings-wrap');
+  if (!findings || !findings.length) { wrap.innerHTML='<div class="dca-empty">No findings detected.</div>'; return; }
+  var ord = {critical:0,high:1,medium:2,low:3,info:4};
+  findings = findings.slice().sort(function(a,b){return (ord[a.severity]||5)-(ord[b.severity]||5);});
+  var h = '<table class="dca-tbl"><thead><tr><th style="width:80px">Severity</th><th>Title</th><th>URL</th><th style="width:60px">Method</th><th style="width:70px">Scanner</th><th style="width:90px">Actions</th></tr></thead><tbody>';
+  findings.forEach(function(f,i){
+    var sev=(f.severity||'info').toLowerCase();
+    h+='<tr>';
+    h+='<td><span class="dca-sev dca-sev-'+sev+'">'+sev+'</span></td>';
+    h+='<td style="max-width:240px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_dcaEsc(f.title)+'">'+_dcaEsc(f.title)+'</div>'
+      +(f.description?'<div style="font-size:10px;color:var(--c5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_dcaEsc(f.description)+'">'+_dcaEsc(f.description.slice(0,100))+'</div>':'')+'</td>';
+    h+='<td style="max-width:180px;font-family:monospace;font-size:10px;word-break:break-all">'+_dcaEsc(f.url)+'</td>';
+    h+='<td><span style="background:var(--c10);padding:1px 5px;border-radius:3px;font-size:10px">'+_dcaEsc(f.method||'GET')+'</span></td>';
+    h+='<td style="font-size:10px;color:var(--c5)">'+_dcaEsc(f.scanner||'')+'</td>';
+    h+='<td><button class="dca-abtn" onclick="dcaFindingAct('+i+',\'jira\')">Jira</button>'
+      +'<button class="dca-abtn" onclick="dcaFindingAct('+i+',\'github\')">GH</button>'
+      +'<button class="dca-abtn" onclick="dcaFindingAct('+i+',\'azure\')">Az</button></td>';
+    h+='</tr>';
+  });
+  wrap.innerHTML = h+'</tbody></table>';
+}
+
+function _dcaEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function dcaFindingAct(idx, platform) {
+  var f = _dcaFindings[idx]; if (!f) return;
+  var st = document.getElementById('dca-'+platform+'-status');
+  if (!st || !st.classList.contains('dca-cs-ok')) {
+    alert('Connect your '+platform.charAt(0).toUpperCase()+platform.slice(1)+' integration first (Integrations section below).');
+    return;
+  }
+  _dcaPushOne(platform, f, function(ok, msg){ alert(ok?'Created: '+msg:'Error: '+msg); });
+}
+
+function _dcaPushOne(platform, finding, cb) {
+  var ep='', payload={finding:finding};
+  if (platform==='jira') {
+    payload.url=document.getElementById('dca-jira-url').value;
+    payload.username=document.getElementById('dca-jira-user').value;
+    payload.api_token=document.getElementById('dca-jira-token').value;
+    payload.project=document.getElementById('dca-jira-project').value;
+    ep='/api/dca/jira/issue';
+  } else if (platform==='github') {
+    payload.token=document.getElementById('dca-gh-token').value;
+    payload.owner=document.getElementById('dca-gh-owner').value;
+    payload.repo=document.getElementById('dca-gh-repo').value;
+    ep='/api/dca/github/issue';
+  } else if (platform==='azure') {
+    payload.org=document.getElementById('dca-azure-org').value;
+    payload.project=document.getElementById('dca-azure-project').value;
+    payload.pat=document.getElementById('dca-azure-pat').value;
+    payload.type=document.getElementById('dca-azure-type').value;
+    ep='/api/dca/azure/workitem';
+  }
+  fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){cb(d.ok, d.issue_key||d.issue_number||d.id||d.url||'ok');})
+    .catch(function(e){cb(false,String(e));});
+}
+
+function dcaPushAll(platform) {
+  var selId={jira:'dca-jira-sev',github:'dca-github-sev',azure:'dca-azure-sev'}[platform];
+  var sev=(document.getElementById(selId)||{}).value||'all';
+  var rank={critical:0,high:1,medium:2,low:3,info:4};
+  var thresh={all:4,critical:0,high:1,medium:2}[sev]||4;
+  var toSend=_dcaFindings.filter(function(f){return (rank[f.severity]||5)<=thresh;});
+  var log=document.getElementById('dca-'+platform+'-push-log');
+  if (!toSend.length){if(log)log.textContent='No findings match the selected filter.';return;}
+  if(log)log.textContent='Pushing '+toSend.length+' finding(s)...';
+  var done=0,errors=0;
+  toSend.forEach(function(f,i){
+    setTimeout(function(){
+      _dcaPushOne(platform,f,function(ok){
+        done++;if(!ok)errors++;
+        if(log)log.textContent='Progress: '+done+'/'+toSend.length+' | Errors: '+errors+(done===toSend.length?' — Done!':'');
+      });
+    },i*600);
+  });
+}
+
+function dcaTestInt(platform) {
+  var st=document.getElementById('dca-'+platform+'-status');
+  if(st){st.style.display='inline-flex';st.className='dca-cs';st.textContent='Testing...';}
+  var payload={},ep='';
+  if(platform==='jira'){
+    payload={url:document.getElementById('dca-jira-url').value,username:document.getElementById('dca-jira-user').value,api_token:document.getElementById('dca-jira-token').value};
+    ep='/api/dca/jira/test';
+  } else if(platform==='github'){
+    payload={token:document.getElementById('dca-gh-token').value};
+    ep='/api/dca/github/test';
+  } else if(platform==='jenkins'){
+    payload={url:document.getElementById('dca-jenkins-url').value,username:document.getElementById('dca-jenkins-user').value,api_token:document.getElementById('dca-jenkins-token').value};
+    ep='/api/dca/jenkins/test';
+  } else if(platform==='azure'){
+    payload={org:document.getElementById('dca-azure-org').value,pat:document.getElementById('dca-azure-pat').value};
+    ep='/api/dca/azure/test';
+  }
+  fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(!st)return;
+      if(data.ok){
+        var lbl=data.displayName||data.login||data.name||(data.jobs!==undefined?data.jobs+' jobs':'')
+          ||(data.projects?data.projects.slice(0,3).join(', '):'Connected');
+        st.className='dca-cs dca-cs-ok';st.textContent='Connected — '+lbl;
+        var pw=document.getElementById('dca-'+platform+'-push-wrap')||document.getElementById('dca-'+platform+'-trigger-wrap');
+        if(pw)pw.style.display='';
+      } else {
+        st.className='dca-cs dca-cs-fail';st.textContent='Failed: '+(data.error||'unknown');
+      }
+    }).catch(function(e){if(st){st.className='dca-cs dca-cs-fail';st.textContent='Error: '+e;}});
+}
+
+function dcaTriggerJenkins() {
+  var params={};
+  (document.getElementById('dca-jenkins-params').value||'').split('\n').forEach(function(l){
+    l=l.trim();var eq=l.indexOf('=');if(eq>0)params[l.slice(0,eq).trim()]=l.slice(eq+1).trim();
+  });
+  var log=document.getElementById('dca-jenkins-trigger-log');
+  if(log)log.textContent='Triggering...';
+  fetch('/api/dca/jenkins/trigger',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    url:document.getElementById('dca-jenkins-url').value,
+    username:document.getElementById('dca-jenkins-user').value,
+    api_token:document.getElementById('dca-jenkins-token').value,
+    job:document.getElementById('dca-jenkins-job').value,
+    params:params,
+  })}).then(function(r){return r.json();}).then(function(d){
+    if(log)log.textContent=d.ok?'Triggered. Queue: '+(d.queue_url||'(no location)'):'Error: '+d.error;
+  }).catch(function(e){if(log)log.textContent='Error: '+e;});
+}
+
+function dcaIntTab(tab, el) {
+  document.querySelectorAll('.dca-int-tab').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.dca-int-pane').forEach(function(p){p.classList.remove('active');});
+  el.classList.add('active');
+  var pane=document.getElementById('dca-int-pane-'+tab);if(pane)pane.classList.add('active');
+}
+
+function dcaExportCSV() {
+  if(!_dcaFindings.length)return;
+  var rows=[['Severity','Title','URL','Method','Scanner','Description','References']];
+  _dcaFindings.forEach(function(f){
+    rows.push([f.severity,f.title,f.url,f.method,f.scanner,f.description,f.references].map(function(c){
+      return '"'+String(c||'').replace(/"/g,'""')+'"';
+    }));
+  });
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(function(r){return r.join(',');}).join('\n'));
+  a.download='dca-findings-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+function dcaExportHTML() {
+  if(!_dcaFindings.length)return;
+  var sc={critical:'#fef2f2',high:'#fff7ed',medium:'#fffbeb',low:'#f0fdf4',info:'#f8fafc'};
+  var rows=_dcaFindings.map(function(f){
+    return '<tr style="background:'+sc[f.severity||'info']+'">'
+      +'<td style="padding:8px;border:1px solid #e2e8f0"><b>'+f.severity+'</b></td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0">'+f.title+'</td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px">'+f.url+'</td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0">'+f.method+'</td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0">'+f.scanner+'</td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0;max-width:320px">'+f.description+'</td></tr>';
+  }).join('');
+  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>DAST Report</title>'
+    +'<style>body{font-family:Arial,sans-serif;padding:20px;color:#1e293b}table{border-collapse:collapse;width:100%}th{background:#1e3a8a;color:#fff;padding:10px;border:1px solid #1e40af;text-align:left}h1{color:#1e3a8a}</style></head>'
+    +'<body><h1>Dynamic Code Analysis Report</h1>'
+    +'<p><b>Target:</b> '+(document.getElementById('dca-target').value||'')+'</p>'
+    +'<p><b>Date:</b> '+new Date().toLocaleString()+'</p>'
+    +'<p><b>Findings:</b> '+_dcaFindings.length+'</p>'
+    +'<table><thead><tr><th>Severity</th><th>Title</th><th>URL</th><th>Method</th><th>Scanner</th><th>Description</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></body></html>';
+  var a=document.createElement('a');
+  a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);
+  a.download='dca-report-'+new Date().toISOString().slice(0,10)+'.html';a.click();
+}
+
 </script>
 <script>
 // Force-remove any stale × button inside the customize drawer header
