@@ -17835,7 +17835,7 @@ function grcExport() {
     var list = document.getElementById('scaFileList');
     if (!_scaFiles.length) { list.innerHTML = ''; return; }
     list.innerHTML = _scaFiles.map(function(f) {
-      return '<div class="sca-file-item"><span>&#128196; ' + f.name + '</span>' +
+      return '<div class="sca-file-item"><span>' + f.name + '</span>' +
              '<small style="color:#94a3b8">' + (f.size > 1024 ? (f.size/1024).toFixed(1)+'KB' : f.size+'B') + '</small></div>';
     }).join('');
   };
