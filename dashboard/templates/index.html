@@ -2809,13 +2809,25 @@ Export Power BI
   <!-- ══ FILE SCANNER PAGE ════════════════════════════════════════════════ -->
   <div id="page-filescan" class="page-section" style="display:none">
   <section class="section">
-    <div class="sec-title">WordPress File Scanner</div>
+    <div class="sec-title">Website File Scanner</div>
     <div style="font-size:13px;color:#3b82f6;margin-bottom:16px;">
-      Automatically checks for malware, PHP files in uploads, modified core files, and suspicious plugins — powered by Wordfence DB + WordPress REST API.
+      Checks for malware, exposed sensitive files, suspicious uploads, and security misconfigurations — supports WordPress, Drupal, Joomla, Laravel, Django, and any web application.
     </div>
 
     <!-- Form -->
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#172554;display:block;margin-bottom:4px;">Platform</label>
+        <select id="fs-platform" onchange="fsPlatformChange()" style="padding:7px 10px;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;background:#fff;color:#172554;">
+          <option value="wordpress">WordPress</option>
+          <option value="drupal">Drupal</option>
+          <option value="joomla">Joomla</option>
+          <option value="laravel">Laravel</option>
+          <option value="django">Django / Flask</option>
+          <option value="nodejs">Node.js / Express</option>
+          <option value="generic">Generic (any website)</option>
+        </select>
+      </div>
       <div style="flex:1;min-width:220px;">
         <label style="font-size:12px;font-weight:600;color:#172554;display:block;margin-bottom:4px;">Site URL</label>
         <input id="fs-site-url" type="text" placeholder="https://example.com"
@@ -2843,18 +2855,19 @@ Export Power BI
       <!-- Summary bar -->
       <div id="fs-summary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
 
-      <!-- Wordfence issues -->
-      <div id="fs-wf-panel"  style="margin-bottom:16px;"></div>
-      <!-- Modified core files -->
-      <div id="fs-mods-panel" style="margin-bottom:16px;"></div>
-      <!-- PHP in uploads -->
+      <!-- WordPress panels -->
+      <div id="fs-wf-panel"      style="margin-bottom:16px;"></div>
+      <div id="fs-mods-panel"    style="margin-bottom:16px;"></div>
       <div id="fs-uploads-panel" style="margin-bottom:16px;"></div>
-      <!-- Active plugins -->
       <div id="fs-plugins-panel" style="margin-bottom:16px;"></div>
+      <!-- Generic / non-WP panels -->
+      <div id="fs-exposed-panel" style="margin-bottom:16px;"></div>
+      <div id="fs-headers-panel" style="margin-bottom:16px;"></div>
+      <div id="fs-platform-panel" style="margin-bottom:16px;"></div>
     </div>
 
     <div id="fs-empty" style="padding:32px;text-align:center;color:#60a5fa;font-size:13px;">
-      Enter the WordPress site URL above and click Scan Now.
+      Select a platform, enter the site URL, and click Scan Now.
     </div>
   </section>
   </div><!-- /page-filescan -->
@@ -4382,10 +4395,13 @@ Export Power BI
     <!-- Tab bar -->
     <div class="le-tab-bar">
       <button class="le-tab active" id="le-tab-btn-ssh" onclick="leTab('ssh',this)">SSH / Access Logs</button>
-      <button class="le-tab" id="le-tab-btn-wp" onclick="leTab('wp',this)">WordPress Admin</button>
+      <button class="le-tab" id="le-tab-btn-wp" onclick="leTab('wp',this)">WordPress</button>
+      <button class="le-tab" id="le-tab-btn-drupal" onclick="leTab('drupal',this)">Drupal</button>
+      <button class="le-tab" id="le-tab-btn-joomla" onclick="leTab('joomla',this)">Joomla</button>
+      <button class="le-tab" id="le-tab-btn-applog" onclick="leTab('applog',this)">App Logs (SSH)</button>
       <button class="le-tab" id="le-tab-btn-cpanel" onclick="leTab('cpanel',this)">cPanel</button>
-      <button class="le-tab" id="le-tab-btn-hostinger" onclick="leTab('hostinger',this)">Hostinger / MySQL</button>
-      <button class="le-tab" id="le-tab-btn-history" onclick="leTab('history',this)">Scan History Logs</button>
+      <button class="le-tab" id="le-tab-btn-hostinger" onclick="leTab('hostinger',this)">MySQL / DB</button>
+      <button class="le-tab" id="le-tab-btn-history" onclick="leTab('history',this)">Scan History</button>
       <button class="le-tab" id="le-tab-btn-cf" onclick="leTab('cf',this)">Cloudflare</button>
       <button class="le-tab" id="le-tab-btn-ftp" onclick="leTab('ftp',this)">FTP</button>
     </div>
@@ -4470,6 +4486,109 @@ Export Power BI
           </tr></thead>
           <tbody id="le-wp-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your WordPress URL and credentials, then click Fetch Live Events.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Drupal tab ── -->
+    <div id="le-pane-drupal" class="le-tab-pane" style="display:none;">
+      <div class="le-cred-form">
+        <div class="le-cred-row">
+          <div style="flex:2"><label class="le-cred-label">Drupal Site URL</label><input type="text" id="le-drupal-url" class="le-cred-input" placeholder="https://yourdomain.com" autocomplete="off"></div>
+          <div><label class="le-cred-label">Username</label><input type="text" id="le-drupal-user" class="le-cred-input" placeholder="admin" autocomplete="off"></div>
+          <div><label class="le-cred-label">Password</label><input type="password" id="le-drupal-pass" class="le-cred-input" placeholder="••••••••" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Events to fetch</label><input type="number" id="le-drupal-limit" class="le-cred-input" value="50" min="10" max="200" style="width:80px;"></div>
+        </div>
+        <div class="le-cred-actions">
+          <button class="btn btn-sm" onclick="runDrupalLive()" id="le-drupal-btn" style="background:#2563eb;color:#fff;border-color:#2563eb;border-radius:8px;padding:7px 20px;">Fetch Watchdog Logs</button>
+        </div>
+        <div class="le-hint">Fetches Drupal watchdog (dblog) events via JSON:API. Requires the <strong>JSON:API</strong> core module enabled and admin credentials.</div>
+      </div>
+      <div id="le-drupal-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Fetching Drupal watchdog logs…</div>
+      <div id="le-drupal-error" style="display:none;padding:12px 14px;background:linear-gradient(135deg,#172554,#1e3a8a);border-radius:6px;color:#93c5fd;font-size:12px;margin-bottom:10px;"></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-drupal-table">
+          <thead><tr style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Type</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Severity</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Message</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">IP</th>
+          </tr></thead>
+          <tbody id="le-drupal-body">
+            <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your Drupal site URL and credentials, then click Fetch Watchdog Logs.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Joomla tab ── -->
+    <div id="le-pane-joomla" class="le-tab-pane" style="display:none;">
+      <div class="le-cred-form">
+        <div class="le-cred-row">
+          <div style="flex:2"><label class="le-cred-label">Joomla Site URL</label><input type="text" id="le-joomla-url" class="le-cred-input" placeholder="https://yourdomain.com" autocomplete="off"></div>
+          <div><label class="le-cred-label">Username</label><input type="text" id="le-joomla-user" class="le-cred-input" placeholder="admin" autocomplete="off"></div>
+          <div><label class="le-cred-label">Password</label><input type="password" id="le-joomla-pass" class="le-cred-input" placeholder="••••••••" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">API Token <span style="font-weight:400;color:#60a5fa;">(Joomla 4+)</span></label><input type="password" id="le-joomla-token" class="le-cred-input" placeholder="optional" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Events</label><input type="number" id="le-joomla-limit" class="le-cred-input" value="50" min="10" max="200" style="width:80px;"></div>
+        </div>
+        <div class="le-cred-actions">
+          <button class="btn btn-sm" onclick="runJoomlaLive()" id="le-joomla-btn" style="background:#2563eb;color:#fff;border-color:#2563eb;border-radius:8px;padding:7px 20px;">Fetch Action Logs</button>
+        </div>
+        <div class="le-hint">Fetches Joomla action logs via the Web Services API (Joomla 4+). Generate an API token at: <em>Joomla Admin → Users → your user → Joomla API Token</em>.</div>
+      </div>
+      <div id="le-joomla-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Fetching Joomla action logs…</div>
+      <div id="le-joomla-error" style="display:none;padding:12px 14px;background:linear-gradient(135deg,#172554,#1e3a8a);border-radius:6px;color:#93c5fd;font-size:12px;margin-bottom:10px;"></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-joomla-table">
+          <thead><tr style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Action</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Item</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">IP</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Extension</th>
+          </tr></thead>
+          <tbody id="le-joomla-body">
+            <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your Joomla site URL and credentials, then click Fetch Action Logs.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Generic App Logs (SSH) tab ── -->
+    <div id="le-pane-applog" class="le-tab-pane" style="display:none;">
+      <div class="le-cred-form">
+        <div class="le-cred-row">
+          <div><label class="le-cred-label">SSH Host</label><input type="text" id="le-app-sshhost" class="le-cred-input" placeholder="server.yourdomain.com" autocomplete="off"></div>
+          <div><label class="le-cred-label">SSH User</label><input type="text" id="le-app-sshuser" class="le-cred-input" placeholder="root" autocomplete="off"></div>
+          <div><label class="le-cred-label">SSH Password</label><input type="password" id="le-app-sshpass" class="le-cred-input" placeholder="••••••••" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Port</label><input type="text" id="le-app-sshport" class="le-cred-input" placeholder="22" style="width:70px;" autocomplete="off"></div>
+        </div>
+        <div class="le-cred-row" style="margin-top:8px;">
+          <div style="flex:2"><label class="le-cred-label">Log File Path</label><input type="text" id="le-app-logpath" class="le-cred-input" placeholder="/var/log/nginx/access.log  or  storage/logs/laravel.log  or  /var/log/apache2/access.log" autocomplete="off"></div>
+          <div><label class="le-cred-label">Lines</label><input type="number" id="le-app-lines" class="le-cred-input" value="200" min="50" max="2000" style="width:80px;"></div>
+          <div><label class="le-cred-label">Filter (grep)</label><input type="text" id="le-app-filter" class="le-cred-input" placeholder="error  or  404  or  POST" autocomplete="off"></div>
+        </div>
+        <div class="le-cred-actions">
+          <button class="btn btn-sm" onclick="runAppLog()" id="le-app-btn" style="background:#2563eb;color:#fff;border-color:#2563eb;border-radius:8px;padding:7px 20px;">Fetch Logs</button>
+        </div>
+        <div class="le-hint">Reads any log file on your server via SSH — Nginx/Apache access logs, Laravel/Django app logs, PM2 logs, systemd journal, etc. Common paths: <code>/var/log/nginx/access.log</code> · <code>/var/log/apache2/access.log</code> · <code>storage/logs/laravel.log</code> · <code>/var/log/syslog</code></div>
+      </div>
+      <div id="le-app-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Fetching log file via SSH…</div>
+      <div id="le-app-error" style="display:none;padding:12px 14px;background:linear-gradient(135deg,#172554,#1e3a8a);border-radius:6px;color:#93c5fd;font-size:12px;margin-bottom:10px;"></div>
+      <div id="le-app-stats" style="display:none;padding:8px 12px;background:#eff6ff;border-radius:6px;font-size:12px;color:#1e3a8a;margin-bottom:10px;"></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-app-table">
+          <thead><tr style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">#</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Log Line</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Flag</th>
+          </tr></thead>
+          <tbody id="le-app-body">
+            <tr><td colspan="3" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter SSH credentials and a log file path, then click Fetch Logs.</td></tr>
           </tbody>
         </table>
       </div>
@@ -4720,19 +4839,41 @@ Export Power BI
     <!-- ── Plugin Logs pane ───────────────────────────────────────────── -->
     <div id="pual-pane-plugins" style="display:none;padding-top:20px;">
       <div class="mdef-toolbar">
-        <div id="pual-plugin-domain-bar" style="display:flex;align-items:center;gap:6px;">
-          <select id="pual-plugin-domain-sel" style="height:28px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;min-width:200px;">
+        <div id="pual-plugin-domain-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <select id="pual-plugin-platform" onchange="pualPluginPlatformChange()" style="height:28px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;">
+            <option value="wordpress">WordPress</option>
+            <option value="drupal">Drupal</option>
+            <option value="joomla">Joomla</option>
+            <option value="composer">Composer (PHP)</option>
+            <option value="npm">npm (Node.js)</option>
+            <option value="pip">pip (Python)</option>
+          </select>
+          <select id="pual-plugin-domain-sel" style="height:28px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;min-width:180px;">
             <option value="">All domains</option>
           </select>
-          <button class="mdef-toolbar-btn primary" onclick="pualLoadPlugins()" id="pual-load-btn">Load Plugin Logs</button>
+          <!-- Live credential fields for Drupal / Joomla -->
+          <span id="pual-live-creds" style="display:none;align-items:center;gap:4px;">
+            <input type="text" id="pual-live-url" placeholder="Site URL" style="height:26px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;width:200px;">
+            <input type="text" id="pual-live-user" placeholder="Username" style="height:26px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;width:110px;">
+            <input type="password" id="pual-live-pass" placeholder="Password" style="height:26px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;width:110px;">
+            <input type="password" id="pual-live-token" placeholder="API Token (opt)" style="height:26px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;width:130px;">
+          </span>
+          <!-- SSH fields for composer/npm/pip -->
+          <span id="pual-ssh-creds" style="display:none;align-items:center;gap:4px;">
+            <input type="text" id="pual-ssh-host" placeholder="SSH host" style="height:26px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;width:160px;">
+            <input type="text" id="pual-ssh-user" placeholder="user" style="height:26px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;width:90px;">
+            <input type="password" id="pual-ssh-pass" placeholder="password" style="height:26px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;width:110px;">
+            <input type="text" id="pual-pkg-path" placeholder="Path (e.g. /var/www/html)" style="height:26px;border:1px solid #bfdbfe;border-radius:2px;padding:0 8px;font-size:12px;font-family:inherit;width:200px;">
+          </span>
+          <button class="mdef-toolbar-btn primary" onclick="pualLoadPlugins()" id="pual-load-btn">Load</button>
           <span id="pual-plugin-count" style="font-size:12px;color:#3b82f6;"></span>
         </div>
-        <input type="text" id="pual-plugin-filter" placeholder="Filter plugins..." oninput="pualPluginFilter()" style="height:28px;border:1px solid #bfdbfe;border-radius:2px;padding:0 10px;font-size:12px;min-width:200px;font-family:inherit;outline:none;margin-left:auto;">
+        <input type="text" id="pual-plugin-filter" placeholder="Filter..." oninput="pualPluginFilter()" style="height:28px;border:1px solid #bfdbfe;border-radius:2px;padding:0 10px;font-size:12px;min-width:180px;font-family:inherit;outline:none;margin-left:auto;">
       </div>
       <div class="mdef-tbl-wrap">
         <table class="mdef-tbl" id="pual-plugin-tbl">
-          <thead><tr><th>Name</th><th>Type</th><th>Version</th><th>Detected on</th><th>Status</th><th>Risk</th><th>Flag</th></tr></thead>
-          <tbody id="pual-plugin-tbody"><tr><td colspan="7" class="mdef-empty">Select a domain and click "Load Plugin Logs" to view installed plugins.</td></tr></tbody>
+          <thead><tr id="pual-plugin-thead"><th>Name</th><th>Type</th><th>Version</th><th>Detected on</th><th>Status</th><th>Risk</th><th>Flag</th></tr></thead>
+          <tbody id="pual-plugin-tbody"><tr><td colspan="7" class="mdef-empty">Select a platform and click "Load" to view installed packages.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -7960,7 +8101,18 @@ function _pualPopulateDomains() {
     }).catch(function(){});
 }
 
+function pualPluginPlatformChange() {
+  var p = document.getElementById('pual-plugin-platform').value;
+  var liveEl = document.getElementById('pual-live-creds');
+  var sshEl  = document.getElementById('pual-ssh-creds');
+  if (liveEl) liveEl.style.display = (p === 'drupal' || p === 'joomla') ? 'flex' : 'none';
+  if (sshEl)  sshEl.style.display  = (p === 'composer' || p === 'npm' || p === 'pip') ? 'flex' : 'none';
+  var btn = document.getElementById('pual-load-btn');
+  if (btn) btn.textContent = p === 'wordpress' ? 'Load' : p === 'drupal' ? 'Fetch Modules' : p === 'joomla' ? 'Fetch Extensions' : 'Fetch Packages';
+}
+
 function pualLoadPlugins() {
+  var platform = (document.getElementById('pual-plugin-platform')||{value:'wordpress'}).value || 'wordpress';
   var sel    = document.getElementById('pual-plugin-domain-sel');
   var domain = sel ? sel.value : '';
   var btn    = document.getElementById('pual-load-btn');
@@ -7969,6 +8121,50 @@ function pualLoadPlugins() {
   if (btn)   { btn.disabled = true; btn.textContent = 'Loading…'; }
   if (cntEl)  cntEl.textContent = '';
   if (tbody)  tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty">Loading…</td></tr>';
+
+  if (platform === 'drupal' || platform === 'joomla') {
+    var lUrl   = (document.getElementById('pual-live-url')||{value:''}).value.trim();
+    var lUser  = (document.getElementById('pual-live-user')||{value:''}).value.trim();
+    var lPass  = (document.getElementById('pual-live-pass')||{value:''}).value.trim();
+    var lToken = (document.getElementById('pual-live-token')||{value:''}).value.trim();
+    if (!lUrl) { alert('Enter the site URL first.'); if(btn){btn.disabled=false;btn.textContent='Load';} return; }
+    fetch('/api/plugins/' + platform, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({site_url: lUrl, username: lUser, password: lPass, token: lToken})
+    }).then(function(r){ return r.json(); }).then(function(d) {
+      if (btn) { btn.disabled=false; btn.textContent='Load'; }
+      if (d.error) { if(tbody) tbody.innerHTML='<tr><td colspan="7" class="mdef-empty" style="color:#dc2626;">'+_esc(d.error)+'</td></tr>'; return; }
+      _pualPluginData = (d.items||[]).map(function(i){ return {
+        name: i.name, type: i.type||platform, version: i.version||'', targets: [lUrl],
+        status: i.status||'active', risk: i.vulnerable?'HIGH':'INFO', source: platform, updated: i.updated||''
+      }; });
+      if (cntEl) cntEl.textContent = _pualPluginData.length + ' item(s)';
+      _pualPluginRender();
+    }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='Load';} if(tbody)tbody.innerHTML='<tr><td colspan="7" class="mdef-empty" style="color:#dc2626;">Request failed: '+_esc(String(e))+'</td></tr>'; });
+    return;
+  }
+
+  if (platform === 'composer' || platform === 'npm' || platform === 'pip') {
+    var sHost  = (document.getElementById('pual-ssh-host')||{value:''}).value.trim();
+    var sUser  = (document.getElementById('pual-ssh-user')||{value:''}).value.trim();
+    var sPass  = (document.getElementById('pual-ssh-pass')||{value:''}).value.trim();
+    var sPath  = (document.getElementById('pual-pkg-path')||{value:''}).value.trim();
+    if (!sHost) { alert('Enter the SSH host first.'); if(btn){btn.disabled=false;btn.textContent='Load';} return; }
+    fetch('/api/plugins/packages', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({manager: platform, ssh_host: sHost, ssh_user: sUser, ssh_pass: sPass, path: sPath})
+    }).then(function(r){ return r.json(); }).then(function(d) {
+      if (btn) { btn.disabled=false; btn.textContent='Load'; }
+      if (d.error) { if(tbody) tbody.innerHTML='<tr><td colspan="7" class="mdef-empty" style="color:#dc2626;">'+_esc(d.error)+'</td></tr>'; return; }
+      _pualPluginData = (d.items||[]).map(function(i){ return {
+        name: i.name, type: platform, version: i.version||'', targets: [sHost],
+        status: 'installed', risk: 'INFO', source: platform, updated: ''
+      }; });
+      if (cntEl) cntEl.textContent = _pualPluginData.length + ' package(s)';
+      _pualPluginRender();
+    }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='Load';} if(tbody)tbody.innerHTML='<tr><td colspan="7" class="mdef-empty" style="color:#dc2626;">Request failed: '+_esc(String(e))+'</td></tr>'; });
+    return;
+  }
 
   var merged = {};
 
@@ -11193,6 +11389,114 @@ function installPlugin(slug, pluginName, btnId) {
     status.style.color = '#1e3a8a';
     status.textContent = 'Error: ' + err.message;
   });
+}
+
+// ── Drupal Watchdog logs ──────────────────────────────────────────────────────
+function runDrupalLive() {
+  var url   = (document.getElementById('le-drupal-url').value||'').trim();
+  var user  = (document.getElementById('le-drupal-user').value||'').trim();
+  var pass  = (document.getElementById('le-drupal-pass').value||'').trim();
+  var limit = parseInt(document.getElementById('le-drupal-limit').value||'50');
+  if (!url) { alert('Enter the Drupal site URL.'); return; }
+  var loading = document.getElementById('le-drupal-loading');
+  var errEl   = document.getElementById('le-drupal-error');
+  var tbody   = document.getElementById('le-drupal-body');
+  loading.style.display=''; errEl.style.display='none';
+  tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#3b82f6;">Fetching…</td></tr>';
+  fetch('/api/logs/drupal-live', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({site_url:url, username:user, password:pass, limit:limit})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    loading.style.display='none';
+    if (d.error) { errEl.textContent=d.error; errEl.style.display=''; tbody.innerHTML=''; return; }
+    var rows = d.events||[];
+    if (!rows.length) { tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">No watchdog events found.</td></tr>'; return; }
+    var sevCol = {emergency:'#dc2626',alert:'#dc2626',critical:'#dc2626',error:'#d97706',warning:'#d97706',notice:'#3b82f6',info:'#3b82f6',debug:'#64748b'};
+    tbody.innerHTML = rows.map(function(e){
+      var sc = sevCol[e.severity]||'#3b82f6';
+      return '<tr>'
+        +'<td style="padding:7px 10px;white-space:nowrap;font-size:11px;">'+_esc(e.timestamp||'')+'</td>'
+        +'<td style="padding:7px 10px;font-size:11px;color:#1e3a8a;font-weight:600;">'+_esc(e.type||'')+'</td>'
+        +'<td style="padding:7px 10px;"><span style="background:#eff6ff;color:'+sc+';font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;">'+_esc((e.severity||'').toUpperCase())+'</span></td>'
+        +'<td style="padding:7px 10px;font-size:11px;max-width:340px;word-break:break-word;">'+_esc(e.message||'')+'</td>'
+        +'<td style="padding:7px 10px;font-size:11px;color:#475569;">'+_esc(e.user||'')+'</td>'
+        +'<td style="padding:7px 10px;font-size:11px;font-family:monospace;">'+_esc(e.ip||'')+'</td>'
+        +'</tr>';
+    }).join('');
+  }).catch(function(e){ loading.style.display='none'; errEl.textContent='Request failed: '+e; errEl.style.display=''; });
+}
+
+// ── Joomla action logs ────────────────────────────────────────────────────────
+function runJoomlaLive() {
+  var url   = (document.getElementById('le-joomla-url').value||'').trim();
+  var user  = (document.getElementById('le-joomla-user').value||'').trim();
+  var pass  = (document.getElementById('le-joomla-pass').value||'').trim();
+  var token = (document.getElementById('le-joomla-token').value||'').trim();
+  var limit = parseInt(document.getElementById('le-joomla-limit').value||'50');
+  if (!url) { alert('Enter the Joomla site URL.'); return; }
+  var loading = document.getElementById('le-joomla-loading');
+  var errEl   = document.getElementById('le-joomla-error');
+  var tbody   = document.getElementById('le-joomla-body');
+  loading.style.display=''; errEl.style.display='none';
+  tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#3b82f6;">Fetching…</td></tr>';
+  fetch('/api/logs/joomla-live', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({site_url:url, username:user, password:pass, token:token, limit:limit})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    loading.style.display='none';
+    if (d.error) { errEl.textContent=d.error; errEl.style.display=''; tbody.innerHTML=''; return; }
+    var rows = d.events||[];
+    if (!rows.length) { tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">No action log events found.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(function(e){
+      return '<tr>'
+        +'<td style="padding:7px 10px;white-space:nowrap;font-size:11px;">'+_esc(e.timestamp||'')+'</td>'
+        +'<td style="padding:7px 10px;font-size:11px;color:#1e3a8a;font-weight:600;">'+_esc(e.user||'')+'</td>'
+        +'<td style="padding:7px 10px;font-size:11px;">'+_esc(e.action||'')+'</td>'
+        +'<td style="padding:7px 10px;font-size:11px;max-width:280px;word-break:break-word;">'+_esc(e.item||'')+'</td>'
+        +'<td style="padding:7px 10px;font-size:11px;font-family:monospace;">'+_esc(e.ip||'')+'</td>'
+        +'<td style="padding:7px 10px;font-size:11px;color:#475569;">'+_esc(e.extension||'')+'</td>'
+        +'</tr>';
+    }).join('');
+  }).catch(function(e){ loading.style.display='none'; errEl.textContent='Request failed: '+e; errEl.style.display=''; });
+}
+
+// ── Generic App Logs via SSH ──────────────────────────────────────────────────
+function runAppLog() {
+  var host    = (document.getElementById('le-app-sshhost').value||'').trim();
+  var user    = (document.getElementById('le-app-sshuser').value||'').trim();
+  var pass    = (document.getElementById('le-app-sshpass').value||'').trim();
+  var port    = (document.getElementById('le-app-sshport').value||'22').trim();
+  var logpath = (document.getElementById('le-app-logpath').value||'').trim();
+  var lines   = parseInt(document.getElementById('le-app-lines').value||'200');
+  var filter  = (document.getElementById('le-app-filter').value||'').trim();
+  if (!host || !logpath) { alert('Enter SSH host and log file path.'); return; }
+  var loading = document.getElementById('le-app-loading');
+  var errEl   = document.getElementById('le-app-error');
+  var statsEl = document.getElementById('le-app-stats');
+  var tbody   = document.getElementById('le-app-body');
+  loading.style.display=''; errEl.style.display='none'; statsEl.style.display='none';
+  tbody.innerHTML='<tr><td colspan="3" style="padding:20px;text-align:center;color:#3b82f6;">Fetching…</td></tr>';
+  fetch('/api/logs/app-ssh', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ssh_host:host, ssh_user:user, ssh_pass:pass, ssh_port:port,
+                          log_path:logpath, lines:lines, filter:filter})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    loading.style.display='none';
+    if (d.error) { errEl.textContent=d.error; errEl.style.display=''; tbody.innerHTML=''; return; }
+    var logLines = d.lines||[];
+    statsEl.textContent = 'Showing '+logLines.length+' line(s) from '+logpath+(filter?' (filter: '+filter+')':'');
+    statsEl.style.display='';
+    if (!logLines.length) { tbody.innerHTML='<tr><td colspan="3" style="padding:20px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">No lines returned.</td></tr>'; return; }
+    var flagPat = /error|fail|crit|warn|exception|traceback|500|403|401/i;
+    tbody.innerHTML = logLines.map(function(line, i){
+      var flagged = flagPat.test(line);
+      return '<tr style="'+(flagged?'background:#fff7f7;':'')+'border-bottom:1px solid #f1f5f9;">'
+        +'<td style="padding:4px 8px;font-size:10px;color:#94a3b8;white-space:nowrap;">'+(i+1)+'</td>'
+        +'<td style="padding:4px 8px;font-size:11px;font-family:monospace;word-break:break-all;color:'+(flagged?'#dc2626':'#1e293b')+';">'+_esc(line)+'</td>'
+        +'<td style="padding:4px 8px;">'+(flagged?'<span style="background:#fee2e2;color:#dc2626;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;">FLAG</span>':'')+'</td>'
+        +'</tr>';
+    }).join('');
+  }).catch(function(e){ loading.style.display='none'; errEl.textContent='Request failed: '+e; errEl.style.display=''; });
 }
 
 // ── cPanel live sessions ───────────────────────────────────────────────────────
@@ -14763,41 +15067,133 @@ function fsClear() {
   localStorage.removeItem('cfai_filescan_url');
 }
 
+function fsPlatformChange() {
+  var p = document.getElementById('fs-platform').value;
+  var hint = document.getElementById('fs-site-url');
+  hint.placeholder = p === 'wordpress' ? 'https://yourwpsite.com' : 'https://yourdomain.com';
+}
+
 function fsRun() {
   var url = (document.getElementById('fs-site-url').value || '').trim();
   if (!url) { alert('Enter a site URL first.'); return; }
   if (!url.startsWith('http')) url = 'https://' + url;
+  var platform = document.getElementById('fs-platform').value;
   localStorage.setItem('cfai_filescan_url', url);
 
   document.getElementById('fs-empty').style.display = 'none';
   document.getElementById('fs-error').style.display = 'none';
   document.getElementById('fs-results').style.display = 'none';
   document.getElementById('fs-loading').style.display = '';
-
-  fetch('/api/wp/filescan', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({site_url: url})
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(data){
-    document.getElementById('fs-loading').style.display = 'none';
-    if (data.error) {
-      document.getElementById('fs-error').textContent = data.error;
-      document.getElementById('fs-error').style.display = '';
-      return;
-    }
-    _fsLastData = data;
-    _fsRender(data);
-    document.getElementById('fs-results').style.display = '';
-    document.getElementById('fs-empty').style.display = 'none';
-    document.getElementById('fs-bulk-bar').style.display = 'flex';
-  })
-  .catch(function(e){
-    document.getElementById('fs-loading').style.display = 'none';
-    document.getElementById('fs-error').textContent = 'Request failed: ' + e;
-    document.getElementById('fs-error').style.display = '';
+  ['fs-exposed-panel','fs-headers-panel','fs-platform-panel'].forEach(function(id){
+    document.getElementById(id).innerHTML = '';
   });
+
+  if (platform === 'wordpress') {
+    fetch('/api/wp/filescan', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({site_url: url})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      document.getElementById('fs-loading').style.display = 'none';
+      if (data.error) { document.getElementById('fs-error').textContent = data.error; document.getElementById('fs-error').style.display = ''; return; }
+      _fsLastData = data; _fsRender(data);
+      document.getElementById('fs-results').style.display = '';
+      document.getElementById('fs-empty').style.display = 'none';
+      document.getElementById('fs-bulk-bar').style.display = 'flex';
+    })
+    .catch(function(e){
+      document.getElementById('fs-loading').style.display = 'none';
+      document.getElementById('fs-error').textContent = 'Request failed: ' + e;
+      document.getElementById('fs-error').style.display = '';
+    });
+  } else {
+    fetch('/api/filescan/generic', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({site_url: url, platform: platform})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      document.getElementById('fs-loading').style.display = 'none';
+      if (data.error) { document.getElementById('fs-error').textContent = data.error; document.getElementById('fs-error').style.display = ''; return; }
+      _fsRenderGeneric(data);
+      document.getElementById('fs-results').style.display = '';
+      document.getElementById('fs-empty').style.display = 'none';
+    })
+    .catch(function(e){
+      document.getElementById('fs-loading').style.display = 'none';
+      document.getElementById('fs-error').textContent = 'Request failed: ' + e;
+      document.getElementById('fs-error').style.display = '';
+    });
+  }
+}
+
+function _fsRenderGeneric(data) {
+  var sum = data.summary || {};
+  var sumHtml = '';
+  [{k:'critical',label:'Critical'},{k:'high',label:'High'},{k:'medium',label:'Medium'},{k:'info',label:'Info'}].forEach(function(s){
+    var n = sum[s.k] || 0;
+    if (n) sumHtml += '<span style="background:#eff6ff;color:#1e3a8a;font-size:11px;font-weight:700;padding:3px 12px;border-radius:12px;">'+n+' '+s.label+'</span>';
+  });
+  document.getElementById('fs-summary').innerHTML = sumHtml || '<span style="font-size:12px;color:#3b82f6;">Scan complete</span>';
+
+  // Exposed files panel
+  var ep = document.getElementById('fs-exposed-panel');
+  var exposed = data.exposed_files || [];
+  if (exposed.length) {
+    var rows = exposed.map(function(f){
+      var sevCol = f.severity === 'critical' ? '#dc2626' : f.severity === 'high' ? '#d97706' : '#3b82f6';
+      return '<tr><td style="font-size:11px;word-break:break-all;color:#1e3a8a;font-weight:600;">'+_esc(f.path)+'</td>'
+        + '<td><span style="background:#fee2e2;color:'+sevCol+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;">'+_esc(f.severity.toUpperCase())+'</span></td>'
+        + '<td style="font-size:11px;color:#475569;">'+_esc(f.description)+'</td>'
+        + '<td style="font-size:10px;color:#64748b;">'+_esc(f.status)+'</td></tr>';
+    }).join('');
+    ep.innerHTML = '<div style="font-size:13px;font-weight:700;color:#1e3a8a;margin-bottom:8px;">Exposed Sensitive Files ('+exposed.length+')</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#eff6ff;">'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">Path</th>'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">Severity</th>'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">Description</th>'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">HTTP Status</th>'
+      + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  } else {
+    ep.innerHTML = '<div style="font-size:12px;color:#16a34a;padding:8px 0;">No exposed sensitive files found.</div>';
+  }
+
+  // Security headers panel
+  var hp = document.getElementById('fs-headers-panel');
+  var missing = data.missing_headers || [];
+  var headers = data.security_headers || {};
+  if (missing.length) {
+    var hRows = missing.map(function(h){
+      return '<tr><td style="font-size:12px;color:#1e3a8a;font-weight:600;">'+_esc(h.header)+'</td><td style="font-size:11px;color:#475569;">'+_esc(h.description)+'</td></tr>';
+    }).join('');
+    hp.innerHTML = '<div style="font-size:13px;font-weight:700;color:#1e3a8a;margin-bottom:8px;">Missing Security Headers ('+missing.length+')</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#eff6ff;">'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">Header</th>'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">Why it matters</th>'
+      + '</tr></thead><tbody>'+hRows+'</tbody></table></div>';
+  } else {
+    hp.innerHTML = '<div style="font-size:12px;color:#16a34a;padding:8px 0;">All key security headers present.</div>';
+  }
+
+  // Platform-specific findings
+  var pp = document.getElementById('fs-platform-panel');
+  var pfind = data.platform_findings || [];
+  if (pfind.length) {
+    var pRows = pfind.map(function(f){
+      return '<tr><td style="font-size:12px;font-weight:600;color:#1e3a8a;">'+_esc(f.check)+'</td>'
+        + '<td><span style="background:'+(f.pass?'#dcfce7':'#fee2e2')+';color:'+(f.pass?'#16a34a':'#dc2626')+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;">'+(f.pass?'PASS':'FAIL')+'</span></td>'
+        + '<td style="font-size:11px;color:#475569;">'+_esc(f.detail)+'</td></tr>';
+    }).join('');
+    pp.innerHTML = '<div style="font-size:13px;font-weight:700;color:#1e3a8a;margin-bottom:8px;">Platform-Specific Checks ('+data.platform+')</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#eff6ff;">'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">Check</th>'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">Result</th>'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#3b82f6;">Detail</th>'
+      + '</tr></thead><tbody>'+pRows+'</tbody></table></div>';
+  }
 }
 
 function _fsRender(data) {

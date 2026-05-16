@@ -7689,6 +7689,466 @@ def api_wp_filescan():
         return jsonify({'error': str(e), 'detail': _tb.format_exc()[-400:]}), 500
 
 
+@app.route('/api/filescan/generic', methods=['POST'])
+@login_required
+def api_filescan_generic():
+    """Generic website file scanner — HTTP-based checks for any platform."""
+    import urllib.request as _req
+    import urllib.error as _uerr
+    data = request.get_json(silent=True) or {}
+    site_url = (data.get('site_url') or '').strip().rstrip('/')
+    platform = (data.get('platform') or 'generic').lower()
+    if not site_url:
+        return jsonify({'error': 'site_url is required'}), 400
+    if not site_url.startswith('http'):
+        site_url = 'https://' + site_url
+
+    def _get(path, timeout=8):
+        try:
+            req = _req.Request(site_url + path, headers={'User-Agent': _BROWSER_UA})
+            with _req.urlopen(req, timeout=timeout) as r:
+                return r.status, dict(r.headers), r.read(4096).decode('utf-8', errors='ignore')
+        except _uerr.HTTPError as e:
+            return e.code, {}, ''
+        except Exception:
+            return 0, {}, ''
+
+    results = {'platform': platform, 'site_url': site_url,
+                'exposed_files': [], 'missing_headers': [],
+                'security_headers': {}, 'platform_findings': [],
+                'summary': {'critical': 0, 'high': 0, 'medium': 0, 'info': 0}}
+
+    # ── 1. Security headers check ─────────────────────────────────────────────
+    code, hdrs, _ = _get('/')
+    hdr_checks = [
+        ('strict-transport-security', 'Strict-Transport-Security', 'Enforces HTTPS — prevents protocol downgrade attacks'),
+        ('content-security-policy',   'Content-Security-Policy',   'Mitigates XSS and data injection attacks'),
+        ('x-frame-options',           'X-Frame-Options',           'Prevents clickjacking via iframes'),
+        ('x-content-type-options',    'X-Content-Type-Options',    'Prevents MIME-type sniffing'),
+        ('referrer-policy',           'Referrer-Policy',           'Controls how much referrer info is sent'),
+        ('permissions-policy',        'Permissions-Policy',        'Restricts access to browser features'),
+    ]
+    hdrs_lower = {k.lower(): v for k, v in hdrs.items()}
+    for key, name, desc in hdr_checks:
+        results['security_headers'][name] = hdrs_lower.get(key, '')
+        if not hdrs_lower.get(key):
+            results['missing_headers'].append({'header': name, 'description': desc})
+            results['summary']['medium'] += 1
+
+    # ── 2. Exposed sensitive files (common across all platforms) ──────────────
+    common_paths = [
+        ('/.env',            'critical', 'Environment file — may contain DB passwords, API keys, secrets'),
+        ('/.env.local',      'critical', 'Local env file — may contain secrets'),
+        ('/.env.production', 'critical', 'Production env file — may contain secrets'),
+        ('/.git/HEAD',       'critical', 'Git repo exposed — full source code downloadable'),
+        ('/.git/config',     'high',     'Git config exposed — reveals remote URLs and branches'),
+        ('/backup.sql',      'critical', 'SQL database dump exposed publicly'),
+        ('/backup.zip',      'high',     'Site backup archive exposed publicly'),
+        ('/dump.sql',        'critical', 'SQL dump exposed publicly'),
+        ('/.htpasswd',       'high',     'Password file exposed'),
+        ('/phpinfo.php',     'high',     'PHP info page exposes server configuration'),
+        ('/info.php',        'high',     'PHP info page exposes server configuration'),
+        ('/test.php',        'medium',   'Test PHP file left on server'),
+        ('/composer.json',   'medium',   'Composer config — reveals dependencies and versions'),
+        ('/package.json',    'medium',   'NPM config — reveals dependencies and versions'),
+    ]
+
+    # Platform-specific sensitive paths
+    platform_paths = {
+        'drupal':  [('/sites/default/settings.php', 'critical', 'Drupal config — may contain DB credentials'),
+                    ('/sites/default/default.settings.php', 'medium', 'Drupal default settings exposed'),
+                    ('/CHANGELOG.txt', 'medium', 'Drupal version fingerprint'),
+                    ('/core/CHANGELOG.txt', 'medium', 'Drupal core version exposed'),
+                    ('/modules/', 'info', 'Drupal modules directory browsable')],
+        'joomla':  [('/configuration.php', 'critical', 'Joomla config — may contain DB credentials'),
+                    ('/administrator/', 'medium', 'Joomla admin panel exposed'),
+                    ('/logs/', 'medium', 'Joomla logs directory potentially browsable'),
+                    ('/cache/', 'info', 'Joomla cache directory potentially browsable')],
+        'laravel': [('/storage/logs/laravel.log', 'high', 'Laravel log file exposed — may contain stack traces and credentials'),
+                    ('/.env', 'critical', 'Laravel .env with APP_KEY and DB credentials'),
+                    ('/public/.htaccess', 'info', 'Laravel htaccess exposed'),
+                    ('/artisan', 'medium', 'Artisan CLI script exposed')],
+        'django':  [('/admin/', 'medium', 'Django admin panel accessible'),
+                    ('/__debug__/', 'high', 'Django Debug Toolbar exposed'),
+                    ('/static/admin/', 'info', 'Django static admin files'),
+                    ('/media/', 'info', 'Django media directory potentially browsable')],
+        'nodejs':  [('/package.json', 'medium', 'npm package.json — reveals dependencies'),
+                    ('/.env', 'critical', 'Node.js env file with secrets'),
+                    ('/node_modules/', 'info', 'node_modules directory potentially browsable')],
+    }
+
+    all_paths = common_paths + platform_paths.get(platform, [])
+    for path, severity, description in all_paths:
+        code, _, body = _get(path)
+        if code == 200:
+            results['exposed_files'].append({'path': path, 'severity': severity,
+                                             'description': description, 'status': str(code)})
+            results['summary'][severity] = results['summary'].get(severity, 0) + 1
+
+    # ── 3. Platform-specific checks ────────────────────────────────────────────
+    def _check(label, path, expect_not=None, expect=None, note=''):
+        code2, _, body2 = _get(path)
+        if expect_not is not None:
+            passed = code2 not in expect_not
+        elif expect is not None:
+            passed = code2 in expect
+        else:
+            passed = code2 == 200
+        detail = note or ('HTTP ' + str(code2))
+        if not passed:
+            results['summary']['medium'] += 1
+        return {'check': label, 'pass': passed, 'detail': detail}
+
+    if platform == 'drupal':
+        results['platform_findings'] = [
+            _check('Drupal CHANGELOG not public',   '/CHANGELOG.txt',       expect_not=[200], note='Version info should not be publicly readable'),
+            _check('Install.php removed',           '/install.php',         expect_not=[200], note='install.php must not exist on live sites'),
+            _check('Update.php protected',          '/update.php',          expect_not=[200], note='update.php must require admin auth'),
+            _check('Sites/default not browsable',   '/sites/default/',      expect_not=[200], note='Directory listing should be disabled'),
+        ]
+    elif platform == 'joomla':
+        results['platform_findings'] = [
+            _check('Admin panel requires auth',     '/administrator/',       expect_not=[200], note='Should redirect to login, not open admin'),
+            _check('Logs not public',               '/logs/',                expect_not=[200], note='Log directory must not be browsable'),
+            _check('Configuration.php not readable','/configuration.php',   expect_not=[200], note='Config must not be readable via HTTP'),
+            _check('Cache not browsable',           '/cache/',               expect_not=[200], note='Cache directory must not be browsable'),
+        ]
+    elif platform == 'laravel':
+        results['platform_findings'] = [
+            _check('Debug mode off',                '/_debugbar/open',       expect_not=[200], note='Laravel Debugbar should not be publicly accessible'),
+            _check('Telescope not public',          '/telescope/api/requests', expect_not=[200], note='Laravel Telescope must require auth'),
+            _check('Storage logs not public',       '/storage/logs/laravel.log', expect_not=[200], note='Log files must not be publicly readable'),
+            _check('.env not exposed',              '/.env',                 expect_not=[200], note='.env must never be publicly accessible'),
+        ]
+    elif platform == 'django':
+        results['platform_findings'] = [
+            _check('Debug Toolbar not public',      '/__debug__/',           expect_not=[200], note='Django Debug Toolbar must not be publicly accessible'),
+            _check('Admin requires auth',           '/admin/',               expect_not=[200], note='Admin should redirect to login page'),
+            _check('Media not browsable',           '/media/',               expect_not=[200], note='Media directory listing should be disabled'),
+        ]
+    elif platform == 'nodejs':
+        results['platform_findings'] = [
+            _check('node_modules not browsable',    '/node_modules/',        expect_not=[200], note='node_modules must never be web-accessible'),
+            _check('.env not exposed',              '/.env',                 expect_not=[200], note='.env must never be publicly accessible'),
+            _check('package.json not exposed',      '/package.json',         expect_not=[200], note='Dependency list should not be public'),
+        ]
+    else:
+        results['platform_findings'] = [
+            _check('.env not exposed',              '/.env',                 expect_not=[200], note='.env must never be publicly accessible'),
+            _check('.git not exposed',              '/.git/HEAD',            expect_not=[200], note='Git repo must not be publicly accessible'),
+            _check('Backup files not exposed',      '/backup.sql',           expect_not=[200], note='Database backups must not be publicly accessible'),
+        ]
+
+    return jsonify(results)
+
+
+@app.route('/api/logs/drupal-live', methods=['POST'])
+@login_required
+def api_logs_drupal_live():
+    """Fetch Drupal watchdog events via JSON:API (requires admin credentials)."""
+    import urllib.request as _req
+    import urllib.parse as _up
+    import base64 as _b64
+    data = request.get_json(silent=True) or {}
+    site_url  = (data.get('site_url') or '').strip().rstrip('/')
+    username  = (data.get('username') or '').strip()
+    password  = (data.get('password') or '').strip()
+    limit     = min(int(data.get('limit') or 50), 200)
+    if not site_url:
+        return jsonify({'error': 'site_url is required'}), 400
+    if not site_url.startswith('http'):
+        site_url = 'https://' + site_url
+
+    auth = _b64.b64encode(f'{username}:{password}'.encode()).decode() if username else None
+    headers = {'Accept': 'application/vnd.api+json', 'Content-Type': 'application/vnd.api+json'}
+    if auth:
+        headers['Authorization'] = 'Basic ' + auth
+
+    def _get_json(url):
+        req = _req.Request(url, headers=headers)
+        with _req.urlopen(req, timeout=15) as r:
+            return _json.loads(r.read().decode('utf-8', errors='ignore'))
+
+    try:
+        # Drupal JSON:API dblog endpoint (requires dblog module enabled)
+        api_url = (f'{site_url}/jsonapi/dblog_message/message'
+                   f'?sort=-timestamp&page[limit]={limit}')
+        resp = _get_json(api_url)
+        events = []
+        severity_map = {'0':'emergency','1':'alert','2':'critical','3':'error',
+                        '4':'warning','5':'notice','6':'info','7':'debug'}
+        for item in (resp.get('data') or []):
+            attrs = item.get('attributes', {})
+            sev_num = str(attrs.get('severity', 6))
+            events.append({
+                'timestamp': (attrs.get('timestamp') or '')[:19].replace('T', ' '),
+                'type':      attrs.get('type', ''),
+                'severity':  severity_map.get(sev_num, 'info'),
+                'message':   attrs.get('message', ''),
+                'user':      (item.get('relationships', {}).get('uid', {}).get('data') or {}).get('id', ''),
+                'ip':        attrs.get('hostname', ''),
+            })
+        return jsonify({'events': events, 'count': len(events)})
+    except Exception as exc:
+        return jsonify({'error': f'Failed to fetch Drupal logs: {exc}. '
+                                 'Ensure JSON:API and dblog modules are enabled and credentials are correct.'}), 500
+
+
+@app.route('/api/logs/joomla-live', methods=['POST'])
+@login_required
+def api_logs_joomla_live():
+    """Fetch Joomla action logs via Web Services API (Joomla 4+)."""
+    import urllib.request as _req
+    import base64 as _b64
+    data = request.get_json(silent=True) or {}
+    site_url  = (data.get('site_url') or '').strip().rstrip('/')
+    username  = (data.get('username') or '').strip()
+    password  = (data.get('password') or '').strip()
+    token     = (data.get('token') or '').strip()
+    limit     = min(int(data.get('limit') or 50), 200)
+    if not site_url:
+        return jsonify({'error': 'site_url is required'}), 400
+    if not site_url.startswith('http'):
+        site_url = 'https://' + site_url
+
+    headers = {'Accept': 'application/vnd.api+json'}
+    if token:
+        headers['X-Joomla-Token'] = token
+    elif username:
+        auth = _b64.b64encode(f'{username}:{password}'.encode()).decode()
+        headers['Authorization'] = 'Basic ' + auth
+
+    def _get_json(url):
+        req = _req.Request(url, headers=headers)
+        with _req.urlopen(req, timeout=15) as r:
+            return _json.loads(r.read().decode('utf-8', errors='ignore'))
+
+    try:
+        api_url = f'{site_url}/api/index.php/v1/privacy/actionlogs?page[limit]={limit}&sort=-id'
+        resp = _get_json(api_url)
+        events = []
+        for item in (resp.get('data') or []):
+            attrs = item.get('attributes', {})
+            events.append({
+                'timestamp': (attrs.get('log_date') or '')[:19].replace('T', ' '),
+                'user':      attrs.get('username', '') or attrs.get('name', ''),
+                'action':    attrs.get('message_language_key', '').replace('PLG_ACTIONLOG_', '').replace('_', ' ').title(),
+                'item':      attrs.get('item_id', ''),
+                'ip':        attrs.get('ip_address', ''),
+                'extension': attrs.get('extension', ''),
+            })
+        return jsonify({'events': events, 'count': len(events)})
+    except Exception as exc:
+        return jsonify({'error': f'Failed to fetch Joomla logs: {exc}. '
+                                 'Ensure Joomla 4+ Web Services API is enabled and provide an API token or admin credentials.'}), 500
+
+
+@app.route('/api/logs/app-ssh', methods=['POST'])
+@login_required
+def api_logs_app_ssh():
+    """Read any log file from a server via SSH."""
+    data = request.get_json(silent=True) or {}
+    ssh_host = (data.get('ssh_host') or '').strip()
+    ssh_user = (data.get('ssh_user') or 'root').strip()
+    ssh_pass = (data.get('ssh_pass') or '').strip()
+    ssh_port = int(data.get('ssh_port') or 22)
+    log_path = (data.get('log_path') or '').strip()
+    lines    = min(int(data.get('lines') or 200), 2000)
+    grep_filter = (data.get('filter') or '').strip()
+
+    if not ssh_host or not log_path:
+        return jsonify({'error': 'ssh_host and log_path are required'}), 400
+
+    try:
+        import paramiko
+    except ImportError:
+        return jsonify({'error': 'paramiko not installed on server. Run: pip install paramiko --break-system-packages'}), 500
+
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(ssh_host, port=ssh_port, username=ssh_user, password=ssh_pass, timeout=15)
+
+        if grep_filter:
+            cmd = f'tail -n {lines} {log_path} | grep -i {_subprocess.list2cmdline([grep_filter])} | tail -n {lines}'
+        else:
+            cmd = f'tail -n {lines} {log_path}'
+
+        _, stdout, stderr = client.exec_command(cmd, timeout=20)
+        out = stdout.read().decode('utf-8', errors='ignore')
+        err = stderr.read().decode('utf-8', errors='ignore')
+        client.close()
+
+        if err and not out:
+            return jsonify({'error': err.strip()}), 500
+
+        log_lines = [l for l in out.splitlines() if l.strip()]
+        return jsonify({'lines': log_lines, 'count': len(log_lines), 'path': log_path})
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/api/plugins/drupal', methods=['POST'])
+@login_required
+def api_plugins_drupal():
+    """Fetch installed Drupal modules via JSON:API."""
+    import urllib.request as _req
+    import base64 as _b64
+    data = request.get_json(silent=True) or {}
+    site_url = (data.get('site_url') or '').strip().rstrip('/')
+    username = (data.get('username') or '').strip()
+    password = (data.get('password') or '').strip()
+    token    = (data.get('token') or '').strip()
+    if not site_url:
+        return jsonify({'error': 'site_url is required'}), 400
+    if not site_url.startswith('http'):
+        site_url = 'https://' + site_url
+
+    headers = {'Accept': 'application/vnd.api+json'}
+    if token:
+        headers['Authorization'] = 'Bearer ' + token
+    elif username:
+        auth = _b64.b64encode(f'{username}:{password}'.encode()).decode()
+        headers['Authorization'] = 'Basic ' + auth
+
+    def _get_json(url):
+        req = _req.Request(url, headers=headers)
+        with _req.urlopen(req, timeout=15) as r:
+            return _json.loads(r.read().decode('utf-8', errors='ignore'))
+
+    try:
+        resp = _get_json(f'{site_url}/jsonapi/node_type/node_type')
+        # Try update status endpoint for modules
+        items = []
+        try:
+            mod_resp = _get_json(f'{site_url}/admin/modules/json')
+            for m in (mod_resp if isinstance(mod_resp, list) else []):
+                items.append({'name': m.get('name',''), 'type': 'Module',
+                              'version': m.get('version',''), 'status': 'enabled' if m.get('status') else 'disabled',
+                              'vulnerable': False, 'updated': ''})
+        except Exception:
+            # Fallback: parse from update status page
+            upd = _get_json(f'{site_url}/jsonapi/update_status/release?filter[status]=1&page[limit]=100')
+            for item in (upd.get('data') or []):
+                attrs = item.get('attributes', {})
+                items.append({'name': attrs.get('name',''), 'type': 'Module',
+                              'version': attrs.get('existing_version',''),
+                              'status': 'enabled', 'vulnerable': bool(attrs.get('security_update')),
+                              'updated': ''})
+        if not items:
+            return jsonify({'error': 'No module data returned. Ensure JSON:API and admin credentials are correct.'}), 404
+        return jsonify({'items': items, 'count': len(items)})
+    except Exception as exc:
+        return jsonify({'error': f'Failed to fetch Drupal modules: {exc}'}), 500
+
+
+@app.route('/api/plugins/joomla', methods=['POST'])
+@login_required
+def api_plugins_joomla():
+    """Fetch installed Joomla extensions via Web Services API (Joomla 4+)."""
+    import urllib.request as _req
+    import base64 as _b64
+    data = request.get_json(silent=True) or {}
+    site_url = (data.get('site_url') or '').strip().rstrip('/')
+    username = (data.get('username') or '').strip()
+    password = (data.get('password') or '').strip()
+    token    = (data.get('token') or '').strip()
+    if not site_url:
+        return jsonify({'error': 'site_url is required'}), 400
+    if not site_url.startswith('http'):
+        site_url = 'https://' + site_url
+
+    headers = {'Accept': 'application/vnd.api+json'}
+    if token:
+        headers['X-Joomla-Token'] = token
+    elif username:
+        auth = _b64.b64encode(f'{username}:{password}'.encode()).decode()
+        headers['Authorization'] = 'Basic ' + auth
+
+    def _get_json(url):
+        req = _req.Request(url, headers=headers)
+        with _req.urlopen(req, timeout=15) as r:
+            return _json.loads(r.read().decode('utf-8', errors='ignore'))
+
+    try:
+        resp = _get_json(f'{site_url}/api/index.php/v1/extensions?page[limit]=200&sort=name')
+        items = []
+        for item in (resp.get('data') or []):
+            attrs = item.get('attributes', {})
+            items.append({
+                'name':       attrs.get('name', ''),
+                'type':       attrs.get('type', 'extension').capitalize(),
+                'version':    attrs.get('version', ''),
+                'status':     'enabled' if attrs.get('enabled') else 'disabled',
+                'vulnerable': False,
+                'updated':    (attrs.get('manifest_cache') or {}).get('creation_date', '') if isinstance(attrs.get('manifest_cache'), dict) else '',
+            })
+        return jsonify({'items': items, 'count': len(items)})
+    except Exception as exc:
+        return jsonify({'error': f'Failed to fetch Joomla extensions: {exc}. Ensure Joomla 4+ and Web Services API plugin enabled.'}), 500
+
+
+@app.route('/api/plugins/packages', methods=['POST'])
+@login_required
+def api_plugins_packages():
+    """Fetch package list (composer/npm/pip) from a server via SSH."""
+    data = request.get_json(silent=True) or {}
+    manager  = (data.get('manager') or 'composer').lower()
+    ssh_host = (data.get('ssh_host') or '').strip()
+    ssh_user = (data.get('ssh_user') or 'root').strip()
+    ssh_pass = (data.get('ssh_pass') or '').strip()
+    ssh_port = int(data.get('ssh_port') or 22)
+    path     = (data.get('path') or '/var/www/html').strip()
+
+    if not ssh_host:
+        return jsonify({'error': 'ssh_host is required'}), 400
+
+    try:
+        import paramiko
+    except ImportError:
+        return jsonify({'error': 'paramiko not installed. Run: pip install paramiko --break-system-packages'}), 500
+
+    cmds = {
+        'composer': f'cat {path}/composer.lock 2>/dev/null || cat {path}/composer.json 2>/dev/null',
+        'npm':      f'cat {path}/package-lock.json 2>/dev/null || cat {path}/package.json 2>/dev/null',
+        'pip':      f'pip freeze 2>/dev/null || pip3 freeze 2>/dev/null || cat {path}/requirements.txt 2>/dev/null',
+    }
+
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(ssh_host, port=ssh_port, username=ssh_user, password=ssh_pass, timeout=15)
+        _, stdout, _ = client.exec_command(cmds.get(manager, cmds['pip']), timeout=20)
+        out = stdout.read().decode('utf-8', errors='ignore')
+        client.close()
+
+        items = []
+        if manager == 'pip':
+            for line in out.splitlines():
+                if '==' in line:
+                    parts = line.split('==')
+                    items.append({'name': parts[0].strip(), 'version': parts[1].strip() if len(parts)>1 else ''})
+        else:
+            try:
+                pkg_data = _json.loads(out)
+                if manager == 'composer':
+                    for pkg in pkg_data.get('packages', []):
+                        items.append({'name': pkg.get('name',''), 'version': pkg.get('version','')})
+                elif manager == 'npm':
+                    deps = {**pkg_data.get('dependencies',{}), **pkg_data.get('devDependencies',{})}
+                    for name, val in deps.items():
+                        ver = val.get('version','') if isinstance(val, dict) else str(val)
+                        items.append({'name': name, 'version': ver})
+            except Exception:
+                for line in out.splitlines():
+                    if line.strip():
+                        items.append({'name': line.strip(), 'version': ''})
+
+        return jsonify({'items': items, 'count': len(items)})
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
 @app.route('/api/wp/filescan-plugin')
 def api_wp_filescan_plugin():
     """Return a ready-to-upload WordPress mu-plugin that exposes a secure file-scan REST endpoint."""
