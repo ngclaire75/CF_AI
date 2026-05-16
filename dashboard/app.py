@@ -1275,6 +1275,301 @@ def _build_cred_block(site_type: str, creds: dict, domain: str) -> str:
             + f'   {cp_ftp} "{base}/wp-content/uploads/" 2>&1|grep -iP "\\.php|\\.phtml|\\.php5"\n'
         )
 
+    if site_type == 'drupal' and creds.get('drupal_user'):
+        d_url  = (creds.get('drupal_url') or f'https://{domain}').rstrip('/')
+        d_user = creds.get('drupal_user', '')
+        return (hdr
+            + 'DRUPAL CREDENTIALS\n'
+            + f'  URL      : {d_url}\n'
+            + f'  Username : {d_user}\n'
+            + '  Password : $DRUPAL_PASSWORD (in environment)\n\n'
+            + 'Run ALL Drupal security checks:\n\n'
+            + f'1. Drupal version:\n'
+            + f'   curl -s "{d_url}/CHANGELOG.txt"|head -5\n'
+            + f'   curl -s "{d_url}/core/CHANGELOG.txt"|head -5\n\n'
+            + f'2. Obtain session token:\n'
+            + f'   curl -s -c /tmp/drupal_auth.txt -b /tmp/drupal_auth.txt \\\n'
+            + f'     -d "name={d_user}&pass=$DRUPAL_PASSWORD&form_id=user_login_form&op=Log+in" \\\n'
+            + f'     "{d_url}/user/login"\n\n'
+            + f'3. JSON:API — list users (requires admin):\n'
+            + f'   curl -s -b /tmp/drupal_auth.txt -H "Accept: application/vnd.api+json" \\\n'
+            + f'     "{d_url}/jsonapi/user/user?page[limit]=50" | python3 -m json.tool 2>/dev/null | grep -P "name|mail|status|roles"\n\n'
+            + f'4. Installed modules and versions:\n'
+            + f'   curl -s -b /tmp/drupal_auth.txt "{d_url}/admin/reports/updates" \\\n'
+            + '     | grep -oP \'(?<=<td>)[A-Za-z ]+(?=</td>)|(?<=version">)[^<]+\' | head -60\n\n'
+            + f'5. Available security updates:\n'
+            + f'   curl -s -b /tmp/drupal_auth.txt "{d_url}/admin/reports/updates/update" \\\n'
+            + '     | grep -iP "security update|critical|warning"\n\n'
+            + f'6. Status report (critical config issues):\n'
+            + f'   curl -s -b /tmp/drupal_auth.txt "{d_url}/admin/reports/status" \\\n'
+            + '     | grep -iP "error|warning|critical|vulnerable|insecure"\n\n'
+            + f'7. Public file exposure:\n'
+            + f'   curl -s "{d_url}/sites/default/settings.php" | head -10\n'
+            + f'   curl -s "{d_url}/.git/HEAD" | head -3\n\n'
+            + f'8. PHP filter module (critical RCE risk if enabled):\n'
+            + f'   curl -s -b /tmp/drupal_auth.txt "{d_url}/admin/modules" \\\n'
+            + '     | grep -iP "php filter|php_filter"\n'
+        )
+
+    if site_type == 'joomla' and creds.get('joomla_user'):
+        j_user  = creds.get('joomla_user', '')
+        j_token = creds.get('joomla_token', '')
+        auth_hdr = f'-H "X-Joomla-Token: {j_token}"' if j_token else '-b /tmp/joomla_auth.txt'
+        return (hdr
+            + 'JOOMLA CREDENTIALS\n'
+            + f'  URL      : https://{domain}\n'
+            + f'  Username : {j_user}\n'
+            + ('  API Token: (provided)\n' if j_token else '  Password : $JOOMLA_PASSWORD (in environment)\n')
+            + '\nRun ALL Joomla security checks:\n\n'
+            + ('' if j_token else
+               f'1. Authenticate (form login):\n'
+               + f'   JTOKEN=$(curl -sc /tmp/joomla_auth.txt -s "https://{domain}/administrator/index.php" \\\n'
+               + '     | grep -oP \'(?<=name="[0-9a-f]{32}" value=")[^"]+\' | head -1)\n'
+               + f'   curl -sb /tmp/joomla_auth.txt -s \\\n'
+               + f'     -d "username={j_user}&passwd=$JOOMLA_PASSWORD&option=com_login&task=login&return=aW5kZXgucGhw&${{JTOKEN}}=1" \\\n'
+               + f'     "https://{domain}/administrator/index.php" -o /dev/null\n\n')
+            + f'2. Joomla version:\n'
+            + f'   curl -s "https://{domain}/administrator/manifests/files/joomla.xml" | grep -oP "(?<=<version>)[^<]+"\n\n'
+            + f'3. Installed extensions (API — Joomla 4+):\n'
+            + f'   curl -s {auth_hdr} "https://{domain}/api/index.php/v1/extensions?page[limit]=100" \\\n'
+            + '     | python3 -m json.tool 2>/dev/null | grep -P "name|version|enabled|type" | head -80\n\n'
+            + f'4. Users list (API):\n'
+            + f'   curl -s {auth_hdr} "https://{domain}/api/index.php/v1/users?page[limit]=50" \\\n'
+            + '     | python3 -m json.tool 2>/dev/null | grep -P "name|username|email|groups" | head -60\n\n'
+            + f'5. Global config — check debug/error display:\n'
+            + f'   curl -s {auth_hdr} "https://{domain}/api/index.php/v1/config/application" \\\n'
+            + '     | python3 -m json.tool 2>/dev/null | grep -P "debug|error|ssl|force_ssl|session" | head -30\n\n'
+            + f'6. Exposed sensitive files:\n'
+            + f'   curl -s "https://{domain}/configuration.php" | head -5\n'
+            + f'   curl -s "https://{domain}/.git/HEAD" | head -3\n'
+            + f'   curl -s "https://{domain}/administrator/logs/" | head -20\n'
+        )
+
+    if site_type == 'generic' and (creds.get('gen_user') or creds.get('gen_api_key')):
+        g_url       = (creds.get('gen_url') or f'https://{domain}').rstrip('/')
+        g_user      = creds.get('gen_user', '')
+        g_api_key   = creds.get('gen_api_key', '')
+        g_framework = creds.get('gen_framework', 'auto')
+        api_hdr     = f'-H "Authorization: Bearer {g_api_key}"' if g_api_key else '-b /tmp/app_auth.txt'
+        return (hdr
+            + f'GENERIC WEB APP CREDENTIALS ({g_framework.upper()})\n'
+            + f'  Login URL : {g_url}\n'
+            + f'  Username  : {g_user}\n'
+            + ('  API Key   : (provided)\n' if g_api_key else '  Password  : $GEN_PASSWORD (in environment)\n')
+            + '\nRun ALL application security checks:\n\n'
+            + ('' if g_api_key else
+               f'1. Authenticate (form login):\n'
+               + f'   curl -sc /tmp/app_auth.txt -s -X POST \\\n'
+               + f'     -d "username={g_user}&password=$GEN_PASSWORD" \\\n'
+               + f'     "{g_url}" -L -o /tmp/app_login.html -w "%{{http_code}}"\n'
+               + f'   curl -sc /tmp/app_auth.txt -s -X POST \\\n'
+               + f'     -H "Content-Type: application/json" \\\n'
+               + f'     -d \'{{"username":"{g_user}","password":"$GEN_PASSWORD"}}\' \\\n'
+               + f'     "{g_url}" -L -w "%{{http_code}}"\n\n')
+            + f'2. Security HTTP headers:\n'
+            + f'   curl -sI "https://{domain}/" | grep -iP "x-frame|x-content|strict-transport|content-security|referrer|permissions"\n\n'
+            + f'3. Common sensitive file exposure:\n'
+            + '   for p in .env .env.local .env.production config/database.yml config/secrets.yml '
+            + 'storage/logs/laravel.log var/log/prod.log .git/HEAD; do\n'
+            + f'     code=$(curl -so /dev/null -w "%{{http_code}}" "https://{domain}/$p")\n'
+            + '     [ "$code" = "200" ] && echo "EXPOSED: $p"\n'
+            + '   done\n\n'
+            + f'4. API endpoint discovery:\n'
+            + f'   curl -s {api_hdr} "https://{domain}/api/" | python3 -m json.tool 2>/dev/null | head -40\n'
+            + f'   curl -s {api_hdr} "https://{domain}/api/v1/" | python3 -m json.tool 2>/dev/null | head -40\n\n'
+            + f'5. Authentication bypass tests:\n'
+            + f'   curl -s "https://{domain}/admin" -o /dev/null -w "%{{http_code}} %{{url_effective}}\\n"\n'
+            + f'   curl -s "https://{domain}/dashboard" -o /dev/null -w "%{{http_code}} %{{url_effective}}\\n"\n'
+            + f'   curl -s -H "X-Forwarded-For: 127.0.0.1" "https://{domain}/admin" -o /dev/null -w "%{{http_code}}\\n"\n\n'
+            + f'6. CORS misconfiguration:\n'
+            + f'   curl -sI -H "Origin: https://evil.com" "https://{domain}/api/" \\\n'
+            + '     | grep -i "access-control"\n\n'
+            + (f'7. Framework-specific checks ({g_framework}):\n'
+               + (f'   curl -s "https://{domain}/_debugbar/open" | head -5\n'
+                  f'   curl -s "https://{domain}/telescope/api/requests" {api_hdr} | python3 -m json.tool 2>/dev/null | head -20\n'
+                  if g_framework == 'laravel' else
+                  f'   curl -s "https://{domain}/__debug__/" | head -20\n'
+                  f'   curl -s "https://{domain}/admin/" -o /dev/null -w "%{{http_code}}\\n"\n'
+                  if g_framework == 'django' else
+                  f'   curl -s "https://{domain}/admin" | grep -iP "flask|werkzeug|jinja"\n'
+                  if g_framework == 'flask' else
+                  f'   curl -sI "https://{domain}/" | grep -iP "x-powered-by|server|x-rails"\n')
+               + '\n')
+        )
+
+    if site_type == 'plesk' and creds.get('plesk_host') and creds.get('plesk_user'):
+        pk_host = creds.get('plesk_host', '') or domain
+        pk_user = creds.get('plesk_user', '')
+        pk_port = creds.get('plesk_port', '8443') or '8443'
+        pk_api  = f'https://{pk_host}:{pk_port}/api/v2'
+        pk_hdr  = f'-u "{pk_user}:$PLESK_PASSWORD" -H "Content-Type: application/json"'
+        return (hdr
+            + 'PLESK CREDENTIALS\n'
+            + f'  Host     : {pk_host}:{pk_port}\n'
+            + f'  Username : {pk_user}\n'
+            + '  Password : $PLESK_PASSWORD (in environment)\n\n'
+            + 'Run ALL Plesk security checks:\n\n'
+            + f'1. List all domains/sites:\n'
+            + f'   curl -sk {pk_hdr} "{pk_api}/domains" | python3 -m json.tool 2>/dev/null | grep -P "name|status|hosting"\n\n'
+            + f'2. SSL certificates:\n'
+            + f'   curl -sk {pk_hdr} "{pk_api}/certificates" | python3 -m json.tool 2>/dev/null | grep -P "name|validTo|status"\n\n'
+            + f'3. PHP handler versions:\n'
+            + f'   curl -sk {pk_hdr} "{pk_api}/domains" | python3 -c "import sys,json;d=json.load(sys.stdin);[print(x.get(\'name\'),x.get(\'phpHandlerId\',\'?\')) for x in d.get(\'data\',[])if isinstance(x,dict)]" 2>/dev/null\n\n'
+            + f'4. Mail accounts:\n'
+            + f'   curl -sk {pk_hdr} "{pk_api}/mail" | python3 -m json.tool 2>/dev/null | grep -P "name|domain|enabled" | head -40\n\n'
+            + f'5. Server info and version:\n'
+            + f'   curl -sk {pk_hdr} "{pk_api}/server/info" | python3 -m json.tool 2>/dev/null\n\n'
+            + f'6. Database servers:\n'
+            + f'   curl -sk {pk_hdr} "{pk_api}/dbservers" | python3 -m json.tool 2>/dev/null | grep -P "type|host|status"\n'
+        )
+
+    if site_type == 'postgresql' and creds.get('pg_host') and creds.get('pg_name'):
+        pg_host = creds.get('pg_host', '')
+        pg_port = creds.get('pg_port', '5432') or '5432'
+        pg_name = creds.get('pg_name', '')
+        pg_user = creds.get('pg_user', 'postgres')
+        pg_ssl  = creds.get('pg_ssl', 'prefer')
+        pg_cmd  = f'PGPASSWORD="$PG_PASSWORD" psql -h "{pg_host}" -p {pg_port} -U "{pg_user}" -d "{pg_name}" --no-password -c'
+        return (hdr
+            + 'POSTGRESQL CREDENTIALS\n'
+            + f'  Host     : {pg_host}:{pg_port}\n'
+            + f'  Database : {pg_name}\n'
+            + f'  User     : {pg_user}\n'
+            + f'  SSL Mode : {pg_ssl}\n'
+            + '  Password : $PG_PASSWORD (in environment)\n\n'
+            + 'Install client if missing: apt-get install -y postgresql-client 2>/dev/null\n\n'
+            + 'Run ALL PostgreSQL security checks:\n\n'
+            + f'1. Server version:\n   {pg_cmd} "SELECT version();"\n\n'
+            + f'2. All users and roles:\n   {pg_cmd} "SELECT usename,usesuper,usecreatedb,usecreaterole,valuntil FROM pg_user ORDER BY usesuper DESC;"\n\n'
+            + f'3. Superuser accounts (minimize these):\n   {pg_cmd} "SELECT rolname FROM pg_roles WHERE rolsuper=true;"\n\n'
+            + f'4. Databases and sizes:\n   {pg_cmd} "SELECT datname,pg_size_pretty(pg_database_size(datname)),datistemplate FROM pg_database;"\n\n'
+            + f'5. Public schema privileges (should not be world-writable):\n   {pg_cmd} "SELECT nspname,nspacl FROM pg_namespace WHERE nspname=\'public\';"\n\n'
+            + f'6. SSL enforcement:\n   {pg_cmd} "SHOW ssl;"\n   {pg_cmd} "SELECT name,setting FROM pg_settings WHERE name IN (\'ssl\',\'ssl_ca_file\',\'password_encryption\');"\n\n'
+            + f'7. Installed extensions (check for dangerous ones):\n   {pg_cmd} "SELECT name,default_version,installed_version FROM pg_available_extensions WHERE installed_version IS NOT NULL;"\n\n'
+            + f'8. Active connections and IPs:\n   {pg_cmd} "SELECT datname,usename,client_addr,state,query_start FROM pg_stat_activity WHERE state!=\'idle\' LIMIT 30;"\n\n'
+            + f'9. Tables with sensitive-sounding names:\n   {pg_cmd} "SELECT table_schema,table_name FROM information_schema.tables WHERE table_name ~* \'user|password|token|secret|credit|payment\' AND table_schema NOT IN (\'pg_catalog\',\'information_schema\') LIMIT 30;"\n'
+        )
+
+    if site_type == 'mongodb' and (creds.get('mongo_uri') or creds.get('mongo_host')):
+        m_uri  = creds.get('mongo_uri', '')
+        m_host = creds.get('mongo_host', 'localhost')
+        m_port = creds.get('mongo_port', '27017') or '27017'
+        m_db   = creds.get('mongo_db', '')
+        m_user = creds.get('mongo_user', '')
+        conn   = m_uri if m_uri else (
+            f'mongodb://{m_user}:$MONGO_PASSWORD@{m_host}:{m_port}/{m_db}?authSource=admin'
+            if m_user else f'mongodb://{m_host}:{m_port}/{m_db}'
+        )
+        mc = f'mongosh "{conn}" --quiet --eval'
+        return (hdr
+            + 'MONGODB CREDENTIALS\n'
+            + f'  Connection: {conn.replace(m_user, "[user]") if m_user else conn}\n'
+            + '  Password  : $MONGO_PASSWORD (in environment)\n\n'
+            + 'Install client if missing: apt-get install -y mongodb-mongosh 2>/dev/null\n\n'
+            + 'Run ALL MongoDB security checks:\n\n'
+            + f'1. Server version and build info:\n   {mc} "db.adminCommand({{buildInfo:1}}).version"\n\n'
+            + f'2. List all databases:\n   {mc} "db.adminCommand({{listDatabases:1}}).databases.map(d=>d.name+\' (\'+d.sizeOnDisk+\' bytes)\')"\n\n'
+            + f'3. All users and roles:\n   {mc} "db.adminCommand({{usersInfo:1}}).users.map(u=>u.user+\':\'+JSON.stringify(u.roles))"\n\n'
+            + f'4. Auth status (CRITICAL — empty means no auth required):\n   {mc} "db.adminCommand({{connectionStatus:1}}).authInfo"\n\n'
+            + f'5. Collections in target DB:\n   {mc} "use {m_db or "admin"}; db.getCollectionNames()"\n\n'
+            + f'6. Check for exposed credentials in collections:\n   {mc} "use {m_db or "admin"}; db.getCollectionNames().forEach(c=>{{var s=db[c].findOne({{$or:[{{password:{{$exists:true}}}},{{token:{{$exists:true}}}},{{api_key:{{$exists:true}}}}]}});if(s)print(c,Object.keys(s));}})"\n\n'
+            + f'7. Active operations:\n   {mc} "db.adminCommand({{currentOp:1}}).inprog.map(o=>{{return {{op:o.op,ns:o.ns,secs:o.secs_running}};}})"\n\n'
+            + f'8. Replica set / auth config:\n   {mc} "db.adminCommand({{getCmdLineOpts:1}}).parsed"\n'
+        )
+
+    if site_type == 'firebase' and creds.get('fb_project'):
+        fb_proj = creds.get('fb_project', '')
+        fb_db   = creds.get('fb_db_url', '') or f'https://{fb_proj}-default-rtdb.firebaseio.com'
+        fb_key  = creds.get('fb_api_key', '')
+        return (hdr
+            + 'FIREBASE / FIRESTORE CREDENTIALS\n'
+            + f'  Project ID   : {fb_proj}\n'
+            + f'  Database URL : {fb_db}\n'
+            + ('  API Key      : (provided)\n' if fb_key else '')
+            + ('  Service Acct : $FB_JSON (in environment)\n' if creds.get('fb_json') else '')
+            + '\nRun ALL Firebase security checks:\n\n'
+            + f'1. Realtime Database unauthenticated read (CRITICAL if 200):\n'
+            + f'   curl -s "{fb_db}/.json?shallow=true" | python3 -m json.tool 2>/dev/null | head -30\n'
+            + f'   echo "HTTP code:"; curl -so /dev/null -w "%{{http_code}}" "{fb_db}/.json"\n\n'
+            + f'2. Unauthenticated write test (CRITICAL if 200/204):\n'
+            + f'   curl -s -X PUT -H "Content-Type:application/json" -d \'{{"cfai_probe":true}}\' \\\n'
+            + f'     "{fb_db}/cfai_security_probe.json" -w "\\nHTTP: %{{http_code}}"\n'
+            + f'   # Clean up probe if written:\n'
+            + f'   curl -s -X DELETE "{fb_db}/cfai_security_probe.json"\n\n'
+            + f'3. Storage bucket public access:\n'
+            + f'   curl -s "https://firebasestorage.googleapis.com/v0/b/{fb_proj}.appspot.com/o" \\\n'
+            + '     | python3 -m json.tool 2>/dev/null | head -20\n\n'
+            + (f'4. Firestore security rules (requires API key):\n'
+               + f'   curl -s "https://firestore.googleapis.com/v1/projects/{fb_proj}/databases/(default)/documents" \\\n'
+               + f'     -H "x-goog-api-key: {fb_key}" | python3 -m json.tool 2>/dev/null | head -30\n\n'
+               if fb_key else '')
+            + f'5. Auth providers and settings (requires service account):\n'
+            + f'   # Run: firebase auth:export /tmp/fb_users.json --project {fb_proj}\n'
+            + f'   # Then: head -30 /tmp/fb_users.json\n\n'
+            + f'6. Hosting configuration exposure:\n'
+            + f'   curl -s "https://{fb_proj}.web.app/__/firebase/init.json" | python3 -m json.tool 2>/dev/null\n'
+            + f'   curl -s "https://{fb_proj}.web.app/__/firebase/init.js" | head -20\n'
+        )
+
+    if site_type == 'redis' and creds.get('redis_host'):
+        r_host = creds.get('redis_host', 'localhost')
+        r_port = creds.get('redis_port', '6379') or '6379'
+        r_db   = creds.get('redis_db', '0') or '0'
+        auth   = '-a "$REDIS_PASSWORD"' if creds.get('redis_pass') else ''
+        rc     = f'redis-cli -h {r_host} -p {r_port} {auth} -n {r_db}'
+        return (hdr
+            + 'REDIS CREDENTIALS\n'
+            + f'  Host     : {r_host}:{r_port}\n'
+            + f'  DB Index : {r_db}\n'
+            + ('  Password : $REDIS_PASSWORD (in environment)\n' if creds.get('redis_pass') else '  Password : NONE (testing for unauthenticated access)\n')
+            + '\nInstall client if missing: apt-get install -y redis-tools 2>/dev/null\n\n'
+            + 'Run ALL Redis security checks:\n\n'
+            + f'1. Unauthenticated access test:\n   redis-cli -h {r_host} -p {r_port} PING\n\n'
+            + f'2. Server info:\n   {rc} INFO server | grep -P "redis_version|os|tcp_port|config_file"\n\n'
+            + f'3. Protected mode (should be ON):\n   {rc} CONFIG GET protected-mode\n\n'
+            + f'4. Bind address (danger if 0.0.0.0):\n   {rc} CONFIG GET bind\n\n'
+            + f'5. All keys (SCAN — avoid KEYS in production):\n   {rc} SCAN 0 COUNT 100 | head -30\n\n'
+            + f'6. Session/token data exposure:\n'
+            + f'   {rc} SCAN 0 MATCH "*session*" COUNT 50\n'
+            + f'   {rc} SCAN 0 MATCH "*token*" COUNT 50\n'
+            + f'   {rc} SCAN 0 MATCH "*password*" COUNT 50\n\n'
+            + f'7. Dangerous command availability:\n'
+            + f'   {rc} CONFIG GET maxmemory\n'
+            + f'   {rc} CONFIG REWRITE 2>&1\n'
+            + f'   {rc} DEBUG SLEEP 0 2>&1\n\n'
+            + f'8. ACL users (Redis 6+):\n   {rc} ACL LIST 2>/dev/null | head -20\n\n'
+            + f'9. Client connections:\n   {rc} CLIENT LIST | head -20\n'
+        )
+
+    if site_type == 'mssql' and creds.get('mssql_host') and creds.get('mssql_db'):
+        ms_host = creds.get('mssql_host', '')
+        ms_port = creds.get('mssql_port', '1433') or '1433'
+        ms_db   = creds.get('mssql_db', '')
+        ms_user = creds.get('mssql_user', 'sa')
+        ms_auth = creds.get('mssql_auth', 'sql')
+        sq = (f'sqlcmd -S "{ms_host},{ms_port}" -d "{ms_db}" -U "{ms_user}" '
+              f'-P "$MSSQL_PASSWORD" -Q')
+        return (hdr
+            + 'MICROSOFT SQL SERVER CREDENTIALS\n'
+            + f'  Host     : {ms_host}:{ms_port}\n'
+            + f'  Database : {ms_db}\n'
+            + f'  User     : {ms_user}\n'
+            + f'  Auth     : {ms_auth}\n'
+            + '  Password : $MSSQL_PASSWORD (in environment)\n\n'
+            + 'Install client if missing: apt-get install -y mssql-tools 2>/dev/null\n\n'
+            + 'Run ALL SQL Server security checks:\n\n'
+            + f'1. Server version:\n   {sq} "SELECT @@VERSION"\n\n'
+            + f'2. All logins and roles:\n   {sq} "SELECT name,type_desc,is_disabled,is_policy_checked FROM sys.sql_logins ORDER BY name"\n\n'
+            + f'3. Sysadmin accounts (minimize — sa should be renamed/disabled):\n   {sq} "SELECT name FROM sys.sql_logins WHERE IS_SRVROLEMEMBER(\'sysadmin\',name)=1"\n\n'
+            + f'4. xp_cmdshell status (CRITICAL if enabled — allows OS command exec):\n   {sq} "EXEC sp_configure \'xp_cmdshell\'"\n\n'
+            + f'5. Linked servers (lateral movement risk):\n   {sq} "SELECT name,data_source,provider FROM sys.servers WHERE is_linked=1"\n\n'
+            + f'6. Database encryption (TDE):\n   {sq} "SELECT name,is_encrypted FROM sys.databases"\n\n'
+            + f'7. Audit specifications:\n   {sq} "SELECT name,is_state_enabled FROM sys.server_audits"\n\n'
+            + f'8. Tables with sensitive data:\n'
+            + f'   {sq} "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE \'%user%\' OR TABLE_NAME LIKE \'%password%\' OR TABLE_NAME LIKE \'%token%\' OR TABLE_NAME LIKE \'%credit%\'"\n\n'
+            + f'9. Recent failed logins (brute force):\n   {sq} "SELECT TOP 30 EventTime,LoginName,ClientHost FROM sys.event_log WHERE EventClass=\'AUDIT_LOGIN_FAILED\' ORDER BY EventTime DESC" 2>/dev/null\n'
+        )
+
     return ''
 
 
@@ -1306,6 +1601,15 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         'DB_USER':         creds.get('db_user', ''),
         'DB_PASSWORD':     creds.get('db_pass', ''),
         'DB_PREFIX':       creds.get('db_prefix', 'wp_'),
+        'DRUPAL_PASSWORD': creds.get('drupal_pass', ''),
+        'JOOMLA_PASSWORD': creds.get('joomla_pass', ''),
+        'GEN_PASSWORD':    creds.get('gen_pass', ''),
+        'PLESK_PASSWORD':  creds.get('plesk_pass', ''),
+        'PG_PASSWORD':     creds.get('pg_pass', ''),
+        'MONGO_PASSWORD':  creds.get('mongo_pass', ''),
+        'FB_JSON':         creds.get('fb_json', ''),
+        'REDIS_PASSWORD':  creds.get('redis_pass', ''),
+        'MSSQL_PASSWORD':  creds.get('mssql_pass', ''),
     }
     for k, v in cred_env.items():
         if v:
@@ -2146,26 +2450,67 @@ def api_connect_scan():
     site_type  = _s('site_type') or 'none'
 
     creds = {
-        'wp_user':      _s('wp_user'),
-        'wp_pass':      _s('wp_pass'),
-        'wp_app_pass':  _s('wp_app_pass'),
-        'cpanel_user':  _s('cpanel_user'),
-        'cpanel_pass':  _s('cpanel_pass'),
-        'ssh_host':     _s('ssh_host'),
-        'ssh_user':     _s('ssh_user'),
-        'ssh_pass':     _s('ssh_pass'),
-        'ssh_port':     _s('ssh_port'),
-        'ssh_key':      _s('ssh_key'),
-        'ftp_host':     _s('ftp_host'),
-        'ftp_user':     _s('ftp_user'),
-        'ftp_pass':     _s('ftp_pass'),
-        'ftp_port':     _s('ftp_port'),
-        'db_host':      _s('db_host'),
-        'db_port':      _s('db_port') or '3306',
-        'db_name':      _s('db_name'),
-        'db_user':      _s('db_user'),
-        'db_pass':      _s('db_pass'),
-        'db_prefix':    _s('db_prefix') or 'wp_',
+        'wp_user':       _s('wp_user'),
+        'wp_pass':       _s('wp_pass'),
+        'wp_app_pass':   _s('wp_app_pass'),
+        'cpanel_user':   _s('cpanel_user'),
+        'cpanel_pass':   _s('cpanel_pass'),
+        'ssh_host':      _s('ssh_host'),
+        'ssh_user':      _s('ssh_user'),
+        'ssh_pass':      _s('ssh_pass'),
+        'ssh_port':      _s('ssh_port'),
+        'ssh_key':       _s('ssh_key'),
+        'ftp_host':      _s('ftp_host'),
+        'ftp_user':      _s('ftp_user'),
+        'ftp_pass':      _s('ftp_pass'),
+        'ftp_port':      _s('ftp_port'),
+        'db_host':       _s('db_host'),
+        'db_port':       _s('db_port') or '3306',
+        'db_name':       _s('db_name'),
+        'db_user':       _s('db_user'),
+        'db_pass':       _s('db_pass'),
+        'db_prefix':     _s('db_prefix') or 'wp_',
+        'drupal_url':    _s('drupal_url'),
+        'drupal_user':   _s('drupal_user'),
+        'drupal_pass':   _s('drupal_pass'),
+        'joomla_user':   _s('joomla_user'),
+        'joomla_pass':   _s('joomla_pass'),
+        'joomla_token':  _s('joomla_token'),
+        'gen_url':       _s('gen_url'),
+        'gen_user':      _s('gen_user'),
+        'gen_pass':      _s('gen_pass'),
+        'gen_api_key':   _s('gen_api_key'),
+        'gen_framework': _s('gen_framework'),
+        'plesk_host':    _s('plesk_host'),
+        'plesk_user':    _s('plesk_user'),
+        'plesk_pass':    _s('plesk_pass'),
+        'plesk_port':    _s('plesk_port') or '8443',
+        'pg_host':       _s('pg_host'),
+        'pg_port':       _s('pg_port') or '5432',
+        'pg_name':       _s('pg_name'),
+        'pg_user':       _s('pg_user') or 'postgres',
+        'pg_pass':       _s('pg_pass'),
+        'pg_ssl':        _s('pg_ssl') or 'prefer',
+        'mongo_uri':     _s('mongo_uri'),
+        'mongo_host':    _s('mongo_host'),
+        'mongo_port':    _s('mongo_port') or '27017',
+        'mongo_db':      _s('mongo_db'),
+        'mongo_user':    _s('mongo_user'),
+        'mongo_pass':    _s('mongo_pass'),
+        'fb_project':    _s('fb_project'),
+        'fb_db_url':     _s('fb_db_url'),
+        'fb_api_key':    _s('fb_api_key'),
+        'fb_json':       _s('fb_json'),
+        'redis_host':    _s('redis_host'),
+        'redis_port':    _s('redis_port') or '6379',
+        'redis_pass':    _s('redis_pass'),
+        'redis_db':      _s('redis_db') or '0',
+        'mssql_host':    _s('mssql_host'),
+        'mssql_port':    _s('mssql_port') or '1433',
+        'mssql_db':      _s('mssql_db'),
+        'mssql_user':    _s('mssql_user') or 'sa',
+        'mssql_pass':    _s('mssql_pass'),
+        'mssql_auth':    _s('mssql_auth') or 'sql',
     }
 
     job_id = str(_uuid.uuid4())
