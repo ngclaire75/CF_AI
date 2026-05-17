@@ -2160,6 +2160,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
     <div class="topbar-right">
       <div id="topbar-dashboard-actions" style="display:none;"></div>
+      <button class="btn-topbar" id="app-version-btn" title="Platform version — updates automatically on each release"
+        style="font-family:monospace;letter-spacing:.3px;cursor:default;opacity:.75;"
+        onclick="pageInfoShow()">v{{ app_version }}</button>
       <button class="btn-topbar" onclick="pageInfoShow()" id="page-info-btn" title="What is this page?">? Info</button>
       <button class="btn-topbar" onclick="toggleDashboardEdit()" id="dash-edit-btn">Customize</button>
       <button class="btn-topbar primary" onclick="loadDefDashboard()">Refresh</button>
@@ -7527,7 +7530,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <li><strong><span data-t="id">Hak Keberatan:</span><span data-t="en">Right to Object:</span></strong> <span data-t="id">menolak pemrosesan data untuk tujuan tertentu (misalnya komunikasi pemasaran)</span><span data-t="en">object to processing for specific purposes (e.g. marketing communications)</span></li>
         <li><strong><span data-t="id">Hak Penarikan Persetujuan:</span><span data-t="en">Right to Withdraw Consent:</span></strong> <span data-t="id">mencabut persetujuan kapan saja tanpa mempengaruhi pemrosesan yang sudah dilakukan sebelumnya</span><span data-t="en">withdraw consent at any time without affecting prior processing</span></li>
       </ul>
-      <p><span data-t="id">Untuk mengajukan permintaan terkait hak-hak di atas, kirimkan email ke <strong>ngclaire75@gmail.com</strong> dengan subjek "Data Subject Request — [Jenis Permintaan]". Kami akan merespons dalam 14 hari kerja.</span><span data-t="en">To submit a request relating to the above rights, email <strong>ngclaire75@gmail.com</strong> with the subject "Data Subject Request — [Request Type]". We will respond within 14 business days.</span></p>
+      <p><span data-t="id">Untuk mengajukan permintaan terkait hak-hak di atas, kirimkan email ke <strong>ngclaire75@gmail.com</strong> dengan subjek "Data Subject Request — [Jenis Permintaan]". Kami akan merespons dalam 3 hari kerja.</span><span data-t="en">To submit a request relating to the above rights, email <strong>ngclaire75@gmail.com</strong> with the subject "Data Subject Request — [Request Type]". We will respond within 3 business days.</span></p>
     </div>
 
     <div class="legal-section">
@@ -7591,7 +7594,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <p><span data-t="id">Untuk pertanyaan, permintaan terkait data, atau pengaduan privasi:</span><span data-t="en">For questions, data requests, or privacy complaints:</span></p>
       <ul>
         <li><span data-t="id">Email DPO:</span><span data-t="en">DPO Email:</span> <strong>ngclaire75@gmail.com</strong></li>
-        <li><span data-t="id">Waktu respons: paling lambat 14 hari kerja</span><span data-t="en">Response time: within 14 business days</span></li>
+        <li><span data-t="id">Waktu respons: paling lambat 3 hari kerja</span><span data-t="en">Response time: within 3 business days</span></li>
       </ul>
       <p><span data-t="id">Jika Anda merasa hak privasi Anda tidak ditangani dengan memadai, Anda berhak mengajukan aduan kepada Kementerian Komunikasi dan Digital Republik Indonesia (Komdigi) sebagai otoritas pengawas perlindungan data.</span><span data-t="en">If you feel your privacy rights have not been adequately addressed, you have the right to lodge a complaint with the Indonesian Ministry of Communication and Digital (Komdigi) as the data protection supervisory authority.</span></p>
     </div>
@@ -20291,7 +20294,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div style="font-size:11px;color:#93c5fd;line-height:1.5;">
         <span data-t="id">Kami menggunakan session cookie esensial dan localStorage untuk preferensi dashboard. <strong style="color:#bfdbfe;">Terima Semua</strong> atau pilih <strong style="color:#bfdbfe;">Hanya yang Diperlukan</strong>.</span>
         <span data-t="en">We use an essential session cookie and localStorage for dashboard preferences. <strong style="color:#bfdbfe;">Accept All</strong> or choose <strong style="color:#bfdbfe;">Necessary Only</strong>.</span>
-        &nbsp;<a href="#" onclick="sbNav('privacy',document.getElementById('sb-privacy'));ciDismissBannerOnly();return false;" style="color:#60a5fa;font-size:10px;text-decoration:underline;white-space:nowrap;"><span data-t="id">Privasi</span><span data-t="en">Privacy</span></a>
+        &nbsp;<a href="#" onclick="sbNav('privacy',document.getElementById('sb-privacy'));return false;" style="color:#60a5fa;font-size:10px;text-decoration:underline;white-space:nowrap;"><span data-t="id">Privasi</span><span data-t="en">Privacy</span></a>
       </div>
     </div>
   </div>

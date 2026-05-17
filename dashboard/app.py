@@ -11,6 +11,8 @@ try:
     _load_dotenv(_pl.Path(__file__).parent.parent / '.env', override=False)
 except ImportError:
     pass
+import datetime as _datetime
+import hashlib as _hashlib
 import re
 import sys
 import time as _time
@@ -432,43 +434,127 @@ _SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
 _SMTP_PORT = int(os.environ.get('SMTP_PORT', '465'))
 _BASE_URL  = os.environ.get('CFAI_BASE_URL', 'http://localhost:8889')
 
+# ── App version (git short hash — auto-updates on every commit) ───────────────
+def _get_git_version() -> str:
+    try:
+        r = _subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True, text=True, timeout=5,
+            cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+        v = r.stdout.strip()
+        return v if v else 'dev'
+    except Exception:
+        return 'dev'
+
+_APP_VERSION = _get_git_version()
+
+# ── Privacy policy change detection ──────────────────────────────────────────
+_TEMPLATE_PATH    = os.path.join(os.path.dirname(__file__), 'templates', 'index.html')
+_POLICY_HASH_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'policy_hash.txt')
+
+# ── Shared email HTML wrapper (light + dark mode, mobile-safe) ────────────────
+def _email_html(subject: str, body: str) -> str:
+    year = _datetime.datetime.now().year
+    return f"""<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{subject}</title>
+<style>
+  :root{{color-scheme:light dark;}}
+  body,html{{margin:0;padding:0;width:100%;background-color:#eff6ff;}}
+  @media(prefers-color-scheme:dark){{
+    body,html{{background-color:#0c1120!important;}}
+    .eout{{background-color:#0c1120!important;}}
+    .ecard{{background-color:#1a2035!important;border-color:#1e3a8a!important;}}
+    .ebody{{background-color:#1a2035!important;}}
+    .efoot{{background-color:#111827!important;border-color:#1e3a8a!important;}}
+    .eh1{{color:#e2e8f0!important;}}
+    .ep{{color:#94a3b8!important;}}
+    .elink{{color:#60a5fa!important;}}
+    .efp{{color:#4b5563!important;}}
+  }}
+  @media only screen and(max-width:600px){{
+    .ecard{{border-radius:8px!important;}}
+    .ebody{{padding:22px 18px!important;}}
+    .efoot{{padding:12px 18px!important;}}
+  }}
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#eff6ff;">
+<table class="eout" width="100%" cellpadding="0" cellspacing="0" border="0"
+  style="background-color:#eff6ff;width:100%;">
+<tr><td align="center" style="padding:40px 16px;">
+  <table class="ecard" width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="max-width:480px;background-color:#ffffff;border:1px solid #bfdbfe;
+           border-radius:14px;overflow:hidden;width:100%;">
+    <tr>
+      <td style="background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);padding:24px 32px;">
+        <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-.5px;
+                    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">CyberINK</div>
+        <div style="font-size:10px;color:#93c5fd;letter-spacing:.8px;text-transform:uppercase;
+                    margin-top:4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">Security Intelligence</div>
+      </td>
+    </tr>
+    <tr>
+      <td class="ebody" style="padding:32px;background-color:#ffffff;
+                               font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+        {body}
+      </td>
+    </tr>
+    <tr>
+      <td class="efoot" style="background-color:#f8faff;border-top:1px solid #bfdbfe;padding:14px 32px;">
+        <p class="efp" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+                               color:#64748b;font-size:11px;margin:0;line-height:1.6;">
+          &copy; {year} CyberINK Security Intelligence &mdash; Automated message, do not reply.
+        </p>
+      </td>
+    </tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+
 def _send_verification_email(to_email: str, token: str) -> bool:
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
         verify_url = f'{_BASE_URL}/verify/{token}'
+        subject = 'Verify your CyberINK account'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 12px;">
+            Verify your email address
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 28px;">
+            Thanks for signing up to CyberINK. Click the button below to verify your
+            email address and activate your account.<br><br>
+            This link expires in <strong>24&nbsp;hours</strong>.
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+            <a href="{verify_url}"
+              style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
+                     padding:13px 32px;border-radius:8px;font-size:14px;font-weight:700;
+                     letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              Verify my account &rarr;
+            </a>
+          </td></tr></table>
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:28px;line-height:1.7;">
+            If you didn't create a CyberINK account, you can safely ignore this email.<br>
+            Or copy this link into your browser:<br>
+            <a href="{verify_url}" class="elink"
+              style="color:#2563eb;word-break:break-all;font-size:11px;">{verify_url}</a>
+          </p>"""
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = 'Verify your CyberINK account'
+        msg['Subject'] = subject
         msg['From']    = f'CyberINK <{_SMTP_USER}>'
         msg['To']      = to_email
-        html = f"""
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;padding:40px 0;min-height:100vh;">
-          <div style="max-width:480px;margin:0 auto;background:#1b1d27;border:1px solid #2a2d3a;border-radius:14px;overflow:hidden;">
-            <div style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:28px 32px;">
-              <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;">CyberINK</div>
-              <div style="font-size:11px;color:#93c5fd;letter-spacing:.6px;text-transform:uppercase;margin-top:3px;">Security Intelligence</div>
-            </div>
-            <div style="padding:32px;">
-              <p style="color:#e5e7eb;font-size:16px;font-weight:600;margin:0 0 10px;">Verify your email address</p>
-              <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:0 0 28px;">
-                Thanks for signing up. Click the button below to verify your email and activate your account.
-                This link expires in 24 hours.
-              </p>
-              <a href="{verify_url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:13px 28px;border-radius:8px;font-size:14px;font-weight:600;">
-                Verify my account
-              </a>
-              <p style="color:#6b7280;font-size:11px;margin-top:28px;line-height:1.6;">
-                If you didn't create an account, you can safely ignore this email.<br>
-                Or copy this link: <span style="color:#60a5fa;">{verify_url}</span>
-              </p>
-            </div>
-            <div style="background:#0f1117;padding:14px 32px;font-size:11px;color:#4b5563;">
-              &copy; CyberINK Security Intelligence. This is an automated message.
-            </div>
-          </div>
-        </div>
-        """
-        msg.attach(MIMEText(html, 'html'))
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
             srv.login(_SMTP_USER, _SMTP_PASS)
             srv.sendmail(_SMTP_USER, to_email, msg.as_string())
@@ -544,6 +630,102 @@ def _find_user_by_identifier(identifier: str, users: dict):
                 return k, v
         return None, None
     return identifier, users.get(identifier)
+
+# ── Privacy policy change detection + notification ────────────────────────────
+def _get_privacy_policy_hash() -> str:
+    try:
+        with open(_TEMPLATE_PATH, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+        start = content.find('<!-- ══ PRIVACY POLICY PAGE')
+        end   = content.find('<!-- ══', start + 1) if start != -1 else -1
+        section = content[start:end] if (start != -1 and end != -1) else content
+        return _hashlib.sha256(section.encode()).hexdigest()[:20]
+    except Exception:
+        return ''
+
+def _send_policy_update_email(to_email: str, version: str) -> None:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return
+    try:
+        updated = _datetime.datetime.now().strftime('%d %B %Y')
+        subject = 'CyberINK Privacy Policy Updated'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 12px;">
+            Privacy Policy Updated
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 16px;">
+            The CyberINK Privacy Policy has been updated on <strong>{updated}</strong>
+            (platform version <code style="background:#eff6ff;padding:2px 6px;border-radius:4px;
+            font-size:12px;color:#1d4ed8;border:1px solid #bfdbfe;">v{version}</code>).
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 24px;">
+            We recommend reviewing the updated policy to understand how your data is handled.
+            You can view the full Privacy Policy by logging in to the CyberINK platform and
+            navigating to <strong>Pricing &rarr; Privacy Policy</strong>.
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+            <a href="{_BASE_URL}"
+              style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
+                     padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
+                     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              View Platform &rarr;
+            </a>
+          </td></tr></table>
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:28px;line-height:1.7;">
+            This notification was sent because your account has administrator access to CyberINK.<br>
+            If you have questions, contact <a href="mailto:ngclaire75@gmail.com" class="elink"
+              style="color:#2563eb;">ngclaire75@gmail.com</a>.
+          </p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['To']      = to_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+    except Exception:
+        pass
+
+def _check_privacy_policy_update() -> None:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return
+    current_hash = _get_privacy_policy_hash()
+    if not current_hash:
+        return
+    try:
+        stored_hash = ''
+        os.makedirs(os.path.dirname(os.path.abspath(_POLICY_HASH_FILE)), exist_ok=True)
+        if os.path.exists(_POLICY_HASH_FILE):
+            with open(_POLICY_HASH_FILE, 'r') as f:
+                stored_hash = f.read().strip()
+        with open(_POLICY_HASH_FILE, 'w') as f:
+            f.write(current_hash)
+        if not stored_hash or stored_hash == current_hash:
+            return  # first run or no change
+        users = _load_users()
+        admin_emails = [
+            u.get('email', '').strip()
+            for u in users.values()
+            if u.get('role') == 'admin' and u.get('email', '').strip()
+        ]
+        for email in admin_emails:
+            _threading.Thread(
+                target=_send_policy_update_email,
+                args=(email, _APP_VERSION),
+                daemon=True
+            ).start()
+    except Exception:
+        pass
+
+_policy_check_done = False
+
+@app.before_request
+def _startup_policy_check():
+    global _policy_check_done
+    if not _policy_check_done:
+        _policy_check_done = True
+        _threading.Thread(target=_check_privacy_policy_update, daemon=True).start()
 
 # ── Global auth enforcement ───────────────────────────────────────────────────
 _PUBLIC_PATHS = ('/login', '/signup', '/verify/', '/logout',
@@ -3053,6 +3235,7 @@ def index():
     ctx['midtrans_client_key'] = _MIDTRANS_CLIENT_KEY
     ctx['midtrans_snap_js_url'] = _midtrans_snap_js_url()
     ctx['midtrans_configured'] = bool(_MIDTRANS_SERVER_KEY and _MIDTRANS_CLIENT_KEY)
+    ctx['app_version'] = _APP_VERSION
     resp = make_response(render_template('index.html', **ctx))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
