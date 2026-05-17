@@ -1232,6 +1232,69 @@ def _send_contact_email(category: str, title: str, full_name: str,
         return False
 
 
+def _send_contact_ack_email(category: str, title: str, full_name: str,
+                              to_email: str, message: str) -> None:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return
+    try:
+        import datetime as _dt
+        submitted_at = _dt.datetime.utcnow().strftime('%d %B %Y, %H:%M UTC')
+        safe_msg = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
+        subject = f'CyberINK — We received your message: {title}'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
+            Message Received
+          </p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello {full_name}, thank you for reaching out to CyberINK Security. We have successfully received your message and it has been forwarded to our Data Protection Officer (DPO). You can expect a reply within <strong style="color:#1e3a8a;">3 business days</strong>.
+          </p>
+
+          <div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Your Submission</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:120px;">Category</td>
+              <td style="padding:7px 0;color:#2563eb;">{category}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Subject</td>
+              <td style="padding:7px 0;color:#2563eb;">{title}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Full Name</td>
+              <td style="padding:7px 0;color:#2563eb;">{full_name}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Submitted</td>
+              <td style="padding:7px 0;color:#64748b;">{submitted_at}</td>
+            </tr>
+          </table>
+
+          <div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Your Message</div>
+          <div style="background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;font-size:13px;color:#1e3a8a;line-height:1.65;margin-bottom:20px;">
+            {safe_msg}
+          </div>
+
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;font-size:12px;color:#1e3a8a;line-height:1.7;">
+            <strong>What happens next?</strong><br>
+            Our DPO will review your enquiry and respond to this email address within <strong>3 business days</strong>. If your matter is urgent, you may also reach us directly at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.
+          </div>
+
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+            Please keep this email as a record of your submission. Do not reply to this message — our team will contact you directly from <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.
+          </p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = to_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+    except Exception:
+        pass
+
+
 @app.route('/api/contact', methods=['POST'])
 def contact_submit():
     if 'user' not in session:
@@ -1251,6 +1314,7 @@ def contact_submit():
     ok = _send_contact_email(category, title, full_name, email, message, session['user']['username'])
     if not ok:
         return jsonify({'error': 'Failed to send message. Please try again later or contact support directly.'}), 500
+    _send_contact_ack_email(category, title, full_name, email, message)
     return jsonify({'ok': True, 'message': 'Your message has been sent. We will respond within 3 business days.'})
 
 
