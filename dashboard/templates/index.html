@@ -7916,6 +7916,16 @@ var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'syslog'];
 
 var _currentPage = 'dashboard';
 
+// Hide Pro sidebar buttons entirely for non-pro, non-admin users
+(function() {
+  if (USER_PLAN !== 'pro' && USER_ROLE !== 'admin') {
+    _PRO_PAGES.forEach(function(key) {
+      var btn = document.getElementById('sb-' + key);
+      if (btn) btn.style.display = 'none';
+    });
+  }
+})();
+
 function sbNav(section, el) {
   var isPublic = _PUBLIC_PAGES.indexOf(section) !== -1;
   // Role-based access guard (public pages and admins bypass this)
