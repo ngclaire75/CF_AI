@@ -19630,12 +19630,13 @@ function grcExport() {
   }
 
   window.myapptToggle = function(id, panel) {
+    var target = document.getElementById('myappt-inline-'+panel+'-'+id);
+    var wasOpen = target && target.style.display === 'block';
     ['cancel','reschedule'].forEach(function(p){
       var el = document.getElementById('myappt-inline-'+p+'-'+id);
       if (el) el.style.display = 'none';
     });
-    var el = document.getElementById('myappt-inline-'+panel+'-'+id);
-    if (el) el.style.display = el.style.display === '' ? 'none' : '';
+    if (target && !wasOpen) target.style.display = 'block';
   };
 
   function _myapptPost(url, body, msgEl, onOk) {
