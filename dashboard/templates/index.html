@@ -6276,13 +6276,13 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     <!-- Charts row -->
     <div class="grc2-chart-2col">
       <div class="grc2-card" style="margin-bottom:0;">
-        <div class="grc2-card-title" style="margin-bottom:10px;">Risk distribution</div>
-        <div id="grc-risk-scatter"></div>
+        <div class="grc2-card-title" style="margin-bottom:14px;">Risk distribution</div>
+        <canvas id="grc-risk-scatter" height="200"></canvas>
         <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;flex-wrap:wrap;">
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fca5a5;border:1px solid #ef4444;margin-right:4px;vertical-align:middle;"></span>Critical (16–25)</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fdba74;border:1px solid #f97316;margin-right:4px;vertical-align:middle;"></span>High (10–15)</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fde68a;border:1px solid #f59e0b;margin-right:4px;vertical-align:middle;"></span>Medium (5–9)</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#bfdbfe;border:1px solid #3b82f6;margin-right:4px;vertical-align:middle;"></span>Low (1–4)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fca5a5;margin-right:4px;vertical-align:middle;"></span>Critical (16–25)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fdba74;margin-right:4px;vertical-align:middle;"></span>High (10–15)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fde68a;margin-right:4px;vertical-align:middle;"></span>Medium (5–9)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#bfdbfe;margin-right:4px;vertical-align:middle;"></span>Low (1–4)</span>
         </div>
       </div>
       <div class="grc2-card" style="margin-bottom:0;">
@@ -18461,65 +18461,62 @@ function _grcRenderRisks(rows) {
   }).join('');
 }
 
-function _grcRiskScatterChart(risks) {
-  var el = document.getElementById('grc-risk-scatter');
-  if (!el) return;
-
-  var cellMap = {};
-  risks.forEach(function(r) {
-    var l = parseInt(r.likelihood) || 0;
-    var i = parseInt(r.impact) || 0;
-    if (l < 1 || l > 5 || i < 1 || i > 5) return;
-    var key = l + '_' + i;
-    if (!cellMap[key]) cellMap[key] = { count: 0, titles: [] };
-    cellMap[key].count++;
-    cellMap[key].titles.push(r.title || 'Risk');
-  });
-
-  function cellStyle(l, i) {
-    var s = l * i;
-    if (s >= 16) return { bg: '#fca5a5', border: '#ef4444', text: 'Critical' };
-    if (s >= 10) return { bg: '#fdba74', border: '#f97316', text: 'High' };
-    if (s >= 5)  return { bg: '#fde68a', border: '#f59e0b', text: 'Medium' };
-    return                { bg: '#bfdbfe', border: '#3b82f6', text: 'Low' };
-  }
-
-  var W = '18%'; // each of 5 cols
-  var html = '<table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;">';
-
-  for (var i = 5; i >= 1; i--) {
-    html += '<tr>';
-    html += '<td style="width:22px;text-align:right;padding-right:5px;font-size:10px;color:#64748b;vertical-align:middle;white-space:nowrap;">' + i + '</td>';
-    for (var l = 1; l <= 5; l++) {
-      var cs = cellStyle(l, i);
-      var key = l + '_' + i;
-      var cell = cellMap[key];
-      var score = l * i;
-      var inner = '';
-      if (cell && cell.count > 0) {
-        var tip = cell.titles.join('\n');
-        inner = '<span title="' + tip.replace(/"/g,'&quot;') + '" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(0,0,0,0.18);border-radius:50%;font-weight:800;font-size:12px;color:#1e293b;cursor:default;">' + cell.count + '</span>';
-      }
-      html += '<td title="Likelihood ' + l + ' × Impact ' + i + ' = ' + score + ' (' + cs.text + ')" style="background:' + cs.bg + ';border:1px solid ' + cs.border + ';text-align:center;vertical-align:middle;height:34px;width:' + W + ';">' + inner + '</td>';
+var _grcMatrixBgPlugin = {
+  id: 'riskMatrixBg',
+  beforeDraw: function(chart) {
+    var ctx = chart.ctx;
+    var xAxis = chart.scales.x;
+    var yAxis = chart.scales.y;
+    if (!xAxis || !yAxis) return;
+    function zoneColor(l, i) {
+      var s = l * i;
+      if (s >= 16) return 'rgba(252,165,165,0.55)';
+      if (s >= 10) return 'rgba(253,186,116,0.55)';
+      if (s >= 5)  return 'rgba(253,230,138,0.55)';
+      return 'rgba(191,219,254,0.55)';
     }
-    html += '</tr>';
+    for (var l = 1; l <= 5; l++) {
+      for (var i = 1; i <= 5; i++) {
+        var x1 = xAxis.getPixelForValue(l - 0.5);
+        var x2 = xAxis.getPixelForValue(l + 0.5);
+        var y1 = yAxis.getPixelForValue(i + 0.5);
+        var y2 = yAxis.getPixelForValue(i - 0.5);
+        ctx.fillStyle = zoneColor(l, i);
+        ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+      }
+    }
   }
+};
 
-  // X axis numbers
-  html += '<tr>';
-  html += '<td></td>';
-  for (var l = 1; l <= 5; l++) {
-    html += '<td style="text-align:center;font-size:10px;color:#64748b;padding-top:4px;">' + l + '</td>';
-  }
-  html += '</tr>';
-  html += '</table>';
-  html += '<div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-top:2px;padding-left:22px;">';
-  html += '<span style="flex:1;text-align:center;">Likelihood &rarr;</span>';
-  html += '<span style="writing-mode:vertical-rl;transform:rotate(180deg);position:absolute;left:6px;font-size:10px;color:#64748b;">Impact</span>';
-  html += '</div>';
-
-  el.style.position = 'relative';
-  el.innerHTML = html;
+function _grcRiskScatterChart(risks) {
+  var ctx = document.getElementById('grc-risk-scatter');
+  if (!ctx) return;
+  if (_grcScatterChart) _grcScatterChart.destroy();
+  var pointMap = {};
+  risks.forEach(function(r) {
+    var key = r.likelihood + '_' + r.impact;
+    if (!pointMap[key]) pointMap[key] = { x: r.likelihood, y: r.impact, count: 0, titles: [] };
+    pointMap[key].count++;
+    pointMap[key].titles.push(r.title);
+  });
+  _grcScatterChart = new Chart(ctx, {
+    type: 'bubble',
+    plugins: [_grcMatrixBgPlugin],
+    data: { datasets: [{ data: [] }] },
+    options: {
+      responsive: true,
+      scales: {
+        x: { min: 0.5, max: 5.5, title: { display: true, text: 'Likelihood', font: { size: 11 }, color: '#64748b' },
+          ticks: { stepSize: 1, font: { size: 10 }, callback: function(v){ return Number.isInteger(v) ? v : ''; } } },
+        y: { min: 0.5, max: 5.5, title: { display: true, text: 'Impact', font: { size: 11 }, color: '#64748b' },
+          ticks: { stepSize: 1, font: { size: 10 }, callback: function(v){ return Number.isInteger(v) ? v : ''; } } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(c) { return c.raw.label + ' (' + Math.round(c.raw.r / 9) + ')'; } } }
+      }
+    }
+  });
 }
 
 function _grcRiskMiniCharts(risks) {
