@@ -1240,7 +1240,7 @@ def _send_contact_ack_email(category: str, title: str, full_name: str,
         import datetime as _dt
         submitted_at = _dt.datetime.utcnow().strftime('%d %B %Y, %H:%M UTC')
         safe_msg = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
-        subject = f'CyberINK — We received your message: {title}'
+        subject = f'CyberINK — We received your message: {category}'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
             Message Received
