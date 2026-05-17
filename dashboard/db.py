@@ -283,6 +283,24 @@ def init_db():
                 username     TEXT DEFAULT ''
             )
         ''')
+
+        # ── GRC migration: add new columns to existing tables ─────────────────
+        _grc_alters = [
+            ('grc_risks',    'residual_risk', 'INTEGER DEFAULT 0'),
+            ('grc_risks',    'risk_status',   "TEXT DEFAULT 'pending'"),
+            ('grc_controls', 'source',        "TEXT DEFAULT 'Custom'"),
+            ('grc_controls', 'framework_mapping', "TEXT DEFAULT ''"),
+            ('grc_tests',    'test_category', "TEXT DEFAULT ''"),
+            ('grc_evidence', 'evidence_status', "TEXT DEFAULT 'not_ready'"),
+            ('grc_evidence', 'evidence_type',   "TEXT DEFAULT ''"),
+            ('grc_audits',   'audit_type',    "TEXT DEFAULT 'external'"),
+        ]
+        for tbl, col, defn in _grc_alters:
+            try:
+                con.execute(f'ALTER TABLE {tbl} ADD COLUMN {col} {defn}')
+                con.commit()
+            except Exception:
+                pass
         con.commit()
 
 
@@ -1128,7 +1146,7 @@ def get_plugins(target: str = '', limit: int = 1000, username=None) -> list:
 
 # ── GRC CRUD ──────────────────────────────────────────────────────────────────
 
-def grc_list_risks(q='', status='', treatment='') -> list:
+def grc_list_risks(q='', status='', treatment='', risk_status='') -> list:
     with _connect() as con:
         sql = 'SELECT * FROM grc_risks WHERE 1=1'
         params: list = []
@@ -1139,13 +1157,16 @@ def grc_list_risks(q='', status='', treatment='') -> list:
             sql += ' AND status=?'; params.append(status)
         if treatment:
             sql += ' AND treatment=?'; params.append(treatment)
+        if risk_status:
+            sql += ' AND risk_status=?'; params.append(risk_status)
         sql += ' ORDER BY score DESC, created_at DESC'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
 
 
 def grc_create_risk(data: dict) -> int:
     cols = ['title','description','category','likelihood','impact','score',
-            'status','treatment','owner','due_date','notes','username']
+            'status','treatment','owner','due_date','notes','username',
+            'residual_risk','risk_status']
     with _connect() as con:
         cur = con.execute(
             f'INSERT INTO grc_risks ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
@@ -1157,7 +1178,8 @@ def grc_create_risk(data: dict) -> int:
 
 def grc_update_risk(rid: int, data: dict) -> bool:
     cols = ['title','description','category','likelihood','impact','score',
-            'status','treatment','owner','due_date','notes']
+            'status','treatment','owner','due_date','notes',
+            'residual_risk','risk_status']
     with _connect() as con:
         sets = ', '.join(f'{c}=?' for c in cols) + ", updated_at=datetime('now')"
         con.execute(f'UPDATE grc_risks SET {sets} WHERE id=?',
@@ -1190,7 +1212,8 @@ def grc_list_controls(q='', framework='', status='') -> list:
 
 def grc_create_control(data: dict) -> int:
     cols = ['control_id','title','description','framework','category',
-            'status','owner','due_date','evidence','notes','username']
+            'status','owner','due_date','evidence','notes','username',
+            'source','framework_mapping']
     with _connect() as con:
         cur = con.execute(
             f'INSERT INTO grc_controls ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
@@ -1202,7 +1225,8 @@ def grc_create_control(data: dict) -> int:
 
 def grc_update_control(cid: int, data: dict) -> bool:
     cols = ['control_id','title','description','framework','category',
-            'status','owner','due_date','evidence','notes']
+            'status','owner','due_date','evidence','notes',
+            'source','framework_mapping']
     with _connect() as con:
         sets = ', '.join(f'{c}=?' for c in cols) + ", updated_at=datetime('now')"
         con.execute(f'UPDATE grc_controls SET {sets} WHERE id=?',
@@ -1218,7 +1242,7 @@ def grc_delete_control(cid: int) -> bool:
     return True
 
 
-def grc_list_tests(q='', category='', status='') -> list:
+def grc_list_tests(q='', category='', status='', test_category='') -> list:
     with _connect() as con:
         sql = 'SELECT * FROM grc_tests WHERE 1=1'
         params: list = []
@@ -1227,6 +1251,8 @@ def grc_list_tests(q='', category='', status='') -> list:
             params += [f'%{q}%', f'%{q}%', f'%{q}%']
         if category:
             sql += ' AND category=?'; params.append(category)
+        if test_category:
+            sql += ' AND test_category=?'; params.append(test_category)
         if status:
             sql += ' AND status=?'; params.append(status)
         sql += ' ORDER BY created_at DESC'
@@ -1235,7 +1261,7 @@ def grc_list_tests(q='', category='', status='') -> list:
 
 def grc_create_test(data: dict) -> int:
     cols = ['name','description','category','control_ref','status',
-            'last_run','result_notes','owner','username']
+            'last_run','result_notes','owner','username','test_category']
     with _connect() as con:
         cur = con.execute(
             f'INSERT INTO grc_tests ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
@@ -1247,7 +1273,7 @@ def grc_create_test(data: dict) -> int:
 
 def grc_update_test(tid: int, data: dict) -> bool:
     cols = ['name','description','category','control_ref','status',
-            'last_run','result_notes','owner']
+            'last_run','result_notes','owner','test_category']
     with _connect() as con:
         sets = ', '.join(f'{c}=?' for c in cols) + ", updated_at=datetime('now')"
         con.execute(f'UPDATE grc_tests SET {sets} WHERE id=?',
@@ -1270,7 +1296,7 @@ def grc_list_audits() -> list:
 
 
 def grc_create_audit(data: dict) -> int:
-    cols = ['name','description','auditor','scope','status',
+    cols = ['name','description','auditor','audit_type','scope','status',
             'start_date','end_date','findings','notes','username']
     with _connect() as con:
         cur = con.execute(
@@ -1282,7 +1308,7 @@ def grc_create_audit(data: dict) -> int:
 
 
 def grc_update_audit(aid: int, data: dict) -> bool:
-    cols = ['name','description','auditor','scope','status',
+    cols = ['name','description','auditor','audit_type','scope','status',
             'start_date','end_date','findings','notes']
     with _connect() as con:
         sets = ', '.join(f'{c}=?' for c in cols) + ", updated_at=datetime('now')"
@@ -1299,26 +1325,68 @@ def grc_delete_audit(aid: int) -> bool:
     return True
 
 
-def grc_list_evidence() -> list:
+def grc_list_evidence(audit_id: int | None = None, ev_status: str = '') -> list:
     with _connect() as con:
-        rows = con.execute('''
-            SELECT e.*, a.name as audit_name
-            FROM grc_evidence e
-            LEFT JOIN grc_audits a ON a.id = e.audit_id
-            ORDER BY e.created_at DESC
-        ''').fetchall()
-        return [dict(r) for r in rows]
+        sql = '''SELECT e.*, a.name as audit_name
+                 FROM grc_evidence e
+                 LEFT JOIN grc_audits a ON a.id = e.audit_id
+                 WHERE 1=1'''
+        params: list = []
+        if audit_id:
+            sql += ' AND e.audit_id=?'; params.append(audit_id)
+        if ev_status:
+            sql += ' AND e.evidence_status=?'; params.append(ev_status)
+        sql += ' ORDER BY e.created_at DESC'
+        return [dict(r) for r in con.execute(sql, params).fetchall()]
+
+
+def grc_evidence_stats_by_audit(audit_id: int) -> dict:
+    with _connect() as con:
+        rows = con.execute(
+            '''SELECT evidence_status, COUNT(*) as cnt FROM grc_evidence
+               WHERE audit_id=? GROUP BY evidence_status''',
+            (audit_id,)
+        ).fetchall()
+        total = con.execute('SELECT COUNT(*) FROM grc_evidence WHERE audit_id=?',
+                            (audit_id,)).fetchone()[0]
+        s = {r['evidence_status']: r['cnt'] for r in rows}
+        return {
+            'total': total,
+            'not_ready': s.get('not_ready', 0),
+            'flagged': s.get('flagged', 0),
+            'ready': s.get('ready', 0),
+            'accepted': s.get('accepted', 0),
+            'not_applicable': s.get('not_applicable', 0),
+        }
 
 
 def grc_create_evidence(data: dict) -> int:
-    cols = ['audit_id','control_id','title','description','file_name','collected_by','username']
+    cols = ['audit_id','control_id','title','description','file_name',
+            'collected_by','username','evidence_status','evidence_type']
     with _connect() as con:
+        vals = []
+        for c in cols:
+            if c == 'audit_id':
+                vals.append(data.get(c) or None)
+            else:
+                vals.append(data.get(c, ''))
         cur = con.execute(
             f'INSERT INTO grc_evidence ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
-            [data.get(c) or None if c == 'audit_id' else data.get(c, '') for c in cols]
+            vals
         )
         con.commit()
         return cur.lastrowid
+
+
+def grc_update_evidence(eid: int, data: dict) -> bool:
+    cols = ['title','description','evidence_status','evidence_type',
+            'control_id','collected_by','file_name']
+    with _connect() as con:
+        sets = ', '.join(f'{c}=?' for c in cols)
+        con.execute(f'UPDATE grc_evidence SET {sets} WHERE id=?',
+                    [data.get(c, '') for c in cols] + [eid])
+        con.commit()
+    return True
 
 
 def grc_delete_evidence(eid: int) -> bool:
@@ -1328,25 +1396,82 @@ def grc_delete_evidence(eid: int) -> bool:
     return True
 
 
+def grc_test_category_counts() -> dict:
+    with _connect() as con:
+        rows = con.execute(
+            "SELECT COALESCE(NULLIF(test_category,''),'Other') as cat, COUNT(*) as cnt "
+            "FROM grc_tests GROUP BY cat"
+        ).fetchall()
+        return {r['cat']: r['cnt'] for r in rows}
+
+
 def grc_stats() -> dict:
     with _connect() as con:
         def cnt(sql, *p):
             return con.execute(sql, p).fetchone()[0]
+
+        ctrl_total = cnt('SELECT COUNT(*) FROM grc_controls')
+        ctrl_with_owner = cnt("SELECT COUNT(*) FROM grc_controls WHERE owner != ''")
+        ctrl_failed_owner = cnt("SELECT COUNT(*) FROM grc_controls WHERE status='failed' AND owner != ''")
+
+        # Framework compliance: % implemented per framework
+        fw_rows = con.execute(
+            '''SELECT framework,
+                      COUNT(*) as total,
+                      SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) as impl
+               FROM grc_controls GROUP BY framework'''
+        ).fetchall()
+        framework_compliance = [
+            {'framework': r['framework'],
+             'total': r['total'],
+             'implemented': r['impl'],
+             'pct': round(r['impl'] / r['total'] * 100) if r['total'] else 0}
+            for r in fw_rows
+        ]
+
+        # Test categories
+        cat_rows = con.execute(
+            "SELECT COALESCE(NULLIF(test_category,''),'Other') as cat, COUNT(*) as cnt "
+            "FROM grc_tests GROUP BY cat"
+        ).fetchall()
+        test_categories = {r['cat']: r['cnt'] for r in cat_rows}
+
+        # Evidence by status
+        ev_rows = con.execute(
+            'SELECT evidence_status, COUNT(*) as cnt FROM grc_evidence GROUP BY evidence_status'
+        ).fetchall()
+        ev = {r['evidence_status']: r['cnt'] for r in ev_rows}
+
         return {
-            'controls_total':       cnt('SELECT COUNT(*) FROM grc_controls'),
-            'controls_implemented': cnt("SELECT COUNT(*) FROM grc_controls WHERE status='implemented'"),
-            'controls_in_progress': cnt("SELECT COUNT(*) FROM grc_controls WHERE status='in_progress'"),
-            'controls_not_started': cnt("SELECT COUNT(*) FROM grc_controls WHERE status='not_started'"),
-            'risks_total':          cnt('SELECT COUNT(*) FROM grc_risks'),
-            'risks_high':           cnt('SELECT COUNT(*) FROM grc_risks WHERE score>=15'),
-            'risks_medium':         cnt('SELECT COUNT(*) FROM grc_risks WHERE score>=8 AND score<15'),
-            'risks_low':            cnt('SELECT COUNT(*) FROM grc_risks WHERE score<8'),
-            'tests_total':          cnt('SELECT COUNT(*) FROM grc_tests'),
-            'tests_pass':           cnt("SELECT COUNT(*) FROM grc_tests WHERE status='pass'"),
-            'tests_fail':           cnt("SELECT COUNT(*) FROM grc_tests WHERE status='fail'"),
-            'tests_not_started':    cnt("SELECT COUNT(*) FROM grc_tests WHERE status='not_started'"),
-            'audits_total':         cnt('SELECT COUNT(*) FROM grc_audits'),
-            'audits_complete':      cnt("SELECT COUNT(*) FROM grc_audits WHERE status='complete'"),
-            'audits_in_progress':   cnt("SELECT COUNT(*) FROM grc_audits WHERE status='in_progress'"),
-            'audits_planned':       cnt("SELECT COUNT(*) FROM grc_audits WHERE status='planned'"),
+            'controls_total':              ctrl_total,
+            'controls_implemented':        cnt("SELECT COUNT(*) FROM grc_controls WHERE status='implemented'"),
+            'controls_in_progress':        cnt("SELECT COUNT(*) FROM grc_controls WHERE status='in_progress'"),
+            'controls_not_started':        cnt("SELECT COUNT(*) FROM grc_controls WHERE status='not_started'"),
+            'controls_failed':             cnt("SELECT COUNT(*) FROM grc_controls WHERE status='failed'"),
+            'controls_assigned':           ctrl_with_owner,
+            'controls_needs_reassignment': ctrl_failed_owner,
+            'controls_unassigned':         ctrl_total - ctrl_with_owner,
+            'risks_total':                 cnt('SELECT COUNT(*) FROM grc_risks'),
+            'risks_high':                  cnt('SELECT COUNT(*) FROM grc_risks WHERE score>=15'),
+            'risks_medium':                cnt('SELECT COUNT(*) FROM grc_risks WHERE score>=8 AND score<15'),
+            'risks_low':                   cnt('SELECT COUNT(*) FROM grc_risks WHERE score<8'),
+            'risks_approved':              cnt("SELECT COUNT(*) FROM grc_risks WHERE risk_status='approved'"),
+            'risks_treated':               cnt("SELECT COUNT(*) FROM grc_risks WHERE status IN ('in_treatment','closed')"),
+            'tests_total':                 cnt('SELECT COUNT(*) FROM grc_tests'),
+            'tests_pass':                  cnt("SELECT COUNT(*) FROM grc_tests WHERE status='pass'"),
+            'tests_fail':                  cnt("SELECT COUNT(*) FROM grc_tests WHERE status='fail'"),
+            'tests_not_started':           cnt("SELECT COUNT(*) FROM grc_tests WHERE status='not_started'"),
+            'tests_in_progress':           cnt("SELECT COUNT(*) FROM grc_tests WHERE status='in_progress'"),
+            'audits_total':                cnt('SELECT COUNT(*) FROM grc_audits'),
+            'audits_complete':             cnt("SELECT COUNT(*) FROM grc_audits WHERE status='complete'"),
+            'audits_in_progress':          cnt("SELECT COUNT(*) FROM grc_audits WHERE status='in_progress'"),
+            'audits_planned':              cnt("SELECT COUNT(*) FROM grc_audits WHERE status='planned'"),
+            'evidence_total':              cnt('SELECT COUNT(*) FROM grc_evidence'),
+            'evidence_not_ready':          ev.get('not_ready', 0),
+            'evidence_flagged':            ev.get('flagged', 0),
+            'evidence_ready':              ev.get('ready', 0),
+            'evidence_accepted':           ev.get('accepted', 0),
+            'evidence_not_applicable':     ev.get('not_applicable', 0),
+            'framework_compliance':        framework_compliance,
+            'test_categories':             test_categories,
         }

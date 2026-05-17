@@ -9446,8 +9446,9 @@ def api_grc2_stats():
 def api_grc2_risks_list():
     q = request.args.get('q', '')
     status = request.args.get('status', '')
-    treatment = request.args.get('treatment', '')
-    return jsonify({'risks': db.grc_list_risks(q, status, treatment)})
+    treatment   = request.args.get('treatment', '')
+    risk_status = request.args.get('risk_status', '')
+    return jsonify({'risks': db.grc_list_risks(q, status, treatment, risk_status)})
 
 
 @app.route('/api/grc2/risks', methods=['POST'])
@@ -9514,10 +9515,11 @@ def api_grc2_controls_delete(cid):
 @app.route('/api/grc2/tests', methods=['GET'])
 @login_required
 def api_grc2_tests_list():
-    q = request.args.get('q', '')
-    category = request.args.get('category', '')
-    status = request.args.get('status', '')
-    return jsonify({'tests': db.grc_list_tests(q, category, status)})
+    q             = request.args.get('q', '')
+    category      = request.args.get('category', '')
+    status        = request.args.get('status', '')
+    test_category = request.args.get('test_category', '')
+    return jsonify({'tests': db.grc_list_tests(q, category, status, test_category)})
 
 
 @app.route('/api/grc2/tests', methods=['POST'])
@@ -9581,7 +9583,10 @@ def api_grc2_audits_delete(aid):
 @app.route('/api/grc2/evidence', methods=['GET'])
 @login_required
 def api_grc2_evidence_list():
-    return jsonify({'evidence': db.grc_list_evidence()})
+    audit_id  = request.args.get('audit_id', '')
+    ev_status = request.args.get('evidence_status', '')
+    aid = int(audit_id) if audit_id.isdigit() else None
+    return jsonify({'evidence': db.grc_list_evidence(aid, ev_status)})
 
 
 @app.route('/api/grc2/evidence', methods=['POST'])
@@ -9595,11 +9600,25 @@ def api_grc2_evidence_create():
     return jsonify({'id': eid})
 
 
+@app.route('/api/grc2/evidence/<int:eid>', methods=['PUT'])
+@login_required
+def api_grc2_evidence_update(eid):
+    d = request.get_json(silent=True) or {}
+    db.grc_update_evidence(eid, d)
+    return jsonify({'ok': True})
+
+
 @app.route('/api/grc2/evidence/<int:eid>', methods=['DELETE'])
 @login_required
 def api_grc2_evidence_delete(eid):
     db.grc_delete_evidence(eid)
     return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/audits/<int:aid>/evidence-stats')
+@login_required
+def api_grc2_audit_evidence_stats(aid):
+    return jsonify(db.grc_evidence_stats_by_audit(aid))
 
 
 # ── Payment routes (Midtrans) ─────────────────────────────────────────────────

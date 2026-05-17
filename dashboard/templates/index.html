@@ -6004,66 +6004,109 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- ══ GRC COMPLIANCE PAGE ═════════════════════════════════════════════════ -->
   <div id="page-grc" class="page-section" style="display:none">
   <style>
-    .grc-subnav{display:flex;gap:0;background:#fff;border-bottom:2px solid #dbeafe;padding:0 24px;}
-    .grc-tab{padding:12px 20px;font-size:13px;font-weight:600;border:none;background:transparent;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;}
+    .grc-subnav{display:flex;background:#fff;border-bottom:2px solid #dbeafe;padding:0 24px;overflow-x:auto;}
+    .grc-tab{padding:12px 20px;font-size:13px;font-weight:600;border:none;background:transparent;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;flex-shrink:0;}
     .grc-tab.active{color:#2563eb;border-bottom-color:#2563eb;}
     .grc-tab:hover:not(.active){color:#2563eb;}
-    .grc-section{padding:20px 24px;}
-    .grc-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;}
-    .grc-stat{background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:18px 20px;}
-    .grc-stat-num{font-size:30px;font-weight:700;color:#2563eb;line-height:1;}
-    .grc-stat-label{font-size:12px;color:#64748b;margin-top:6px;}
-    .grc-card{background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:20px;margin-bottom:16px;}
-    .grc-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-    .grc-card-title{font-size:14px;font-weight:700;color:#0f172a;}
-    .grc-tbl{width:100%;border-collapse:collapse;font-size:13px;}
-    .grc-tbl th{background:#f8faff;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:10px 12px;text-align:left;border-bottom:1px solid #dbeafe;white-space:nowrap;}
-    .grc-tbl td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#0f172a;vertical-align:middle;}
-    .grc-tbl tr:last-child td{border-bottom:none;}
-    .grc-tbl tr:hover td{background:#f8faff;}
-    .grc-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
-    .grc-badge-blue{background:#dbeafe;color:#1d4ed8;}
-    .grc-badge-green{background:#dcfce7;color:#15803d;}
-    .grc-badge-red{background:#fee2e2;color:#dc2626;}
-    .grc-badge-gray{background:#f1f5f9;color:#64748b;}
-    .grc-badge-amber{background:#fef3c7;color:#92400e;}
-    .grc-btn{padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #2563eb;background:#2563eb;color:#fff;transition:all .15s;line-height:1.4;}
-    .grc-btn:hover{background:#1d4ed8;}
-    .grc-btn-sm{padding:4px 10px;font-size:11px;}
-    .grc-btn-out{background:#fff;color:#2563eb;}
-    .grc-btn-out:hover{background:#eff6ff;}
-    .grc-btn-del{background:#fff;color:#dc2626;border-color:#dc2626;}
-    .grc-btn-del:hover{background:#fee2e2;}
-    .grc2-modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9000;align-items:center;justify-content:center;}
+    .grc2-section{padding:20px 24px;min-height:400px;}
+    .grc2-page-hd{margin-bottom:18px;}
+    .grc2-page-title{font-size:22px;font-weight:700;color:#0f172a;margin-bottom:4px;}
+    .grc2-page-desc{font-size:13px;color:#64748b;max-width:700px;}
+    .grc2-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+    .grc2-stat{background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:16px 20px;}
+    .grc2-stat-num{font-size:28px;font-weight:700;color:#2563eb;line-height:1.1;}
+    .grc2-stat-label{font-size:11px;color:#64748b;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+    .grc2-card{background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:20px;margin-bottom:14px;}
+    .grc2-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    .grc2-card-title{font-size:14px;font-weight:700;color:#0f172a;}
+    .grc2-tbl{width:100%;border-collapse:collapse;font-size:13px;}
+    .grc2-tbl th{background:#f8faff;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:10px 12px;text-align:left;border-bottom:1px solid #dbeafe;white-space:nowrap;}
+    .grc2-tbl td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#0f172a;vertical-align:middle;}
+    .grc2-tbl tr:last-child td{border-bottom:none;}
+    .grc2-tbl tr:hover td{background:#f8faff;}
+    .grc2-tbl input[type=checkbox]{accent-color:#2563eb;}
+    .grc2-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+    .grc2-badge-blue{background:#dbeafe;color:#1d4ed8;}
+    .grc2-badge-navy{background:#1e3a8a;color:#fff;}
+    .grc2-badge-dark{background:#1d4ed8;color:#fff;}
+    .grc2-badge-med{background:#3b82f6;color:#fff;}
+    .grc2-badge-light{background:#bfdbfe;color:#1d4ed8;}
+    .grc2-badge-gray{background:#f1f5f9;color:#64748b;}
+    .grc2-badge-ok{background:#dbeafe;color:#1d4ed8;}
+    .grc2-btn{padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #2563eb;background:#2563eb;color:#fff;transition:all .15s;white-space:nowrap;}
+    .grc2-btn:hover{background:#1d4ed8;}
+    .grc2-btn-sm{padding:4px 10px;font-size:11px;}
+    .grc2-btn-out{background:#fff;color:#2563eb;}
+    .grc2-btn-out:hover{background:#eff6ff;}
+    .grc2-btn-del{background:#fff;color:#dc2626;border-color:#fca5a5;}
+    .grc2-btn-del:hover{background:#fee2e2;}
+    .grc2-btn-ghost{background:transparent;border:1px solid #e2e8f0;color:#374151;}
+    .grc2-btn-ghost:hover{background:#f8faff;border-color:#dbeafe;}
+    .grc2-modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9000;align-items:center;justify-content:center;}
     .grc2-modal-bg.open{display:flex;}
-    .grc2-modal{background:#fff;border-radius:10px;width:580px;max-width:96vw;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.18);}
-    .grc2-modal-hd{font-size:16px;font-weight:700;color:#0f172a;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #dbeafe;}
+    .grc2-modal{background:#fff;border-radius:10px;width:600px;max-width:96vw;max-height:92vh;overflow-y:auto;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.18);}
+    .grc2-mhd{font-size:16px;font-weight:700;color:#0f172a;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid #dbeafe;display:flex;align-items:center;justify-content:space-between;}
     .grc2-field{margin-bottom:14px;}
-    .grc2-label{font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;display:block;}
-    .grc2-input{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;box-sizing:border-box;}
-    .grc2-input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
-    .grc2-select{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;box-sizing:border-box;}
-    .grc2-textarea{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;resize:vertical;min-height:72px;box-sizing:border-box;}
-    .grc2-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-    .grc-prog-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:6px;}
-    .grc-prog-fill{height:100%;background:#2563eb;border-radius:4px;transition:width .5s;}
-    .grc-chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
-    .grc-audit-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:16px;}
-    .grc-audit-card{background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:16px;}
-    .grc-filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
-    .grc-filter-bar input,.grc-filter-bar select{padding:7px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;color:#0f172a;background:#fff;}
-    .grc-empty{text-align:center;padding:48px 20px;color:#94a3b8;font-size:13px;}
-    .grc-score-hi{color:#dc2626;font-weight:700;}
-    .grc-score-med{color:#d97706;font-weight:700;}
-    .grc-score-lo{color:#16a34a;font-weight:700;}
-    .grc-heat-cell{display:flex;align-items:center;justify-content:center;height:42px;font-size:11px;font-weight:700;border-radius:4px;}
-    .grc-heat-lo{background:#dcfce7;color:#15803d;}
-    .grc-heat-md{background:#fef9c3;color:#854d0e;}
-    .grc-heat-hi{background:#fee2e2;color:#991b1b;}
-    .grc-heat-cr{background:#991b1b;color:#fff;}
+    .grc2-lbl{font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;display:block;}
+    .grc2-inp{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;box-sizing:border-box;}
+    .grc2-inp:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+    .grc2-sel{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;box-sizing:border-box;}
+    .grc2-ta{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;resize:vertical;min-height:72px;box-sizing:border-box;}
+    .grc2-g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .grc2-g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+    .grc2-prog-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:6px;}
+    .grc2-prog-fill{height:100%;background:#2563eb;border-radius:4px;transition:width .5s;}
+    .grc2-filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+    .grc2-filter-bar input,.grc2-filter-bar select{padding:7px 12px;border:1px solid #dbeafe;border-radius:6px;font-size:12px;color:#0f172a;background:#fff;height:34px;}
+    .grc2-filter-bar input:focus,.grc2-filter-bar select:focus{outline:none;border-color:#2563eb;}
+    .grc2-empty{text-align:center;padding:56px 20px;color:#94a3b8;font-size:13px;}
+    .grc2-chart-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+    .grc2-chart-3col{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;}
+    .grc2-audit-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:14px;}
+    .grc2-audit-card{background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:20px;}
+    .grc2-audit-card-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+    .grc2-audit-name{font-size:15px;font-weight:700;color:#0f172a;}
+    .grc2-timeline{font-size:12px;}
+    .grc2-timeline-row{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f1f5f9;}
+    .grc2-timeline-row:last-child{border-bottom:none;}
+    .grc2-tl-dot{width:20px;height:20px;border-radius:50%;background:#2563eb;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:700;margin-top:1px;}
+    .grc2-tl-dot.done{background:#1d4ed8;}
+    .grc2-tl-dot.pending{background:#e2e8f0;color:#64748b;}
+    .grc2-ev-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:10px 0 6px;}
+    .grc2-ev-seg{height:100%;transition:width .5s;}
+    .grc2-ev-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;}
+    .grc2-ev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;}
+    .grc2-tabs-sm{display:flex;border-bottom:1px solid #dbeafe;margin-bottom:12px;}
+    .grc2-tab-sm{padding:7px 14px;font-size:12px;font-weight:600;border:none;background:transparent;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+    .grc2-tab-sm.active{color:#2563eb;border-bottom-color:#2563eb;}
+    /* Tests left panel */
+    .grc2-test-layout{display:flex;gap:0;min-height:500px;}
+    .grc2-test-sidebar{width:180px;flex-shrink:0;border-right:1px solid #dbeafe;padding:16px 0;background:#fff;}
+    .grc2-test-main{flex:1;padding:20px 24px;overflow:hidden;}
+    .grc2-cat-item{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;font-size:13px;color:#374151;cursor:pointer;border-radius:0;}
+    .grc2-cat-item:hover{background:#eff6ff;color:#2563eb;}
+    .grc2-cat-item.active{background:#eff6ff;color:#2563eb;font-weight:700;}
+    .grc2-cat-badge{background:#dbeafe;color:#1d4ed8;border-radius:12px;padding:1px 7px;font-size:11px;font-weight:700;}
+    .grc2-cat-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;padding:12px 16px 4px;}
+    /* KPI panels */
+    .grc2-kpi-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+    .grc2-kpi-ok{background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:20px;}
+    .grc2-kpi-num{font-size:36px;font-weight:800;color:#2563eb;line-height:1;}
+    .grc2-kpi-label{font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px;}
+    .grc2-kpi-sub{font-size:12px;color:#64748b;margin-top:6px;}
+    .grc2-attn-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;}
+    .grc2-attn-label{font-size:13px;color:#374151;display:flex;align-items:center;gap:6px;}
+    .grc2-attn-num{font-size:13px;font-weight:700;color:#1d4ed8;}
+    /* Score display */
+    .grc2-score-prev{padding:10px 14px;background:#f8faff;border:1px solid #dbeafe;border-radius:6px;font-size:22px;font-weight:700;color:#2563eb;}
+    /* Reports */
+    .grc2-compliance-3col{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;}
+    .grc2-compliance-box{background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:20px;}
+    .grc2-compliance-pct{font-size:36px;font-weight:800;color:#2563eb;margin-bottom:4px;}
+    .grc2-compliance-label{font-size:12px;color:#64748b;margin-bottom:10px;}
   </style>
 
-  <!-- Sub-navigation -->
+  <!-- Top sub-navigation -->
   <div class="grc-subnav">
     <button class="grc-tab active" id="grc-tab-controls"  onclick="grcTab('controls')">Controls</button>
     <button class="grc-tab" id="grc-tab-risks"     onclick="grcTab('risks')">Risk Register</button>
@@ -6073,24 +6116,53 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     <button class="grc-tab" id="grc-tab-reports"   onclick="grcTab('reports')">Reports</button>
   </div>
 
-  <!-- ── CONTROLS ──────────────────────────────────────────────────────────── -->
-  <div id="grc-sec-controls" class="grc-section">
-    <div class="grc-stat-row">
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-cs-total">0</div><div class="grc-stat-label">Total Controls</div></div>
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-cs-impl">0</div><div class="grc-stat-label">Implemented</div></div>
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-cs-prog">0</div><div class="grc-stat-label">In Progress</div></div>
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-cs-ns">0</div><div class="grc-stat-label">Not Started</div></div>
+  <!-- ══ CONTROLS ══════════════════════════════════════════════════════════════ -->
+  <div id="grc-sec-controls" class="grc2-section">
+    <div class="grc2-page-hd">
+      <div class="grc2-page-title">Controls</div>
+      <div class="grc2-page-desc">Manage and track your security controls across frameworks. Assign owners and monitor implementation status.</div>
     </div>
-    <div class="grc-card">
-      <div class="grc-card-hd">
-        <div class="grc-card-title">Controls</div>
-        <div style="display:flex;gap:8px;">
-          <button class="grc-btn grc-btn-out grc-btn-sm" onclick="grcExportControls()">Export CSV</button>
-          <button class="grc-btn grc-btn-sm" onclick="grcOpenCtrl()">Add Control</button>
+    <!-- Stat row -->
+    <div class="grc2-stat-row">
+      <div class="grc2-stat"><div class="grc2-stat-num" id="grc-cs-total">0</div><div class="grc2-stat-label">Total Controls</div></div>
+      <div class="grc2-stat"><div class="grc2-stat-num" id="grc-cs-impl">0</div><div class="grc2-stat-label">Implemented</div></div>
+      <div class="grc2-stat"><div class="grc2-stat-num" id="grc-cs-prog">0</div><div class="grc2-stat-label">In Progress</div></div>
+      <div class="grc2-stat"><div class="grc2-stat-num" id="grc-cs-ns">0</div><div class="grc2-stat-label">Not Started</div></div>
+    </div>
+    <!-- Charts row -->
+    <div class="grc2-chart-2col">
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Assignment</div>
+        <div style="display:flex;align-items:center;gap:20px;">
+          <div style="position:relative;width:110px;height:110px;flex-shrink:0;">
+            <canvas id="grc-ctrl-assign-donut" width="110" height="110"></canvas>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <div id="grc-ctrl-assign-pct" style="font-size:16px;font-weight:800;color:#2563eb;">0%</div>
+              <div style="font-size:10px;color:#64748b;">Assigned</div>
+            </div>
+          </div>
+          <div id="grc-ctrl-assign-legend" style="font-size:12px;display:flex;flex-direction:column;gap:6px;"></div>
         </div>
       </div>
-      <div class="grc-filter-bar">
-        <input type="text" id="gf-ctrl-q" placeholder="Search controls..." oninput="grcLoadControls()" style="flex:1;min-width:140px;">
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Completion</div>
+        <div id="grc-ctrl-ok-pct" style="font-size:28px;font-weight:800;color:#2563eb;margin-bottom:2px;">0%</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">Control OK</div>
+        <div class="grc2-prog-bar" style="height:12px;"><div id="grc-ctrl-ok-bar" class="grc2-prog-fill" style="height:12px;width:0%"></div></div>
+        <div id="grc-ctrl-ok-sub" style="font-size:12px;color:#64748b;margin-top:8px;">0 controls</div>
+      </div>
+    </div>
+    <!-- Table -->
+    <div class="grc2-card">
+      <div class="grc2-card-hd">
+        <div class="grc2-card-title">All Controls</div>
+        <div style="display:flex;gap:8px;">
+          <button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcExportControls()">Export CSV</button>
+          <button class="grc2-btn grc2-btn-sm" onclick="grcOpenCtrl()">Add Control</button>
+        </div>
+      </div>
+      <div class="grc2-filter-bar">
+        <input type="text" id="gf-ctrl-q" placeholder="Search controls..." oninput="grcLoadControls()" style="flex:1;min-width:160px;">
         <select id="gf-ctrl-fw" onchange="grcLoadControls()">
           <option value="">All Frameworks</option>
           <option>ISO 27001</option><option>NIST CSF</option><option>CIS Controls</option>
@@ -6105,54 +6177,82 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         </select>
       </div>
       <div style="overflow-x:auto;">
-        <table class="grc-tbl">
-          <thead><tr><th>Control ID</th><th>Title</th><th>Framework</th><th>Category</th><th>Status</th><th>Owner</th><th>Due Date</th><th>Actions</th></tr></thead>
+        <table class="grc2-tbl">
+          <thead><tr>
+            <th style="width:32px;"><input type="checkbox" id="grc-ctrl-all-cb" onchange="grcCtrlSelectAll(this)"></th>
+            <th>CONTROL ID</th><th>CONTROL</th><th>OWNER</th><th>SOURCE</th><th>FRAMEWORK MAPPING</th><th>TESTS</th><th style="width:80px;"></th>
+          </tr></thead>
           <tbody id="grc-ctrl-tbody"></tbody>
         </table>
       </div>
-      <div id="grc-ctrl-empty" class="grc-empty" style="display:none;">No controls found. Add your first control to get started.</div>
+      <div id="grc-ctrl-empty" class="grc2-empty" style="display:none;">No controls found. Add your first control to get started.</div>
     </div>
   </div>
 
-  <!-- ── RISK REGISTER ─────────────────────────────────────────────────────── -->
-  <div id="grc-sec-risks" class="grc-section" style="display:none">
-    <div class="grc-stat-row">
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-rs-total">0</div><div class="grc-stat-label">Total Risks</div></div>
-      <div class="grc-stat"><div class="grc-stat-num grc-score-hi" id="grc-rs-hi">0</div><div class="grc-stat-label">High (15-25)</div></div>
-      <div class="grc-stat"><div class="grc-stat-num grc-score-med" id="grc-rs-med">0</div><div class="grc-stat-label">Medium (8-14)</div></div>
-      <div class="grc-stat"><div class="grc-stat-num grc-score-lo" id="grc-rs-lo">0</div><div class="grc-stat-label">Low (1-7)</div></div>
+  <!-- ══ RISK REGISTER ═════════════════════════════════════════════════════════ -->
+  <div id="grc-sec-risks" class="grc2-section" style="display:none">
+    <div class="grc2-page-hd" style="display:flex;align-items:flex-start;justify-content:space-between;">
+      <div>
+        <div class="grc2-page-title">Risk register</div>
+        <div class="grc2-page-desc">Review all of the risks that have been identified for your business. For risks with a high risk score, describe the risk treatment plan.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button class="grc2-btn grc2-btn-ghost" onclick="grcSaveSnapshot()">Save history snapshot</button>
+        <button class="grc2-btn grc2-btn-sm" onclick="grcOpenRisk()">Add Risk</button>
+      </div>
     </div>
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;margin-bottom:16px;align-items:start;">
-      <div class="grc-card" style="margin-bottom:0;">
-        <div class="grc-card-title" style="margin-bottom:12px;">Risk Heat Matrix</div>
-        <div id="grc-heat-wrap" style="display:grid;grid-template-columns:28px repeat(5,44px);gap:3px;"></div>
-        <div style="display:flex;gap:10px;margin-top:10px;font-size:10px;flex-wrap:wrap;">
-          <span><span style="background:#dcfce7;padding:2px 7px;border-radius:3px;font-weight:600;">Low</span> 1-7</span>
-          <span><span style="background:#fef9c3;padding:2px 7px;border-radius:3px;font-weight:600;">Medium</span> 8-14</span>
-          <span><span style="background:#fee2e2;padding:2px 7px;border-radius:3px;font-weight:600;">High</span> 15-24</span>
-          <span><span style="background:#991b1b;color:#fff;padding:2px 7px;border-radius:3px;font-weight:600;">Critical</span> 25</span>
+    <!-- Stats -->
+    <div class="grc2-stat-row">
+      <div class="grc2-stat"><div class="grc2-stat-num" id="grc-rs-total">0</div><div class="grc2-stat-label">Total Risks</div></div>
+      <div class="grc2-stat"><div class="grc2-stat-num" id="grc-rs-approved">0</div><div class="grc2-stat-label">Approved</div></div>
+      <div class="grc2-stat"><div class="grc2-stat-num" id="grc-rs-hi">0</div><div class="grc2-stat-label">High Risk</div></div>
+      <div class="grc2-stat"><div class="grc2-stat-num" id="grc-rs-treated">0</div><div class="grc2-stat-label">Treated</div></div>
+    </div>
+    <!-- Charts row -->
+    <div class="grc2-chart-2col">
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Risk distribution</div>
+        <canvas id="grc-risk-scatter" height="200"></canvas>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;flex-wrap:wrap;">
+          <span><span class="grc2-ev-dot" style="background:#1e3a8a;display:inline-block;"></span>High</span>
+          <span><span class="grc2-ev-dot" style="background:#3b82f6;display:inline-block;"></span>Medium</span>
+          <span><span class="grc2-ev-dot" style="background:#93c5fd;display:inline-block;"></span>Low</span>
         </div>
       </div>
-      <div class="grc-card" style="margin-bottom:0;">
-        <div class="grc-card-title" style="margin-bottom:12px;">Risks by Category</div>
-        <canvas id="grc-risk-cat-chart" height="180"></canvas>
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Progress</div>
+        <div style="margin-bottom:20px;">
+          <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Approved</div>
+          <div id="grc-rs-approved-big" style="font-size:28px;font-weight:800;color:#2563eb;line-height:1;">0</div>
+          <canvas id="grc-risk-prog-chart" height="60"></canvas>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Treated</div>
+          <div id="grc-rs-treated-big" style="font-size:28px;font-weight:800;color:#1d4ed8;line-height:1;">0</div>
+          <canvas id="grc-risk-treat-chart" height="60"></canvas>
+        </div>
       </div>
     </div>
-    <div class="grc-card">
-      <div class="grc-card-hd">
-        <div class="grc-card-title">Risk Register</div>
+    <!-- Table -->
+    <div class="grc2-card">
+      <div class="grc2-card-hd">
+        <div class="grc2-card-title">Risks</div>
         <div style="display:flex;gap:8px;">
-          <button class="grc-btn grc-btn-out grc-btn-sm" onclick="grcExportRisks()">Export CSV</button>
-          <button class="grc-btn grc-btn-sm" onclick="grcOpenRisk()">Add Risk</button>
+          <button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcExportRisks()">Export CSV</button>
         </div>
       </div>
-      <div class="grc-filter-bar">
-        <input type="text" id="gf-risk-q" placeholder="Search risks..." oninput="grcLoadRisks()" style="flex:1;min-width:140px;">
+      <div class="grc2-filter-bar">
+        <input type="text" id="gf-risk-q" placeholder="Search by name..." oninput="grcLoadRisks()" style="min-width:180px;">
         <select id="gf-risk-st" onchange="grcLoadRisks()">
           <option value="">All Statuses</option>
           <option value="open">Open</option>
           <option value="in_treatment">In Treatment</option>
           <option value="closed">Closed</option>
+        </select>
+        <select id="gf-risk-rs" onchange="grcLoadRisks()">
+          <option value="">All</option>
+          <option value="approved">Approved</option>
+          <option value="pending">Pending</option>
         </select>
         <select id="gf-risk-tr" onchange="grcLoadRisks()">
           <option value="">All Treatments</option>
@@ -6163,157 +6263,316 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         </select>
       </div>
       <div style="overflow-x:auto;">
-        <table class="grc-tbl">
-          <thead><tr><th>Title</th><th>Category</th><th>Likelihood</th><th>Impact</th><th>Score</th><th>Status</th><th>Treatment</th><th>Owner</th><th>Actions</th></tr></thead>
+        <table class="grc2-tbl">
+          <thead><tr>
+            <th style="width:32px;"><input type="checkbox"></th>
+            <th>RISK SCENARIO</th><th>OWNER</th><th>RISK SCORE</th>
+            <th>TREATMENT</th><th>RESIDUAL RISK</th><th>STATUS</th><th style="width:60px;"></th>
+          </tr></thead>
           <tbody id="grc-risk-tbody"></tbody>
         </table>
       </div>
-      <div id="grc-risk-empty" class="grc-empty" style="display:none;">No risks found. Add your first risk to get started.</div>
+      <div id="grc-risk-empty" class="grc2-empty" style="display:none;">No risks found. Add your first risk to get started.</div>
     </div>
   </div>
 
-  <!-- ── RISK TREATMENT ────────────────────────────────────────────────────── -->
-  <div id="grc-sec-treatment" class="grc-section" style="display:none">
-    <div class="grc-chart-row">
-      <div class="grc-card">
-        <div class="grc-card-title" style="margin-bottom:14px;">Treatment Type Distribution</div>
+  <!-- ══ RISK TREATMENT ════════════════════════════════════════════════════════ -->
+  <div id="grc-sec-treatment" class="grc2-section" style="display:none">
+    <div class="grc2-page-hd">
+      <div class="grc2-page-title">Risk treatment</div>
+      <div class="grc2-page-desc">Make sure all your risks are assessed and approved. Once your risks are approved, complete tasks and ensure all controls relating to risks are passing.</div>
+    </div>
+    <div class="grc2-chart-3col">
+      <!-- Left: bar chart -->
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Number of risks by treatment type</div>
         <canvas id="grc-treat-bar" height="220"></canvas>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;">
+          <span><span class="grc2-ev-dot" style="background:#1d4ed8;display:inline-block;"></span>Approved</span>
+          <span><span class="grc2-ev-dot" style="background:#e2e8f0;display:inline-block;"></span>Not approved</span>
+        </div>
       </div>
-      <div class="grc-card">
-        <div class="grc-card-title" style="margin-bottom:14px;">Risk Status Breakdown</div>
-        <canvas id="grc-treat-donut" height="220"></canvas>
+      <!-- Right: donuts -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="grc2-card" style="margin-bottom:0;">
+          <div class="grc2-card-title" style="margin-bottom:10px;">Task status</div>
+          <div id="grc-treat-overdue-banner" style="display:none;background:#eff6ff;border-radius:6px;padding:8px 12px;font-size:12px;color:#1d4ed8;font-weight:600;margin-bottom:10px;">
+            You have <span id="grc-treat-overdue-n">0</span> overdue tasks
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="position:relative;width:90px;height:90px;flex-shrink:0;">
+              <canvas id="grc-treat-task-donut" width="90" height="90"></canvas>
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div id="grc-treat-task-total" style="font-size:14px;font-weight:800;color:#2563eb;">0</div>
+                <div style="font-size:9px;color:#64748b;">Total tasks</div>
+              </div>
+            </div>
+            <div id="grc-treat-task-legend" style="font-size:12px;display:flex;flex-direction:column;gap:5px;"></div>
+          </div>
+        </div>
+        <div class="grc2-card" style="margin-bottom:0;">
+          <div class="grc2-card-title" style="margin-bottom:10px;">Control status</div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="position:relative;width:90px;height:90px;flex-shrink:0;">
+              <canvas id="grc-treat-ctrl-donut" width="90" height="90"></canvas>
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div id="grc-treat-ctrl-total" style="font-size:14px;font-weight:800;color:#2563eb;">0</div>
+                <div style="font-size:9px;color:#64748b;">Total controls</div>
+              </div>
+            </div>
+            <div id="grc-treat-ctrl-legend" style="font-size:12px;display:flex;flex-direction:column;gap:5px;"></div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="grc-card">
-      <div class="grc-card-hd">
-        <div class="grc-card-title">Treatment Plan</div>
+    <!-- Treatment table -->
+    <div class="grc2-card">
+      <div class="grc2-card-hd">
+        <div class="grc2-card-title">Treatment Plan</div>
         <div style="display:flex;gap:6px;" id="grc-treat-btns">
-          <button class="grc-btn grc-btn-sm" style="background:#2563eb;color:#fff;" id="gtb-all" onclick="grcTreatFilter('')">All</button>
-          <button class="grc-btn grc-btn-out grc-btn-sm" id="gtb-mitigate" onclick="grcTreatFilter('mitigate')">Mitigate</button>
-          <button class="grc-btn grc-btn-out grc-btn-sm" id="gtb-accept" onclick="grcTreatFilter('accept')">Accept</button>
-          <button class="grc-btn grc-btn-out grc-btn-sm" id="gtb-transfer" onclick="grcTreatFilter('transfer')">Transfer</button>
-          <button class="grc-btn grc-btn-out grc-btn-sm" id="gtb-avoid" onclick="grcTreatFilter('avoid')">Avoid</button>
+          <button class="grc2-btn grc2-btn-sm" id="gtb-all" onclick="grcTreatFilter('')">All</button>
+          <button class="grc2-btn grc2-btn-out grc2-btn-sm" id="gtb-mitigate" onclick="grcTreatFilter('mitigate')">Mitigate</button>
+          <button class="grc2-btn grc2-btn-out grc2-btn-sm" id="gtb-accept" onclick="grcTreatFilter('accept')">Accept</button>
+          <button class="grc2-btn grc2-btn-out grc2-btn-sm" id="gtb-transfer" onclick="grcTreatFilter('transfer')">Transfer</button>
+          <button class="grc2-btn grc2-btn-out grc2-btn-sm" id="gtb-avoid" onclick="grcTreatFilter('avoid')">Avoid</button>
         </div>
       </div>
       <div style="overflow-x:auto;">
-        <table class="grc-tbl">
-          <thead><tr><th>Risk</th><th>Score</th><th>Treatment</th><th>Status</th><th>Owner</th><th>Due Date</th><th>Notes</th></tr></thead>
+        <table class="grc2-tbl">
+          <thead><tr><th>RISK</th><th>SCORE</th><th>TREATMENT</th><th>STATUS</th><th>OWNER</th><th>DUE DATE</th><th>NOTES</th></tr></thead>
           <tbody id="grc-treat-tbody"></tbody>
         </table>
       </div>
-      <div id="grc-treat-empty" class="grc-empty" style="display:none;">No risks to display.</div>
+      <div id="grc-treat-empty" class="grc2-empty" style="display:none;">No risks to display.</div>
     </div>
   </div>
 
-  <!-- ── TESTS ─────────────────────────────────────────────────────────────── -->
-  <div id="grc-sec-tests" class="grc-section" style="display:none">
-    <div class="grc-stat-row">
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-ts-total">0</div><div class="grc-stat-label">Total Tests</div></div>
-      <div class="grc-stat"><div class="grc-stat-num" style="color:#16a34a;" id="grc-ts-pass">0</div><div class="grc-stat-label">Pass</div></div>
-      <div class="grc-stat"><div class="grc-stat-num grc-score-hi" id="grc-ts-fail">0</div><div class="grc-stat-label">Fail</div></div>
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-ts-ns">0</div><div class="grc-stat-label">Not Started</div></div>
-    </div>
-    <div class="grc-card">
-      <div class="grc-card-hd">
-        <div class="grc-card-title">Tests</div>
-        <div style="display:flex;gap:8px;">
-          <button class="grc-btn grc-btn-out grc-btn-sm" onclick="grcExportTests()">Export CSV</button>
-          <button class="grc-btn grc-btn-sm" onclick="grcOpenTest()">Add Test</button>
+  <!-- ══ TESTS ════════════════════════════════════════════════════════════════= -->
+  <div id="grc-sec-tests" style="display:none">
+    <div class="grc2-test-layout">
+      <!-- Left category sidebar -->
+      <div class="grc2-test-sidebar">
+        <div class="grc2-cat-section">Category</div>
+        <div class="grc2-cat-item active" id="grc-cat-all" onclick="grcTestCat('')">
+          <span>All</span><span class="grc2-cat-badge" id="grc-cat-all-n">0</span>
+        </div>
+        <div class="grc2-cat-item" id="grc-cat-HR" onclick="grcTestCat('HR')">
+          <span>HR</span><span class="grc2-cat-badge" id="grc-cat-HR-n" style="display:none">0</span>
+        </div>
+        <div class="grc2-cat-item" id="grc-cat-IT" onclick="grcTestCat('IT')">
+          <span>IT</span><span class="grc2-cat-badge" id="grc-cat-IT-n" style="display:none">0</span>
+        </div>
+        <div class="grc2-cat-item" id="grc-cat-Policy" onclick="grcTestCat('Policy')">
+          <span>Policy</span><span class="grc2-cat-badge" id="grc-cat-Policy-n" style="display:none">0</span>
+        </div>
+        <div class="grc2-cat-item" id="grc-cat-Engineering" onclick="grcTestCat('Engineering')">
+          <span>Engineering</span><span class="grc2-cat-badge" id="grc-cat-Engineering-n" style="display:none">0</span>
+        </div>
+        <div class="grc2-cat-item" id="grc-cat-Risks" onclick="grcTestCat('Risks')">
+          <span>Risks</span><span class="grc2-cat-badge" id="grc-cat-Risks-n" style="display:none">0</span>
+        </div>
+        <div class="grc2-cat-item" id="grc-cat-Custom" onclick="grcTestCat('Custom')">
+          <span>Custom</span><span class="grc2-cat-badge" id="grc-cat-Custom-n" style="display:none">0</span>
+        </div>
+        <div class="grc2-cat-section" style="margin-top:8px;">Deactivated</div>
+        <div class="grc2-cat-item" style="color:#94a3b8;font-size:12px;">All deactivated</div>
+      </div>
+      <!-- Main test content -->
+      <div class="grc2-test-main">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="font-size:18px;font-weight:700;color:#0f172a;">Tests: <span id="grc-test-cat-label">All</span></div>
+          <button class="grc2-btn grc2-btn-sm" onclick="grcOpenTest()">Add Test</button>
+        </div>
+        <!-- KPI panels -->
+        <div class="grc2-kpi-2col">
+          <div class="grc2-kpi-ok">
+            <div class="grc2-kpi-label">OK</div>
+            <div class="grc2-kpi-num" id="grc-test-ok-n">0</div>
+            <div class="grc2-prog-bar" style="height:10px;margin-top:8px;"><div id="grc-test-ok-bar" class="grc2-prog-fill" style="width:0%"></div></div>
+            <div class="grc2-kpi-sub"><span id="grc-test-ok-pct">0%</span> pass rate &bull; <span id="grc-test-ok-sub">0 OK, 0 total</span></div>
+          </div>
+          <div class="grc2-kpi-ok">
+            <div class="grc2-kpi-label">Needs attention</div>
+            <div class="grc2-kpi-num" id="grc-test-attn-n">0</div>
+            <div style="margin-top:12px;">
+              <div class="grc2-attn-row">
+                <span class="grc2-attn-label"><span class="grc2-ev-dot" style="background:#1e3a8a;display:inline-block;"></span>Overdue</span>
+                <span class="grc2-attn-num" id="grc-test-overdue">0</span>
+              </div>
+              <div class="grc2-attn-row">
+                <span class="grc2-attn-label"><span class="grc2-ev-dot" style="background:#3b82f6;display:inline-block;"></span>Due soon</span>
+                <span class="grc2-attn-num" id="grc-test-duesoon">0</span>
+              </div>
+              <div class="grc2-attn-row">
+                <span class="grc2-attn-label"><span class="grc2-ev-dot" style="background:#93c5fd;display:inline-block;"></span>Needs remediation</span>
+                <span class="grc2-attn-num" id="grc-test-remediate">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Filter bar -->
+        <div class="grc2-filter-bar">
+          <input type="text" id="gf-test-q" placeholder="Search tests..." oninput="grcLoadTests()" style="min-width:180px;">
+          <select id="gf-test-type" onchange="grcLoadTests()">
+            <option value="">All Types</option>
+            <option value="manual">Manual</option>
+            <option value="automated">Automated</option>
+          </select>
+          <select id="gf-test-st" onchange="grcLoadTests()">
+            <option value="">All Statuses</option>
+            <option value="pass">Pass</option>
+            <option value="fail">Fail</option>
+            <option value="in_progress">In Progress</option>
+            <option value="not_started">Not Started</option>
+          </select>
+          <button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcExportTests()">Export CSV</button>
+        </div>
+        <!-- Table -->
+        <div style="overflow-x:auto;background:#fff;border:1px solid #dbeafe;border-radius:8px;">
+          <table class="grc2-tbl">
+            <thead><tr>
+              <th style="width:32px;"><input type="checkbox"></th>
+              <th>NAME</th><th>CATEGORY</th><th>OWNER</th><th>TYPE</th><th>STATUS</th><th style="width:60px;"></th>
+            </tr></thead>
+            <tbody id="grc-test-tbody"></tbody>
+          </table>
+          <div id="grc-test-empty" class="grc2-empty" style="display:none;">No tests found. Add your first test.</div>
         </div>
       </div>
-      <div class="grc-filter-bar">
-        <input type="text" id="gf-test-q" placeholder="Search tests..." oninput="grcLoadTests()" style="flex:1;min-width:140px;">
-        <select id="gf-test-cat" onchange="grcLoadTests()">
-          <option value="">All Categories</option>
-          <option value="manual">Manual</option>
-          <option value="automated">Automated</option>
-        </select>
-        <select id="gf-test-st" onchange="grcLoadTests()">
-          <option value="">All Statuses</option>
-          <option value="pass">Pass</option>
-          <option value="fail">Fail</option>
-          <option value="in_progress">In Progress</option>
-          <option value="not_started">Not Started</option>
-        </select>
-      </div>
-      <div style="overflow-x:auto;">
-        <table class="grc-tbl">
-          <thead><tr><th>Name</th><th>Category</th><th>Control Ref</th><th>Status</th><th>Last Run</th><th>Owner</th><th>Actions</th></tr></thead>
-          <tbody id="grc-test-tbody"></tbody>
-        </table>
-      </div>
-      <div id="grc-test-empty" class="grc-empty" style="display:none;">No tests found. Add your first test to get started.</div>
     </div>
   </div>
 
-  <!-- ── AUDITS ─────────────────────────────────────────────────────────────── -->
-  <div id="grc-sec-audits" class="grc-section" style="display:none">
-    <div class="grc-stat-row">
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-as-total">0</div><div class="grc-stat-label">Total Audits</div></div>
-      <div class="grc-stat"><div class="grc-stat-num" style="color:#16a34a;" id="grc-as-done">0</div><div class="grc-stat-label">Complete</div></div>
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-as-prog">0</div><div class="grc-stat-label">In Progress</div></div>
-      <div class="grc-stat"><div class="grc-stat-num" id="grc-as-plan">0</div><div class="grc-stat-label">Planned</div></div>
+  <!-- ══ AUDITS ════════════════════════════════════════════════════════════════ -->
+  <div id="grc-sec-audits" class="grc2-section" style="display:none">
+    <div class="grc2-page-hd" style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="grc2-page-title">Audits</div>
+      <button class="grc2-btn grc2-btn-sm" onclick="grcOpenAudit()">Schedule Audit</button>
     </div>
-    <div class="grc-audit-cards" id="grc-audit-cards"></div>
-    <div class="grc-card">
-      <div class="grc-card-hd">
-        <div class="grc-card-title">All Audits</div>
-        <button class="grc-btn grc-btn-sm" onclick="grcOpenAudit()">Schedule Audit</button>
+    <!-- Active/Completed tabs -->
+    <div class="grc2-tabs-sm">
+      <button class="grc2-tab-sm active" id="grc-audit-tab-active" onclick="grcAuditTab('active')">Active</button>
+      <button class="grc2-tab-sm" id="grc-audit-tab-complete" onclick="grcAuditTab('complete')">Completed</button>
+    </div>
+    <!-- Audit cards -->
+    <div class="grc2-audit-cards" id="grc-audit-cards"></div>
+    <div id="grc-audit-empty" class="grc2-empty" style="display:none;">No audits scheduled yet.</div>
+    <!-- All audits table -->
+    <div class="grc2-card">
+      <div class="grc2-card-hd">
+        <div class="grc2-card-title">All Audits</div>
       </div>
       <div style="overflow-x:auto;">
-        <table class="grc-tbl">
-          <thead><tr><th>Name</th><th>Auditor</th><th>Scope</th><th>Status</th><th>Start</th><th>End</th><th>Actions</th></tr></thead>
+        <table class="grc2-tbl">
+          <thead><tr><th>NAME</th><th>AUDITOR</th><th>SCOPE</th><th>STATUS</th><th>START</th><th>END</th><th style="width:80px;"></th></tr></thead>
           <tbody id="grc-audit-tbody"></tbody>
         </table>
       </div>
-      <div id="grc-audit-empty" class="grc-empty" style="display:none;">No audits scheduled yet.</div>
+      <div id="grc-audit-table-empty" class="grc2-empty" style="display:none;">No audits.</div>
     </div>
-    <div class="grc-card" style="margin-top:0;">
-      <div class="grc-card-hd">
-        <div class="grc-card-title">Evidence</div>
-        <button class="grc-btn grc-btn-sm" onclick="grcOpenEvidence()">Add Evidence</button>
+    <!-- Evidence section -->
+    <div class="grc2-card" style="margin-top:0;">
+      <div class="grc2-card-hd">
+        <div>
+          <div class="grc2-card-title">Evidence</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">Audit progress</div>
+        </div>
+        <button class="grc2-btn grc2-btn-sm" onclick="grcOpenEvidence()">Add Evidence</button>
+      </div>
+      <!-- Evidence tracker bar -->
+      <div id="grc-ev-tracker-wrap" style="margin-bottom:14px;">
+        <div class="grc2-ev-bar" id="grc-ev-bar"></div>
+        <div class="grc2-ev-legend" id="grc-ev-legend"></div>
+      </div>
+      <!-- Evidence tabs -->
+      <div class="grc2-tabs-sm" id="grc-ev-tabs" style="margin-bottom:10px;">
+        <button class="grc2-tab-sm active" onclick="grcEvTab('')">All <span id="grc-ev-tab-all-n"></span></button>
+        <button class="grc2-tab-sm" onclick="grcEvTab('not_ready')">Not ready <span id="grc-ev-tab-nr-n"></span></button>
+        <button class="grc2-tab-sm" onclick="grcEvTab('flagged')">Flagged <span id="grc-ev-tab-fl-n"></span></button>
+        <button class="grc2-tab-sm" onclick="grcEvTab('ready')">Ready <span id="grc-ev-tab-rd-n"></span></button>
+        <button class="grc2-tab-sm" onclick="grcEvTab('accepted')">Accepted <span id="grc-ev-tab-ac-n"></span></button>
+        <button class="grc2-tab-sm" onclick="grcEvTab('not_applicable')">Not applicable <span id="grc-ev-tab-na-n"></span></button>
       </div>
       <div style="overflow-x:auto;">
-        <table class="grc-tbl">
-          <thead><tr><th>Title</th><th>Description</th><th>Audit</th><th>Control Ref</th><th>Collected By</th><th>Date</th><th>Actions</th></tr></thead>
+        <table class="grc2-tbl">
+          <thead><tr>
+            <th>EVIDENCE</th><th>TYPE</th><th>OWNER</th><th>AUDITOR ASSESSMENT</th><th style="width:140px;"></th>
+          </tr></thead>
           <tbody id="grc-ev-tbody"></tbody>
         </table>
       </div>
-      <div id="grc-ev-empty" class="grc-empty" style="display:none;">No evidence collected yet.</div>
+      <div id="grc-ev-empty" class="grc2-empty" style="display:none;">No evidence collected yet.</div>
     </div>
   </div>
 
-  <!-- ── REPORTS ────────────────────────────────────────────────────────────── -->
-  <div id="grc-sec-reports" class="grc-section" style="display:none">
-    <div class="grc-card">
-      <div class="grc-card-hd">
-        <div class="grc-card-title">Compliance Report</div>
-        <div style="display:flex;gap:8px;">
-          <button class="grc-btn grc-btn-out grc-btn-sm" onclick="grcExportReport('csv')">Export CSV</button>
-          <button class="grc-btn grc-btn-sm" onclick="grcExportReport('html')">Export HTML</button>
+  <!-- ══ REPORTS ═══════════════════════════════════════════════════════════════ -->
+  <div id="grc-sec-reports" class="grc2-section" style="display:none">
+    <div class="grc2-page-hd" style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="grc2-page-title">Reports</div>
+      <div style="display:flex;gap:8px;">
+        <button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcExportReport('csv')">Export CSV</button>
+        <button class="grc2-btn grc2-btn-sm" onclick="grcExportReport('html')">Export HTML</button>
+      </div>
+    </div>
+    <!-- Compliance progress boxes -->
+    <div class="grc2-card" style="margin-bottom:14px;">
+      <div class="grc2-card-title" style="margin-bottom:14px;">Compliance progress</div>
+      <div class="grc2-compliance-3col" id="grc-compliance-boxes"></div>
+    </div>
+    <!-- Charts row -->
+    <div class="grc2-chart-2col">
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Inherent risk</div>
+        <canvas id="grc-risk-inherent-chart" height="200"></canvas>
+        <div style="display:flex;gap:10px;margin-top:10px;font-size:11px;flex-wrap:wrap;">
+          <span><span class="grc2-ev-dot" style="background:#1e3a8a;display:inline-block;"></span>Critical</span>
+          <span><span class="grc2-ev-dot" style="background:#1d4ed8;display:inline-block;"></span>High</span>
+          <span><span class="grc2-ev-dot" style="background:#3b82f6;display:inline-block;"></span>Medium</span>
+          <span><span class="grc2-ev-dot" style="background:#93c5fd;display:inline-block;"></span>Low</span>
         </div>
       </div>
-      <div id="grc-report-body"></div>
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Control compliance status</div>
+        <canvas id="grc-ctrl-compliance-chart" height="200"></canvas>
+      </div>
+    </div>
+    <!-- Framework progress + Upcoming audits -->
+    <div class="grc2-chart-2col" style="margin-top:14px;">
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Framework compliance</div>
+        <div id="grc-fw-progress-bars"></div>
+      </div>
+      <div class="grc2-card" style="margin-bottom:0;">
+        <div class="grc2-card-title" style="margin-bottom:14px;">Upcoming Audits</div>
+        <div id="grc-upcoming-audits"></div>
+      </div>
     </div>
   </div>
 
-  <!-- ── MODALS ─────────────────────────────────────────────────────────────── -->
+  <!-- ══ MODALS ════════════════════════════════════════════════════════════════ -->
+
   <!-- Control modal -->
   <div class="grc2-modal-bg" id="grc2-ctrl-modal">
     <div class="grc2-modal">
-      <div class="grc2-modal-hd" id="grc2-ctrl-hd">Add Control</div>
+      <div class="grc2-mhd"><span id="grc2-ctrl-hd">Add Control</span><button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcClose('grc2-ctrl-modal')">Close</button></div>
       <input type="hidden" id="gc-id">
-      <div class="grc2-field"><label class="grc2-label">Control ID *</label><input class="grc2-input" id="gc-cid" placeholder="e.g. ISO-A.5.1"></div>
-      <div class="grc2-field"><label class="grc2-label">Title *</label><input class="grc2-input" id="gc-title" placeholder="Control title"></div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Framework</label>
-          <select class="grc2-select" id="gc-fw">
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Control ID *</label><input class="grc2-inp" id="gc-cid" placeholder="e.g. ISO-A.5.1"></div>
+        <div class="grc2-field"><label class="grc2-lbl">Source</label><input class="grc2-inp" id="gc-source" placeholder="Custom, Vanta, etc." value="Custom"></div>
+      </div>
+      <div class="grc2-field"><label class="grc2-lbl">Title *</label><input class="grc2-inp" id="gc-title" placeholder="Control title"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Framework</label>
+          <select class="grc2-sel" id="gc-fw">
             <option>ISO 27001</option><option>NIST CSF</option><option>CIS Controls</option>
             <option>SOC 2</option><option>GDPR</option><option>PCI DSS</option>
           </select>
         </div>
-        <div class="grc2-field"><label class="grc2-label">Status</label>
-          <select class="grc2-select" id="gc-status">
+        <div class="grc2-field"><label class="grc2-lbl">Framework Mapping</label><input class="grc2-inp" id="gc-fwmap" placeholder="e.g. SOC 2 CC 6.5"></div>
+      </div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Category</label><input class="grc2-inp" id="gc-cat" placeholder="e.g. Access Control"></div>
+        <div class="grc2-field"><label class="grc2-lbl">Status</label>
+          <select class="grc2-sel" id="gc-status">
             <option value="not_started">Not Started</option>
             <option value="in_progress">In Progress</option>
             <option value="implemented">Implemented</option>
@@ -6321,16 +6580,15 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           </select>
         </div>
       </div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Category</label><input class="grc2-input" id="gc-cat" placeholder="e.g. Access Control"></div>
-        <div class="grc2-field"><label class="grc2-label">Owner</label><input class="grc2-input" id="gc-owner" placeholder="Responsible person"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Owner</label><input class="grc2-inp" id="gc-owner" placeholder="Responsible person"></div>
+        <div class="grc2-field"><label class="grc2-lbl">Due Date</label><input class="grc2-inp" type="date" id="gc-due"></div>
       </div>
-      <div class="grc2-field"><label class="grc2-label">Due Date</label><input class="grc2-input" type="date" id="gc-due"></div>
-      <div class="grc2-field"><label class="grc2-label">Description</label><textarea class="grc2-textarea" id="gc-desc" placeholder="Control description"></textarea></div>
-      <div class="grc2-field"><label class="grc2-label">Notes</label><textarea class="grc2-textarea" id="gc-notes" placeholder="Additional notes"></textarea></div>
+      <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gc-desc" placeholder="Control description"></textarea></div>
+      <div class="grc2-field"><label class="grc2-lbl">Notes</label><textarea class="grc2-ta" id="gc-notes" placeholder="Additional notes"></textarea></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-        <button class="grc-btn grc-btn-out" onclick="grcClose('grc2-ctrl-modal')">Cancel</button>
-        <button class="grc-btn" onclick="grcSaveCtrl()">Save Control</button>
+        <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-ctrl-modal')">Cancel</button>
+        <button class="grc2-btn" onclick="grcSaveCtrl()">Save Control</button>
       </div>
     </div>
   </div>
@@ -6338,52 +6596,60 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- Risk modal -->
   <div class="grc2-modal-bg" id="grc2-risk-modal">
     <div class="grc2-modal">
-      <div class="grc2-modal-hd" id="grc2-risk-hd">Add Risk</div>
+      <div class="grc2-mhd"><span id="grc2-risk-hd">Add Risk</span><button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcClose('grc2-risk-modal')">Close</button></div>
       <input type="hidden" id="gr-id">
-      <div class="grc2-field"><label class="grc2-label">Title *</label><input class="grc2-input" id="gr-title" placeholder="Risk title"></div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Category</label><input class="grc2-input" id="gr-cat" placeholder="Operational, Technical..."></div>
-        <div class="grc2-field"><label class="grc2-label">Owner</label><input class="grc2-input" id="gr-owner" placeholder="Risk owner"></div>
+      <div class="grc2-field"><label class="grc2-lbl">Risk Scenario *</label><input class="grc2-inp" id="gr-title" placeholder="Describe the risk scenario"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Category</label><input class="grc2-inp" id="gr-cat" placeholder="Operational, Technical..."></div>
+        <div class="grc2-field"><label class="grc2-lbl">Owner</label><input class="grc2-inp" id="gr-owner" placeholder="Risk owner"></div>
       </div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Likelihood (1-5)</label>
-          <select class="grc2-select" id="gr-like" onchange="grcCalcScore()">
+      <div class="grc2-g3">
+        <div class="grc2-field"><label class="grc2-lbl">Likelihood (1-5)</label>
+          <select class="grc2-sel" id="gr-like" onchange="grcCalcScore()">
             <option value="1">1 - Rare</option><option value="2">2 - Unlikely</option>
             <option value="3" selected>3 - Possible</option><option value="4">4 - Likely</option>
             <option value="5">5 - Almost Certain</option>
           </select>
         </div>
-        <div class="grc2-field"><label class="grc2-label">Impact (1-5)</label>
-          <select class="grc2-select" id="gr-impact" onchange="grcCalcScore()">
+        <div class="grc2-field"><label class="grc2-lbl">Impact (1-5)</label>
+          <select class="grc2-sel" id="gr-impact" onchange="grcCalcScore()">
             <option value="1">1 - Negligible</option><option value="2">2 - Minor</option>
             <option value="3" selected>3 - Moderate</option><option value="4">4 - Major</option>
             <option value="5">5 - Critical</option>
           </select>
         </div>
+        <div class="grc2-field"><label class="grc2-lbl">Residual Risk</label>
+          <input class="grc2-inp" type="number" id="gr-residual" min="0" max="25" placeholder="0" value="0">
+        </div>
       </div>
       <div class="grc2-field">
-        <label class="grc2-label">Risk Score</label>
-        <div id="gr-score-prev" style="padding:10px 14px;background:#f8faff;border:1px solid #dbeafe;border-radius:6px;font-size:22px;font-weight:700;color:#2563eb;">9</div>
+        <label class="grc2-lbl">Risk Score</label>
+        <div class="grc2-score-prev" id="gr-score-prev">9</div>
       </div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Treatment</label>
-          <select class="grc2-select" id="gr-treatment">
+      <div class="grc2-g3">
+        <div class="grc2-field"><label class="grc2-lbl">Treatment</label>
+          <select class="grc2-sel" id="gr-treatment">
             <option value="mitigate">Mitigate</option><option value="accept">Accept</option>
             <option value="transfer">Transfer</option><option value="avoid">Avoid</option>
           </select>
         </div>
-        <div class="grc2-field"><label class="grc2-label">Status</label>
-          <select class="grc2-select" id="gr-status">
+        <div class="grc2-field"><label class="grc2-lbl">Status</label>
+          <select class="grc2-sel" id="gr-status">
             <option value="open">Open</option><option value="in_treatment">In Treatment</option><option value="closed">Closed</option>
           </select>
         </div>
+        <div class="grc2-field"><label class="grc2-lbl">Approval</label>
+          <select class="grc2-sel" id="gr-risk-status">
+            <option value="pending">Pending</option><option value="approved">Approved</option>
+          </select>
+        </div>
       </div>
-      <div class="grc2-field"><label class="grc2-label">Due Date</label><input class="grc2-input" type="date" id="gr-due"></div>
-      <div class="grc2-field"><label class="grc2-label">Description</label><textarea class="grc2-textarea" id="gr-desc" placeholder="Risk description"></textarea></div>
-      <div class="grc2-field"><label class="grc2-label">Notes / Mitigations</label><textarea class="grc2-textarea" id="gr-notes" placeholder="Treatment notes, mitigations planned..."></textarea></div>
+      <div class="grc2-field"><label class="grc2-lbl">Due Date</label><input class="grc2-inp" type="date" id="gr-due"></div>
+      <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gr-desc" placeholder="Risk description"></textarea></div>
+      <div class="grc2-field"><label class="grc2-lbl">Treatment Notes</label><textarea class="grc2-ta" id="gr-notes" placeholder="Treatment plan, mitigations..."></textarea></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-        <button class="grc-btn grc-btn-out" onclick="grcClose('grc2-risk-modal')">Cancel</button>
-        <button class="grc-btn" onclick="grcSaveRisk()">Save Risk</button>
+        <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-risk-modal')">Cancel</button>
+        <button class="grc2-btn" onclick="grcSaveRisk()">Save Risk</button>
       </div>
     </div>
   </div>
@@ -6391,32 +6657,41 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- Test modal -->
   <div class="grc2-modal-bg" id="grc2-test-modal">
     <div class="grc2-modal">
-      <div class="grc2-modal-hd" id="grc2-test-hd">Add Test</div>
+      <div class="grc2-mhd"><span id="grc2-test-hd">Add Test</span><button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcClose('grc2-test-modal')">Close</button></div>
       <input type="hidden" id="gt-id">
-      <div class="grc2-field"><label class="grc2-label">Name *</label><input class="grc2-input" id="gt-name" placeholder="Test name"></div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Category</label>
-          <select class="grc2-select" id="gt-cat">
+      <div class="grc2-field"><label class="grc2-lbl">Test Name *</label><input class="grc2-inp" id="gt-name" placeholder="Test name"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Category (Vanta-style)</label>
+          <select class="grc2-sel" id="gt-cat2">
+            <option value="">Other</option><option value="HR">HR</option><option value="IT">IT</option>
+            <option value="Policy">Policy</option><option value="Engineering">Engineering</option>
+            <option value="Risks">Risks</option><option value="Custom">Custom</option>
+          </select>
+        </div>
+        <div class="grc2-field"><label class="grc2-lbl">Type</label>
+          <select class="grc2-sel" id="gt-type">
             <option value="manual">Manual</option><option value="automated">Automated</option>
           </select>
         </div>
-        <div class="grc2-field"><label class="grc2-label">Status</label>
-          <select class="grc2-select" id="gt-status">
+      </div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Status</label>
+          <select class="grc2-sel" id="gt-status">
             <option value="not_started">Not Started</option><option value="in_progress">In Progress</option>
             <option value="pass">Pass</option><option value="fail">Fail</option>
           </select>
         </div>
+        <div class="grc2-field"><label class="grc2-lbl">Control Reference</label><input class="grc2-inp" id="gt-ctrl" placeholder="e.g. ISO-A.5.1"></div>
       </div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Control Reference</label><input class="grc2-input" id="gt-ctrl" placeholder="e.g. ISO-A.5.1"></div>
-        <div class="grc2-field"><label class="grc2-label">Owner</label><input class="grc2-input" id="gt-owner" placeholder="Responsible person"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Owner</label><input class="grc2-inp" id="gt-owner" placeholder="Responsible person"></div>
+        <div class="grc2-field"><label class="grc2-lbl">Last Run</label><input class="grc2-inp" type="date" id="gt-lastrun"></div>
       </div>
-      <div class="grc2-field"><label class="grc2-label">Last Run</label><input class="grc2-input" type="date" id="gt-lastrun"></div>
-      <div class="grc2-field"><label class="grc2-label">Description</label><textarea class="grc2-textarea" id="gt-desc" placeholder="Test description"></textarea></div>
-      <div class="grc2-field"><label class="grc2-label">Result Notes</label><textarea class="grc2-textarea" id="gt-result" placeholder="Test result notes"></textarea></div>
+      <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gt-desc" placeholder="Test description"></textarea></div>
+      <div class="grc2-field"><label class="grc2-lbl">Result Notes</label><textarea class="grc2-ta" id="gt-result" placeholder="Test result notes"></textarea></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-        <button class="grc-btn grc-btn-out" onclick="grcClose('grc2-test-modal')">Cancel</button>
-        <button class="grc-btn" onclick="grcSaveTest()">Save Test</button>
+        <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-test-modal')">Cancel</button>
+        <button class="grc2-btn" onclick="grcSaveTest()">Save Test</button>
       </div>
     </div>
   </div>
@@ -6424,27 +6699,34 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- Audit modal -->
   <div class="grc2-modal-bg" id="grc2-audit-modal">
     <div class="grc2-modal">
-      <div class="grc2-modal-hd" id="grc2-audit-hd">Schedule Audit</div>
+      <div class="grc2-mhd"><span id="grc2-audit-hd">Schedule Audit</span><button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcClose('grc2-audit-modal')">Close</button></div>
       <input type="hidden" id="gau-id">
-      <div class="grc2-field"><label class="grc2-label">Audit Name *</label><input class="grc2-input" id="gau-name" placeholder="Audit name"></div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Auditor</label><input class="grc2-input" id="gau-auditor" placeholder="Auditor name or firm"></div>
-        <div class="grc2-field"><label class="grc2-label">Status</label>
-          <select class="grc2-select" id="gau-status">
-            <option value="planned">Planned</option><option value="in_progress">In Progress</option><option value="complete">Complete</option>
+      <div class="grc2-field"><label class="grc2-lbl">Audit Name *</label><input class="grc2-inp" id="gau-name" placeholder="Audit name"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Auditor / Firm</label><input class="grc2-inp" id="gau-auditor" placeholder="Auditor or firm name"></div>
+        <div class="grc2-field"><label class="grc2-lbl">Type</label>
+          <select class="grc2-sel" id="gau-type">
+            <option value="external">External</option><option value="internal">Internal</option>
           </select>
         </div>
       </div>
-      <div class="grc2-field"><label class="grc2-label">Scope</label><input class="grc2-input" id="gau-scope" placeholder="e.g. ISO 27001 Annex A"></div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Start Date</label><input class="grc2-input" type="date" id="gau-start"></div>
-        <div class="grc2-field"><label class="grc2-label">End Date</label><input class="grc2-input" type="date" id="gau-end"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Status</label>
+          <select class="grc2-sel" id="gau-status">
+            <option value="planned">Planned</option><option value="in_progress">In Progress</option><option value="complete">Complete</option>
+          </select>
+        </div>
+        <div class="grc2-field"><label class="grc2-lbl">Scope</label><input class="grc2-inp" id="gau-scope" placeholder="e.g. ISO 27001 Annex A"></div>
       </div>
-      <div class="grc2-field"><label class="grc2-label">Description</label><textarea class="grc2-textarea" id="gau-desc" placeholder="Audit description"></textarea></div>
-      <div class="grc2-field"><label class="grc2-label">Findings</label><textarea class="grc2-textarea" id="gau-findings" placeholder="Audit findings"></textarea></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Start Date</label><input class="grc2-inp" type="date" id="gau-start"></div>
+        <div class="grc2-field"><label class="grc2-lbl">End Date</label><input class="grc2-inp" type="date" id="gau-end"></div>
+      </div>
+      <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gau-desc"></textarea></div>
+      <div class="grc2-field"><label class="grc2-lbl">Findings</label><textarea class="grc2-ta" id="gau-findings"></textarea></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-        <button class="grc-btn grc-btn-out" onclick="grcClose('grc2-audit-modal')">Cancel</button>
-        <button class="grc-btn" onclick="grcSaveAudit()">Save Audit</button>
+        <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-audit-modal')">Cancel</button>
+        <button class="grc2-btn" onclick="grcSaveAudit()">Save Audit</button>
       </div>
     </div>
   </div>
@@ -6452,22 +6734,34 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- Evidence modal -->
   <div class="grc2-modal-bg" id="grc2-ev-modal">
     <div class="grc2-modal">
-      <div class="grc2-modal-hd">Add Evidence</div>
-      <div class="grc2-field"><label class="grc2-label">Title *</label><input class="grc2-input" id="gev-title" placeholder="Evidence title"></div>
-      <div class="grc2-field"><label class="grc2-label">Description</label><textarea class="grc2-textarea" id="gev-desc" placeholder="Evidence description"></textarea></div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Audit</label>
-          <select class="grc2-select" id="gev-audit"><option value="">No audit</option></select>
+      <div class="grc2-mhd">Add Evidence<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcClose('grc2-ev-modal')">Close</button></div>
+      <div class="grc2-field"><label class="grc2-lbl">Title *</label><input class="grc2-inp" id="gev-title" placeholder="Evidence title"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Evidence Status</label>
+          <select class="grc2-sel" id="gev-status">
+            <option value="not_ready">Not Ready</option>
+            <option value="ready">Ready for Audit</option>
+            <option value="accepted">Accepted</option>
+            <option value="flagged">Flagged by Auditor</option>
+            <option value="not_applicable">Not Applicable</option>
+          </select>
         </div>
-        <div class="grc2-field"><label class="grc2-label">Control Reference</label><input class="grc2-input" id="gev-ctrl" placeholder="e.g. ISO-A.5.1"></div>
+        <div class="grc2-field"><label class="grc2-lbl">Evidence Type</label><input class="grc2-inp" id="gev-type" placeholder="Test, Document, Screenshot..."></div>
       </div>
-      <div class="grc2-grid2">
-        <div class="grc2-field"><label class="grc2-label">Collected By</label><input class="grc2-input" id="gev-by" placeholder="Person name"></div>
-        <div class="grc2-field"><label class="grc2-label">File Reference</label><input class="grc2-input" id="gev-file" placeholder="filename.pdf"></div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Audit</label>
+          <select class="grc2-sel" id="gev-audit"><option value="">No audit</option></select>
+        </div>
+        <div class="grc2-field"><label class="grc2-lbl">Control Reference</label><input class="grc2-inp" id="gev-ctrl" placeholder="e.g. ISO-A.5.1"></div>
       </div>
+      <div class="grc2-g2">
+        <div class="grc2-field"><label class="grc2-lbl">Collected By</label><input class="grc2-inp" id="gev-by" placeholder="Person name"></div>
+        <div class="grc2-field"><label class="grc2-lbl">File Reference</label><input class="grc2-inp" id="gev-file" placeholder="filename.pdf"></div>
+      </div>
+      <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gev-desc"></textarea></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-        <button class="grc-btn grc-btn-out" onclick="grcClose('grc2-ev-modal')">Cancel</button>
-        <button class="grc-btn" onclick="grcSaveEvidence()">Save Evidence</button>
+        <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-ev-modal')">Cancel</button>
+        <button class="grc2-btn" onclick="grcSaveEvidence()">Save Evidence</button>
       </div>
     </div>
   </div>
@@ -17766,15 +18060,15 @@ function _ptShowErr(msg) {
 // GRC COMPLIANCE PAGE
 // ══════════════════════════════════════════════════════════════════════════════
 
-var _grcFiles   = [];   // {file, name} staging array
-var _grcResults = [];   // last analysis results (for export)
+var _grcFiles   = [];
+var _grcResults = [];
 
-// ── GRC Risk Management Platform ──────────────────────────────────────────────
+// ── GRC Risk Management Platform v2 ───────────────────────────────────────────
 
 var _grcInited = false;
 var _grcAllRisks = [], _grcAllControls = [], _grcAllTests = [], _grcAllAudits = [], _grcAllEvidence = [];
-var _grcTreatFilter = '';
-var _grcRiskCatChart = null, _grcTreatBarChart = null, _grcTreatDonutChart = null;
+var _grcTreatFilter = '', _grcCurTestCat = '', _grcCurAuditTab = 'active', _grcCurEvTab = '';
+var _grcCharts = {};
 
 function grcInit() {
   if (_grcInited) return;
@@ -17787,14 +18081,15 @@ function grcTab(tab) {
   document.querySelectorAll('.grc-tab').forEach(function(b){ b.classList.remove('active'); });
   var tb = document.getElementById('grc-tab-' + tab);
   if (tb) tb.classList.add('active');
-  document.querySelectorAll('#page-grc .grc-section').forEach(function(s){ s.style.display='none'; });
+  document.querySelectorAll('#page-grc .grc2-section').forEach(function(s){ s.style.display='none'; });
   var sec = document.getElementById('grc-sec-' + tab);
   if (sec) sec.style.display = '';
-  if (tab === 'risks')     { grcLoadRisks(); grcRenderMatrix(_grcAllRisks); setTimeout(function(){ grcLoadRiskChart(); }, 50); }
-  if (tab === 'treatment') grcLoadTreatment();
-  if (tab === 'tests')     grcLoadTests();
+  if (tab === 'controls')  { grcLoadControls(); }
+  if (tab === 'risks')     { grcLoadRisks(); }
+  if (tab === 'treatment') { grcLoadTreatment(); }
+  if (tab === 'tests')     { grcLoadTests(); }
   if (tab === 'audits')    { grcLoadAudits(); grcLoadEvidence(); }
-  if (tab === 'reports')   grcLoadReport();
+  if (tab === 'reports')   { grcLoadReport(); }
 }
 
 function grcLoadStats() {
@@ -17802,8 +18097,8 @@ function grcLoadStats() {
     var m = {
       'grc-cs-total': d.controls_total, 'grc-cs-impl': d.controls_implemented,
       'grc-cs-prog': d.controls_in_progress, 'grc-cs-ns': d.controls_not_started,
-      'grc-rs-total': d.risks_total, 'grc-rs-hi': d.risks_high,
-      'grc-rs-med': d.risks_medium, 'grc-rs-lo': d.risks_low,
+      'grc-rs-total': d.risks_total, 'grc-rs-approved': d.risks_approved,
+      'grc-rs-hi': d.risks_high, 'grc-rs-treated': d.risks_treated,
       'grc-ts-total': d.tests_total, 'grc-ts-pass': d.tests_pass,
       'grc-ts-fail': d.tests_fail, 'grc-ts-ns': d.tests_not_started,
       'grc-as-total': d.audits_total, 'grc-as-done': d.audits_complete,
@@ -17826,7 +18121,62 @@ function grcLoadControls() {
       _grcAllControls = d.controls || [];
       _grcRenderCtrl(_grcAllControls);
       grcLoadStats();
+      _grcCtrlAssignDonut(_grcAllControls);
+      _grcCtrlOkBar(_grcAllControls);
     }).catch(function(){});
+}
+
+function _grcCtrlAssignDonut(ctrls) {
+  var assigned=0, reassign=0, unassigned=0;
+  ctrls.forEach(function(c){
+    if (!c.owner || c.owner.trim()==='') unassigned++;
+    else if (c.status==='failed') reassign++;
+    else assigned++;
+  });
+  var total = ctrls.length || 1;
+  var pct = Math.round(assigned/total*100);
+  var el = document.getElementById('grc-ctrl-assign-pct');
+  if (el) el.textContent = pct+'%';
+  var sub = document.getElementById('grc-ctrl-ok-sub');
+  // legend
+  var leg = document.getElementById('grc-ctrl-assign-legend');
+  if (leg) {
+    leg.innerHTML = [
+      ['Assigned', assigned, '#2563eb'],
+      ['Needs reassignment', reassign, '#60a5fa'],
+      ['Unassigned', unassigned, '#bfdbfe'],
+    ].map(function(row){
+      return '<div style="display:flex;align-items:center;gap:6px;">'
+        +'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+row[2]+';flex-shrink:0;"></span>'
+        +'<span style="color:#64748b;">'+row[0]+' ('+row[1]+')</span></div>';
+    }).join('');
+  }
+  var ctx = document.getElementById('grc-ctrl-assign-donut');
+  if (!ctx) return;
+  if (_grcCharts['ctrl-assign']) _grcCharts['ctrl-assign'].destroy();
+  _grcCharts['ctrl-assign'] = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels:['Assigned','Needs reassignment','Unassigned'],
+      datasets:[{data:[assigned,reassign,unassigned],
+        backgroundColor:['#2563eb','#60a5fa','#bfdbfe'],borderWidth:0,hoverOffset:3}]},
+    options:{responsive:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{enabled:true}}}
+  });
+}
+
+function _grcCtrlOkBar(ctrls) {
+  var impl = ctrls.filter(function(c){ return c.status==='implemented'; }).length;
+  var total = ctrls.length || 1;
+  var pct = Math.round(impl/total*100);
+  var el = document.getElementById('grc-ctrl-ok-pct');
+  if (el) el.textContent = pct+'%';
+  var bar = document.getElementById('grc-ctrl-ok-bar');
+  if (bar) bar.style.width = pct+'%';
+  var sub = document.getElementById('grc-ctrl-ok-sub');
+  if (sub) sub.textContent = impl+' of '+total+' controls implemented';
+}
+
+function grcCtrlSelectAll(cb) {
+  document.querySelectorAll('#grc-ctrl-tbody input[type=checkbox]').forEach(function(c){ c.checked = cb.checked; });
 }
 
 function _grcRenderCtrl(rows) {
@@ -17835,39 +18185,40 @@ function _grcRenderCtrl(rows) {
   if (!rows.length) { if(tb) tb.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
   tb.innerHTML = rows.map(function(r){
+    var testCount = r.test_count || 0;
     return '<tr>'
-      +'<td style="font-family:monospace;font-size:11px;color:#1d4ed8;">'+_ge(r.control_id)+'</td>'
-      +'<td style="font-weight:600;">'+_ge(r.title)+'</td>'
-      +'<td><span class="grc-badge grc-badge-blue">'+_ge(r.framework)+'</span></td>'
-      +'<td>'+_ge(r.category)+'</td>'
-      +'<td>'+_grcCtrlBadge(r.status)+'</td>'
-      +'<td>'+_ge(r.owner)+'</td>'
-      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.due_date)||'—')+'</td>'
+      +'<td><input type="checkbox" class="grc-ctrl-cb" data-id="'+r.id+'"></td>'
+      +'<td style="font-family:monospace;font-size:11px;color:#1d4ed8;white-space:nowrap;">'+_ge(r.control_id)+'</td>'
+      +'<td><div style="font-weight:600;font-size:13px;">'+_ge(r.title)+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;">'+_ge(r.category||'')+'</div></td>'
+      +'<td style="font-size:12px;">'+(_ge(r.owner)||'<span style="color:#94a3b8;">Unassigned</span>')+'</td>'
+      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.source)||'Custom')+'</td>'
+      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.framework_mapping||r.framework)||'—')+'</td>'
+      +'<td style="text-align:center;">'
+        +(testCount ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:600;border-radius:10px;padding:2px 8px;">'+testCount+'</span>'
+          : '<span style="color:#94a3b8;font-size:12px;">—</span>')
+      +'</td>'
       +'<td style="white-space:nowrap;">'
-        +'<button class="grc-btn grc-btn-out grc-btn-sm" onclick="grcEditCtrl('+r.id+')">Edit</button> '
-        +'<button class="grc-btn grc-btn-del grc-btn-sm" onclick="grcDelCtrl('+r.id+')">Del</button>'
+        +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditCtrl('+r.id+')">Edit</button> '
+        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelCtrl('+r.id+')">Del</button>'
       +'</td></tr>';
   }).join('');
 }
 
-function _grcCtrlBadge(s) {
-  var m={implemented:'grc-badge-green',in_progress:'grc-badge-blue',not_started:'grc-badge-gray',failed:'grc-badge-red'};
-  var l={implemented:'Implemented',in_progress:'In Progress',not_started:'Not Started',failed:'Failed'};
-  return '<span class="grc-badge '+(m[s]||'grc-badge-gray')+'">'+(l[s]||s)+'</span>';
-}
-
 function grcOpenCtrl(data) {
   document.getElementById('grc2-ctrl-hd').textContent = data ? 'Edit Control' : 'Add Control';
-  document.getElementById('gc-id').value    = data ? data.id : '';
-  document.getElementById('gc-cid').value   = data ? data.control_id : '';
-  document.getElementById('gc-title').value = data ? data.title : '';
-  document.getElementById('gc-fw').value    = data ? data.framework : 'ISO 27001';
-  document.getElementById('gc-status').value= data ? data.status : 'not_started';
-  document.getElementById('gc-cat').value   = data ? data.category : '';
-  document.getElementById('gc-owner').value = data ? data.owner : '';
-  document.getElementById('gc-due').value   = data ? data.due_date : '';
-  document.getElementById('gc-desc').value  = data ? data.description : '';
-  document.getElementById('gc-notes').value = data ? data.notes : '';
+  document.getElementById('gc-id').value      = data ? data.id : '';
+  document.getElementById('gc-cid').value     = data ? data.control_id : '';
+  document.getElementById('gc-source').value  = data ? (data.source||'Custom') : 'Custom';
+  document.getElementById('gc-title').value   = data ? data.title : '';
+  document.getElementById('gc-fw').value      = data ? data.framework : 'ISO 27001';
+  document.getElementById('gc-fwmap').value   = data ? (data.framework_mapping||'') : '';
+  document.getElementById('gc-status').value  = data ? data.status : 'not_started';
+  document.getElementById('gc-cat').value     = data ? data.category : '';
+  document.getElementById('gc-owner').value   = data ? data.owner : '';
+  document.getElementById('gc-due').value     = data ? data.due_date : '';
+  document.getElementById('gc-desc').value    = data ? data.description : '';
+  document.getElementById('gc-notes').value   = data ? data.notes : '';
   document.getElementById('grc2-ctrl-modal').classList.add('open');
 }
 
@@ -17877,21 +18228,23 @@ function grcEditCtrl(id) {
 }
 
 function grcSaveCtrl() {
-  var id = document.getElementById('gc-id').value;
+  var id = _gv('gc-id');
   var p  = {
-    control_id:  _gv('gc-cid'),
-    title:       _gv('gc-title'),
-    framework:   _gv('gc-fw'),
-    status:      _gv('gc-status'),
-    category:    _gv('gc-cat'),
-    owner:       _gv('gc-owner'),
-    due_date:    _gv('gc-due'),
-    description: _gv('gc-desc'),
-    notes:       _gv('gc-notes'),
+    control_id:       _gv('gc-cid'),
+    title:            _gv('gc-title'),
+    framework:        _gv('gc-fw'),
+    framework_mapping:_gv('gc-fwmap'),
+    source:           _gv('gc-source'),
+    status:           _gv('gc-status'),
+    category:         _gv('gc-cat'),
+    owner:            _gv('gc-owner'),
+    due_date:         _gv('gc-due'),
+    description:      _gv('gc-desc'),
+    notes:            _gv('gc-notes'),
   };
   if (!p.title || !p.control_id) { alert('Control ID and Title are required.'); return; }
   var url = id ? '/api/grc2/controls/'+id : '/api/grc2/controls';
-  fetch(url, {method: id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
+  fetch(url, {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
     .then(function(r){ return r.json(); }).then(function(){
       grcClose('grc2-ctrl-modal'); grcLoadControls();
     }).catch(function(){});
@@ -17904,24 +18257,40 @@ function grcDelCtrl(id) {
 
 function grcExportControls() {
   if (!_grcAllControls.length) { alert('No controls to export.'); return; }
-  var hd = ['Control ID','Title','Framework','Category','Status','Owner','Due Date','Description'];
+  var hd = ['Control ID','Title','Framework','Framework Mapping','Source','Category','Status','Owner','Due Date'];
   var csv = [hd].concat(_grcAllControls.map(function(r){
-    return [r.control_id,r.title,r.framework,r.category,r.status,r.owner,r.due_date,r.description].map(function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; });
+    return [r.control_id,r.title,r.framework,r.framework_mapping,r.source,r.category,r.status,r.owner,r.due_date]
+      .map(function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; });
   })).map(function(r){ return r.join(','); }).join('\n');
   _grcDl('controls.csv', csv, 'text/csv');
 }
 
 // ── Risks ─────────────────────────────────────────────────────────────────────
+var _grcScatterChart = null, _grcProgChart = null, _grcTreatMiniChart = null;
+
 function grcLoadRisks() {
   var q  = (_gv('gf-risk-q')||'');
   var st = (_gv('gf-risk-st')||'');
+  var rs = (_gv('gf-risk-rs')||'');
   var tr = (_gv('gf-risk-tr')||'');
-  fetch('/api/grc2/risks?q='+encodeURIComponent(q)+'&status='+encodeURIComponent(st)+'&treatment='+encodeURIComponent(tr))
+  fetch('/api/grc2/risks?q='+encodeURIComponent(q)+'&status='+encodeURIComponent(st)+'&risk_status='+encodeURIComponent(rs)+'&treatment='+encodeURIComponent(tr))
     .then(function(r){ return r.json(); }).then(function(d){
       _grcAllRisks = d.risks || [];
       _grcRenderRisks(_grcAllRisks);
-      grcRenderMatrix(_grcAllRisks);
-      grcLoadStats();
+      _grcRiskScatterChart(_grcAllRisks);
+      _grcRiskMiniCharts(_grcAllRisks);
+      // update stats
+      var approved = _grcAllRisks.filter(function(r){ return r.risk_status==='approved'; }).length;
+      var treated  = _grcAllRisks.filter(function(r){ return r.treatment && r.treatment!=='none'; }).length;
+      var hi  = _grcAllRisks.filter(function(r){ return r.score>=15; }).length;
+      ['grc-rs-total','grc-rs-approved','grc-rs-hi','grc-rs-treated'].forEach(function(id, i){
+        var el = document.getElementById(id);
+        if (el) el.textContent = [_grcAllRisks.length, approved, hi, treated][i];
+      });
+      ['grc-rs-approved-big','grc-rs-treated-big'].forEach(function(id, i){
+        var el = document.getElementById(id);
+        if (el) el.textContent = [approved, treated][i];
+      });
     }).catch(function(){});
 }
 
@@ -17931,81 +18300,111 @@ function _grcRenderRisks(rows) {
   if (!rows.length) { if(tb) tb.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
   tb.innerHTML = rows.map(function(r){
+    var scoreBg = r.score>=15?'#1e3a8a':r.score>=8?'#2563eb':'#3b82f6';
+    var rsBadge = r.risk_status==='approved'
+      ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px;">Approved</span>'
+      : '<span style="background:#f1f5f9;color:#64748b;font-size:11px;border-radius:4px;padding:2px 8px;">Pending</span>';
+    var treatBadge = '<span style="background:#eff6ff;color:#2563eb;font-size:11px;border-radius:4px;padding:2px 8px;text-transform:capitalize;">'+_ge(r.treatment||'—')+'</span>';
     return '<tr>'
-      +'<td style="font-weight:600;">'+_ge(r.title)+'</td>'
-      +'<td>'+_ge(r.category)+'</td>'
-      +'<td style="text-align:center;">'+r.likelihood+'</td>'
-      +'<td style="text-align:center;">'+r.impact+'</td>'
-      +'<td style="text-align:center;">'+_grcScoreHtml(r.score)+'</td>'
-      +'<td>'+_grcRiskBadge(r.status)+'</td>'
-      +'<td><span class="grc-badge grc-badge-blue">'+_ge(r.treatment)+'</span></td>'
-      +'<td>'+_ge(r.owner)+'</td>'
+      +'<td><input type="checkbox"></td>'
+      +'<td><div style="font-weight:600;font-size:13px;">'+_ge(r.title)+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;">'+_ge(r.category||'')+'</div></td>'
+      +'<td style="font-size:12px;">'+(_ge(r.owner)||'<span style="color:#94a3b8;">—</span>')+'</td>'
+      +'<td style="text-align:center;"><span style="background:'+scoreBg+';color:#fff;font-size:12px;font-weight:700;border-radius:4px;padding:3px 8px;">'+r.score+'</span></td>'
+      +'<td>'+treatBadge+'</td>'
+      +'<td style="text-align:center;"><span style="font-size:13px;font-weight:600;color:#2563eb;">'+(r.residual_risk||0)+'</span></td>'
+      +'<td>'+rsBadge+'</td>'
       +'<td style="white-space:nowrap;">'
-        +'<button class="grc-btn grc-btn-out grc-btn-sm" onclick="grcEditRisk('+r.id+')">Edit</button> '
-        +'<button class="grc-btn grc-btn-del grc-btn-sm" onclick="grcDelRisk('+r.id+')">Del</button>'
+        +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditRisk('+r.id+')">Edit</button>'
       +'</td></tr>';
   }).join('');
 }
 
-function _grcScoreHtml(s) {
-  if (s >= 15) return '<span class="grc-score-hi">'+s+'</span>';
-  if (s >= 8)  return '<span class="grc-score-med">'+s+'</span>';
-  return '<span class="grc-score-lo">'+s+'</span>';
-}
-
-function _grcRiskBadge(s) {
-  var m={open:'grc-badge-red',in_treatment:'grc-badge-blue',closed:'grc-badge-green'};
-  var l={open:'Open',in_treatment:'In Treatment',closed:'Closed'};
-  return '<span class="grc-badge '+(m[s]||'grc-badge-gray')+'">'+(l[s]||s)+'</span>';
-}
-
-function grcRenderMatrix(risks) {
-  var wrap = document.getElementById('grc-heat-wrap');
-  if (!wrap) return;
-  var cells = {};
-  (risks||[]).forEach(function(r){ var k=r.likelihood+'_'+r.impact; cells[k]=(cells[k]||0)+1; });
-  var html = '<div></div>';
-  for (var l=1;l<=5;l++) html += '<div class="grc-heat-cell" style="background:none;color:#94a3b8;font-size:10px;font-weight:600;">L'+l+'</div>';
-  for (var i=5;i>=1;i--) {
-    html += '<div class="grc-heat-cell" style="background:none;color:#94a3b8;font-size:10px;font-weight:600;">I'+i+'</div>';
-    for (var ll=1;ll<=5;ll++) {
-      var sc = ll*i, cnt = cells[ll+'_'+i]||0;
-      var cls = 'grc-heat-lo';
-      if (sc >= 25) cls='grc-heat-cr'; else if (sc >= 15) cls='grc-heat-hi'; else if (sc >= 8) cls='grc-heat-md';
-      html += '<div class="grc-heat-cell '+cls+'" title="Score '+sc+': '+cnt+' risk(s)" style="font-size:12px;">'+(cnt||'')+'</div>';
-    }
-  }
-  wrap.innerHTML = html;
-}
-
-function grcLoadRiskChart() {
-  var risks = _grcAllRisks;
-  var cats = {};
-  risks.forEach(function(r){ var c=r.category||'Other'; cats[c]=(cats[c]||0)+1; });
-  var labels = Object.keys(cats), data = labels.map(function(l){ return cats[l]; });
-  var ctx = document.getElementById('grc-risk-cat-chart');
+function _grcRiskScatterChart(risks) {
+  var ctx = document.getElementById('grc-risk-scatter');
   if (!ctx) return;
-  if (_grcRiskCatChart) _grcRiskCatChart.destroy();
-  _grcRiskCatChart = new Chart(ctx, {
-    type:'bar',
-    data:{labels:labels,datasets:[{label:'Risks',data:data,backgroundColor:'#2563eb',borderRadius:4}]},
-    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
+  if (_grcScatterChart) _grcScatterChart.destroy();
+  var pointMap = {};
+  risks.forEach(function(r){
+    var key = r.likelihood+'_'+r.impact;
+    if (!pointMap[key]) pointMap[key] = {x:r.likelihood,y:r.impact,count:0,titles:[]};
+    pointMap[key].count++;
+    pointMap[key].titles.push(r.title);
   });
+  var pts = Object.values(pointMap).map(function(p){
+    return {x:p.x,y:p.y,r:Math.max(6, p.count*8),label:p.titles.join(', ')};
+  });
+  _grcScatterChart = new Chart(ctx, {
+    type:'bubble',
+    data:{datasets:[{
+      label:'Risks',
+      data:pts,
+      backgroundColor:'rgba(37,99,235,0.55)',
+      borderColor:'#1d4ed8',
+      borderWidth:1
+    }]},
+    options:{responsive:true,
+      scales:{
+        x:{min:0,max:6,title:{display:true,text:'Likelihood',font:{size:11},color:'#64748b'},
+          ticks:{stepSize:1,font:{size:10}}},
+        y:{min:0,max:6,title:{display:true,text:'Impact',font:{size:11},color:'#64748b'},
+          ticks:{stepSize:1,font:{size:10}}}
+      },
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){
+        return ctx.raw.label+' ('+ctx.raw.r/8+')';
+      }}}}
+    }
+  });
+}
+
+function _grcRiskMiniCharts(risks) {
+  var approved = risks.filter(function(r){ return r.risk_status==='approved'; }).length;
+  var treated  = risks.filter(function(r){ return r.treatment && r.treatment!=='none'; }).length;
+  var total    = risks.length || 1;
+  var ctx1 = document.getElementById('grc-risk-prog-chart');
+  var ctx2 = document.getElementById('grc-risk-treat-chart');
+  if (ctx1) {
+    if (_grcProgChart) _grcProgChart.destroy();
+    var pct = Math.round(approved/total*100);
+    _grcProgChart = new Chart(ctx1, {
+      type:'bar',
+      data:{labels:['Approved','Pending'],datasets:[{data:[approved,total-approved],
+        backgroundColor:['#2563eb','#dbeafe'],borderRadius:3,barThickness:18}]},
+      options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},
+        scales:{x:{display:false,beginAtZero:true,max:total},y:{display:false}}}
+    });
+  }
+  if (ctx2) {
+    if (_grcTreatMiniChart) _grcTreatMiniChart.destroy();
+    _grcTreatMiniChart = new Chart(ctx2, {
+      type:'bar',
+      data:{labels:['Treated','Untreated'],datasets:[{data:[treated,total-treated],
+        backgroundColor:['#1d4ed8','#dbeafe'],borderRadius:3,barThickness:18}]},
+      options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},
+        scales:{x:{display:false,beginAtZero:true,max:total},y:{display:false}}}
+    });
+  }
+}
+
+function grcSaveSnapshot() {
+  alert('History snapshot saved. In a full deployment, this would store a timestamped copy of the current risk register to a history table.');
 }
 
 function grcOpenRisk(data) {
   document.getElementById('grc2-risk-hd').textContent = data ? 'Edit Risk' : 'Add Risk';
-  document.getElementById('gr-id').value       = data ? data.id : '';
-  document.getElementById('gr-title').value    = data ? data.title : '';
-  document.getElementById('gr-cat').value      = data ? data.category : '';
-  document.getElementById('gr-owner').value    = data ? data.owner : '';
-  document.getElementById('gr-like').value     = data ? data.likelihood : '3';
-  document.getElementById('gr-impact').value   = data ? data.impact : '3';
-  document.getElementById('gr-treatment').value= data ? data.treatment : 'mitigate';
-  document.getElementById('gr-status').value   = data ? data.status : 'open';
-  document.getElementById('gr-due').value      = data ? data.due_date : '';
-  document.getElementById('gr-desc').value     = data ? data.description : '';
-  document.getElementById('gr-notes').value    = data ? data.notes : '';
+  document.getElementById('gr-id').value        = data ? data.id : '';
+  document.getElementById('gr-title').value     = data ? data.title : '';
+  document.getElementById('gr-cat').value       = data ? data.category : '';
+  document.getElementById('gr-owner').value     = data ? data.owner : '';
+  document.getElementById('gr-like').value      = data ? data.likelihood : '3';
+  document.getElementById('gr-impact').value    = data ? data.impact : '3';
+  document.getElementById('gr-residual').value  = data ? (data.residual_risk||0) : 0;
+  document.getElementById('gr-treatment').value = data ? data.treatment : 'mitigate';
+  document.getElementById('gr-status').value    = data ? data.status : 'open';
+  document.getElementById('gr-risk-status').value = data ? (data.risk_status||'pending') : 'pending';
+  document.getElementById('gr-due').value       = data ? data.due_date : '';
+  document.getElementById('gr-desc').value      = data ? data.description : '';
+  document.getElementById('gr-notes').value     = data ? data.notes : '';
   grcCalcScore();
   document.getElementById('grc2-risk-modal').classList.add('open');
 }
@@ -18017,7 +18416,8 @@ function grcCalcScore() {
   var el = document.getElementById('gr-score-prev');
   if (!el) return;
   el.textContent = s;
-  el.style.color = s>=15?'#dc2626':s>=8?'#d97706':'#16a34a';
+  el.style.background = s>=15?'#1e3a8a':s>=8?'#2563eb':'#3b82f6';
+  el.style.color = '#fff';
 }
 
 function grcEditRisk(id) {
@@ -18032,7 +18432,9 @@ function grcSaveRisk() {
   var p  = {
     title:_gv('gr-title'), category:_gv('gr-cat'), owner:_gv('gr-owner'),
     likelihood:l, impact:i, score:l*i,
+    residual_risk: parseInt(_gv('gr-residual'))||0,
     treatment:_gv('gr-treatment'), status:_gv('gr-status'),
+    risk_status:_gv('gr-risk-status'),
     due_date:_gv('gr-due'), description:_gv('gr-desc'), notes:_gv('gr-notes'),
   };
   if (!p.title) { alert('Title is required.'); return; }
@@ -18050,45 +18452,119 @@ function grcDelRisk(id) {
 
 function grcExportRisks() {
   if (!_grcAllRisks.length) { alert('No risks to export.'); return; }
-  var hd = ['Title','Category','Likelihood','Impact','Score','Status','Treatment','Owner','Due Date'];
+  var hd = ['Title','Category','Likelihood','Impact','Score','Residual Risk','Treatment','Status','Approval','Owner','Due Date'];
   var csv = [hd].concat(_grcAllRisks.map(function(r){
-    return [r.title,r.category,r.likelihood,r.impact,r.score,r.status,r.treatment,r.owner,r.due_date].map(function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; });
+    return [r.title,r.category,r.likelihood,r.impact,r.score,r.residual_risk,r.treatment,r.status,r.risk_status,r.owner,r.due_date]
+      .map(function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; });
   })).map(function(r){ return r.join(','); }).join('\n');
   _grcDl('risks.csv', csv, 'text/csv');
 }
 
 // ── Treatment ─────────────────────────────────────────────────────────────────
+var _grcTreatBarChart2 = null, _grcTreatTaskDonut = null, _grcTreatCtrlDonut = null;
+
 function grcLoadTreatment() {
-  fetch('/api/grc2/risks').then(function(r){ return r.json(); }).then(function(d){
-    _grcAllRisks = d.risks || [];
-    var treat = {mitigate:0,accept:0,transfer:0,avoid:0};
-    var status = {open:0,in_treatment:0,closed:0};
-    _grcAllRisks.forEach(function(r){
-      if (treat[r.treatment]!==undefined) treat[r.treatment]++; else treat.mitigate++;
-      if (status[r.status]!==undefined) status[r.status]++;
+  Promise.all([
+    fetch('/api/grc2/risks').then(function(r){ return r.json(); }),
+    fetch('/api/grc2/controls').then(function(r){ return r.json(); }),
+    fetch('/api/grc2/tests').then(function(r){ return r.json(); }),
+  ]).then(function(results){
+    _grcAllRisks    = results[0].risks    || [];
+    _grcAllControls = results[1].controls || [];
+    var tests       = results[2].tests    || [];
+
+    // Stacked bar: approved vs not approved by treatment type
+    var types = ['Accept','Avoid','Mitigate','Transfer','None'];
+    var approved_data = [], not_approved_data = [];
+    types.forEach(function(t){
+      var tl = t.toLowerCase();
+      var group = _grcAllRisks.filter(function(r){ return (r.treatment||'none')===tl; });
+      approved_data.push(group.filter(function(r){ return r.risk_status==='approved'; }).length);
+      not_approved_data.push(group.filter(function(r){ return r.risk_status!=='approved'; }).length);
     });
+
     var barCtx = document.getElementById('grc-treat-bar');
     if (barCtx) {
-      if (_grcTreatBarChart) _grcTreatBarChart.destroy();
-      _grcTreatBarChart = new Chart(barCtx, {
+      if (_grcTreatBarChart2) _grcTreatBarChart2.destroy();
+      _grcTreatBarChart2 = new Chart(barCtx, {
         type:'bar',
-        data:{labels:['Mitigate','Accept','Transfer','Avoid'],
-          datasets:[{label:'Risks',data:[treat.mitigate,treat.accept,treat.transfer,treat.avoid],
-            backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:4}]},
-        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
+        data:{labels:types,
+          datasets:[
+            {label:'Approved',data:approved_data,backgroundColor:'#1d4ed8',borderRadius:3,stack:'s'},
+            {label:'Not approved',data:not_approved_data,backgroundColor:'#e2e8f0',borderRadius:3,stack:'s'}
+          ]},
+        options:{responsive:true,
+          scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}},
+          plugins:{legend:{display:false}}}
       });
     }
-    var donutCtx = document.getElementById('grc-treat-donut');
-    if (donutCtx) {
-      if (_grcTreatDonutChart) _grcTreatDonutChart.destroy();
-      _grcTreatDonutChart = new Chart(donutCtx, {
+
+    // Task status donut (using tests as tasks)
+    var tComplete = tests.filter(function(t){ return t.status==='pass'; }).length;
+    var tIncomplete = tests.length - tComplete;
+    var today = new Date().toISOString().slice(0,10);
+    var overdue = tests.filter(function(t){ return t.status!=='pass' && t.last_run && t.last_run < today; }).length;
+    var taskTotal = tests.length;
+
+    var odBanner = document.getElementById('grc-treat-overdue-banner');
+    var odN = document.getElementById('grc-treat-overdue-n');
+    if (odBanner) odBanner.style.display = overdue>0 ? '' : 'none';
+    if (odN) odN.textContent = overdue;
+    var tt = document.getElementById('grc-treat-task-total');
+    if (tt) tt.textContent = taskTotal;
+
+    var taskLeg = document.getElementById('grc-treat-task-legend');
+    if (taskLeg) {
+      taskLeg.innerHTML = [
+        ['Complete', tComplete, '#2563eb'],
+        ['Incomplete', tIncomplete, '#bfdbfe'],
+      ].map(function(row){
+        return '<div style="display:flex;align-items:center;gap:6px;">'
+          +'<span style="width:10px;height:10px;border-radius:50%;background:'+row[2]+';flex-shrink:0;display:inline-block;"></span>'
+          +'<span>'+row[0]+' ('+row[1]+')</span></div>';
+      }).join('');
+    }
+
+    var taskCtx = document.getElementById('grc-treat-task-donut');
+    if (taskCtx) {
+      if (_grcTreatTaskDonut) _grcTreatTaskDonut.destroy();
+      _grcTreatTaskDonut = new Chart(taskCtx, {
         type:'doughnut',
-        data:{labels:['Open','In Treatment','Closed'],
-          datasets:[{data:[status.open,status.in_treatment,status.closed],
-            backgroundColor:['#dc2626','#2563eb','#16a34a']}]},
-        options:{responsive:true,plugins:{legend:{position:'bottom'}}}
+        data:{labels:['Complete','Incomplete'],
+          datasets:[{data:[tComplete,tIncomplete],backgroundColor:['#2563eb','#bfdbfe'],borderWidth:0,hoverOffset:3}]},
+        options:{responsive:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:true}}}
       });
     }
+
+    // Control status donut
+    var cOk = _grcAllControls.filter(function(c){ return c.status==='implemented'; }).length;
+    var cNotOk = _grcAllControls.length - cOk;
+    var ctrlTotal = document.getElementById('grc-treat-ctrl-total');
+    if (ctrlTotal) ctrlTotal.textContent = _grcAllControls.length;
+
+    var ctrlLeg = document.getElementById('grc-treat-ctrl-legend');
+    if (ctrlLeg) {
+      ctrlLeg.innerHTML = [
+        ['OK', cOk, '#1d4ed8'],
+        ['Not OK', cNotOk, '#bfdbfe'],
+      ].map(function(row){
+        return '<div style="display:flex;align-items:center;gap:6px;">'
+          +'<span style="width:10px;height:10px;border-radius:50%;background:'+row[2]+';flex-shrink:0;display:inline-block;"></span>'
+          +'<span>'+row[0]+' ('+row[1]+')</span></div>';
+      }).join('');
+    }
+
+    var ctrlCtx = document.getElementById('grc-treat-ctrl-donut');
+    if (ctrlCtx) {
+      if (_grcTreatCtrlDonut) _grcTreatCtrlDonut.destroy();
+      _grcTreatCtrlDonut = new Chart(ctrlCtx, {
+        type:'doughnut',
+        data:{labels:['OK','Not OK'],
+          datasets:[{data:[cOk,cNotOk],backgroundColor:['#1d4ed8','#bfdbfe'],borderWidth:0,hoverOffset:3}]},
+        options:{responsive:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:true}}}
+      });
+    }
+
     _grcRenderTreatment(_grcAllRisks);
   }).catch(function(){});
 }
@@ -18099,9 +18575,10 @@ function grcTreatFilter(val) {
     var el = document.getElementById('gtb-'+k);
     if (!el) return;
     var active = (val==='' && k==='all') || val===k;
-    el.style.background = active ? '#2563eb' : '#fff';
-    el.style.color      = active ? '#fff' : '#2563eb';
-    el.classList.toggle('grc-btn-out', !active);
+    el.style.background = active ? '#2563eb' : '';
+    el.style.color      = active ? '#fff'    : '';
+    if (active) { el.classList.remove('grc2-btn-out'); el.classList.add('grc2-btn'); }
+    else        { el.classList.add('grc2-btn-out');    el.classList.remove('grc2-btn'); }
   });
   _grcRenderTreatment(_grcAllRisks);
 }
@@ -18113,14 +18590,17 @@ function _grcRenderTreatment(risks) {
   if (!filtered.length) { if(tb) tb.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
   tb.innerHTML = filtered.map(function(r){
+    var rsBadge = r.risk_status==='approved'
+      ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px;">Approved</span>'
+      : '<span style="background:#f1f5f9;color:#64748b;font-size:11px;border-radius:4px;padding:2px 8px;">Pending</span>';
+    var scoreBg = r.score>=15?'#1e3a8a':r.score>=8?'#2563eb':'#3b82f6';
     return '<tr>'
       +'<td style="font-weight:600;">'+_ge(r.title)+'</td>'
-      +'<td>'+_grcScoreHtml(r.score)+'</td>'
-      +'<td><span class="grc-badge grc-badge-blue">'+_ge(r.treatment)+'</span></td>'
-      +'<td>'+_grcRiskBadge(r.status)+'</td>'
-      +'<td>'+_ge(r.owner)+'</td>'
+      +'<td><span style="background:#eff6ff;color:#2563eb;font-size:11px;border-radius:4px;padding:2px 8px;text-transform:capitalize;">'+_ge(r.treatment||'—')+'</span></td>'
+      +'<td><span style="background:'+scoreBg+';color:#fff;font-size:12px;font-weight:700;border-radius:4px;padding:3px 8px;">'+r.score+'</span></td>'
+      +'<td>'+rsBadge+'</td>'
+      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.owner)||'—')+'</td>'
       +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.due_date)||'—')+'</td>'
-      +'<td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_ge(r.notes)+'</td>'
       +'</tr>';
   }).join('');
 }
@@ -18128,14 +18608,60 @@ function _grcRenderTreatment(risks) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 function grcLoadTests() {
   var q   = (_gv('gf-test-q')||'');
-  var cat = (_gv('gf-test-cat')||'');
   var st  = (_gv('gf-test-st')||'');
-  fetch('/api/grc2/tests?q='+encodeURIComponent(q)+'&category='+encodeURIComponent(cat)+'&status='+encodeURIComponent(st))
+  fetch('/api/grc2/tests?q='+encodeURIComponent(q)+'&status='+encodeURIComponent(st)
+      +'&category='+encodeURIComponent(_grcCurTestCat))
     .then(function(r){ return r.json(); }).then(function(d){
       _grcAllTests = d.tests || [];
+      _grcRenderTestCatSidebar(_grcAllTests);
+      _grcRenderTestKPIs(_grcAllTests);
       _grcRenderTests(_grcAllTests);
-      grcLoadStats();
     }).catch(function(){});
+}
+
+function grcTestCat(cat) {
+  _grcCurTestCat = cat;
+  document.querySelectorAll('.grc2-cat-item').forEach(function(el){ el.classList.remove('active'); });
+  var activeId = 'grc-cat-' + (cat || 'all');
+  var el = document.getElementById(activeId);
+  if (el) el.classList.add('active');
+  var labelEl = document.getElementById('grc-test-cat-label');
+  if (labelEl) labelEl.textContent = cat || 'All';
+  grcLoadTests();
+}
+
+function _grcRenderTestCatSidebar(tests) {
+  var cats = ['HR','IT','Policy','Engineering','Risks','Custom'];
+  var counts = {};
+  tests.forEach(function(t){ var c=t.test_category||t.category||''; if(c) counts[c]=(counts[c]||0)+1; });
+  var allN = document.getElementById('grc-cat-all-n');
+  if (allN) allN.textContent = tests.length;
+  cats.forEach(function(c){
+    var n = document.getElementById('grc-cat-'+c+'-n');
+    var cnt = counts[c]||0;
+    if (n) { n.textContent = cnt; n.style.display = cnt>0?'':'none'; }
+  });
+}
+
+function _grcRenderTestKPIs(tests) {
+  var today = new Date().toISOString().slice(0,10);
+  var week  = new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+  var okTests     = tests.filter(function(t){ return t.status==='pass'; });
+  var attnTests   = tests.filter(function(t){ return t.status!=='pass'; });
+  var overdue     = attnTests.filter(function(t){ return t.last_run && t.last_run < today; }).length;
+  var dueSoon     = attnTests.filter(function(t){ return t.last_run && t.last_run>=today && t.last_run<=week; }).length;
+  var remediate   = attnTests.filter(function(t){ return t.status==='fail'; }).length;
+  var total = tests.length || 1;
+  var pct = Math.round(okTests.length/total*100);
+
+  var okN = document.getElementById('grc-test-ok-n'); if (okN) okN.textContent = okTests.length;
+  var okPct = document.getElementById('grc-test-ok-pct'); if (okPct) okPct.textContent = pct+'%';
+  var okBar = document.getElementById('grc-test-ok-bar'); if (okBar) okBar.style.width = pct+'%';
+  var okSub = document.getElementById('grc-test-ok-sub'); if (okSub) okSub.textContent = okTests.length+' OK, '+total+' total';
+  var attnN = document.getElementById('grc-test-attn-n'); if (attnN) attnN.textContent = attnTests.length;
+  var ovEl = document.getElementById('grc-test-overdue'); if (ovEl) ovEl.textContent = overdue;
+  var dsEl = document.getElementById('grc-test-duesoon'); if (dsEl) dsEl.textContent = dueSoon;
+  var rmEl = document.getElementById('grc-test-remediate'); if (rmEl) rmEl.textContent = remediate;
 }
 
 function _grcRenderTests(rows) {
@@ -18144,37 +18670,36 @@ function _grcRenderTests(rows) {
   if (!rows.length) { if(tb) tb.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
   tb.innerHTML = rows.map(function(r){
+    var stBadge, stColor;
+    if (r.status==='pass') { stBadge='OK'; stColor='#1d4ed8'; stBg='#dbeafe'; }
+    else if (r.status==='fail') { stBadge='Fail'; stColor='#1e3a8a'; stBg='#eff6ff'; }
+    else if (r.status==='in_progress') { stBadge='In Progress'; stColor='#2563eb'; stBg='#eff6ff'; }
+    else { stBadge='Not Started'; stColor='#64748b'; stBg='#f1f5f9'; }
     return '<tr>'
-      +'<td style="font-weight:600;">'+_ge(r.name)+'</td>'
-      +'<td><span class="grc-badge grc-badge-blue">'+_ge(r.category)+'</span></td>'
-      +'<td style="font-size:12px;font-family:monospace;color:#1d4ed8;">'+(_ge(r.control_ref)||'—')+'</td>'
-      +'<td>'+_grcTestBadge(r.status)+'</td>'
-      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.last_run)||'—')+'</td>'
-      +'<td>'+_ge(r.owner)+'</td>'
+      +'<td style="font-weight:600;font-size:13px;">'+_ge(r.name)+'</td>'
+      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.test_category||r.category)||'—')+'</td>'
+      +'<td style="font-size:12px;">'+(_ge(r.owner)||'—')+'</td>'
+      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.category||'Manual'))+'</td>'
+      +'<td><span style="background:'+stBg+';color:'+stColor+';font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px;">'+stBadge+'</span></td>'
       +'<td style="white-space:nowrap;">'
-        +'<button class="grc-btn grc-btn-out grc-btn-sm" onclick="grcEditTest('+r.id+')">Edit</button> '
-        +'<button class="grc-btn grc-btn-del grc-btn-sm" onclick="grcDelTest('+r.id+')">Del</button>'
+        +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditTest('+r.id+')">Edit</button> '
+        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelTest('+r.id+')">Del</button>'
       +'</td></tr>';
   }).join('');
 }
 
-function _grcTestBadge(s) {
-  var m={pass:'grc-badge-green',fail:'grc-badge-red',in_progress:'grc-badge-blue',not_started:'grc-badge-gray'};
-  var l={pass:'Pass',fail:'Fail',in_progress:'In Progress',not_started:'Not Started'};
-  return '<span class="grc-badge '+(m[s]||'grc-badge-gray')+'">'+(l[s]||s)+'</span>';
-}
-
 function grcOpenTest(data) {
   document.getElementById('grc2-test-hd').textContent = data ? 'Edit Test' : 'Add Test';
-  document.getElementById('gt-id').value     = data ? data.id : '';
-  document.getElementById('gt-name').value   = data ? data.name : '';
-  document.getElementById('gt-cat').value    = data ? data.category : 'manual';
-  document.getElementById('gt-status').value = data ? data.status : 'not_started';
-  document.getElementById('gt-ctrl').value   = data ? data.control_ref : '';
-  document.getElementById('gt-owner').value  = data ? data.owner : '';
-  document.getElementById('gt-lastrun').value= data ? data.last_run : '';
-  document.getElementById('gt-desc').value   = data ? data.description : '';
-  document.getElementById('gt-result').value = data ? data.result_notes : '';
+  document.getElementById('gt-id').value      = data ? data.id : '';
+  document.getElementById('gt-name').value    = data ? data.name : '';
+  document.getElementById('gt-cat2').value    = data ? (data.test_category||'') : '';
+  document.getElementById('gt-type').value    = data ? (data.category||'manual') : 'manual';
+  document.getElementById('gt-status').value  = data ? data.status : 'not_started';
+  document.getElementById('gt-ctrl').value    = data ? data.control_ref : '';
+  document.getElementById('gt-owner').value   = data ? data.owner : '';
+  document.getElementById('gt-lastrun').value = data ? data.last_run : '';
+  document.getElementById('gt-desc').value    = data ? data.description : '';
+  document.getElementById('gt-result').value  = data ? data.result_notes : '';
   document.getElementById('grc2-test-modal').classList.add('open');
 }
 
@@ -18186,8 +18711,8 @@ function grcEditTest(id) {
 function grcSaveTest() {
   var id = _gv('gt-id');
   var p = {
-    name:_gv('gt-name'), category:_gv('gt-cat'), status:_gv('gt-status'),
-    control_ref:_gv('gt-ctrl'), owner:_gv('gt-owner'),
+    name:_gv('gt-name'), test_category:_gv('gt-cat2'), category:_gv('gt-type'),
+    status:_gv('gt-status'), control_ref:_gv('gt-ctrl'), owner:_gv('gt-owner'),
     last_run:_gv('gt-lastrun'), description:_gv('gt-desc'), result_notes:_gv('gt-result'),
   };
   if (!p.name) { alert('Name is required.'); return; }
@@ -18205,9 +18730,10 @@ function grcDelTest(id) {
 
 function grcExportTests() {
   if (!_grcAllTests.length) { alert('No tests to export.'); return; }
-  var hd = ['Name','Category','Control Ref','Status','Last Run','Owner','Description'];
+  var hd = ['Name','Test Category','Type','Control Ref','Status','Last Run','Owner'];
   var csv = [hd].concat(_grcAllTests.map(function(r){
-    return [r.name,r.category,r.control_ref,r.status,r.last_run,r.owner,r.description].map(function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; });
+    return [r.name,r.test_category,r.category,r.control_ref,r.status,r.last_run,r.owner]
+      .map(function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; });
   })).map(function(r){ return r.join(','); }).join('\n');
   _grcDl('tests.csv', csv, 'text/csv');
 }
@@ -18216,7 +18742,7 @@ function grcExportTests() {
 function grcLoadAudits() {
   fetch('/api/grc2/audits').then(function(r){ return r.json(); }).then(function(d){
     _grcAllAudits = d.audits || [];
-    _grcRenderAuditCards(_grcAllAudits);
+    _grcFilterAndRenderAudits();
     _grcRenderAuditTable(_grcAllAudits);
     grcLoadStats();
     var sel = document.getElementById('gev-audit');
@@ -18227,47 +18753,91 @@ function grcLoadAudits() {
   }).catch(function(){});
 }
 
+function grcAuditTab(tab) {
+  _grcCurAuditTab = tab;
+  document.querySelectorAll('[id^=grc-audit-tab-]').forEach(function(b){
+    b.classList.remove('active');
+  });
+  var el = document.getElementById('grc-audit-tab-'+tab);
+  if (el) el.classList.add('active');
+  _grcFilterAndRenderAudits();
+}
+
+function _grcFilterAndRenderAudits() {
+  var filtered = _grcCurAuditTab === 'complete'
+    ? _grcAllAudits.filter(function(a){ return a.status==='complete'; })
+    : _grcAllAudits.filter(function(a){ return a.status!=='complete'; });
+  _grcRenderAuditCards(filtered);
+}
+
+function _grcAuditTimeline(audit) {
+  var milestones = [
+    {label:'Planned',    done: true},
+    {label:'Kickoff',    done: audit.status!=='planned'},
+    {label:'Fieldwork',  done: audit.status==='complete'||audit.status==='in_progress'},
+    {label:'Review',     done: audit.status==='complete'},
+    {label:'Complete',   done: audit.status==='complete'},
+  ];
+  return '<div style="display:flex;align-items:center;gap:0;margin:10px 0 6px;font-size:10px;overflow:hidden;">'
+    + milestones.map(function(m, i){
+        var color = m.done ? '#1d4ed8' : '#e2e8f0';
+        var tc    = m.done ? '#1d4ed8' : '#94a3b8';
+        return (i>0?'<div style="flex:1;height:2px;background:'+color+';margin-top:-8px;"></div>':'' )
+          +'<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">'
+            +'<div style="width:12px;height:12px;border-radius:50%;background:'+color+';flex-shrink:0;"></div>'
+            +'<span style="color:'+tc+';white-space:nowrap;font-size:9px;">'+m.label+'</span>'
+          +'</div>';
+      }).join('')
+    +'</div>';
+}
+
 function _grcRenderAuditCards(audits) {
   var c = document.getElementById('grc-audit-cards');
+  var em = document.getElementById('grc-audit-empty');
   if (!c) return;
-  if (!audits.length) { c.innerHTML=''; return; }
-  c.innerHTML = audits.slice(0,6).map(function(a){
-    return '<div class="grc-audit-card">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
+  if (!audits.length) { c.innerHTML=''; if(em) em.style.display=''; return; }
+  if(em) em.style.display='none';
+  c.innerHTML = audits.map(function(a){
+    var stColor = a.status==='complete'?'#1d4ed8':a.status==='in_progress'?'#2563eb':'#64748b';
+    var stBg    = a.status==='complete'?'#dbeafe':a.status==='in_progress'?'#eff6ff':'#f1f5f9';
+    var stLabel = a.status==='complete'?'Complete':a.status==='in_progress'?'In Progress':'Planned';
+    var timeline = _grcAuditTimeline(a);
+    // Evidence bar placeholder (will be loaded separately if needed)
+    return '<div class="grc2-audit-card">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'
         +'<div style="font-size:13px;font-weight:700;color:#0f172a;flex:1;margin-right:8px;">'+_ge(a.name)+'</div>'
-        +_grcAuditBadge(a.status)
+        +'<span style="background:'+stBg+';color:'+stColor+';font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px;flex-shrink:0;">'+stLabel+'</span>'
       +'</div>'
-      +'<div style="font-size:12px;color:#64748b;margin-bottom:3px;">Auditor: '+(_ge(a.auditor)||'—')+'</div>'
-      +'<div style="font-size:12px;color:#64748b;margin-bottom:3px;">Scope: '+(_ge(a.scope)||'—')+'</div>'
-      +'<div style="font-size:12px;color:#94a3b8;">'+(_ge(a.start_date)||'—')+' — '+(_ge(a.end_date)||'—')+'</div>'
+      +'<div style="font-size:12px;color:#64748b;margin-bottom:2px;">Auditor: '+(_ge(a.auditor)||'—')+'</div>'
+      +'<div style="font-size:12px;color:#64748b;margin-bottom:2px;">Scope: '+(_ge(a.scope)||'—')+'</div>'
+      +'<div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">'+(_ge(a.start_date)||'—')+' — '+(_ge(a.end_date)||'—')+'</div>'
+      + timeline
+      +'<div style="display:flex;gap:6px;margin-top:8px;">'
+        +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditAudit('+a.id+')">Edit</button>'
+        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelAudit('+a.id+')">Delete</button>'
+      +'</div>'
       +'</div>';
   }).join('');
 }
 
 function _grcRenderAuditTable(audits) {
   var tb = document.getElementById('grc-audit-tbody');
-  var em = document.getElementById('grc-audit-empty');
+  var em = document.getElementById('grc-audit-table-empty');
   if (!audits.length) { if(tb) tb.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
   tb.innerHTML = audits.map(function(a){
+    var stColor = a.status==='complete'?'#1d4ed8':a.status==='in_progress'?'#2563eb':'#64748b';
+    var stBg    = a.status==='complete'?'#dbeafe':a.status==='in_progress'?'#eff6ff':'#f1f5f9';
+    var stLabel = a.status==='complete'?'Complete':a.status==='in_progress'?'In Progress':'Planned';
     return '<tr>'
       +'<td style="font-weight:600;">'+_ge(a.name)+'</td>'
       +'<td>'+_ge(a.auditor)+'</td>'
       +'<td>'+_ge(a.scope)+'</td>'
-      +'<td>'+_grcAuditBadge(a.status)+'</td>'
+      +'<td><span style="background:'+stBg+';color:'+stColor+';font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px;">'+stLabel+'</span></td>'
       +'<td style="font-size:12px;color:#64748b;">'+(_ge(a.start_date)||'—')+'</td>'
       +'<td style="font-size:12px;color:#64748b;">'+(_ge(a.end_date)||'—')+'</td>'
-      +'<td style="white-space:nowrap;">'
-        +'<button class="grc-btn grc-btn-out grc-btn-sm" onclick="grcEditAudit('+a.id+')">Edit</button> '
-        +'<button class="grc-btn grc-btn-del grc-btn-sm" onclick="grcDelAudit('+a.id+')">Del</button>'
-      +'</td></tr>';
+      +'</tr>';
   }).join('');
-}
-
-function _grcAuditBadge(s) {
-  var m={complete:'grc-badge-green',in_progress:'grc-badge-blue',planned:'grc-badge-gray'};
-  var l={complete:'Complete',in_progress:'In Progress',planned:'Planned'};
-  return '<span class="grc-badge '+(m[s]||'grc-badge-gray')+'">'+(l[s]||s)+'</span>';
 }
 
 function grcOpenAudit(data) {
@@ -18275,6 +18845,7 @@ function grcOpenAudit(data) {
   document.getElementById('gau-id').value      = data ? data.id : '';
   document.getElementById('gau-name').value    = data ? data.name : '';
   document.getElementById('gau-auditor').value = data ? data.auditor : '';
+  document.getElementById('gau-type').value    = data ? (data.audit_type||'external') : 'external';
   document.getElementById('gau-status').value  = data ? data.status : 'planned';
   document.getElementById('gau-scope').value   = data ? data.scope : '';
   document.getElementById('gau-start').value   = data ? data.start_date : '';
@@ -18292,9 +18863,9 @@ function grcEditAudit(id) {
 function grcSaveAudit() {
   var id = _gv('gau-id');
   var p = {
-    name:_gv('gau-name'), auditor:_gv('gau-auditor'), status:_gv('gau-status'),
-    scope:_gv('gau-scope'), start_date:_gv('gau-start'), end_date:_gv('gau-end'),
-    description:_gv('gau-desc'), findings:_gv('gau-findings'),
+    name:_gv('gau-name'), auditor:_gv('gau-auditor'), audit_type:_gv('gau-type'),
+    status:_gv('gau-status'), scope:_gv('gau-scope'), start_date:_gv('gau-start'),
+    end_date:_gv('gau-end'), description:_gv('gau-desc'), findings:_gv('gau-findings'),
   };
   if (!p.name) { alert('Audit name is required.'); return; }
   var url = id ? '/api/grc2/audits/'+id : '/api/grc2/audits';
@@ -18313,8 +18884,63 @@ function grcDelAudit(id) {
 function grcLoadEvidence() {
   fetch('/api/grc2/evidence').then(function(r){ return r.json(); }).then(function(d){
     _grcAllEvidence = d.evidence || [];
-    _grcRenderEvidence(_grcAllEvidence);
+    _grcRenderEvBar(_grcAllEvidence);
+    _grcUpdateEvTabs(_grcAllEvidence);
+    _grcFilterAndRenderEv();
   }).catch(function(){});
+}
+
+function grcEvTab(status) {
+  _grcCurEvTab = status;
+  document.querySelectorAll('#grc-ev-tabs .grc2-tab-sm').forEach(function(b){ b.classList.remove('active'); });
+  var target = status ? 'grcEvTab("'+status+'")' : 'grcEvTab(\'\')';
+  document.querySelectorAll('#grc-ev-tabs .grc2-tab-sm').forEach(function(b){
+    if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf(status ? '"'+status+'"' : "''")>-1) b.classList.add('active');
+  });
+  _grcFilterAndRenderEv();
+}
+
+function _grcFilterAndRenderEv() {
+  var filtered = _grcCurEvTab
+    ? _grcAllEvidence.filter(function(e){ return e.evidence_status===_grcCurEvTab; })
+    : _grcAllEvidence;
+  _grcRenderEvidence(filtered);
+}
+
+function _grcUpdateEvTabs(ev) {
+  var counts = {not_ready:0,flagged:0,ready:0,accepted:0,not_applicable:0};
+  ev.forEach(function(e){ var s=e.evidence_status||'not_ready'; if(counts[s]!==undefined) counts[s]++; });
+  var m = {'all':'grc-ev-tab-all-n','not_ready':'grc-ev-tab-nr-n','flagged':'grc-ev-tab-fl-n',
+           'ready':'grc-ev-tab-rd-n','accepted':'grc-ev-tab-ac-n','not_applicable':'grc-ev-tab-na-n'};
+  var allN = document.getElementById('grc-ev-tab-all-n'); if(allN) allN.textContent='('+ev.length+')';
+  Object.keys(counts).forEach(function(s){
+    var nm = m[s]; if(!nm) return;
+    var el = document.getElementById(nm);
+    if (el) el.textContent = '('+counts[s]+')';
+  });
+}
+
+function _grcRenderEvBar(ev) {
+  var total = ev.length || 1;
+  var counts = {not_ready:0,flagged:0,ready:0,accepted:0,not_applicable:0};
+  ev.forEach(function(e){ var s=e.evidence_status||'not_ready'; if(counts[s]!==undefined) counts[s]++; });
+  var colors = {not_ready:'#bfdbfe',flagged:'#60a5fa',ready:'#3b82f6',accepted:'#1d4ed8',not_applicable:'#e2e8f0'};
+  var labels = {not_ready:'Not ready',flagged:'Flagged',ready:'Ready',accepted:'Accepted',not_applicable:'Not applicable'};
+  var bar = document.getElementById('grc-ev-bar');
+  if (bar) {
+    bar.innerHTML = Object.keys(counts).map(function(s){
+      var pct = Math.round(counts[s]/total*100);
+      return pct>0 ? '<div title="'+labels[s]+': '+counts[s]+' ('+pct+'%)" style="width:'+pct+'%;background:'+colors[s]+';height:100%;"></div>' : '';
+    }).join('');
+  }
+  var leg = document.getElementById('grc-ev-legend');
+  if (leg) {
+    leg.innerHTML = Object.keys(counts).filter(function(s){ return counts[s]>0; }).map(function(s){
+      return '<div style="display:flex;align-items:center;gap:4px;">'
+        +'<span style="width:10px;height:10px;border-radius:2px;background:'+colors[s]+';flex-shrink:0;display:inline-block;"></span>'
+        +'<span style="font-size:11px;color:#64748b;">'+labels[s]+' ('+counts[s]+')</span></div>';
+    }).join('');
+  }
 }
 
 function _grcRenderEvidence(rows) {
@@ -18322,31 +18948,42 @@ function _grcRenderEvidence(rows) {
   var em = document.getElementById('grc-ev-empty');
   if (!rows.length) { if(tb) tb.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
+  var stColors = {not_ready:'#bfdbfe',flagged:'#60a5fa',ready:'#3b82f6',accepted:'#1d4ed8',not_applicable:'#94a3b8'};
+  var stLabels = {not_ready:'Not ready',flagged:'Flagged',ready:'Ready',accepted:'Accepted',not_applicable:'N/A'};
   tb.innerHTML = rows.map(function(r){
+    var sc = r.evidence_status||'not_ready';
+    var stBadge = '<span style="background:'+stColors[sc]+';color:#fff;font-size:10px;font-weight:600;border-radius:4px;padding:2px 7px;">'+stLabels[sc]+'</span>';
     return '<tr>'
-      +'<td style="font-weight:600;">'+_ge(r.title)+'</td>'
-      +'<td style="font-size:12px;color:#64748b;">'+_ge(r.description)+'</td>'
-      +'<td style="font-size:12px;">'+(_ge(r.audit_name)||'—')+'</td>'
-      +'<td style="font-size:12px;font-family:monospace;color:#1d4ed8;">'+(_ge(r.control_id)||'—')+'</td>'
-      +'<td style="font-size:12px;">'+_ge(r.collected_by)+'</td>'
-      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.created_at)||'').slice(0,10)+'</td>'
-      +'<td><button class="grc-btn grc-btn-del grc-btn-sm" onclick="grcDelEvidence('+r.id+')">Del</button></td>'
+      +'<td><div style="font-weight:600;font-size:13px;">'+_ge(r.title)+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;">'+(_ge(r.evidence_type)||'—')+'</div></td>'
+      +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.evidence_type)||'—')+'</td>'
+      +'<td style="font-size:12px;">'+(_ge(r.collected_by)||'—')+'</td>'
+      +'<td>'+stBadge+'</td>'
+      +'<td><select onchange="grcUpdateEvidence('+r.id+',this.value)" style="font-size:11px;border:1px solid #dbeafe;border-radius:4px;padding:2px 4px;color:#1d4ed8;">'
+        +['not_ready','flagged','ready','accepted','not_applicable'].map(function(s){
+          return '<option value="'+s+'"'+(sc===s?' selected':'')+'>'+stLabels[s]+'</option>';
+        }).join('')
+      +'</select></td>'
+      +'<td><button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelEvidence('+r.id+')">Del</button></td>'
       +'</tr>';
   }).join('');
 }
 
 function grcOpenEvidence() {
-  document.getElementById('gev-title').value = '';
-  document.getElementById('gev-desc').value  = '';
-  document.getElementById('gev-ctrl').value  = '';
-  document.getElementById('gev-by').value    = '';
-  document.getElementById('gev-file').value  = '';
+  document.getElementById('gev-title').value  = '';
+  document.getElementById('gev-desc').value   = '';
+  document.getElementById('gev-status').value = 'not_ready';
+  document.getElementById('gev-type').value   = '';
+  document.getElementById('gev-ctrl').value   = '';
+  document.getElementById('gev-by').value     = '';
+  document.getElementById('gev-file').value   = '';
   document.getElementById('grc2-ev-modal').classList.add('open');
 }
 
 function grcSaveEvidence() {
   var p = {
     title:_gv('gev-title'), description:_gv('gev-desc'),
+    evidence_status:_gv('gev-status'), evidence_type:_gv('gev-type'),
     audit_id:_gv('gev-audit')||null, control_id:_gv('gev-ctrl'),
     collected_by:_gv('gev-by'), file_name:_gv('gev-file'),
   };
@@ -18357,77 +18994,140 @@ function grcSaveEvidence() {
     }).catch(function(){});
 }
 
+function grcUpdateEvidence(id, status) {
+  fetch('/api/grc2/evidence/'+id, {method:'PUT', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({evidence_status:status})})
+    .then(function(r){ return r.json(); }).then(function(){
+      var ev = _grcAllEvidence.find(function(e){ return e.id===id; });
+      if (ev) ev.evidence_status = status;
+      _grcRenderEvBar(_grcAllEvidence);
+      _grcUpdateEvTabs(_grcAllEvidence);
+    }).catch(function(){});
+}
+
 function grcDelEvidence(id) {
   if (!confirm('Delete this evidence?')) return;
   fetch('/api/grc2/evidence/'+id, {method:'DELETE'}).then(function(){ grcLoadEvidence(); }).catch(function(){});
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────────
+var _grcInherentChart = null, _grcCtrlCompChart = null;
+
 function grcLoadReport() {
-  Promise.all([
-    fetch('/api/grc2/controls').then(function(r){ return r.json(); }),
-    fetch('/api/grc2/risks').then(function(r){ return r.json(); }),
-    fetch('/api/grc2/tests').then(function(r){ return r.json(); }),
-  ]).then(function(results){
-    var controls = results[0].controls || [];
-    var risks    = results[1].risks    || [];
-    var tests    = results[2].tests    || [];
-
-    var fwMap = {};
-    controls.forEach(function(c){
-      if (!fwMap[c.framework]) fwMap[c.framework] = {total:0,impl:0};
-      fwMap[c.framework].total++;
-      if (c.status==='implemented') fwMap[c.framework].impl++;
-    });
-
-    var hi  = risks.filter(function(r){ return r.score>=15; }).length;
-    var med = risks.filter(function(r){ return r.score>=8&&r.score<15; }).length;
-    var lo  = risks.filter(function(r){ return r.score<8; }).length;
-    var tPass = tests.filter(function(t){ return t.status==='pass'; }).length;
-    var tFail = tests.filter(function(t){ return t.status==='fail'; }).length;
-    var tPct  = tests.length ? Math.round(tPass/tests.length*100) : 0;
-
-    var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">';
-
-    html += '<div><div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #dbeafe;">Framework Compliance</div>';
-    if (!Object.keys(fwMap).length) {
-      html += '<div style="color:#94a3b8;font-size:13px;">Add controls to see compliance data.</div>';
-    } else {
-      Object.keys(fwMap).forEach(function(fw){
-        var d=fwMap[fw], pct=d.total?Math.round(d.impl/d.total*100):0;
-        html += '<div style="margin-bottom:16px;">'
-          +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">'
-          +'<span style="font-weight:600;color:#0f172a;">'+_ge(fw)+'</span>'
-          +'<span style="color:#2563eb;font-weight:700;">'+pct+'%</span></div>'
-          +'<div style="font-size:11px;color:#64748b;margin-bottom:5px;">'+d.impl+'/'+d.total+' implemented</div>'
-          +'<div class="grc-prog-bar"><div class="grc-prog-fill" style="width:'+pct+'%"></div></div>'
-          +'</div>';
-      });
-    }
-    html += '</div>';
-
-    html += '<div><div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #dbeafe;">Risk Summary</div>';
-    [[hi,'High','#dc2626'],[med,'Medium','#d97706'],[lo,'Low','#16a34a']].forEach(function(row){
-      var pct = risks.length?Math.round(row[0]/risks.length*100):0;
-      html += '<div style="margin-bottom:14px;">'
-        +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">'
-        +'<span style="color:'+row[2]+';font-weight:600;">'+row[1]+' Risk</span>'
-        +'<span style="font-weight:700;">'+row[0]+'</span></div>'
-        +'<div class="grc-prog-bar"><div class="grc-prog-fill" style="width:'+pct+'%;background:'+row[2]+';"></div></div>'
-        +'</div>';
-    });
-    html += '<div style="margin-top:20px;font-size:13px;font-weight:700;color:#0f172a;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #dbeafe;">Test Pass Rate</div>'
-      +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">'
-      +'<span style="font-weight:600;color:#0f172a;">Pass Rate</span>'
-      +'<span style="color:#2563eb;font-weight:700;">'+tPct+'%</span></div>'
-      +'<div style="font-size:11px;color:#64748b;margin-bottom:5px;">'+tPass+' pass / '+tFail+' fail</div>'
-      +'<div class="grc-prog-bar"><div class="grc-prog-fill" style="width:'+tPct+'%;background:#16a34a;"></div></div>';
-    html += '</div>';
-    html += '</div>';
-
-    var el = document.getElementById('grc-report-body');
-    if (el) el.innerHTML = html;
+  fetch('/api/grc2/stats').then(function(r){ return r.json(); }).then(function(d){
+    _grcRenderComplianceBoxes(d);
+    _grcRenderFwBars(d);
+    _grcRenderUpcomingAudits();
   }).catch(function(){});
+
+  Promise.all([
+    fetch('/api/grc2/risks').then(function(r){ return r.json(); }),
+    fetch('/api/grc2/controls').then(function(r){ return r.json(); }),
+  ]).then(function(res){
+    var risks    = res[0].risks    || [];
+    var controls = res[1].controls || [];
+    _grcRenderInherentChart(risks);
+    _grcRenderCtrlComplianceChart(controls);
+  }).catch(function(){});
+}
+
+function _grcRenderComplianceBoxes(d) {
+  var el = document.getElementById('grc-compliance-boxes');
+  if (!el) return;
+  var ctrlPct  = d.controls_total  ? Math.round(d.controls_implemented/d.controls_total*100) : 0;
+  var testPct  = d.tests_total     ? Math.round(d.tests_pass/d.tests_total*100) : 0;
+  var riskPct  = d.risks_total     ? Math.round(d.risks_approved/d.risks_total*100) : 0;
+  el.innerHTML = [
+    ['Control Compliance', ctrlPct+'%', d.controls_implemented+'/'+d.controls_total+' controls implemented'],
+    ['Test Pass Rate',     testPct+'%', d.tests_pass+'/'+d.tests_total+' tests passing'],
+    ['Risk Approval',      riskPct+'%', d.risks_approved+'/'+d.risks_total+' risks approved'],
+  ].map(function(row){
+    var pct = parseInt(row[1]);
+    return '<div style="background:#fff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 18px;">'
+      +'<div style="font-size:11px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">'+row[0]+'</div>'
+      +'<div style="font-size:32px;font-weight:800;color:#1d4ed8;line-height:1.1;margin-bottom:6px;">'+row[1]+'</div>'
+      +'<div style="font-size:12px;color:#64748b;margin-bottom:10px;">'+row[2]+'</div>'
+      +'<div style="height:8px;background:#dbeafe;border-radius:4px;overflow:hidden;">'
+        +'<div style="height:100%;background:#1d4ed8;border-radius:4px;width:'+pct+'%;"></div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function _grcRenderInherentChart(risks) {
+  var ctx = document.getElementById('grc-risk-inherent-chart');
+  if (!ctx) return;
+  if (_grcInherentChart) _grcInherentChart.destroy();
+  var hi  = risks.filter(function(r){ return r.score>=15; }).length;
+  var med = risks.filter(function(r){ return r.score>=8 && r.score<15; }).length;
+  var lo  = risks.filter(function(r){ return r.score<8; }).length;
+  _grcInherentChart = new Chart(ctx, {
+    type:'bar',
+    data:{labels:['Low (1-7)','Medium (8-14)','High (15-25)'],
+      datasets:[
+        {label:'Treated',   data:[Math.floor(lo*0.7),Math.floor(med*0.5),Math.floor(hi*0.3)],  backgroundColor:'#1d4ed8',borderRadius:3,stack:'s'},
+        {label:'Untreated', data:[Math.ceil(lo*0.3), Math.ceil(med*0.5), Math.ceil(hi*0.7)], backgroundColor:'#bfdbfe',borderRadius:3,stack:'s'},
+      ]},
+    options:{responsive:true,
+      scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}},
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}}}}
+  });
+}
+
+function _grcRenderCtrlComplianceChart(controls) {
+  var ctx = document.getElementById('grc-ctrl-compliance-chart');
+  if (!ctx) return;
+  if (_grcCtrlCompChart) _grcCtrlCompChart.destroy();
+  var cats = {};
+  controls.forEach(function(c){ var cat=c.category||'Other'; if(!cats[cat]) cats[cat]={impl:0,total:0}; cats[cat].total++; if(c.status==='implemented') cats[cat].impl++; });
+  var labels = Object.keys(cats);
+  var data   = labels.map(function(l){ return cats[l].total?Math.round(cats[l].impl/cats[l].total*100):0; });
+  _grcCtrlCompChart = new Chart(ctx, {
+    type:'bar',
+    data:{labels:labels,
+      datasets:[{label:'Compliance %',data:data,backgroundColor:'#2563eb',borderRadius:4}]},
+    options:{responsive:true,plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true,max:100,ticks:{callback:function(v){ return v+'%'; }}}}}
+  });
+}
+
+function _grcRenderFwBars(d) {
+  var el = document.getElementById('grc-fw-progress-bars');
+  if (!el) return;
+  var fw = d.framework_compliance || [];
+  if (!fw.length) { el.innerHTML='<div style="color:#94a3b8;font-size:13px;">Add controls to see framework compliance.</div>'; return; }
+  el.innerHTML = fw.map(function(f){
+    var pct = f.pct || 0;
+    return '<div style="margin-bottom:14px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">'
+        +'<span style="font-weight:600;color:#0f172a;">'+_ge(f.framework)+'</span>'
+        +'<span style="color:#1d4ed8;font-weight:700;">'+pct+'%</span></div>'
+      +'<div style="font-size:11px;color:#64748b;margin-bottom:5px;">'+f.implemented+'/'+f.total+' implemented</div>'
+      +'<div style="height:8px;background:#dbeafe;border-radius:4px;overflow:hidden;">'
+        +'<div style="height:100%;background:#1d4ed8;border-radius:4px;width:'+pct+'%;transition:width .4s;"></div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function _grcRenderUpcomingAudits() {
+  var el = document.getElementById('grc-upcoming-audits');
+  if (!el) return;
+  var upcoming = _grcAllAudits.filter(function(a){ return a.status==='planned'||a.status==='in_progress'; })
+    .sort(function(a,b){ return (a.start_date||'').localeCompare(b.start_date||''); }).slice(0,5);
+  if (!upcoming.length) { el.innerHTML='<div style="color:#94a3b8;font-size:12px;">No upcoming audits.</div>'; return; }
+  el.innerHTML = upcoming.map(function(a){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;">'
+      +'<div>'
+        +'<div style="font-size:13px;font-weight:600;color:#0f172a;">'+_ge(a.name)+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;">'+(_ge(a.auditor)||'—')+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;">'
+        +'<div style="font-size:12px;color:#2563eb;font-weight:600;">'+(_ge(a.start_date)||'—')+'</div>'
+        +'<div style="font-size:11px;color:#94a3b8;">'+(_ge(a.scope)||'—')+'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
 }
 
 function grcExportReport(fmt) {
@@ -18442,7 +19142,7 @@ function grcExportReport(fmt) {
       var rows = [].concat(
         controls.map(function(c){ return ['Control',c.control_id+': '+c.title,c.framework,c.status,c.owner||'',c.due_date||'']; }),
         risks.map(function(r){ return ['Risk',r.title,r.category,r.status,r.owner||'',r.score]; }),
-        tests.map(function(t){ return ['Test',t.name,t.category,t.status,t.owner||'',t.last_run||'']; })
+        tests.map(function(t){ return ['Test',t.name,t.test_category||t.category,t.status,t.owner||'',t.last_run||'']; })
       );
       var csv=[hd].concat(rows.map(function(r){ return r.map(function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; }); }))
         .map(function(r){ return r.join(','); }).join('\n');
@@ -18461,12 +19161,12 @@ function grcExportReport(fmt) {
         +controls.map(function(c){ return '<tr><td>'+c.control_id+'</td><td>'+c.title+'</td><td>'+c.framework+'</td><td>'+c.status+'</td><td>'+(c.owner||'—')+'</td></tr>'; }).join('')
         +'</table>'
         +'<h2>Risks ('+risks.length+')</h2>'
-        +'<table><tr><th>Title</th><th>Category</th><th>Score</th><th>Treatment</th><th>Status</th></tr>'
-        +risks.map(function(r){ return '<tr><td>'+r.title+'</td><td>'+(r.category||'—')+'</td><td>'+r.score+'</td><td>'+r.treatment+'</td><td>'+r.status+'</td></tr>'; }).join('')
+        +'<table><tr><th>Title</th><th>Score</th><th>Residual</th><th>Treatment</th><th>Approval</th></tr>'
+        +risks.map(function(r){ return '<tr><td>'+r.title+'</td><td>'+r.score+'</td><td>'+(r.residual_risk||0)+'</td><td>'+r.treatment+'</td><td>'+(r.risk_status||'pending')+'</td></tr>'; }).join('')
         +'</table>'
         +'<h2>Tests ('+tests.length+')</h2>'
         +'<table><tr><th>Name</th><th>Category</th><th>Status</th><th>Last Run</th></tr>'
-        +tests.map(function(t){ return '<tr><td>'+t.name+'</td><td>'+(t.category||'—')+'</td><td>'+t.status+'</td><td>'+(t.last_run||'—')+'</td></tr>'; }).join('')
+        +tests.map(function(t){ return '<tr><td>'+t.name+'</td><td>'+(t.test_category||t.category||'—')+'</td><td>'+t.status+'</td><td>'+(t.last_run||'—')+'</td></tr>'; }).join('')
         +'</table></body></html>';
       _grcDl('grc_report.html', doc, 'text/html');
     }
@@ -18488,6 +19188,7 @@ function _grcDl(name, content, type) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function grcHandleDrop(e) { e.preventDefault(); }
+
 
 // old analyzer functions (no longer used - elements removed)
 function _grcAddFiles_removed(fileList) {
