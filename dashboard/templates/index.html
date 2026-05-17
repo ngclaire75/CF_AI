@@ -2103,7 +2103,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
       <span class="sb-label">User Management</span>
     </button>
     <button class="sb-item" id="sb-invoices" onclick="sbNav('invoices',this)">
-      <span class="sb-label">Billing</span>
+      <span class="sb-label">Billing Management</span>
     </button>
     {% endif %}
 
@@ -19794,7 +19794,7 @@ function grcExport() {
       tips: ['Unverified users cannot log in until their email is verified','Use "Resend Verification" if a user did not receive the confirmation email','Plan assignments control which pages and features each user can access']
     },
     invoices: {
-      title: 'Billing',
+      title: 'Billing Management',
       subtitle: 'Admin — Invoice Management',
       desc: 'View and manage all customer invoices. Shows payment status (Paid / Unpaid / Pending), amount, plan, and dates. Integrates with Midtrans for Indonesian payment methods (GoPay, QRIS, Virtual Account).',
       tips: ['Click on any invoice row to view payment details and Midtrans transaction ID','Pending invoices have been created but not yet confirmed by the payment gateway','Export the invoice list for accounting reconciliation using the Export button']
