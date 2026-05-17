@@ -12407,28 +12407,342 @@ def book_appointment():
     except ValueError:
         return jsonify({'error': 'Invalid date format.'}), 400
 
-    gcal_result = _create_gcal_appointment(
-        service_type, date_str, end_date_str, time_str, duration_str, timezone,
-        full_name, user_email, company, notes
-    )
-    meet_link  = gcal_result['meet_link']  if gcal_result else ''
-    event_link = gcal_result['event_link'] if gcal_result else ''
+    import datetime as _dt
+    now_iso  = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    appt_id  = 'appt-' + str(_uuid.uuid4())[:8]
+    appts    = _load_appointments()
+    appts[appt_id] = {
+        'id': appt_id, 'service_type': service_type,
+        'date': date_str, 'end_date': end_date_str, 'time': time_str,
+        'duration': duration_str, 'timezone': timezone,
+        'full_name': full_name, 'email': user_email,
+        'company': company, 'notes': notes,
+        'username': session['user']['username'],
+        'status': 'pending', 'meet_link': '', 'event_link': '', 'event_id': '',
+        'admin_notes': '', 'created_at': now_iso, 'updated_at': now_iso,
+    }
+    _save_appointments(appts)
 
     _send_appointment_admin_email(
         service_type, date_str, end_date_str, time_str, duration_str, timezone,
         full_name, user_email, company, notes,
-        meet_link, event_link, session['user']['username']
+        '', '', session['user']['username']
     )
     _send_appointment_user_email(
         service_type, date_str, end_date_str, time_str, duration_str, timezone,
-        full_name, user_email, meet_link
+        full_name, user_email, ''
     )
+    return jsonify({'ok': True,
+                    'message': f'Appointment request submitted. Our team will review and confirm at {user_email} within 1 business day.'})
 
+
+# ── Appointment Management ────────────────────────────────────────────────────
+_APPTS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'appointments.json')
+
+def _load_appointments() -> dict:
+    try:
+        if os.path.exists(_APPTS_FILE):
+            with open(_APPTS_FILE) as fh:
+                return _json.load(fh)
+    except Exception:
+        pass
+    return {}
+
+def _save_appointments(appts: dict) -> None:
+    os.makedirs(os.path.dirname(_APPTS_FILE), exist_ok=True)
+    with open(_APPTS_FILE, 'w') as fh:
+        _json.dump(appts, fh, indent=2)
+
+
+def _send_appointment_approved_email(service_type: str, date_str: str, end_date_str: str,
+                                      time_str: str, duration_str: str, timezone: str,
+                                      full_name: str, user_email: str,
+                                      meet_link: str, admin_note: str = '') -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        appt_dt = _format_appt_datetime(date_str, end_date_str, time_str, duration_str, timezone)
+        subject = f'CyberINK — Appointment Confirmed: {service_type}'
+        if meet_link:
+            meet_block = (
+                f'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;'
+                f'padding:16px;margin:20px 0;text-align:center;">'
+                f'<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+                f'letter-spacing:.4px;margin-bottom:10px;">Your Google Meet Link</div>'
+                f'<a href="{meet_link}" style="color:#2563eb;font-size:14px;font-weight:700;'
+                f'word-break:break-all;display:block;margin-bottom:8px;">{meet_link}</a>'
+                f'<div style="font-size:11px;color:#3b82f6;">Click the link above at your appointment time to join the session.</div>'
+                f'</div>'
+            )
+        else:
+            meet_block = ('<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;'
+                          'padding:14px 16px;margin:20px 0;font-size:12px;color:#1e3a8a;">'
+                          'Our team will send you a Google Meet link before the session.</div>')
+        note_block = ''
+        if admin_note:
+            safe_n = admin_note.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('\n','<br>')
+            note_block = (f'<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+                          f'letter-spacing:.4px;margin:20px 0 8px;">Note from our team</div>'
+                          f'<div style="background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;'
+                          f'padding:12px 16px;font-size:13px;color:#1e3a8a;line-height:1.6;">{safe_n}</div>')
+        prep_items = _APPT_PREP.get(service_type, [])
+        prep_block = ''
+        if prep_items:
+            items_html = ''.join(f'<li style="margin-bottom:6px;color:#1e3a8a;">{i}</li>' for i in prep_items)
+            prep_block = (f'<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+                          f'letter-spacing:.4px;margin:20px 0 10px;">How to Prepare</div>'
+                          f'<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.65;">{items_html}</ul>')
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Appointment Confirmed</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello {full_name}, your appointment has been confirmed by our team.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Service</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:600;">{service_type}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Date and Time</td>
+              <td style="padding:7px 0;color:#2563eb;">{appt_dt}</td>
+            </tr>
+          </table>
+          {meet_block}{note_block}{prep_block}
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+            To cancel or reschedule contact us at <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, user_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_appointment_cancelled_email(service_type: str, appt_dt: str,
+                                       full_name: str, user_email: str, reason: str = '') -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        subject = f'CyberINK — Appointment Cancelled: {service_type}'
+        reason_block = ''
+        if reason:
+            safe_r = reason.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('\n','<br>')
+            reason_block = (f'<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+                            f'letter-spacing:.4px;margin:20px 0 8px;">Reason</div>'
+                            f'<div style="background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;'
+                            f'padding:12px 16px;font-size:13px;color:#1e3a8a;line-height:1.6;">{safe_r}</div>')
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Appointment Cancelled</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello {full_name}, your appointment has been cancelled.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Service</td>
+              <td style="padding:7px 0;color:#2563eb;">{service_type}</td>
+            </tr>
+            <tr><td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Date and Time</td>
+              <td style="padding:7px 0;color:#2563eb;">{appt_dt}</td>
+            </tr>
+          </table>{reason_block}
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+            To book a new appointment visit the Customer Service Centre or contact
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, user_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_appointment_reschedule_email(service_type: str, old_dt: str, new_dt: str,
+                                        full_name: str, user_email: str, message: str = '') -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        subject = f'CyberINK — Appointment Rescheduled: {service_type}'
+        msg_block = ''
+        if message:
+            safe_m = message.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('\n','<br>')
+            msg_block = (f'<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+                         f'letter-spacing:.4px;margin:20px 0 8px;">Message from our team</div>'
+                         f'<div style="background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;'
+                         f'padding:12px 16px;font-size:13px;color:#1e3a8a;line-height:1.6;">{safe_m}</div>')
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Appointment Rescheduled</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello {full_name}, your appointment has been moved to a new date and time.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:120px;">Service</td>
+              <td style="padding:7px 0;color:#2563eb;">{service_type}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Previous</td>
+              <td style="padding:7px 0;color:#93c5fd;text-decoration:line-through;">{old_dt}</td>
+            </tr>
+            <tr><td style="padding:7px 0;font-weight:700;color:#1e3a8a;">New Time</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:600;">{new_dt}</td>
+            </tr>
+          </table>{msg_block}
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+            If this does not work for you contact us at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, user_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+@app.route('/api/appointments', methods=['GET'])
+def get_appointments():
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    appts = _load_appointments()
+    sorted_appts = sorted(appts.values(), key=lambda x: x.get('created_at', ''), reverse=True)
+    return jsonify({'appointments': sorted_appts})
+
+
+@app.route('/api/appointments/<appt_id>/approve', methods=['POST'])
+def approve_appointment(appt_id):
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    data       = request.get_json(force=True) or {}
+    admin_note = (data.get('admin_note') or '').strip()
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt = appts[appt_id]
+    if appt['status'] not in ('pending', 'rescheduled'):
+        return jsonify({'error': f'Cannot approve a {appt["status"]} appointment'}), 400
+    gcal_result = _create_gcal_appointment(
+        appt['service_type'], appt['date'], appt.get('end_date', ''),
+        appt['time'], appt.get('duration', ''), appt['timezone'],
+        appt['full_name'], appt['email'], appt.get('company', ''), appt.get('notes', '')
+    )
+    meet_link  = gcal_result['meet_link']  if gcal_result else ''
+    event_link = gcal_result['event_link'] if gcal_result else ''
+    event_id   = gcal_result['event_id']   if gcal_result else ''
+    import datetime as _dt
+    now = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    appt.update({'status': 'approved', 'meet_link': meet_link, 'event_link': event_link,
+                 'event_id': event_id, 'admin_notes': admin_note,
+                 'updated_at': now, 'approved_at': now})
+    _save_appointments(appts)
+    _send_appointment_approved_email(
+        appt['service_type'], appt['date'], appt.get('end_date', ''),
+        appt['time'], appt.get('duration', ''), appt['timezone'],
+        appt['full_name'], appt['email'], meet_link, admin_note
+    )
+    msg = 'Appointment approved.'
     if meet_link:
-        msg = f'Appointment confirmed. A Google Meet link has been sent to {user_email}.'
+        msg += f' Google Meet link sent to {appt["email"]}.'
     else:
-        msg = f'Appointment request submitted. You will receive a confirmation email at {user_email}.'
+        msg += f' Confirmation sent to {appt["email"]}. (No Meet link — Google Calendar not configured.)'
     return jsonify({'ok': True, 'message': msg, 'meet_link': meet_link})
+
+
+@app.route('/api/appointments/<appt_id>/cancel', methods=['POST'])
+def cancel_appointment(appt_id):
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    data   = request.get_json(force=True) or {}
+    reason = (data.get('reason') or '').strip()
+    appts  = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt = appts[appt_id]
+    if appt['status'] == 'completed':
+        return jsonify({'error': 'Cannot cancel a completed appointment'}), 400
+    import datetime as _dt
+    appt.update({'status': 'cancelled', 'admin_notes': reason,
+                 'updated_at': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')})
+    _save_appointments(appts)
+    appt_dt = _format_appt_datetime(appt['date'], appt.get('end_date', ''),
+                                     appt['time'], appt.get('duration', ''), appt['timezone'])
+    _send_appointment_cancelled_email(appt['service_type'], appt_dt,
+                                       appt['full_name'], appt['email'], reason)
+    return jsonify({'ok': True, 'message': f'Appointment cancelled. User notified at {appt["email"]}.'})
+
+
+@app.route('/api/appointments/<appt_id>/complete', methods=['POST'])
+def complete_appointment(appt_id):
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt = appts[appt_id]
+    if appt['status'] not in ('approved', 'rescheduled'):
+        return jsonify({'error': f'Cannot complete a {appt["status"]} appointment'}), 400
+    import datetime as _dt
+    now = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    appt.update({'status': 'completed', 'updated_at': now, 'completed_at': now})
+    _save_appointments(appts)
+    return jsonify({'ok': True, 'message': 'Appointment marked as completed.'})
+
+
+@app.route('/api/appointments/<appt_id>/reschedule', methods=['POST'])
+def reschedule_appointment(appt_id):
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    data         = request.get_json(force=True) or {}
+    new_date     = (data.get('date')     or '').strip()
+    new_end_date = (data.get('end_date') or '').strip()
+    new_time     = (data.get('time')     or '').strip()
+    new_dur      = (data.get('duration') or '').strip()
+    message      = (data.get('message')  or '').strip()
+    if not new_date or not new_time:
+        return jsonify({'error': 'New date and time are required'}), 400
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt   = appts[appt_id]
+    old_dt = _format_appt_datetime(appt['date'], appt.get('end_date', ''),
+                                    appt['time'], appt.get('duration', ''), appt['timezone'])
+    import datetime as _dt
+    appt.update({'date': new_date, 'end_date': new_end_date, 'time': new_time,
+                 'duration': new_dur or appt.get('duration', ''),
+                 'status': 'rescheduled', 'meet_link': '', 'event_link': '', 'event_id': '',
+                 'updated_at': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')})
+    _save_appointments(appts)
+    new_dt = _format_appt_datetime(new_date, new_end_date, new_time,
+                                    new_dur or appt.get('duration', ''), appt['timezone'])
+    _send_appointment_reschedule_email(appt['service_type'], old_dt, new_dt,
+                                        appt['full_name'], appt['email'], message)
+    return jsonify({'ok': True, 'message': f'Rescheduled. User notified at {appt["email"]}.'})
+
+
+@app.route('/api/appointments/<appt_id>/notes', methods=['PATCH'])
+def update_appointment_notes(appt_id):
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    data  = request.get_json(force=True) or {}
+    notes = (data.get('notes') or '').strip()
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    import datetime as _dt
+    appts[appt_id]['admin_notes'] = notes
+    appts[appt_id]['updated_at']  = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    _save_appointments(appts)
+    return jsonify({'ok': True})
 
 
 # ── Google Calendar OAuth Setup (admin only) ───────────────────────────────────

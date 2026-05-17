@@ -2115,6 +2115,11 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-support" onclick="sbNav('support',this)">
       <span class="sb-label">Customer Service Centre</span>
     </button>
+    {% if current_user.role == 'admin' %}
+    <button class="sb-item" id="sb-apptmgmt" onclick="sbNav('apptmgmt',this)">
+      <span class="sb-label">Appointment Management</span>
+    </button>
+    {% endif %}
 
     <div class="sb-divider"></div>
     <div class="sb-nav-label">Legal</div>
@@ -7688,6 +7693,71 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   </div>
   </div><!-- /page-support -->
 
+  {% if current_user.role == 'admin' %}
+  <div id="page-apptmgmt" class="page-section" style="display:none">
+  <style>
+    .amgr-wrap { max-width:860px; margin:0 auto; padding:36px 24px 72px; }
+    .amgr-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
+    .amgr-sub { font-size:12px; color:#60a5fa; margin-bottom:24px; line-height:1.6; }
+    .amgr-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:24px; }
+    .amgr-stat { background:#fff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 12px; text-align:center; }
+    .amgr-stat-n { font-size:22px; font-weight:700; color:#1e3a8a; line-height:1; }
+    .amgr-stat-l { font-size:10px; color:#3b82f6; text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
+    .amgr-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+    .amgr-tab { padding:7px 14px; border:1px solid #bfdbfe; border-radius:20px; font-size:11px; font-weight:600; color:#3b82f6; background:#fff; cursor:pointer; transition:all .15s; }
+    .amgr-tab:hover { background:#eff6ff; }
+    .amgr-tab.amgr-active { background:#2563eb; border-color:#2563eb; color:#fff; }
+    .amgr-card { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:18px 20px; margin-bottom:14px; }
+    .amgr-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .amgr-svc { font-size:12px; font-weight:700; color:#1e3a8a; }
+    .amgr-badge { font-size:10px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+    .amgr-badge.pending    { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
+    .amgr-badge.approved   { background:#2563eb; color:#fff; }
+    .amgr-badge.rescheduled{ background:#1d4ed8; color:#bfdbfe; }
+    .amgr-badge.completed  { background:#1e3a8a; color:#e0f2fe; }
+    .amgr-badge.cancelled  { background:#dbeafe; color:#3b82f6; }
+    .amgr-row { font-size:12px; color:#1e3a8a; line-height:1.7; }
+    .amgr-row strong { color:#0f172a; }
+    .amgr-divider { border:none; border-top:1px solid #eff6ff; margin:12px 0; }
+    .amgr-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .amgr-btn { padding:7px 14px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; transition:opacity .15s; border:none; }
+    .amgr-btn:hover { opacity:.85; }
+    .amgr-btn-approve   { background:#2563eb; color:#fff; }
+    .amgr-btn-cancel    { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe!important; }
+    .amgr-btn-complete  { background:#1e3a8a; color:#e0f2fe; }
+    .amgr-btn-reschedule{ background:#1d4ed8; color:#bfdbfe; }
+    .amgr-btn-note      { background:#f8faff; color:#2563eb; border:1px solid #bfdbfe!important; }
+    .amgr-inline { display:none; margin-top:14px; background:#f8faff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 16px; }
+    .amgr-inline-lbl { font-size:10px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+    .amgr-ta,.amgr-inp { width:100%; box-sizing:border-box; padding:8px 10px; border:none!important; box-shadow:0 0 0 1px #bfdbfe!important; border-radius:6px; font-size:12px; color:#0f172a; background:#fff; outline:none!important; font-family:inherit; resize:none; }
+    .amgr-ta { min-height:70px; }
+    .amgr-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+    .amgr-conf { margin-top:10px; padding:8px 18px; border:none; border-radius:6px; background:#2563eb; color:#fff; font-size:12px; font-weight:700; cursor:pointer; }
+    .amgr-conf:hover { opacity:.88; }
+    .amgr-msg { font-size:11px; margin-top:8px; padding:8px 12px; border-radius:6px; display:none; }
+    .amgr-msg.ok  { background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; }
+    .amgr-msg.err { background:#eff6ff; border:1px solid #93c5fd; color:#1d4ed8; }
+    .amgr-meet { font-size:11px; color:#2563eb; word-break:break-all; margin-top:4px; }
+    .amgr-empty { text-align:center; padding:48px 24px; color:#93c5fd; font-size:13px; }
+    @media(max-width:600px){ .amgr-stats{grid-template-columns:repeat(3,1fr);} .amgr-grid2{grid-template-columns:1fr;} }
+  </style>
+  <div class="amgr-wrap">
+    <div class="amgr-title">Appointment Management Centre</div>
+    <div class="amgr-sub">Review, approve, reschedule, and close all appointment requests. Approved appointments auto-generate a Google Meet link sent directly to the client.</div>
+    <div class="amgr-stats" id="amgr-stats"></div>
+    <div class="amgr-tabs" id="amgr-tabs">
+      <button class="amgr-tab amgr-active" onclick="amgrFilter('all',this)">All</button>
+      <button class="amgr-tab" onclick="amgrFilter('pending',this)">Pending</button>
+      <button class="amgr-tab" onclick="amgrFilter('approved',this)">Approved</button>
+      <button class="amgr-tab" onclick="amgrFilter('rescheduled',this)">Rescheduled</button>
+      <button class="amgr-tab" onclick="amgrFilter('completed',this)">Completed</button>
+      <button class="amgr-tab" onclick="amgrFilter('cancelled',this)">Cancelled</button>
+    </div>
+    <div id="amgr-list"></div>
+  </div>
+  </div><!-- /page-apptmgmt -->
+  {% endif %}
+
   <!-- ══ PRIVACY POLICY PAGE ══════════════════════════════════════════════ -->
   <div id="page-privacy" class="page-section" style="display:none">
 
@@ -8267,6 +8337,7 @@ var _PAGE_TITLES = {
   'dca':           'Dynamic Code Analysis',
   'account':       'Account Settings',
   'support':       'Customer Service Centre',
+  'apptmgmt':      'Appointment Management Centre',
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
@@ -8326,7 +8397,7 @@ function sbNav(section, el) {
   _currentPage = section;
   // Hide Information button on pages that have no page info entry
   (function() {
-    var _noInfo = ['pricing', 'policy', 'privacy', 'account', 'support'];
+    var _noInfo = ['pricing', 'policy', 'privacy', 'account', 'support', 'apptmgmt'];
     var btn = document.getElementById('page-info-btn');
     if (btn) btn.style.display = _noInfo.indexOf(section) !== -1 ? 'none' : '';
   })();
@@ -8349,6 +8420,7 @@ function sbNav(section, el) {
 
   // Lazy-load data for relevant pages
   if (section === 'observability') loadUnifiedOverview();
+  if (section === 'apptmgmt') loadApptMgmt();
   if (section === 'signals')       loadSignals();
   if (section === 'mitre')         loadMitreCoverage();
   if (section === 'incidents')     loadIncidents();
@@ -20446,6 +20518,162 @@ function grcExport() {
       _show(false, 'Network error. Please check your connection and try again.');
     });
   };
+
+  // ── Appointment Management Centre ──────────────────────────────────────────
+  var _amgrData = [];
+  var _amgrFilter = 'all';
+
+  window.loadApptMgmt = function() {
+    fetch('/api/appointments').then(function(r){ return r.json(); }).then(function(d){
+      _amgrData = d.appointments || [];
+      amgrRender();
+    }).catch(function(){ document.getElementById('amgr-list').innerHTML = '<div class="amgr-empty">Failed to load appointments.</div>'; });
+  };
+
+  window.amgrFilter = function(status, btn) {
+    _amgrFilter = status;
+    document.querySelectorAll('.amgr-tab').forEach(function(t){ t.classList.remove('amgr-active'); });
+    if (btn) btn.classList.add('amgr-active');
+    amgrRender();
+  };
+
+  function amgrRender() {
+    var counts = {all:0, pending:0, approved:0, rescheduled:0, completed:0, cancelled:0};
+    _amgrData.forEach(function(a){ counts.all++; if(counts[a.status]!==undefined) counts[a.status]++; });
+    document.getElementById('amgr-stats').innerHTML =
+      ['all','pending','approved','rescheduled','completed','cancelled'].map(function(k){
+        return '<div class="amgr-stat"><div class="amgr-stat-n">'+counts[k]+'</div><div class="amgr-stat-l">'+k+'</div></div>';
+      }).join('');
+
+    var list = document.getElementById('amgr-list');
+    var items = _amgrFilter === 'all' ? _amgrData : _amgrData.filter(function(a){ return a.status === _amgrFilter; });
+    if (!items.length) { list.innerHTML = '<div class="amgr-empty">No appointments in this category.</div>'; return; }
+
+    list.innerHTML = items.map(function(a) {
+      var dateStr = a.date + (a.end_date && a.end_date !== a.date ? ' — ' + a.end_date : '');
+      var timeStr = a.time + (a.duration ? ' · ' + a.duration : '') + ' (' + a.timezone + ')';
+      var meetRow = a.meet_link ? '<div class="amgr-meet">Meet: <a href="'+a.meet_link+'" target="_blank" style="color:#2563eb;">'+a.meet_link+'</a></div>' : '';
+      var adminNoteRow = a.admin_notes ? '<div style="font-size:11px;color:#3b82f6;margin-top:3px;">Admin note: '+_amgrEsc(a.admin_notes)+'</div>' : '';
+      var submittedStr = a.created_at ? a.created_at.replace('T',' ').slice(0,16) + ' UTC' : '';
+
+      var actions = '';
+      if (a.status === 'pending' || a.status === 'rescheduled') {
+        actions += '<button class="amgr-btn amgr-btn-approve" onclick="amgrToggle(\''+a.id+'\',\'approve\')">Approve</button>';
+        actions += '<button class="amgr-btn amgr-btn-reschedule" onclick="amgrToggle(\''+a.id+'\',\'reschedule\')">Reschedule</button>';
+        actions += '<button class="amgr-btn amgr-btn-cancel" onclick="amgrToggle(\''+a.id+'\',\'cancel\')">Cancel</button>';
+      } else if (a.status === 'approved') {
+        actions += '<button class="amgr-btn amgr-btn-complete" onclick="amgrDoComplete(\''+a.id+'\')">Mark Complete</button>';
+        actions += '<button class="amgr-btn amgr-btn-reschedule" onclick="amgrToggle(\''+a.id+'\',\'reschedule\')">Reschedule</button>';
+        actions += '<button class="amgr-btn amgr-btn-cancel" onclick="amgrToggle(\''+a.id+'\',\'cancel\')">Cancel</button>';
+      }
+      actions += '<button class="amgr-btn amgr-btn-note" onclick="amgrToggle(\''+a.id+'\',\'note\')">Notes</button>';
+
+      return '<div class="amgr-card" id="amgr-card-'+a.id+'">'
+        + '<div class="amgr-card-head"><div class="amgr-svc">'+_amgrEsc(a.service_type)+'</div>'
+        + '<span class="amgr-badge '+a.status+'">'+a.status+'</span></div>'
+        + '<div class="amgr-row"><strong>'+_amgrEsc(a.full_name)+'</strong>'+(a.company?' ('+_amgrEsc(a.company)+')':'')+'</div>'
+        + '<div class="amgr-row" style="color:#3b82f6;">'+_amgrEsc(a.email)+'</div>'
+        + '<div class="amgr-row" style="margin-top:4px;"><strong>Date:</strong> '+dateStr+'</div>'
+        + '<div class="amgr-row"><strong>Time:</strong> '+timeStr+'</div>'
+        + (a.notes ? '<div class="amgr-row" style="margin-top:4px;color:#3b82f6;">Client note: '+_amgrEsc(a.notes)+'</div>' : '')
+        + meetRow + adminNoteRow
+        + '<div style="font-size:10px;color:#93c5fd;margin-top:4px;">Submitted: '+submittedStr+' by '+_amgrEsc(a.username||'')+'</div>'
+        + '<hr class="amgr-divider">'
+        + '<div class="amgr-actions">'+actions+'</div>'
+        + '<div class="amgr-inline" id="amgr-inline-approve-'+a.id+'">'
+          + '<div class="amgr-inline-lbl">Note to client (optional)</div>'
+          + '<textarea class="amgr-ta" id="amgr-note-'+a.id+'" placeholder="e.g. Please have your login credentials ready."></textarea>'
+          + '<button class="amgr-conf" onclick="amgrDoApprove(\''+a.id+'\')">Confirm Approval</button>'
+          + '<div class="amgr-msg" id="amgr-msg-approve-'+a.id+'"></div>'
+        + '</div>'
+        + '<div class="amgr-inline" id="amgr-inline-cancel-'+a.id+'">'
+          + '<div class="amgr-inline-lbl">Reason for cancellation (optional)</div>'
+          + '<textarea class="amgr-ta" id="amgr-reason-'+a.id+'" placeholder="e.g. No availability on this date."></textarea>'
+          + '<button class="amgr-conf" onclick="amgrDoCancel(\''+a.id+'\')">Confirm Cancellation</button>'
+          + '<div class="amgr-msg" id="amgr-msg-cancel-'+a.id+'"></div>'
+        + '</div>'
+        + '<div class="amgr-inline" id="amgr-inline-reschedule-'+a.id+'">'
+          + '<div class="amgr-grid2">'
+            + '<div><div class="amgr-inline-lbl">New Start Date</div><input class="amgr-inp" id="amgr-rdate-'+a.id+'" type="date"></div>'
+            + '<div><div class="amgr-inline-lbl">New End Date (optional)</div><input class="amgr-inp" id="amgr-renddate-'+a.id+'" type="date"></div>'
+            + '<div><div class="amgr-inline-lbl">New Time</div><input class="amgr-inp" id="amgr-rtime-'+a.id+'" type="time" value="'+a.time+'"></div>'
+            + '<div><div class="amgr-inline-lbl">New Duration</div><input class="amgr-inp" id="amgr-rdur-'+a.id+'" type="text" placeholder="e.g. 1 hour" value="'+(a.duration||'')+'"></div>'
+          + '</div>'
+          + '<div class="amgr-inline-lbl">Message to client (optional)</div>'
+          + '<textarea class="amgr-ta" id="amgr-rmsg-'+a.id+'" placeholder="Reason for reschedule or any other note."></textarea>'
+          + '<button class="amgr-conf" onclick="amgrDoReschedule(\''+a.id+'\')">Confirm Reschedule</button>'
+          + '<div class="amgr-msg" id="amgr-msg-reschedule-'+a.id+'"></div>'
+        + '</div>'
+        + '<div class="amgr-inline" id="amgr-inline-note-'+a.id+'">'
+          + '<div class="amgr-inline-lbl">Internal Admin Notes</div>'
+          + '<textarea class="amgr-ta" id="amgr-adminnote-'+a.id+'" placeholder="Internal notes — not sent to client.">'+(a.admin_notes||'')+'</textarea>'
+          + '<button class="amgr-conf" onclick="amgrDoNote(\''+a.id+'\')">Save Notes</button>'
+          + '<div class="amgr-msg" id="amgr-msg-note-'+a.id+'"></div>'
+        + '</div>'
+      + '</div>';
+    }).join('');
+  }
+
+  function _amgrEsc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  window.amgrToggle = function(id, panel) {
+    ['approve','cancel','reschedule','note'].forEach(function(p){
+      var el = document.getElementById('amgr-inline-'+p+'-'+id);
+      if (el) el.style.display = (p === panel && el.style.display === 'none') ? '' : (p === panel ? 'none' : 'none');
+    });
+    var el = document.getElementById('amgr-inline-'+panel+'-'+id);
+    if (el) el.style.display = el.style.display === '' ? 'none' : '';
+  };
+
+  function _amgrPost(url, body, msgEl, onOk) {
+    fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+      .then(function(r){ return r.json(); }).then(function(d){
+        msgEl.className = 'amgr-msg ' + (d.ok ? 'ok' : 'err');
+        msgEl.textContent = d.message || d.error || (d.ok ? 'Done.' : 'Error.');
+        msgEl.style.display = '';
+        if (d.ok) { setTimeout(function(){ loadApptMgmt(); }, 1200); if(onOk) onOk(d); }
+      }).catch(function(){ msgEl.className='amgr-msg err'; msgEl.textContent='Network error.'; msgEl.style.display=''; });
+  }
+
+  window.amgrDoApprove = function(id) {
+    var note = (document.getElementById('amgr-note-'+id)||{}).value || '';
+    var msgEl = document.getElementById('amgr-msg-approve-'+id);
+    _amgrPost('/api/appointments/'+id+'/approve', {admin_note: note}, msgEl);
+  };
+  window.amgrDoCancel = function(id) {
+    var reason = (document.getElementById('amgr-reason-'+id)||{}).value || '';
+    var msgEl  = document.getElementById('amgr-msg-cancel-'+id);
+    _amgrPost('/api/appointments/'+id+'/cancel', {reason: reason}, msgEl);
+  };
+  window.amgrDoComplete = function(id) {
+    var fake = document.createElement('div'); fake.className = 'amgr-msg';
+    fake.style.display = 'none';
+    _amgrPost('/api/appointments/'+id+'/complete', {}, fake);
+  };
+  window.amgrDoReschedule = function(id) {
+    var date  = (document.getElementById('amgr-rdate-'+id)||{}).value || '';
+    var edate = (document.getElementById('amgr-renddate-'+id)||{}).value || '';
+    var time  = (document.getElementById('amgr-rtime-'+id)||{}).value || '';
+    var dur   = (document.getElementById('amgr-rdur-'+id)||{}).value || '';
+    var msg   = (document.getElementById('amgr-rmsg-'+id)||{}).value || '';
+    var msgEl = document.getElementById('amgr-msg-reschedule-'+id);
+    if (!date || !time) { msgEl.className='amgr-msg err'; msgEl.textContent='New date and time are required.'; msgEl.style.display=''; return; }
+    _amgrPost('/api/appointments/'+id+'/reschedule', {date:date,end_date:edate,time:time,duration:dur,message:msg}, msgEl);
+  };
+  window.amgrDoNote = function(id) {
+    var notes = (document.getElementById('amgr-adminnote-'+id)||{}).value || '';
+    var msgEl = document.getElementById('amgr-msg-note-'+id);
+    fetch('/api/appointments/'+id+'/notes', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({notes:notes})})
+      .then(function(r){ return r.json(); }).then(function(d){
+        msgEl.className = 'amgr-msg ' + (d.ok ? 'ok' : 'err');
+        msgEl.textContent = d.ok ? 'Notes saved.' : (d.error || 'Error.');
+        msgEl.style.display = '';
+        if (d.ok) setTimeout(function(){ loadApptMgmt(); }, 800);
+      }).catch(function(){ msgEl.className='amgr-msg err'; msgEl.textContent='Network error.'; msgEl.style.display=''; });
+  };
+  // ── End Appointment Management ──────────────────────────────────────────────
 
   window.versionModalShow = function() {
     var bd = document.getElementById('ver-backdrop');
