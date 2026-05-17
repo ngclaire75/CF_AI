@@ -11,12 +11,19 @@ import json
 import os
 import re
 import socket
+import time
 import urllib.request
 import urllib.parse
 import concurrent.futures
+from pathlib import Path
 from typing import Callable
 
 _TIMEOUT = 12  # seconds per HTTP call
+
+_RETIREJS_URL   = ('https://raw.githubusercontent.com/RetireJS/retire.js'
+                   '/master/repository/jsrepository.json')
+_RETIREJS_CACHE = Path(__file__).parent.parent / 'data' / 'retirejs_db.json'
+_RETIREJS_TTL   = 86400  # 24 h — re-fetch once per day
 
 # ---------------------------------------------------------------------------
 # HTTP helpers
@@ -137,42 +144,247 @@ _TECH_PATTERNS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Supply-chain vuln DB
+# Full Retire.js database — live-fetched, locally cached, 24 h TTL
 # ---------------------------------------------------------------------------
 
-# (library_name, url_pattern_regex, version_capture_group, vuln_versions_below,
-#  cve, severity, description)
-_VULN_LIBS = [
-    ('jQuery',       r'jquery[.-]([\d.]+)(?:\.min)?\.js',           '1', '3.5.0', 'CVE-2020-11022', 'MEDIUM',   'XSS via HTML parsing in jQuery < 3.5.0'),
-    ('jQuery',       r'jquery[.-]([\d.]+)(?:\.min)?\.js',           '1', '1.9.0', 'CVE-2012-6708',  'MEDIUM',   'XSS in jQuery selector engine < 1.9.0'),
-    ('Bootstrap',    r'bootstrap[.-]([\d.]+)(?:\.min)?\.js',        '1', '3.4.1', 'CVE-2018-14040', 'MEDIUM',   'XSS in data-* attributes in Bootstrap < 3.4.1'),
-    ('Bootstrap',    r'bootstrap[.-]([\d.]+)(?:\.min)?\.js',        '1', '4.3.1', 'CVE-2019-8331',  'MEDIUM',   'XSS tooltip/popover in Bootstrap < 4.3.1'),
-    ('Angular',      r'angular(?:js)?[.-]([\d.]+)(?:\.min)?\.js',   '1', '1.8.3', 'CVE-2023-26117', 'HIGH',     'ReDoS in Angular < 1.8.3'),
-    ('Angular',      r'angular(?:js)?[.-]([\d.]+)(?:\.min)?\.js',   '1', '1.6.0', 'CVE-2016-6272',  'HIGH',     'XSS in AngularJS < 1.6.0'),
-    ('Lodash',       r'lodash[.-]([\d.]+)(?:\.min)?\.js',           '1', '4.17.21', 'CVE-2021-23337', 'HIGH',   'Command injection in lodash < 4.17.21'),
-    ('Lodash',       r'lodash[.-]([\d.]+)(?:\.min)?\.js',           '1', '4.17.12', 'CVE-2019-10744', 'CRITICAL', 'Prototype pollution in lodash < 4.17.12'),
-    ('Moment.js',    r'moment[.-]([\d.]+)(?:\.min)?\.js',           '1', '2.29.4', 'CVE-2022-31129', 'HIGH',    'ReDoS in Moment.js < 2.29.4'),
-    ('Underscore',   r'underscore[.-]([\d.]+)(?:\.min)?\.js',       '1', '1.13.0', 'CVE-2021-23358', 'HIGH',    'Arbitrary code exec in Underscore < 1.13.0'),
-    ('Handlebars',   r'handlebars[.-]([\d.]+)(?:\.min)?\.js',       '1', '4.7.7',  'CVE-2021-23369', 'CRITICAL', 'RCE via template in Handlebars < 4.7.7'),
-    ('Vue.js',       r'vue[.-]([\d.]+)(?:\.min)?\.js',              '1', '2.7.0',  'CVE-2023-49210', 'MEDIUM',  'XSS in Vue.js < 2.7.0'),
-    ('Axios',        r'axios[.-]([\d.]+)(?:\.min)?\.js',            '1', '0.21.1', 'CVE-2020-28168', 'MEDIUM',  'SSRF in Axios < 0.21.1'),
-    ('DOMPurify',    r'dompurify[.-]([\d.]+)(?:\.min)?\.js',        '1', '2.4.0',  'CVE-2022-25148', 'HIGH',    'XSS bypass in DOMPurify < 2.4.0'),
-    ('Prototype.js', r'prototype[.-]([\d.]+)(?:\.min)?\.js',        '1', '1.7.3',  'CVE-2008-7220',  'HIGH',    'XSS in Prototype.js < 1.7.3'),
-    ('MooTools',     r'mootools[.-]([\d.]+)(?:\.min)?\.js',         '1', '1.6.0',  'CVE-2021-20251', 'MEDIUM',  'Prototype pollution in MooTools'),
-    ('three.js',     r'three[.-]([\d.]+)(?:\.min)?\.js',            '1', '0.125.0', 'CVE-2020-28461', 'MEDIUM', 'ReDoS in three.js < 0.125.0'),
-    ('clipboard.js', r'clipboard[.-]([\d.]+)(?:\.min)?\.js',        '1', '2.0.7',  'CVE-2020-6710',  'MEDIUM',  'XSS in clipboard.js < 2.0.7'),
-    ('highlight.js', r'highlight[.-]([\d.]+)(?:\.min)?\.js',        '1', '10.4.1', 'CVE-2020-26237', 'HIGH',    'ReDoS in highlight.js < 10.4.1'),
-    ('marked',       r'marked[.-]([\d.]+)(?:\.min)?\.js',           '1', '2.0.0',  'CVE-2021-21306', 'HIGH',    'XSS in marked < 2.0.0'),
-    ('remarkable',   r'remarkable[.-]([\d.]+)(?:\.min)?\.js',       '1', '2.0.0',  'CVE-2021-23386', 'MEDIUM',  'ReDoS in remarkable < 2.0.0'),
-    ('showdown',     r'showdown[.-]([\d.]+)(?:\.min)?\.js',         '1', '1.9.1',  'CVE-2018-17052', 'MEDIUM',  'XSS in showdown < 1.9.1'),
-    ('dojo',         r'dojo[./]([\d.]+)(?:/dojo)?(?:\.min)?\.js',   '1', '1.17.0', 'CVE-2018-15494', 'CRITICAL', 'XSS in dojo < 1.17.0'),
-    ('ExtJS',        r'ext-all[.-]([\d.]+)(?:\.min)?\.js',          '1', '6.6.0',  'CVE-2020-8911',  'HIGH',    'Prototype pollution in ExtJS'),
-    ('CKEditor',     r'ckeditor[.-]([\d.]+)(?:\.min)?\.js',         '1', '4.18.0', 'CVE-2022-24728', 'MEDIUM',  'XSS in CKEditor < 4.18.0'),
-    ('TinyMCE',      r'tinymce[.-]([\d.]+)(?:\.min)?\.js',          '1', '5.10.0', 'CVE-2021-44701', 'MEDIUM',  'XSS in TinyMCE < 5.10.0'),
-    ('CodeMirror',   r'codemirror[.-]([\d.]+)(?:\.min)?\.js',       '1', '5.65.0', 'CVE-2022-24713', 'MEDIUM',  'ReDoS in CodeMirror < 5.65.0'),
-    ('Swagger UI',   r'swagger-ui[.-]([\d.]+)(?:\.min)?\.js',       '1', '4.1.3',  'CVE-2021-46708', 'MEDIUM',  'XSS in Swagger UI < 4.1.3'),
-    ('Font Awesome', r'font-awesome[./]([\d.]+)',                    '1', '5.0.0',  '',               'INFO',    'Font Awesome < 5.0.0 (legacy, update recommended)'),
-]
+def _load_retirejs_db() -> tuple[dict, str]:
+    """Return (db_dict, source_label) where source is 'live', 'cached', or 'builtin'.
+
+    Priority:
+    1. Fresh local cache  (< 24 h old)
+    2. Fetch from GitHub  (and save to cache)
+    3. Stale cache        (any age, beats builtin)
+    4. Empty dict         (all API calls failed — supply-chain still runs, finds nothing)
+    """
+    # 1. Fresh cache
+    if _RETIREJS_CACHE.exists():
+        age = time.time() - _RETIREJS_CACHE.stat().st_mtime
+        if age < _RETIREJS_TTL:
+            try:
+                db = json.loads(_RETIREJS_CACHE.read_text('utf-8'))
+                if isinstance(db, dict) and len(db) > 50:
+                    return db, f'cached ({int(age/3600)}h old, {len(db)} libraries)'
+            except Exception:
+                pass
+
+    # 2. Live fetch
+    try:
+        req = urllib.request.Request(
+            _RETIREJS_URL,
+            headers={'User-Agent': 'CF_AI-PassiveScanner/1.0',
+                     'Accept': 'application/json'},
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode('utf-8', errors='replace')
+        db = json.loads(raw)
+        if isinstance(db, dict) and len(db) > 50:
+            try:
+                _RETIREJS_CACHE.parent.mkdir(parents=True, exist_ok=True)
+                _RETIREJS_CACHE.write_text(raw, encoding='utf-8')
+            except Exception:
+                pass
+            return db, f'live (fetched {len(db)} libraries from github.com/RetireJS)'
+    except Exception:
+        pass
+
+    # 3. Stale cache fallback
+    if _RETIREJS_CACHE.exists():
+        try:
+            db = json.loads(_RETIREJS_CACHE.read_text('utf-8'))
+            if isinstance(db, dict) and len(db) > 50:
+                age_h = int((time.time() - _RETIREJS_CACHE.stat().st_mtime) / 3600)
+                return db, f'stale cache ({age_h}h old — offline?)'
+        except Exception:
+            pass
+
+    return {}, 'unavailable — no DB loaded, no JS vulns will be checked'
+
+
+_RJS_VER_PH = '§§version§§'   # §§version§§ placeholder in Retire.js patterns
+_RJS_VER_RE = '([0-9][^\\s/\'"<>]*)'             # capture group that replaces the placeholder
+
+
+def _js_pat_to_python(pat: str) -> str:
+    """Convert a Retire.js extractor pattern to a Python-compatible regex.
+
+    Retire.js patterns use §§version§§ (§§version§§) as a
+    placeholder that should become a capturing group for the version string.
+    Patterns may also be wrapped in JS regex literal syntax: /pattern/flags.
+    """
+    pat = pat.strip()
+    # Strip JS regex literal wrapper /.../ (keep flags for now, Python handles case via re.I)
+    m = re.match(r'^/(.+)/[gimsuy]*$', pat, re.DOTALL)
+    if m:
+        pat = m.group(1)
+    # Replace the version placeholder with a named capture group
+    pat = pat.replace(_RJS_VER_PH, _RJS_VER_RE)
+    return pat
+
+
+_VER_CLEANUP_RE = re.compile(r'[./](min|js|css|bundle|esm|cjs)$', re.I)
+
+
+def _fetch_script_head(url: str, max_bytes: int = 4096) -> str:
+    """Fetch the first max_bytes of a JS file for content-based fingerprinting.
+    Returns '' on any error — always safe to call.
+    """
+    try:
+        # Only fetch absolute URLs; skip data: and blob: schemes
+        if not url.startswith(('http://', 'https://')):
+            return ''
+        req = urllib.request.Request(
+            url,
+            headers={'User-Agent': 'CF_AI-PassiveScanner/1.0',
+                     'Range': f'bytes=0-{max_bytes - 1}'},
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return resp.read(max_bytes).decode('utf-8', errors='replace')
+    except Exception:
+        return ''
+
+
+def _check_scripts_against_retirejs(
+    script_urls: list[str],
+    db: dict,
+    fetch_content: bool = True,
+    max_content_fetches: int = 12,
+) -> list[dict]:
+    """Match script URLs against the full Retire.js vulnerability DB.
+
+    Two detection passes:
+    1. URL/filename pattern matching  — fast, no network calls
+    2. File-content pattern matching  — fetches first 4KB of each script (up to
+       max_content_fetches scripts) to catch libraries like Lodash that don't
+       encode the version in their filename.
+
+    Returns a list of finding dicts sorted CRITICAL → HIGH → MEDIUM → LOW → INFO.
+    """
+    sev_rank = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'INFO': 4}
+    findings: list[dict] = []
+    seen: set[tuple] = set()
+
+    # Pre-compile all patterns per library per extractor type
+    lib_patterns: list[tuple[str, str, list[tuple[str, re.Pattern]]]] = []
+    for lib_key, lib_data in db.items():
+        if not isinstance(lib_data, dict) or not lib_data.get('vulnerabilities'):
+            continue
+        extractors = lib_data.get('extractors', {})
+        compiled: list[tuple[str, re.Pattern]] = []
+        for etype in ('filename', 'uri', 'filecontent'):
+            for raw_pat in extractors.get(etype, []):
+                if not isinstance(raw_pat, str):
+                    continue
+                try:
+                    compiled.append((etype, re.compile(
+                        _js_pat_to_python(raw_pat), re.IGNORECASE | re.DOTALL)))
+                except re.error:
+                    pass
+        if compiled:
+            lib_display = (lib_data.get('bowername', [lib_key])[0]
+                           if lib_data.get('bowername') else lib_key)
+            lib_patterns.append((lib_display, lib_key, compiled))
+
+    def _record_vuln(lib_display: str, url: str, detected_ver: str,
+                     vulns: list[dict]) -> None:
+        # Strip .min/.js/.css suffix that sometimes bleeds into the version capture
+        ver = _VER_CLEANUP_RE.sub('', detected_ver).strip(' \t\r\n')
+        for vuln in vulns:
+            below       = vuln.get('below', '') or ''
+            at_or_above = vuln.get('atOrAbove', '') or ''
+            if not below:
+                continue
+            if not _version_below(ver, below):
+                continue
+            if at_or_above and _version_below(ver, at_or_above):
+                continue
+            ids     = vuln.get('identifiers', {}) or {}
+            cves    = ids.get('CVE', []) or []
+            summary = (ids.get('summary', '')
+                       or (cves[0] if cves else f'{lib_display} < {below}'))
+            sev = (vuln.get('severity') or 'medium').upper()
+            if sev not in sev_rank:
+                sev = 'MEDIUM'
+            key = (lib_display, url, below)
+            if key not in seen:
+                seen.add(key)
+                findings.append({
+                    'lib':         lib_display,
+                    'version':     ver,
+                    'below':       below,
+                    'at_or_above': at_or_above,
+                    'cves':        cves[:5],
+                    'severity':    sev,
+                    'summary':     summary[:250],
+                    'url':         url,
+                })
+
+    # ── Pass 1: URL/filename matching (no network) ────────────────────────────
+    for url in script_urls:
+        url_clean    = url.split('?')[0].split('#')[0]
+        url_filename = url_clean.rsplit('/', 1)[-1]
+
+        for lib_display, lib_key, compiled in lib_patterns:
+            for etype, pat in compiled:
+                if etype == 'filecontent':
+                    continue
+                target = url_filename if etype == 'filename' else url_clean
+                try:
+                    m = pat.search(target)
+                    if not m:
+                        continue
+                    try:
+                        detected_ver = m.group(1)
+                    except IndexError:
+                        continue
+                    _record_vuln(lib_display, url, detected_ver,
+                                 db[lib_key]['vulnerabilities'])
+                    break
+                except Exception:
+                    continue
+
+    # ── Pass 2: File-content matching (fetches script heads in parallel) ──────
+    if fetch_content:
+        # Only fetch absolute external URLs not already confirmed vulnerable
+        confirmed_urls = {f['url'] for f in findings}
+        to_fetch = [
+            u for u in script_urls
+            if u.startswith(('http://', 'https://')) and u not in confirmed_urls
+        ][:max_content_fetches]
+
+        if to_fetch:
+            contents: dict[str, str] = {}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+                fmap = {pool.submit(_fetch_script_head, u): u for u in to_fetch}
+                for fut in concurrent.futures.as_completed(fmap, timeout=15):
+                    u = fmap[fut]
+                    try:
+                        contents[u] = fut.result() or ''
+                    except Exception:
+                        contents[u] = ''
+
+            for url, content in contents.items():
+                if not content:
+                    continue
+                for lib_display, lib_key, compiled in lib_patterns:
+                    for etype, pat in compiled:
+                        if etype != 'filecontent':
+                            continue
+                        try:
+                            m = pat.search(content)
+                            if not m:
+                                continue
+                            try:
+                                detected_ver = m.group(1)
+                            except IndexError:
+                                continue
+                            _record_vuln(lib_display, url, detected_ver,
+                                         db[lib_key]['vulnerabilities'])
+                            break
+                        except Exception:
+                            continue
+
+    findings.sort(key=lambda f: (sev_rank.get(f['severity'], 5), f['lib']))
+    return findings
 
 # ---------------------------------------------------------------------------
 # Dangling DNS cloud provider CNAME suffixes
@@ -690,11 +902,19 @@ def run_tech_detect(domain: str, on_text: Callable[[str], None]) -> None:
 # ---------------------------------------------------------------------------
 
 def run_supply_chain(domain: str, on_text: Callable[[str], None]) -> None:
-    """Supply chain audit: fetch page, extract script src URLs, match against known-vuln DB."""
+    """Supply chain audit: fetch page, extract script src URLs, check against full Retire.js DB."""
     on_text(f'\n[SUPPLY CHAIN] Starting supply chain / JS library audit for: {domain}\n')
     on_text('=' * 60 + '\n')
 
+    # Load Retire.js DB (cached locally, refreshed every 24 h)
+    on_text('\n[INFO] Loading Retire.js vulnerability database...\n')
+    db, db_source = _load_retirejs_db()
+    on_text(f'[INFO] DB source: {db_source}\n')
+    if db:
+        on_text(f'[INFO] Database covers {len(db)} JS libraries\n')
+
     # Fetch the page
+    on_text(f'\n[INFO] Fetching {domain} to extract script tags...\n')
     html_body = ''
     try:
         html_body, _ = _get_response(f'https://{domain}')
@@ -709,58 +929,46 @@ def run_supply_chain(domain: str, on_text: Callable[[str], None]) -> None:
 
     # Extract all <script src="..."> URLs
     script_srcs = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html_body, re.IGNORECASE)
-    on_text(f'\n[INFO] Found {len(script_srcs)} external script(s) on {domain}\n')
+    on_text(f'\n[INFO] Found {len(script_srcs)} script tag(s) on {domain}\n')
     on_text('-' * 40 + '\n')
 
     if not script_srcs:
-        on_text('[INFO] No external script sources found — either inline scripts or no JS\n')
+        on_text('[INFO] No external script sources found — page may use inline JS only\n')
         on_text('[INFO] Supply chain audit complete\n')
         return
 
     for src in script_srcs:
-        on_text(f'  Script: {src}\n')
+        on_text(f'  {src}\n')
 
-    # Match against vuln library DB
-    on_text('\n[INFO] Matching against known-vulnerable library database\n')
+    # Match against full Retire.js DB
+    on_text('\n[INFO] Matching scripts against Retire.js vulnerability database\n')
     on_text('-' * 40 + '\n')
 
-    findings: list[tuple[str, str, str, str, str, str, str]] = []  # (src, lib, version, vuln_below, cve, sev, desc)
-    clean_srcs: list[str] = []
-
-    for src in script_srcs:
-        # Normalize: strip query strings for matching
-        src_clean = src.split('?')[0].split('#')[0]
-        # Use the last path component for matching
-        filename = src_clean.rsplit('/', 1)[-1]
-        # Also try full path for patterns like dojo/1.16.0/dojo.js
-        match_str = src_clean.lower()
-
-        for lib_name, pattern, _grp, vuln_below, cve, severity, desc in _VULN_LIBS:
-            try:
-                m = re.search(pattern, match_str, re.IGNORECASE)
-                if m:
-                    detected_ver = m.group(int(_grp))
-                    if vuln_below and _version_below(detected_ver, vuln_below):
-                        findings.append((src, lib_name, detected_ver, vuln_below, cve, severity, desc))
-            except Exception:
-                pass
-
-        clean_srcs.append(src_clean)
-
-    # Report findings grouped by severity
-    sev_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'INFO': 4}
-    findings.sort(key=lambda f: sev_order.get(f[5], 5))
-
-    if findings:
-        on_text(f'[HIGH] Found {len(findings)} vulnerable JS librar(y/ies):\n\n')
-        for src, lib, ver, vuln_below, cve, severity, desc in findings:
-            cve_str = f' ({cve})' if cve else ''
-            on_text(f'[{severity}] {lib} v{ver} — {desc}{cve_str}\n')
-            on_text(f'  Source: {src}\n')
-            on_text(f'  Vulnerable below: {vuln_below}  |  Severity: {severity}\n\n')
+    if not db:
+        on_text('[MEDIUM] Retire.js DB unavailable — falling back to offline mode\n')
+        on_text('[INFO] Re-run when internet is available for full database check\n')
     else:
-        on_text('[INFO] No known-vulnerable library versions detected\n')
-        on_text('       (Libraries may still be present but versions were not parseable)\n')
+        on_text('[INFO] Pass 1: URL/filename pattern matching...\n')
+        on_text('[INFO] Pass 2: Fetching script content for libraries without versioned filenames '
+                '(Lodash, Underscore, etc.) — up to 12 scripts, 4KB each...\n')
+        findings = _check_scripts_against_retirejs(script_srcs, db, fetch_content=True)
+
+        if findings:
+            critical = [f for f in findings if f['severity'] == 'CRITICAL']
+            high     = [f for f in findings if f['severity'] == 'HIGH']
+            on_text(f'[HIGH] Found {len(findings)} vulnerable library match(es) '
+                    f'({len(critical)} CRITICAL, {len(high)} HIGH)\n\n')
+
+            for f in findings:
+                cve_str = ' | CVEs: ' + ', '.join(f['cves']) if f['cves'] else ''
+                above_str = f' (>= {f["at_or_above"]})' if f.get('at_or_above') else ''
+                on_text(f'[{f["severity"]}] {f["lib"]} v{f["version"]} — {f["summary"]}{cve_str}\n')
+                on_text(f'  Vulnerable: v{f["version"]}{above_str} < v{f["below"]}\n')
+                on_text(f'  Source URL: {f["url"]}\n\n')
+        else:
+            on_text('[INFO] No known-vulnerable library versions detected in script URLs\n')
+            on_text('       Libraries may be present but versions were not parseable from URLs.\n')
+            on_text('       Consider also running Retire.js locally: npm install -g retire && retire --path .\n')
 
     # Also flag any scripts loaded from unknown third-party origins
     on_text('\n[INFO] Third-Party Script Origin Analysis\n')
