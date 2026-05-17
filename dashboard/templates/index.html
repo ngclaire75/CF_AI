@@ -8239,7 +8239,7 @@ var _PUBLIC_PAGES = [
 var _currentPage = 'dashboard';
 
 // Admin-only pages — blocked for everyone except admins
-var _ADMIN_PAGES = ['usermgmt', 'invoices'];
+var _ADMIN_PAGES = ['usermgmt', 'invoices', 'apptmgmt'];
 
 // Hide Pro sidebar buttons entirely for Basic non-admin users
 (function() {
@@ -15230,7 +15230,6 @@ var _ALL_PAGES = [
   ]},
   { group: 'Appointments',           pages: [
     { key: 'myappts',        label: 'My Appointments' },
-    { key: 'apptmgmt',       label: 'Appointment Management' },
   ]},
   { group: 'Files',                  pages: [
     { key: 'filemanager',    label: 'My File Manager' },
@@ -15239,7 +15238,7 @@ var _ALL_PAGES = [
 
 // Presets
 var _PAGE_PRESETS = {
-  default:  ['dashboard','chatbot','pluginlogs','logexplorer','network'],
+  default:  ['chatbot','gsc','filescan','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','myappts','filemanager'],
   analyst:  ['dashboard','chatbot','gsc','filescan','threatanalytics','incidents','priority','syslog','targets','logexplorer','pluginlogs','network','history','grc'],
   readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
   all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
