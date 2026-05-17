@@ -1166,6 +1166,7 @@ def account_update():
         _save_users(users)
         session['user']['country']       = country
         session['user']['currency_code'] = currency_code
+        session.modified = True
         return jsonify({'ok': True, 'message': f'Country set to {country} ({currency_code}).'})
 
     return jsonify({'error': 'Invalid action'}), 400
@@ -3511,6 +3512,12 @@ def index():
             'dashboard', 'chatbot', 'pluginlogs', 'logexplorer', 'inventories', 'network',
         ])
         ctx['user_plan'] = u.get('plan', 'basic')
+        # Always read fresh profile fields from users.json so template reflects saved changes
+        user = dict(user)
+        user['country']       = u.get('country', user.get('country', ''))
+        user['currency_code'] = u.get('currency_code', user.get('currency_code', 'USD'))
+        user['email']         = u.get('email', user.get('email', ''))
+        ctx['current_user'] = user
     ctx['midtrans_client_key'] = _MIDTRANS_CLIENT_KEY
     ctx['midtrans_snap_js_url'] = _midtrans_snap_js_url()
     ctx['midtrans_configured'] = bool(_MIDTRANS_SERVER_KEY and _MIDTRANS_CLIENT_KEY)
