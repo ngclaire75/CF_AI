@@ -20262,40 +20262,54 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <!-- ── Cookie Consent Banner ────────────────────────────────────────────────── -->
-<div id="ci-cookie-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;
+<style>
+@keyframes ci-slide-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes ci-slide-out {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(100%); opacity: 0; }
+}
+#ci-cookie-banner { animation: none; }
+#ci-cookie-banner.ci-in  { animation: ci-slide-in  .35s cubic-bezier(.22,.68,0,1.2) forwards; }
+#ci-cookie-banner.ci-out { animation: ci-slide-out .28s ease-in forwards; }
+</style>
+
+<div id="ci-cookie-banner" style="display:none;position:fixed;bottom:20px;right:24px;z-index:99999;
+  width:340px;
   background:linear-gradient(135deg,#0f172a 0%,#172554 100%);
-  border-top:1px solid #1e3a8a;
-  box-shadow:0 -4px 24px rgba(0,0,0,.45);
-  padding:18px 28px;align-items:flex-start;gap:20px;flex-wrap:wrap;">
-  <div style="flex:1;min-width:260px;">
-    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">
-      <svg style="width:14px;height:14px;vertical-align:middle;margin-right:5px;fill:#60a5fa;" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14.5A6.5 6.5 0 1110 3.5a6.5 6.5 0 010 13zm.75-9.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm-.75 1.5a.75.75 0 01.75.75v4a.75.75 0 01-1.5 0V9.5A.75.75 0 0110 8.75z"/></svg>
-      <span data-t="id">Preferensi Cookie &amp; Penyimpanan Lokal</span><span data-t="en">Cookie &amp; Local Storage Preferences</span>
-    </div>
-    <div style="font-size:12px;color:#93c5fd;line-height:1.55;max-width:680px;">
-      <span data-t="id">CyberINK menggunakan session cookie esensial untuk autentikasi dan localStorage fungsional untuk menyimpan preferensi dashboard, status filter, dan target scan terakhir. Pilih <strong style="color:#e2e8f0;">Terima Semua</strong> untuk mengaktifkan semua penyimpanan, atau <strong style="color:#e2e8f0;">Hanya yang Diperlukan</strong> untuk mengaktifkan session cookie saja (preferensi lokal tidak akan disimpan). Pilihan Anda disimpan per akun.</span>
-      <span data-t="en">CyberINK uses an essential session cookie for authentication and functional localStorage to save dashboard preferences, filter states, and last scan target. Choose <strong style="color:#e2e8f0;">Accept All</strong> to enable all storage, or <strong style="color:#e2e8f0;">Necessary Only</strong> to enable only the session cookie (local preferences will not be saved). Your choice is stored per account.</span>
-      &nbsp;<a href="#" onclick="sbNav('privacy', document.getElementById('sb-privacy')); ciDismissBannerOnly(); return false;"
-        style="color:#60a5fa;font-size:11px;text-decoration:underline;">
-        <span data-t="id">Kebijakan Privasi</span><span data-t="en">Privacy Policy</span>
-      </a>
+  border:1px solid #1e3a8a;border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.55);
+  padding:14px 16px 12px;flex-direction:column;gap:10px;">
+  <div style="display:flex;align-items:flex-start;gap:8px;">
+    <svg style="width:14px;height:14px;flex-shrink:0;margin-top:1px;fill:#60a5fa;" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm.75 11.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm-.75-8a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0V6a.75.75 0 01.75-.75z"/></svg>
+    <div>
+      <div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:3px;line-height:1.3;">
+        <span data-t="id">Cookie &amp; Preferensi Penyimpanan</span><span data-t="en">Cookie &amp; Storage Preferences</span>
+      </div>
+      <div style="font-size:11px;color:#93c5fd;line-height:1.5;">
+        <span data-t="id">Kami menggunakan session cookie esensial dan localStorage untuk preferensi dashboard. <strong style="color:#bfdbfe;">Terima Semua</strong> atau pilih <strong style="color:#bfdbfe;">Hanya yang Diperlukan</strong>.</span>
+        <span data-t="en">We use an essential session cookie and localStorage for dashboard preferences. <strong style="color:#bfdbfe;">Accept All</strong> or choose <strong style="color:#bfdbfe;">Necessary Only</strong>.</span>
+        &nbsp;<a href="#" onclick="sbNav('privacy',document.getElementById('sb-privacy'));ciDismissBannerOnly();return false;" style="color:#60a5fa;font-size:10px;text-decoration:underline;white-space:nowrap;"><span data-t="id">Privasi</span><span data-t="en">Privacy</span></a>
+      </div>
     </div>
   </div>
-  <div style="display:flex;gap:10px;flex-shrink:0;align-items:center;padding-top:2px;flex-wrap:wrap;">
+  <div style="display:flex;gap:8px;justify-content:flex-end;">
     <button onclick="ciNecessaryOnly()"
-      style="padding:8px 18px;border:1px solid #334155;border-radius:6px;background:transparent;
-             color:#94a3b8;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+      style="padding:5px 12px;border:1px solid #334155;border-radius:6px;background:transparent;
+             color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;
              transition:background .15s,color .15s;"
       onmouseover="this.style.background='#1e293b';this.style.color='#e2e8f0';"
       onmouseout="this.style.background='transparent';this.style.color='#94a3b8';">
       <span data-t="id">Hanya yang Diperlukan</span><span data-t="en">Necessary Only</span>
     </button>
     <button onclick="ciAcceptAll()"
-      style="padding:8px 22px;border:none;border-radius:6px;
+      style="padding:5px 14px;border:none;border-radius:6px;
              background:linear-gradient(135deg,#1d4ed8,#2563eb);
-             color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;
+             color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
              box-shadow:0 2px 8px rgba(37,99,235,.4);transition:opacity .15s;"
-      onmouseover="this.style.opacity='.88';" onmouseout="this.style.opacity='1';">
+      onmouseover="this.style.opacity='.85';" onmouseout="this.style.opacity='1';">
       <span data-t="id">Terima Semua</span><span data-t="en">Accept All</span>
     </button>
   </div>
@@ -20306,63 +20320,65 @@ document.addEventListener('DOMContentLoaded', function() {
   var _CI_USER = (typeof USER_NAME !== 'undefined' ? USER_NAME : 'guest');
   var _CI_KEY  = 'cyberink_cookie_consent_' + _CI_USER;
 
-  // Non-essential localStorage keys used for preferences
   var _CI_PREF_KEYS = [
     'cfai_dash_layout', 'cfai_ual_target', 'cfai_inv_statuses',
     'cfai_log_statuses', 'cfai_inv_plugin_domain', 'cfai_cw_job'
   ];
 
   function _ciSaveChoice(choice) {
-    try {
-      localStorage.setItem(_CI_KEY, JSON.stringify({ choice: choice, ts: Date.now(), user: _CI_USER }));
-    } catch(e) {}
+    try { localStorage.setItem(_CI_KEY, JSON.stringify({ choice: choice, ts: Date.now(), user: _CI_USER })); } catch(e) {}
   }
 
   function _ciGetChoice() {
-    try {
-      var raw = localStorage.getItem(_CI_KEY);
-      if (!raw) return null;
-      return JSON.parse(raw).choice || null;
-    } catch(e) { return null; }
+    try { var raw = localStorage.getItem(_CI_KEY); return raw ? (JSON.parse(raw).choice || null) : null; } catch(e) { return null; }
   }
 
-  window.ciCanStorePrefs = function() {
-    return _ciGetChoice() === 'all';
-  };
+  function _ciShow() {
+    var el = document.getElementById('ci-cookie-banner');
+    el.classList.remove('ci-out');
+    el.style.display = 'flex';
+    void el.offsetWidth; // reflow
+    el.classList.add('ci-in');
+  }
+
+  function _ciHide(cb) {
+    var el = document.getElementById('ci-cookie-banner');
+    el.classList.remove('ci-in');
+    el.classList.add('ci-out');
+    setTimeout(function() {
+      el.style.display = 'none';
+      el.classList.remove('ci-out');
+      if (cb) cb();
+    }, 300);
+  }
+
+  window.ciCanStorePrefs = function() { return _ciGetChoice() === 'all'; };
 
   window.ciAcceptAll = function() {
     _ciSaveChoice('all');
-    document.getElementById('ci-cookie-banner').style.display = 'none';
+    _ciHide();
   };
 
   window.ciNecessaryOnly = function() {
     _ciSaveChoice('necessary');
-    _CI_PREF_KEYS.forEach(function(k) {
-      try { localStorage.removeItem(k); } catch(e) {}
-    });
-    // Also remove any dash_panel_* keys
+    _CI_PREF_KEYS.forEach(function(k) { try { localStorage.removeItem(k); } catch(e) {} });
     try {
-      Object.keys(localStorage).filter(function(k) {
-        return k.startsWith('dash_panel_');
-      }).forEach(function(k) { localStorage.removeItem(k); });
+      Object.keys(localStorage).filter(function(k) { return k.startsWith('dash_panel_'); })
+        .forEach(function(k) { localStorage.removeItem(k); });
     } catch(e) {}
-    document.getElementById('ci-cookie-banner').style.display = 'none';
+    _ciHide();
   };
 
   window.ciResetConsent = function() {
     try { localStorage.removeItem(_CI_KEY); } catch(e) {}
-    document.getElementById('ci-cookie-banner').style.display = 'flex';
-    window.scrollTo(0, document.body.scrollHeight);
+    _ciShow();
   };
 
-  window.ciDismissBannerOnly = function() {
-    document.getElementById('ci-cookie-banner').style.display = 'none';
-  };
+  window.ciDismissBannerOnly = function() { _ciHide(); };
 
-  // Show banner if this account has not yet made a choice
   document.addEventListener('DOMContentLoaded', function() {
     if (_ciGetChoice() === null) {
-      document.getElementById('ci-cookie-banner').style.display = 'flex';
+      setTimeout(_ciShow, 600);
     }
   });
 })();
