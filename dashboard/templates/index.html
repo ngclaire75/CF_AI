@@ -8203,8 +8203,18 @@ var _PAGE_TITLES = {
 var _PRO_PAGES = ['scan', 'targets', 'history'];
 
 // Pages always accessible to every logged-in user regardless of plan or whitelist
-var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'syslog', 'agents',
-                     'account', 'support', 'myappts', 'filemanager'];
+// (all non-admin, non-pro pages — basic users can reach everything shown in their sidebar)
+var _PUBLIC_PAGES = [
+  'pricing', 'policy', 'privacy',
+  'dashboard',
+  'agents', 'chatbot', 'gsc', 'filescan',
+  'threatanalytics',
+  'incidents', 'priority', 'syslog', 'pluginlogs', 'logexplorer', 'network',
+  'sca', 'dca', 'grc',
+  'account', 'support', 'myappts', 'filemanager',
+  'securescore', 'signals', 'eventtimeline', 'mitre',
+  'recommendations', 'remediation', 'weaknesses', 'inventories', 'observability'
+];
 
 var _currentPage = 'dashboard';
 
