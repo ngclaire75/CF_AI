@@ -7134,14 +7134,14 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <div class="pricing-price-secondary pricing-price-monthly"><span data-t="id">atau</span><span data-t="en">or</span> <strong>Rp 2.690.000</strong> / seat / <span data-t="id">tahun</span><span data-t="en">year</span> &nbsp;<span class="ptoggle-save"><span data-t="id">Hemat 25%</span><span data-t="en">Save 25%</span></span></div>
         <div class="pricing-price-secondary pricing-price-annual" style="display:none"><span data-t="id">atau</span><span data-t="en">or</span> <strong>Rp 299.000</strong> / seat / <span data-t="id">bulan</span><span data-t="en">month</span></div>
         <div class="pricing-price-alt" id="pricing-pro-alt"><span data-t="id">Ditagih bulanan &bull; setara Rp 299.000/bln</span><span data-t="en">Billed monthly &bull; Rp 299,000/mo</span></div>
-        <div class="pricing-desc"><span data-t="id">Semua fitur Basic, ditambah pemindaian agen AI langsung dan alur kerja pentest lengkap.</span><span data-t="en">Everything in Basic, plus live AI agent scanning and full pentest workflow.</span></div>
+        <div class="pricing-desc"><span data-t="id">Semua fitur Basic, ditambah pemindaian keamanan penuh dan alur kerja pentest lengkap.</span><span data-t="en">Everything in Basic, plus full security scanning and complete pentest workflow.</span></div>
         <hr class="pricing-divider">
         <ul class="pricing-features">
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Semua fitur Basic</span><span data-t="en">Everything in Basic</span></li>
-          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Connect &amp; Scan dengan Agen — 11 agen WSTG, perintah shell nyata</span><span data-t="en">Connect &amp; Scan with Agent — 11 WSTG agents, real shell commands</span></li>
-          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Cakupan checklist OWASP WSTG penuh (69 item uji)</span><span data-t="en">Full OWASP WSTG checklist coverage (69 test items)</span></li>
-          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Manajemen Pentest Engagement — temuan, checklist, RoE, laporan AI</span><span data-t="en">Pentest Engagement Management — findings, checklist, RoE, AI report</span></li>
-          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Riwayat Scan &amp; Analitik Keamanan</span><span data-t="en">Scan History &amp; Security Analytics</span></li>
+          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Security Scanner — pemindaian AI penuh terhadap target URL</span><span data-t="en">Security Scanner — full AI-powered scanning against any target URL</span></li>
+          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Scan Results — riwayat temuan lengkap per target</span><span data-t="en">Scan Results — full findings history per target</span></li>
+          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Scan Analytics — tren ancaman, distribusi severity, analitik waktu</span><span data-t="en">Scan Analytics — threat trends, severity distribution, time-series analytics</span></li>
+          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Generate Pentest Report — laporan PDF profesional bertenaga AI</span><span data-t="en">Generate Pentest Report — AI-written professional PDF pentest reports</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Rekomendasi remediasi otomatis dari hasil scan</span><span data-t="en">Automated remediation recommendations from scan output</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Hingga 50 scan/bulan per pengguna</span><span data-t="en">Up to 50 scans/month per user</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Dukungan prioritas via email (respons &lt; 24 jam)</span><span data-t="en">Priority email support (response &lt; 24 hours)</span></li>
@@ -7909,20 +7909,12 @@ var _PAGE_TITLES = {
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
-var _PRO_PAGES = ['scan', 'pentest', 'agents'];
+var _PRO_PAGES = ['scan', 'targets', 'history', 'pentest'];
 
 // Pages always accessible to every logged-in user regardless of plan or whitelist
 var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'syslog'];
 
 var _currentPage = 'dashboard';
-
-// Hide Meet Our Agents sidebar button for non-pro, non-admin users
-(function() {
-  if (USER_PLAN !== 'pro' && USER_ROLE !== 'admin') {
-    var agentsBtn = document.getElementById('sb-agents');
-    if (agentsBtn) agentsBtn.style.display = 'none';
-  }
-})();
 
 function sbNav(section, el) {
   var isPublic = _PUBLIC_PAGES.indexOf(section) !== -1;
