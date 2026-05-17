@@ -2102,6 +2102,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-invoices" onclick="sbNav('invoices',this)">
       <span class="sb-label">Invoice Management</span>
     </button>
+    <button class="sb-item" id="sb-apptmgmt" onclick="sbNav('apptmgmt',this)">
+      <span class="sb-label">Appointment Management</span>
+    </button>
     {% endif %}
 
     <div class="sb-divider"></div>
@@ -2118,11 +2121,6 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     {% if current_user.role != 'admin' %}
     <button class="sb-item" id="sb-myappts" onclick="sbNav('myappts',this)">
       <span class="sb-label">My Appointments</span>
-    </button>
-    {% endif %}
-    {% if current_user.role == 'admin' %}
-    <button class="sb-item" id="sb-apptmgmt" onclick="sbNav('apptmgmt',this)">
-      <span class="sb-label">Appointment Management</span>
     </button>
     {% endif %}
 
