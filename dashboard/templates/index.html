@@ -19401,10 +19401,8 @@ function grcExport() {
         + '<div class="amgr-inline" id="amgr-inline-cost-'+a.id+'">'
           + '<div class="amgr-inline-lbl">Set Appointment Cost</div>'
           + '<div class="amgr-grid2">'
-            + '<div><div class="amgr-inline-lbl">Amount</div><input class="amgr-inp" id="amgr-cost-amt-'+a.id+'" type="number" min="0" step="0.01" placeholder="e.g. 150.00" value="'+(a.cost_amount!=null?a.cost_amount:'')+'"></div>'
-            + '<div><div class="amgr-inline-lbl">Currency</div><select class="amgr-inp" id="amgr-cost-cur-'+a.id+'">'
-              + ['USD','EUR','GBP','SGD','MYR','IDR','AUD','CAD','JPY','CNY','INR','KRW','THB','PHP','VND','HKD','NZD','CHF','SEK','NOK','DKK','BRL','MXN','ZAR','NGN','AED','SAR','PKR','BDT','TWD'].map(function(c){ return '<option value="'+c+'"'+(a.cost_currency===c?' selected':'')+'>'+c+'</option>'; }).join('')
-              + '</select></div>'
+            + '<div><div class="amgr-inline-lbl">Amount (IDR)</div><input class="amgr-inp" id="amgr-cost-amt-'+a.id+'" type="number" min="0" step="1" placeholder="e.g. 500000" value="'+(a.cost_amount!=null?a.cost_amount:'')+'"></div>'
+            + '<div><div class="amgr-inline-lbl">Currency</div><div style="padding:8px 10px;border-radius:6px;font-size:12px;font-weight:700;color:#1e3a8a;background:#eff6ff;border:1px solid #bfdbfe;">IDR — Indonesian Rupiah</div></div>'
           + '</div>'
           + '<button class="amgr-conf" onclick="amgrDoSetCost(\''+a.id+'\')">Save Cost</button>'
           + '<div class="amgr-msg" id="amgr-msg-cost-'+a.id+'"></div>'
@@ -19472,10 +19470,9 @@ function grcExport() {
   };
   window.amgrDoSetCost = function(id) {
     var amt = ((document.getElementById('amgr-cost-amt-'+id)||{}).value || '').trim();
-    var cur = (document.getElementById('amgr-cost-cur-'+id)||{}).value || 'USD';
     var msgEl = document.getElementById('amgr-msg-cost-'+id);
     if (!amt || isNaN(parseFloat(amt))) { msgEl.className='amgr-msg err'; msgEl.textContent='A valid amount is required.'; msgEl.style.display=''; return; }
-    _amgrPost('/api/appointments/'+id+'/set-cost', {amount:parseFloat(amt),currency:cur}, msgEl);
+    _amgrPost('/api/appointments/'+id+'/set-cost', {amount:parseFloat(amt),currency:'IDR'}, msgEl);
   };
   window.amgrDoNote = function(id) {
     var notes = (document.getElementById('amgr-adminnote-'+id)||{}).value || '';
