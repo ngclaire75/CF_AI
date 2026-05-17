@@ -6245,7 +6245,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       </div>
       <div style="overflow-x:auto;">
         <table class="grc2-tbl">
-          <thead><tr><th>NAME</th><th>AUDITOR</th><th>SCOPE</th><th>STATUS</th><th>START</th><th>END</th><th id="grc-audit-acct-th" style="display:none;">ACCOUNT</th></tr></thead>
+          <thead><tr><th>NAME</th><th>AUDITOR</th><th>SCOPE</th><th>STATUS</th><th>START</th><th>END</th><th id="grc-audit-acct-th" style="display:none;">ACCOUNT</th><th style="width:120px;"></th></tr></thead>
           <tbody id="grc-audit-tbody"></tbody>
         </table>
       </div>
@@ -18326,6 +18326,10 @@ function _grcRenderAuditTable(audits) {
       +'<td style="font-size:12px;color:#64748b;">'+(_ge(a.start_date)||'—')+'</td>'
       +'<td style="font-size:12px;color:#64748b;">'+(_ge(a.end_date)||'—')+'</td>'
       +(USER_ROLE==='admin' ? '<td style="font-size:11px;color:#2563eb;">'+(_ge(a.username)||'<span style="color:#94a3b8;">—</span>')+'</td>' : '')
+      +'<td style="white-space:nowrap;">'
+        +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditAudit('+a.id+')">Edit</button> '
+        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelAudit('+a.id+')">Delete</button>'
+      +'</td>'
       +'</tr>';
   }).join('');
 }
