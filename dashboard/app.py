@@ -435,45 +435,53 @@ _SMTP_PORT = int(os.environ.get('SMTP_PORT', '465'))
 _BASE_URL  = os.environ.get('CFAI_BASE_URL', 'http://localhost:8889')
 
 # ── App version (git short hash — auto-updates on every commit) ───────────────
-def _get_git_version() -> str:
+_GIT_ROOT = os.path.dirname(os.path.abspath(__file__))
+_CC_PREFIX = re.compile(
+    r'^(feat|fix|chore|refactor|docs|style|test|perf|build|ci|revert)(\(.+?\))?[!]?:\s*',
+    re.IGNORECASE,
+)
+
+def _git_run(*args) -> str:
     try:
         r = _subprocess.run(
-            ['git', 'rev-parse', '--short', 'HEAD'],
-            capture_output=True, text=True, timeout=5,
-            cwd=os.path.dirname(os.path.abspath(__file__))
+            ['git'] + list(args),
+            capture_output=True, text=True, timeout=5, cwd=_GIT_ROOT,
         )
-        v = r.stdout.strip()
-        return v if v else 'dev'
+        return r.stdout.strip()
     except Exception:
-        return 'dev'
+        return ''
+
+def _get_git_commit_count() -> int:
+    try:
+        return int(_git_run('rev-list', '--count', 'HEAD') or '0')
+    except ValueError:
+        return 0
+
+def _get_git_version() -> str:
+    n = _get_git_commit_count()
+    return f'1.0.{n}' if n else '1.0.0'
 
 def _get_git_build_date() -> str:
-    try:
-        r = _subprocess.run(
-            ['git', 'log', '-1', '--format=%cd', '--date=format:%d %b %Y'],
-            capture_output=True, text=True, timeout=5,
-            cwd=os.path.dirname(os.path.abspath(__file__))
-        )
-        v = r.stdout.strip()
-        return v if v else _datetime.datetime.now().strftime('%d %b %Y')
-    except Exception:
-        return _datetime.datetime.now().strftime('%d %b %Y')
+    v = _git_run('log', '-1', '--format=%cd', '--date=format:%d %b %Y')
+    return v if v else _datetime.datetime.now().strftime('%d %b %Y')
 
-def _get_git_changelog(n: int = 10) -> list[dict]:
-    try:
-        r = _subprocess.run(
-            ['git', 'log', f'-{n}', '--format=%h|||%s'],
-            capture_output=True, text=True, timeout=5,
-            cwd=os.path.dirname(os.path.abspath(__file__))
-        )
-        entries = []
-        for line in r.stdout.strip().splitlines():
-            if '|||' in line:
-                h, msg = line.split('|||', 1)
-                entries.append({'hash': h.strip(), 'msg': msg.strip()})
-        return entries
-    except Exception:
-        return []
+def _clean_commit_msg(msg: str) -> str:
+    msg = _CC_PREFIX.sub('', msg).strip()
+    return msg[:1].upper() + msg[1:] if msg else msg
+
+def _get_git_changelog(n: int = 12) -> list[dict]:
+    total = _get_git_commit_count()
+    raw = _git_run('log', f'-{n}', '--format=%s')
+    entries = []
+    for i, line in enumerate(raw.splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        entries.append({
+            'version': f'1.0.{total - i}',
+            'msg': _clean_commit_msg(line),
+        })
+    return entries
 
 _APP_VERSION    = _get_git_version()
 _APP_BUILD_DATE = _get_git_build_date()
