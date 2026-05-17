@@ -2434,35 +2434,8 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
       </div>
     </div>
 
-    <!-- ROW C: Sparkline grid | Top Vulns table | Stacked risk bar -->
-    <div style="display:grid;grid-template-columns:1fr 1.4fr 1.1fr;gap:5px;margin-bottom:3px;">
-
-      <!-- Sparkline 2×2 grid -->
-      <div style="background:#fff;border:1px solid #bfdbfe;border-radius:3px;padding:7px 10px;min-width:0;">
-        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background:linear-gradient(90deg,#172554,#2563eb);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:5px;">Live Metric Sparklines · 7d</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;min-width:0;overflow:hidden;">
-            <div style="font-size:8px;color:#2563eb;font-weight:600;">Scan Rate</div>
-            <div id="ek-scanrate" style="font-size:13px;font-weight:700;color:#172554;">—/day</div>
-            <div style="height:30px;margin-top:2px;overflow:hidden;"><canvas id="ent-spark-scan" style="max-width:100%;"></canvas></div>
-          </div>
-          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;min-width:0;overflow:hidden;">
-            <div style="font-size:8px;color:#2563eb;font-weight:600;">Risk Score</div>
-            <div id="ek-riskscore" style="font-size:13px;font-weight:700;color:#1e3a8a;">—</div>
-            <div style="height:30px;margin-top:2px;overflow:hidden;"><canvas id="ent-spark-risk" style="max-width:100%;"></canvas></div>
-          </div>
-          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;min-width:0;overflow:hidden;">
-            <div style="font-size:8px;color:#2563eb;font-weight:600;">Incidents</div>
-            <div id="ek-inccount" style="font-size:13px;font-weight:700;color:#2563eb;">—</div>
-            <div style="height:30px;margin-top:2px;overflow:hidden;"><canvas id="ent-spark-inc" style="max-width:100%;"></canvas></div>
-          </div>
-          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:2px;padding:4px 6px;min-width:0;overflow:hidden;">
-            <div style="font-size:8px;color:#2563eb;font-weight:600;">Remediated</div>
-            <div id="ek-remediated" style="font-size:13px;font-weight:700;color:#3b82f6;">—%</div>
-            <div style="height:30px;margin-top:2px;overflow:hidden;"><canvas id="ent-spark-rem" style="max-width:100%;"></canvas></div>
-          </div>
-        </div>
-      </div>
+    <!-- ROW C: Top Vulns table | Stacked risk bar -->
+    <div style="display:grid;grid-template-columns:1.4fr 1.1fr;gap:5px;margin-bottom:3px;">
 
       <!-- Top Vulnerabilities mini-table -->
       <div style="background:#fff;border:1px solid #bfdbfe;border-radius:3px;padding:7px 10px;min-width:0;">
