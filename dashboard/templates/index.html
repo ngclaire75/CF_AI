@@ -2988,6 +2988,7 @@ Export Power BI
               </td>
               <td>
                 <span class="urgency-pill urgency-{{ rec.urgency_class|default('low') }}">{{ rec.urgency|default('Advisory') }}</span>
+                {% if rec.age_label %}<br><span style="font-size:9px;color:#6b7280;margin-top:2px;display:inline-block;">{{ rec.age_label }}</span>{% endif %}
               </td>
               <td class="td-dim">{{ rec.date }}</td>
               <td><button class="btn btn-sm" data-id="{{ rec.scan_id }}" onclick="openModal(+this.dataset.id)">View Fix</button></td>
@@ -10101,6 +10102,7 @@ function buildRemediationCards(remediations) {
     var uc        = rem.urgency_class || 'low';
     var cves      = rem.cves      || [];
     var evidence  = rem.evidence  || [];
+    var ageLabel  = rem.age_label || '';
 
     // Header badges
     var badgesHtml = '<span class="badge badge-'+sev+'">'+sev+'</span>';
@@ -10110,6 +10112,8 @@ function buildRemediationCards(remediations) {
       badgesHtml += ' <span class="rem-urgency-badge" style="'+urgencyStyle(uc)+'">'+esc(urgency)+'</span>';
     if (cves.length)
       badgesHtml += ' <span class="rem-cve-badge" title="Click to run CVE Analysis">CVE ×'+cves.length+'</span>';
+    if (ageLabel)
+      badgesHtml += ' <span style="font-size:9px;background:#f1f5f9;color:#64748b;border-radius:3px;padding:1px 5px;font-weight:600;">'+esc(ageLabel)+'</span>';
 
     // Evidence block (actual scan lines that triggered this finding)
     var evidenceHtml = '';

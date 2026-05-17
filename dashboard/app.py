@@ -2389,6 +2389,444 @@ def _extract_http_headers_from_output(text: str) -> dict[str, str]:
     return headers
 
 
+# ── Scan tool output parsers ──────────────────────────────────────────────────
+# Each parser takes raw scan output and returns a list of synthetic remediation
+# dicts that feed directly into the match_remediations pipeline.  Entries are
+# pre-scored so structured tool findings always outrank generic pattern matches.
+
+_NIKTO_ITEM_RE = re.compile(
+    r'\+\s+([^:]+):\s+(.+)', re.M)
+_NIKTO_CVE_RE  = re.compile(r'CVE-\d{4}-\d{4,}', re.I)
+_NIKTO_OSVDB_RE = re.compile(r'OSVDB-\d+', re.I)
+
+def _parse_nikto_output(text: str) -> list[dict]:
+    """Extract structured findings from Nikto scan output.
+
+    Nikto lines look like:
+        + Server: Apache/2.4.29
+        + OSVDB-3268: /admin/: Directory indexing found.
+        + CVE-2017-7679: mod_mime buffer overread.
+        + X-Frame-Options header is not present.
+    """
+    if '+ Target IP' not in text and 'Nikto' not in text:
+        return []
+
+    synthetic: list[dict] = []
+    # Mapping: Nikto message fragment → remediation template id to boost
+    _nikto_hint_map = [
+        ('x-frame-options',         'missing-x-frame-options',  55),
+        ('x-content-type-options',  'missing-xcto',             50),
+        ('strict-transport-security','missing-hsts',             60),
+        ('content-security-policy', 'missing-csp',              55),
+        ('httponly',                'insecure-cookies',          55),
+        ('samesite',                'insecure-cookies',          50),
+        ('directory indexing',      'directory-listing',         70),
+        ('directory listing',       'directory-listing',         70),
+        ('robots.txt',              'info-disclosure',           40),
+        ('server banner',           'info-disclosure',           45),
+        ('x-powered-by',            'info-disclosure',           45),
+        ('etag',                    'info-disclosure',           40),
+        ('ssl',                     'ssl-expired',               50),
+        ('tls 1.0',                 'tls-old-versions',          65),
+        ('tls 1.1',                 'tls-old-versions',          65),
+        ('sslv2',                   'tls-old-versions',          70),
+        ('sslv3',                   'tls-old-versions',          70),
+        ('put method',              'http-put-delete-methods',   75),
+        ('delete method',           'http-put-delete-methods',   75),
+        ('trace method',            'http-trace-method',         65),
+        ('phpinfo',                 'info-disclosure',           70),
+        ('sql',                     'sql-injection',             60),
+        ('xss',                     'xss-reflected',             65),
+        ('/wp-login',               'wp-admin-exposed',          70),
+        ('/wp-content',             'wp-outdated-plugin',        45),
+        ('php/5.',                  'php-outdated',              80),
+        ('php/7.0',                 'php-outdated',              75),
+        ('php/7.1',                 'php-outdated',              75),
+        ('php/7.2',                 'php-outdated',              75),
+        ('php/7.3',                 'php-outdated',              70),
+        ('apache/2.2',              'server-version-exposed',    65),
+        ('iis/6.',                  'server-version-exposed',    70),
+        ('iis/7.',                  'server-version-exposed',    65),
+        ('default files',           'default-credentials',       60),
+        ('default page',            'info-disclosure',           45),
+        ('backup',                  'info-disclosure',           55),
+        ('.bak',                    'info-disclosure',           60),
+        ('.old',                    'info-disclosure',           55),
+        ('/.git',                   'info-disclosure',           75),
+        ('/.svn',                   'info-disclosure',           70),
+        ('cross-site',              'xss-reflected',             65),
+        ('clickjack',               'missing-x-frame-options',   65),
+        ('basic auth',              'http-basic-auth-unencrypted', 65),
+        ('no auth',                 'default-credentials',       60),
+        ('weak cipher',             'tls-weak-cipher',           70),
+        ('rc4',                     'tls-weak-cipher',           75),
+    ]
+
+    for m in _NIKTO_ITEM_RE.finditer(text):
+        label = m.group(1).strip()
+        detail = m.group(2).strip()
+        combined = (label + ' ' + detail).lower()
+        cves = [c.upper() for c in _NIKTO_CVE_RE.findall(label + ' ' + detail)]
+
+        for hint, rem_id, score in _nikto_hint_map:
+            if hint in combined:
+                # Find the base template and clone it with boosted score
+                base = next((r for r in REMEDIATIONS if r['id'] == rem_id), None)
+                if base:
+                    entry = dict(base)
+                    entry['priority_score'] = score + (10 if cves else 0)
+                    entry['confirmed']      = True
+                    entry['cves']           = cves
+                    entry['evidence']       = [f'[Nikto] {label}: {detail[:120]}']
+                    entry['urgency'], entry['urgency_class'] = _urgency_tier(
+                        entry['priority_score'], True)
+                    synthetic.append(entry)
+                break
+
+    return synthetic
+
+
+_WPSCAN_VULN_RE = re.compile(
+    r'\|\s+(?:Title|Name):\s+(.+?)(?:\n|\r)', re.M)
+_WPSCAN_CVE_RE  = re.compile(r'CVE-\d{4}-\d{4,}', re.I)
+_WPSCAN_FIXED_IN_RE = re.compile(r'Fixed\s+in\s*:\s*([\d.]+)', re.I)
+_WPSCAN_CVSS_RE = re.compile(r'(?:CVSS|Score)\s*[:\-=]\s*([\d.]+)', re.I)
+
+def _parse_wpscan_output(text: str) -> list[dict]:
+    """Extract structured findings from WPScan output.
+
+    WPScan blocks look like:
+     | Title: WordPress 5.8 - SQL injection via WP_Query
+     |  - CVE: CVE-2022-21661
+     |  - CVSS Score: 9.8
+     |  - Fixed in: 5.8.3
+    """
+    if '[+] URL' not in text and 'wpscan' not in text.lower() and 'WordPress' not in text:
+        return []
+
+    synthetic: list[dict] = []
+
+    # Detect plugin-specific vulnerabilities (WPScan lists them per plugin)
+    plugin_vuln_re = re.compile(
+        r'\[!\]\s+(.+?)\s*\n.*?(?:CVE|vulnerability|vuln|inject|xss|sqli)', re.I | re.S)
+
+    # Map WPScan finding titles to remediation IDs
+    _wp_hint_map = [
+        ('sql',             'sql-injection-confirmed', 90),
+        ('xss',             'xss-reflected',           80),
+        ('csrf',            'csrf-missing',             75),
+        ('rce',             'rce-possible',             95),
+        ('file inclusion',  'rce-possible',             90),
+        ('file upload',     'unsafe-file-upload',       85),
+        ('path traversal',  'path-traversal',           80),
+        ('ssrf',            'ssrf',                     80),
+        ('xxe',             'xxe',                      80),
+        ('ssti',            'ssti',                     80),
+        ('privilege',       'missing-authz',            75),
+        ('authentication',  'wp-user-enum',             65),
+        ('enumeration',     'wp-user-enum',             70),
+        ('user enumerat',   'wp-user-enum',             75),
+        ('outdated',        'wp-outdated-plugin',        65),
+        ('update',          'wp-outdated-plugin',        60),
+        ('admin',           'wp-admin-exposed',         70),
+        ('debug',           'wp-debug-mode',            65),
+        ('xmlrpc',          'wp-xmlrpc-enabled',        70),
+        ('backup',          'info-disclosure',          65),
+        ('redirect',        'open-redirect',            65),
+        ('log4',            'log4shell',                95),
+        ('deserialization', 'rce-possible',             90),
+        ('open redirect',   'open-redirect',            65),
+        ('plugin',          'wp-outdated-plugin',       55),
+        ('theme',           'wp-outdated-plugin',       50),
+        ('default',         'wp-default-content',       55),
+    ]
+
+    seen_ids: set[str] = set()
+    for m in _WPSCAN_VULN_RE.finditer(text):
+        title = m.group(1).strip()
+        title_l = title.lower()
+
+        # Grab CVEs and CVSS from the same block (~10 lines after title)
+        block_start = m.end()
+        block = text[block_start:block_start + 500]
+        cves  = [c.upper() for c in _WPSCAN_CVE_RE.findall(title + ' ' + block)]
+        cvss_vals = [float(x) for x in _WPSCAN_CVSS_RE.findall(block) if float(x) <= 10.0]
+        cvss  = max(cvss_vals) if cvss_vals else 0.0
+        fixed = (_WPSCAN_FIXED_IN_RE.search(block) or ['', ''])[0]
+        if hasattr(fixed, 'group'):
+            fixed = fixed.group(1)
+
+        for hint, rem_id, base_score in _wp_hint_map:
+            if hint in title_l:
+                dedup_key = rem_id + ('|'.join(cves) if cves else title[:40])
+                if dedup_key in seen_ids:
+                    continue
+                seen_ids.add(dedup_key)
+                base = next((r for r in REMEDIATIONS if r['id'] == rem_id), None)
+                if base:
+                    entry = dict(base)
+                    cvss_boost = int(cvss * 3) if cvss else 0
+                    entry['priority_score'] = base_score + cvss_boost + (15 if cves else 0)
+                    entry['confirmed']      = True
+                    entry['cves']           = cves
+                    ev = f'[WPScan] {title}'
+                    if fixed:
+                        ev += f' — fix available in v{fixed}'
+                    entry['evidence']       = [ev[:140]]
+                    entry['urgency'], entry['urgency_class'] = _urgency_tier(
+                        entry['priority_score'], True)
+                    synthetic.append(entry)
+                break
+
+    return synthetic
+
+
+_NMAP_PORT_RE = re.compile(
+    r'(\d+)/(tcp|udp)\s+(open|filtered)\s+(\S+)(?:\s+(.+))?', re.M)
+_NMAP_CVE_RE  = re.compile(r'CVE-\d{4}-\d{4,}', re.I)
+
+def _parse_nmap_services(text: str) -> list[dict]:
+    """Extract service/port findings from nmap output.
+
+    Lines like:
+        22/tcp   open  ssh     OpenSSH 7.4 (protocol 2.0)
+        3306/tcp open  mysql   MySQL 5.5.62
+        6379/tcp open  redis   Redis key-value store
+    """
+    if 'Nmap scan report' not in text and 'nmap' not in text.lower():
+        return []
+
+    # Map (port or service keyword) → remediation id and base score
+    _port_service_map = [
+        (21,   'ftp',           'info-disclosure',              55),
+        (22,   'ssh',           'server-version-exposed',       40),
+        (23,   'telnet',        'info-disclosure',              80),
+        (25,   'smtp',          'missing-spf',                  55),
+        (53,   'dns',           'dns-zone-transfer',            60),
+        (80,   'http',          'missing-hsts',                 50),
+        (443,  'https',         'ssl-expired',                  40),
+        (445,  'smb',           'info-disclosure',              75),
+        (1433, 'mssql',         'info-disclosure',              70),
+        (3306, 'mysql',         'info-disclosure',              65),
+        (3389, 'rdp',           'info-disclosure',              70),
+        (5432, 'postgresql',    'info-disclosure',              60),
+        (6379, 'redis',         'redis-exposed',                85),
+        (8080, 'http-proxy',    'info-disclosure',              50),
+        (8443, 'https-alt',     'ssl-expired',                  45),
+        (9200, 'elasticsearch', 'elasticsearch-exposed',        85),
+        (9300, 'elasticsearch', 'elasticsearch-exposed',        80),
+        (27017,'mongodb',       'mongodb-exposed',              85),
+        (5984, 'couchdb',       'info-disclosure',              70),
+        (11211,'memcache',      'info-disclosure',              70),
+        (2181, 'zookeeper',     'info-disclosure',              65),
+        (4848, 'glassfish',     'default-credentials',          70),
+        (8161, 'activemq',      'default-credentials',          70),
+        (9090, 'websm',         'info-disclosure',              60),
+    ]
+    _service_keyword_map = [
+        ('telnet',          'info-disclosure',              80),
+        ('ftp',             'info-disclosure',              60),
+        ('redis',           'redis-exposed',                85),
+        ('elasticsearch',   'elasticsearch-exposed',        85),
+        ('mongodb',         'mongodb-exposed',              85),
+        ('mysql',           'info-disclosure',              65),
+        ('postgres',        'info-disclosure',              60),
+        ('smtp',            'missing-spf',                  55),
+        ('smb',             'info-disclosure',              75),
+        ('rdp',             'info-disclosure',              70),
+        ('vnc',             'info-disclosure',              75),
+        ('memcache',        'info-disclosure',              70),
+        ('rpcbind',         'info-disclosure',              60),
+        ('nfs',             'info-disclosure',              65),
+        ('snmp',            'info-disclosure',              70),
+        ('irc',             'info-disclosure',              50),
+        ('ajp',             'info-disclosure',              70),
+        ('jmx',             'default-credentials',          70),
+        ('jboss',           'default-credentials',          75),
+        ('tomcat',          'default-credentials',          70),
+        ('jenkins',         'default-credentials',          75),
+        ('docker',          'info-disclosure',              75),
+        ('kubernetes',      'info-disclosure',              70),
+        ('zookeeper',       'info-disclosure',              65),
+        ('cassandra',       'info-disclosure',              65),
+    ]
+
+    synthetic: list[dict] = []
+    seen: set[str] = set()
+
+    for m in _NMAP_PORT_RE.finditer(text):
+        port    = int(m.group(1))
+        state   = m.group(3)
+        service = (m.group(4) or '').lower()
+        banner  = (m.group(5) or '').strip()
+
+        if state not in ('open', 'filtered'):
+            continue
+
+        rem_id = None
+        score  = 0
+
+        # Check port first
+        for p, svc_hint, rid, sc in _port_service_map:
+            if port == p:
+                rem_id, score = rid, sc
+                break
+
+        # Then service keyword
+        if not rem_id:
+            for kw, rid, sc in _service_keyword_map:
+                if kw in service or kw in banner.lower():
+                    rem_id, score = rid, sc
+                    break
+
+        if not rem_id:
+            continue
+
+        key = f'{rem_id}:{port}'
+        if key in seen:
+            continue
+        seen.add(key)
+
+        base = next((r for r in REMEDIATIONS if r['id'] == rem_id), None)
+        if not base:
+            continue
+
+        entry = dict(base)
+        entry['priority_score'] = score
+        entry['confirmed']      = True
+        entry['cves']           = []
+        ev_banner = f' ({banner})' if banner else ''
+        entry['evidence']       = [f'[Nmap] {port}/tcp open {service}{ev_banner}']
+        entry['urgency'], entry['urgency_class'] = _urgency_tier(score, True)
+        synthetic.append(entry)
+
+    return synthetic
+
+
+_NUCLEI_FINDING_RE = re.compile(
+    r'\[(\S+)\]\s+\[(\w+)\]\s+\[(\w+)\]\s+(\S+)(?:\s+\[(.+?)\])?', re.M)
+
+def _parse_nuclei_output(text: str) -> list[dict]:
+    """Extract findings from Nuclei output.
+
+    Nuclei lines look like:
+        [template-id] [protocol] [severity] https://example.com [matcher-name]
+        [CVE-2021-44228] [http] [critical] https://target.com/path
+        [wordpress-user-enum] [http] [medium] https://target.com
+    """
+    if '[http]' not in text and '[dns]' not in text and 'nuclei' not in text.lower():
+        return []
+
+    _sev_to_score = {'critical': 95, 'high': 80, 'medium': 60, 'low': 40, 'info': 25}
+
+    # Map nuclei template-id keywords → remediation ids
+    _nuclei_hint_map = [
+        ('cve-2021-44228',      'log4shell',                   100),
+        ('cve-2021-45046',      'log4shell',                   100),
+        ('log4j',               'log4shell',                   100),
+        ('log4shell',           'log4shell',                   100),
+        ('sqli',                'sql-injection-confirmed',      90),
+        ('sql-injection',       'sql-injection-confirmed',      90),
+        ('xss',                 'xss-reflected',                80),
+        ('csrf',                'csrf-missing',                 75),
+        ('ssrf',                'ssrf',                         85),
+        ('xxe',                 'xxe',                          80),
+        ('ssti',                'ssti',                         85),
+        ('rce',                 'rce-possible',                 95),
+        ('lfi',                 'path-traversal',               80),
+        ('path-traversal',      'path-traversal',               80),
+        ('open-redirect',       'open-redirect',                65),
+        ('default-login',       'default-credentials',          80),
+        ('default-password',    'default-credentials',          80),
+        ('weak-password',       'weak-password-policy',         70),
+        ('exposed-panel',       'info-disclosure',              65),
+        ('exposure',            'info-disclosure',              60),
+        ('hsts',                'missing-hsts',                 60),
+        ('x-frame',             'missing-x-frame-options',      55),
+        ('csp',                 'missing-csp',                  55),
+        ('xcto',                'missing-xcto',                 50),
+        ('cors',                'info-disclosure',              60),
+        ('cors-misconfig',      'info-disclosure',              70),
+        ('tls',                 'ssl-expired',                  55),
+        ('ssl',                 'ssl-expired',                  55),
+        ('wp-user-enum',        'wp-user-enum',                 75),
+        ('wordpress',           'wp-admin-exposed',             60),
+        ('wp-xmlrpc',           'wp-xmlrpc-enabled',            70),
+        ('wp-debug',            'wp-debug-mode',                65),
+        ('redis-unauth',        'redis-exposed',                90),
+        ('elasticsearch',       'elasticsearch-exposed',        85),
+        ('mongodb-unauth',      'mongodb-exposed',              90),
+        ('graphql',             'graphql-introspection',        70),
+        ('swagger',             'swagger-exposed',              65),
+        ('jwt',                 'jwt-weak',                     75),
+        ('api-key',             'api-key-exposed',              80),
+        ('directory-listing',   'directory-listing',            70),
+        ('git-exposed',         'info-disclosure',              80),
+        ('env-exposure',        'info-disclosure',              85),
+        ('phpinfo',             'info-disclosure',              75),
+        ('backup-files',        'info-disclosure',              65),
+        ('prototype-pollution', 'prototype-pollution',          70),
+        ('sri',                 'sri-missing',                  55),
+        ('nosql',               'nosql-injection',              80),
+        ('header-injection',    'xss-reflected',                70),
+        ('email-header',        'missing-spf',                  60),
+        ('spf',                 'missing-spf',                  65),
+        ('dmarc',               'missing-dmarc',                65),
+    ]
+
+    synthetic: list[dict] = []
+    seen: set[str] = set()
+
+    for m in _NUCLEI_FINDING_RE.finditer(text):
+        template_id = m.group(1).lower()
+        severity    = m.group(3).lower()
+        extra       = (m.group(5) or '').lower()
+        url         = m.group(4)
+
+        base_score  = _sev_to_score.get(severity, 40)
+
+        # Check for direct CVE template
+        cves = [c.upper() for c in _NIKTO_CVE_RE.findall(template_id)]
+
+        rem_id = None
+        score  = base_score
+
+        for hint, rid, hint_score in _nuclei_hint_map:
+            if hint in template_id or hint in extra:
+                rem_id = rid
+                score  = max(base_score, hint_score)
+                break
+
+        if not rem_id and cves:
+            # CVE without a mapped template → use generic info-disclosure or sql/xss
+            rem_id = 'info-disclosure'
+            score  = base_score + 15
+
+        if not rem_id:
+            continue
+
+        key = f'{rem_id}:{template_id}'
+        if key in seen:
+            continue
+        seen.add(key)
+
+        base = next((r for r in REMEDIATIONS if r['id'] == rem_id), None)
+        if not base:
+            continue
+
+        entry = dict(base)
+        entry['priority_score'] = score
+        entry['confirmed']      = True
+        entry['cves']           = cves
+        entry['evidence']       = [
+            f'[Nuclei/{severity.upper()}] {template_id} @ {url[:80]}'
+        ]
+        entry['urgency'], entry['urgency_class'] = _urgency_tier(score, True)
+        synthetic.append(entry)
+
+    return synthetic
+
+
 def match_remediations(text: str, target: str = '') -> list[dict]:
     """Return remediations dynamically scored, enriched, and personalised to this scan.
 
@@ -2401,7 +2839,8 @@ def match_remediations(text: str, target: str = '') -> list[dict]:
     6. Site context extraction (server versions, PHP EOL, CVEs, open ports)
     7. Evidence line extraction (actual scan output lines that triggered each match)
     8. Enrichment (_enrich_remediation injects context + urgency tier into each item)
-    9. Final sort: confirmed first, highest score first
+    9. Scan tool parser results (Nikto/WPScan/Nmap/Nuclei) merged at top
+    10. Final sort: confirmed first, highest score first
     """
     raw_lines = text.splitlines()
     pos_lines = [l.lower() for l in raw_lines if not _REM_NEGATION.search(l)]
@@ -2432,6 +2871,22 @@ def match_remediations(text: str, target: str = '') -> list[dict]:
     # ── Site context (versions, EOL, ports, specific paths) ───────────────────
     site_ctx = _extract_site_context(text, target)
 
+    # ── Scan tool structured parsers (Nikto / WPScan / Nmap / Nuclei) ──────────
+    # These run first and produce pre-confirmed entries with exact evidence lines.
+    # They will be merged with pattern-matched results below, keeping the highest
+    # score for any id that appears in both sources.
+    tool_entries: dict[str, dict] = {}
+    for tool_result in (
+        _parse_nikto_output(text),
+        _parse_wpscan_output(text),
+        _parse_nmap_services(text),
+        _parse_nuclei_output(text),
+    ):
+        for entry in tool_result:
+            eid = entry['id']
+            if eid not in tool_entries or entry['priority_score'] > tool_entries[eid]['priority_score']:
+                tool_entries[eid] = entry
+
     # ── Initial matching pass ──────────────────────────────────────────────────
     matched: list[dict] = []
     matched_ids: set[str] = set()
@@ -2449,6 +2904,14 @@ def match_remediations(text: str, target: str = '') -> list[dict]:
 
         evidence = _extract_evidence_lines(rem['patterns'], pos_lines, n=4)
 
+        # Merge with any tool-parser entry for the same id
+        if rem['id'] in tool_entries:
+            tool_e = tool_entries.pop(rem['id'])
+            score    = max(score, tool_e['priority_score'])
+            confirmed = confirmed or tool_e.get('confirmed', False)
+            rel_cves  = list(dict.fromkeys(rel_cves + tool_e.get('cves', [])))
+            evidence  = (tool_e.get('evidence', []) + evidence)[:5]
+
         matched.append({
             **rem,
             'fixes':          fixes,
@@ -2458,6 +2921,12 @@ def match_remediations(text: str, target: str = '') -> list[dict]:
             'evidence':       evidence,
         })
         matched_ids.add(rem['id'])
+
+    # Append any tool-parser entries whose template id wasn't in REMEDIATIONS patterns
+    for entry in tool_entries.values():
+        if entry['id'] not in matched_ids:
+            matched.append(entry)
+            matched_ids.add(entry['id'])
 
     # ── Co-occurrence boost pass ───────────────────────────────────────────────
     for id_pair, boost_id, boost_amount in _COOCCURRENCE:
@@ -2517,7 +2986,33 @@ def enrich(scan: dict) -> dict:
     scan['risk']         = risk_level(out)
     scan['agent_label']  = agent_label(scan.get('agent_type', ''))
     scan['recs']         = extract_recs(out)
-    scan['remediations'] = match_remediations(out, target=scan['target'])
+    remediations         = match_remediations(out, target=scan['target'])
+    username             = scan.get('username', '')
+
+    # ── Age escalation — persist findings history and boost long-open items ────
+    for rem in remediations:
+        try:
+            db.update_finding_history(scan['target'], rem['id'], username)
+            age_days = db.get_finding_age_days(scan['target'], rem['id'], username)
+            if age_days >= 90:
+                rem['priority_score'] = rem.get('priority_score', 0) + 30
+                rem['age_label'] = f'Open {age_days}d — escalated'
+                rem['urgency'], rem['urgency_class'] = _urgency_tier(
+                    rem['priority_score'], rem.get('confirmed', False))
+            elif age_days >= 60:
+                rem['priority_score'] = rem.get('priority_score', 0) + 20
+                rem['age_label'] = f'Open {age_days}d'
+                rem['urgency'], rem['urgency_class'] = _urgency_tier(
+                    rem['priority_score'], rem.get('confirmed', False))
+            elif age_days >= 30:
+                rem['priority_score'] = rem.get('priority_score', 0) + 10
+                rem['age_label'] = f'Open {age_days}d'
+            else:
+                rem['age_label'] = ''
+        except Exception:
+            rem['age_label'] = ''
+
+    scan['remediations'] = remediations
     scan['preview']      = out[:400].replace('\n', ' ')
     dt = scan.get('created_at', '') or ''
     scan['display_date'] = dt[:16].replace('T', ' ')
@@ -2585,6 +3080,7 @@ def _build_template_context() -> dict:
                     'urgency_class':  rem.get('urgency_class', 'low'),
                     'cves':           rem.get('cves', []),
                     'evidence':       rem.get('evidence', []),
+                    'age_label':      rem.get('age_label', ''),
                 }
         for r in s['recs']:
             key = (tgt, r[:60].lower())

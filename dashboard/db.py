@@ -284,6 +284,22 @@ def init_db():
             )
         ''')
 
+        # ── Findings history — tracks how long each finding has been open ────────
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS findings_history (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                target      TEXT NOT NULL,
+                finding_id  TEXT NOT NULL,
+                username    TEXT DEFAULT '',
+                first_seen  TEXT NOT NULL DEFAULT (datetime('now')),
+                last_seen   TEXT NOT NULL DEFAULT (datetime('now')),
+                scan_count  INTEGER DEFAULT 1,
+                UNIQUE(target, finding_id, username)
+            )
+        ''')
+        con.execute('CREATE INDEX IF NOT EXISTS idx_fh_target ON findings_history(target)')
+        con.execute('CREATE INDEX IF NOT EXISTS idx_fh_finding ON findings_history(finding_id)')
+
         # ── General migrations ────────────────────────────────────────────────
         for tbl, col, defn in [
             ('incidents', 'username', "TEXT DEFAULT ''"),
@@ -1494,3 +1510,56 @@ def grc_stats() -> dict:
             'framework_compliance':        framework_compliance,
             'test_categories':             test_categories,
         }
+
+
+# ── Findings History ──────────────────────────────────────────────────────────
+
+def update_finding_history(target: str, finding_id: str, username: str = '') -> None:
+    """Upsert a findings_history record — increments scan_count and refreshes last_seen."""
+    with _connect() as con:
+        con.execute(
+            '''INSERT INTO findings_history (target, finding_id, username, first_seen, last_seen, scan_count)
+               VALUES (?, ?, ?, datetime('now'), datetime('now'), 1)
+               ON CONFLICT(target, finding_id, username) DO UPDATE SET
+                 last_seen  = datetime('now'),
+                 scan_count = scan_count + 1''',
+            (target, finding_id, username)
+        )
+        con.commit()
+
+
+def get_finding_age_days(target: str, finding_id: str, username: str = '') -> int:
+    """Return how many days this finding has been open (0 if first time seen)."""
+    with _connect() as con:
+        row = con.execute(
+            '''SELECT CAST(
+                   (julianday('now') - julianday(first_seen))
+                AS INTEGER) AS age_days
+               FROM findings_history
+               WHERE target=? AND finding_id=? AND username=?''',
+            (target, finding_id, username)
+        ).fetchone()
+    return row[0] if row else 0
+
+
+def get_finding_history(target: str = '', username: str = '') -> list:
+    """Return finding history rows, optionally filtered by target and/or user."""
+    with _connect() as con:
+        if target and username:
+            rows = con.execute(
+                'SELECT * FROM findings_history WHERE target=? AND username=? ORDER BY last_seen DESC',
+                (target, username)
+            ).fetchall()
+        elif target:
+            rows = con.execute(
+                'SELECT * FROM findings_history WHERE target=? ORDER BY last_seen DESC', (target,)
+            ).fetchall()
+        elif username:
+            rows = con.execute(
+                'SELECT * FROM findings_history WHERE username=? ORDER BY last_seen DESC', (username,)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                'SELECT * FROM findings_history ORDER BY last_seen DESC LIMIT 500'
+            ).fetchall()
+    return [dict(r) for r in rows]
