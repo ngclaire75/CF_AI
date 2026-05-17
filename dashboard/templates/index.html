@@ -6024,7 +6024,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .grc2-inp{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;box-sizing:border-box;}
     .grc2-inp:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
     .grc2-sel{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;box-sizing:border-box;}
-    .grc2-ta{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;resize:vertical;min-height:72px;box-sizing:border-box;}
+    .grc2-ta{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#0f172a;resize:none;min-height:72px;box-sizing:border-box;}
     .grc2-g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
     .grc2-g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
     .grc2-prog-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:6px;}
@@ -18584,10 +18584,12 @@ function _grcRenderTreatment(risks) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 function grcLoadTests() {
-  var q   = (_gv('gf-test-q')||'');
-  var st  = (_gv('gf-test-st')||'');
+  var q    = (_gv('gf-test-q')||'');
+  var st   = (_gv('gf-test-st')||'');
+  var type = (_gv('gf-test-type')||'');
   fetch('/api/grc2/tests?q='+encodeURIComponent(q)+'&status='+encodeURIComponent(st)
-      +'&category='+encodeURIComponent(_grcCurTestCat))
+      +'&category='+encodeURIComponent(type)
+      +'&test_category='+encodeURIComponent(_grcCurTestCat))
     .then(function(r){ return r.json(); }).then(function(d){
       _grcAllTests = d.tests || [];
       _grcRenderTestCatSidebar(_grcAllTests);
