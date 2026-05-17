@@ -3522,8 +3522,7 @@ Export Power BI
     .dca-chip.avail{background:#2563eb;border-color:#2563eb;color:#fff}
     .dca-chip.unavail{background:#64748b;border-color:#64748b;color:#fff}
     .dca-chip.loading{background:#93c5fd;border-color:#93c5fd;color:#1e3a8a}
-    .dca-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-    .dca-dot.on{background:#bbf7d0}.dca-dot.off{background:#fecaca}.dca-dot.pend{background:#bfdbfe}
+    .dca-dot{display:none}
     .dca-wrap{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:0 20px 20px;max-width:1400px;margin:0 auto}
     @media(max-width:900px){.dca-wrap{grid-template-columns:1fr}}
     .dca-panel{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:20px}
@@ -20097,7 +20096,7 @@ function dcaLoadScanners() {
   var labels = {nikto:'Nikto', nuclei:'Nuclei', wapiti:'Wapiti', zap:'OWASP ZAP'};
   Object.keys(labels).forEach(function(s) {
     var c = document.getElementById('dca-chip-'+s);
-    if (c) { c.className='dca-chip loading'; c.innerHTML='<div class="dca-dot pend"></div>'+labels[s]; }
+    if (c) { c.className='dca-chip loading'; c.innerHTML=labels[s]; }
   });
   fetch('/api/dca/scanners').then(function(r){return r.json();}).then(function(data){
     Object.keys(labels).forEach(function(s) {
@@ -20106,7 +20105,7 @@ function dcaLoadScanners() {
       c.className = 'dca-chip ' + (info.available ? 'avail' : 'unavail');
       var _vm = info.version ? (info.version.match(/v?(\d[\d.]+\d)/)||[])[1] : null;
       var ver = _vm ? ' <span style="font-weight:400;opacity:.8">'+_vm+'</span>' : '';
-      c.innerHTML = '<div class="dca-dot '+(info.available?'on':'off')+'"></div>'+labels[s]+ver;
+      c.innerHTML = labels[s]+ver;
     });
   }).catch(function(){});
 }
