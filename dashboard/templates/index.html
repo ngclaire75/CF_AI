@@ -8022,6 +8022,12 @@ function sbNav(section, el) {
   // Lazy-load defender dashboard when navigating to it
   if (section === 'dashboard') loadDefDashboard();
   _currentPage = section;
+  // Hide Information button on pages that have no page info entry
+  (function() {
+    var _noInfo = ['pricing', 'policy', 'privacy'];
+    var btn = document.getElementById('page-info-btn');
+    if (btn) btn.style.display = _noInfo.indexOf(section) !== -1 ? 'none' : '';
+  })();
 
   // Lazy-load data for relevant pages
   if (section === 'observability') loadUnifiedOverview();
