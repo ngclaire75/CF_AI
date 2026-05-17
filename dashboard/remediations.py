@@ -264,4 +264,99 @@ REMEDIATIONS = [
         },
     },
 
+    # ── PHP / File Upload ─────────────────────────────────────────────────────
+
+    {
+        'id': 'php-file-upload',
+        'patterns': ['unrestricted file upload', 'arbitrary file upload', 'php file upload', 'file upload vulnerability', 'malicious file upload'],
+        'title': 'Restrict file upload types and store outside web root',
+        'severity': 'HIGH',
+        'description': 'The application allows uploading files without proper type validation. An attacker can upload a PHP webshell and execute arbitrary code on the server.',
+        'fixes': {
+            'PHP — validate MIME + extension': "// Check both MIME type and extension — never trust $_FILES['type']\n\$allowed_ext = ['jpg','jpeg','png','gif','pdf','docx'];\n\$allowed_mime = ['image/jpeg','image/png','image/gif','application/pdf'];\n\$finfo = new finfo(FILEINFO_MIME_TYPE);\n\$detected = \$finfo->file(\$_FILES['file']['tmp_name']);\n\$ext = strtolower(pathinfo(\$_FILES['file']['name'], PATHINFO_EXTENSION));\nif (!in_array(\$ext, \$allowed_ext) || !in_array(\$detected, \$allowed_mime)) {\n    die('Invalid file type');\n}\n// Store OUTSIDE web root\n\$dest = '/var/uploads/' . uniqid() . '.' . \$ext;\nmove_uploaded_file(\$_FILES['file']['tmp_name'], \$dest);",
+            'Nginx — block PHP in uploads': 'location ~* /uploads/.*\\.php$ {\n    deny all;\n    return 403;\n}',
+            'WordPress (functions.php)': "add_filter('upload_mimes', function(\$mimes) {\n    unset(\$mimes['php'], \$mimes['phtml'], \$mimes['phar']);\n    return \$mimes;\n});",
+        },
+    },
+
+    {
+        'id': 'php-code-execution',
+        'patterns': ['remote code execution', 'rce confirmed', 'rce found', 'code execution', 'command injection', 'os command injection', 'eval injection'],
+        'title': 'Fix remote code / OS command execution vulnerability',
+        'severity': 'HIGH',
+        'description': 'The scan found a remote code execution or command injection vulnerability. An attacker can execute arbitrary OS commands or PHP code with the permissions of the web server process.',
+        'fixes': {
+            'PHP — avoid dangerous functions': "// Never pass user input to eval(), system(), exec(), passthru(), shell_exec()\n// If OS commands are truly needed, use an allowlist of commands:\n\$allowed = ['ls', 'df'];\nif (!in_array(\$cmd, \$allowed)) die('Forbidden');\n\$output = shell_exec(escapeshellcmd(\$cmd));",
+            'PHP — disable dangerous functions (php.ini)': 'disable_functions = exec, passthru, shell_exec, system, proc_open, popen, show_source, posix_kill, posix_mkfifo, posix_getpwuid, posix_setpgid, posix_setsid, posix_setuid, posix_setgid',
+            'WAF (ModSecurity)': '# Enable OWASP CRS rule set:\n# SecRuleEngine On\n# Include /etc/modsecurity/crs/REQUEST-932-APPLICATION-ATTACK-RCE.conf',
+        },
+    },
+
+    {
+        'id': 'xss-reflected',
+        'patterns': ['xss found', 'cross-site scripting', 'xss confirmed', 'reflected xss', 'stored xss', 'xss vulnerability', 'xss detected'],
+        'title': 'Fix cross-site scripting (XSS) vulnerability',
+        'severity': 'HIGH',
+        'description': 'A cross-site scripting vulnerability was found. Attackers can inject malicious scripts into pages viewed by other users, stealing session cookies, credentials, or redirecting users to phishing sites.',
+        'fixes': {
+            'PHP — output encoding': "// Always encode before echoing user-controlled data:\necho htmlspecialchars(\$userInput, ENT_QUOTES | ENT_HTML5, 'UTF-8');",
+            'Content-Security-Policy header': "# A strict CSP prevents XSS even if the code is broken:\nadd_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'nonce-{random}'; object-src 'none';\" always;",
+            'WordPress (functions.php)': "// Use wp_kses() to sanitise rich content:\n\$clean = wp_kses(\$dirty_html, [\n    'a'  => ['href'=>[],'title'=>[]],\n    'br' => [],\n    'em' => [],\n    'strong' => [],\n]);",
+        },
+    },
+
+    {
+        'id': 'broken-access-control',
+        'patterns': ['broken access control', 'idor', 'insecure direct object', 'unauthorized access', 'privilege escalation', 'access control bypass', 'unauthorised access'],
+        'title': 'Fix broken access control / IDOR',
+        'severity': 'HIGH',
+        'description': 'The application fails to properly enforce access controls. Users can access resources or actions they should not be authorised for, potentially exposing other users\' data.',
+        'fixes': {
+            'PHP — always verify ownership': "// Always check that the requested resource belongs to the current user:\n\$stmt = \$pdo->prepare('SELECT * FROM orders WHERE id=? AND user_id=?');\n\$stmt->execute([\$_GET['id'], \$_SESSION['user_id']]);\n\$order = \$stmt->fetch();\nif (!\$order) { http_response_code(403); die('Forbidden'); }",
+            'General approach': '# 1. Never rely on client-supplied IDs alone — verify ownership server-side\n# 2. Use UUIDs instead of sequential integers to reduce enumeration\n# 3. Log and alert on access control failures',
+            'WordPress': "// Verify capabilities before performing any privileged action:\nif (!current_user_can('edit_post', \$post_id)) {\n    wp_die(__('You do not have permission to edit this post.'));\n}",
+        },
+    },
+
+    {
+        'id': 'sensitive-data-exposed',
+        'patterns': ['sensitive data exposed', 'data exposure', 'credential exposed', 'password in plaintext', 'api key exposed', 'secret exposed', 'token exposed', 'credential in response'],
+        'title': 'Remove exposed credentials / sensitive data from responses',
+        'severity': 'HIGH',
+        'description': 'Sensitive data — such as passwords, API keys, or secrets — was found in HTTP responses, logs, or publicly accessible files. This data must be removed immediately and the exposed credentials rotated.',
+        'fixes': {
+            'Immediate actions': '# 1. Rotate ALL exposed credentials immediately (passwords, API keys, tokens)\n# 2. Check if secrets appear in git history: git log -p | grep -i "password\\|api_key\\|secret"\n# 3. Use: git filter-repo --invert-paths --path <sensitive-file>  to purge git history',
+            'PHP — use environment variables': "// Never hardcode secrets in source code:\n// WRONG:  \$db_pass = 'MySecret123';\n// RIGHT:  \$db_pass = getenv('DB_PASSWORD');",
+            'Nginx — block sensitive files': 'location ~* \\.(env|log|bak|sql|conf|ini|key|pem)$ {\n    deny all;\n    return 404;\n}',
+        },
+    },
+
+    # ── Infrastructure ────────────────────────────────────────────────────────
+
+    {
+        'id': 'unpatched-cms',
+        'patterns': ['outdated wordpress', 'wordpress outdated', 'wp version', 'wordpress version', 'cms version', 'outdated cms', 'outdated version', 'old version detected'],
+        'title': 'Update WordPress / CMS to the latest version',
+        'severity': 'HIGH',
+        'description': 'An outdated version of WordPress or another CMS was detected. Older versions contain known, publicly exploited vulnerabilities. Updates should be applied immediately.',
+        'fixes': {
+            'WP-CLI (recommended)': 'wp core update --path=/var/www/html\nwp plugin update --all --path=/var/www/html\nwp theme update --all --path=/var/www/html',
+            'WordPress Dashboard': '# Dashboard → Updates → Update All\n# Enable auto-updates for minor releases in wp-config.php:\ndefine("WP_AUTO_UPDATE_CORE", "minor");',
+            'Bash — verify version after update': 'wp core version --path=/var/www/html',
+        },
+    },
+
+    {
+        'id': 'open-port-service',
+        'patterns': ['open port', 'exposed port', 'port open', 'service exposed', 'ssh exposed', 'rdp exposed', 'ftp exposed', 'telnet exposed', 'database port open', 'mysql port', '3306 open', '5432 open', '27017 open'],
+        'title': 'Close or restrict unnecessarily exposed network ports / services',
+        'severity': 'MEDIUM',
+        'description': 'One or more network ports are exposed to the internet that should be restricted. Database ports (MySQL, PostgreSQL, MongoDB) and management interfaces (SSH, RDP) should never be publicly accessible.',
+        'fixes': {
+            'iptables — block specific port': '# Block port 3306 (MySQL) from internet, allow only from your app server:\niptables -A INPUT -p tcp --dport 3306 -s YOUR_APP_SERVER_IP -j ACCEPT\niptables -A INPUT -p tcp --dport 3306 -j DROP',
+            'UFW (Ubuntu Firewall)': '# Allow SSH only from your office IP:\nufw allow from YOUR.OFFICE.IP.HERE to any port 22\nufw deny 22\n# Allow MySQL only locally:\nufw allow from 127.0.0.1 to any port 3306',
+            'Nginx — restrict admin by IP': 'location /admin {\n    allow YOUR.OFFICE.IP.HERE;\n    deny all;\n}',
+        },
+    },
+
 ]

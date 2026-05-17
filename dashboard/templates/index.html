@@ -1802,6 +1802,30 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .rec-agent { font-size:11px; color:var(--c5); }
 .fix-pill  { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:4px;
   background:#dbeafe; color:#1e40af; font-size:10px; font-weight:700; }
+.rec-evidence { margin-top:5px; display:flex; flex-direction:column; gap:2px; }
+.ev-line { font-size:10px; color:#1e40af; background:#eff6ff; border-left:2px solid #93c5fd;
+  padding:2px 6px; border-radius:0 3px 3px 0; font-family:monospace; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; max-width:480px; }
+.urgency-pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px;
+  font-weight:700; letter-spacing:.3px; white-space:nowrap; }
+.urgency-critical { background:#fee2e2; color:#991b1b; }
+.urgency-high     { background:#ffedd5; color:#9a3412; }
+.urgency-medium   { background:#fef9c3; color:#a16207; }
+.urgency-low      { background:#f0fdf4; color:#166534; }
+/* remediation card evidence block */
+.rem-evidence-block { margin:8px 0 4px; padding:8px 10px; background:#f0f7ff;
+  border-left:3px solid #3b82f6; border-radius:0 4px 4px 0; }
+.rem-evidence-title { font-size:10px; font-weight:700; color:#1e40af; text-transform:uppercase;
+  letter-spacing:.5px; margin-bottom:4px; }
+.rem-evidence-line  { font-size:11px; color:#0f172a; font-family:monospace; padding:1px 0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.rem-confirmed-badge { display:inline-flex; align-items:center; gap:3px; padding:1px 7px;
+  border-radius:10px; background:#dcfce7; color:#166534; font-size:10px; font-weight:700;
+  margin-right:6px; }
+.rem-urgency-badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10px;
+  font-weight:700; margin-right:6px; }
+.rem-cve-badge { display:inline-block; padding:1px 7px; border-radius:10px; background:#fef3c7;
+  color:#92400e; font-size:10px; font-weight:700; cursor:pointer; text-decoration:none; }
 .maint-badge { display:inline-block; margin-left:5px; padding:1px 6px; border-radius:3px;
   background:#fef9c3; color:#a16207; font-size:9px; font-weight:700; letter-spacing:.3px; }
 .btn-lock { height:24px; padding:0 10px; border-radius:4px; font-size:11px; font-weight:600;
@@ -2914,11 +2938,11 @@ Export Power BI
     <div class="sec-head">
       <div>
         <div class="sec-title">Priority Actions Required</div>
-        <div class="sec-desc">Items identified during security assessments. Address HIGH priority issues first.</div>
+        <div class="sec-desc">Dynamically scored from live scan evidence. Confirmed findings ranked first. Urgency tiers reflect compound vulnerability impact.</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="domain-filter-wrap">
-          <input type="text" id="prioDomainFilter" placeholder="Filter by domain..." oninput="filterPrioActions(this.value)">
+          <input type="text" id="prioDomainFilter" placeholder="Filter by domain or urgency..." oninput="filterPrioActions(this.value)">
           <button id="prioFilterClear" onclick="clearPrioFilter()" style="display:none;" title="Clear">✕</button>
         </div>
         <span class="sec-count">{{ all_recs|length }} item(s)</span>
@@ -2930,10 +2954,10 @@ Export Power BI
         <table>
           <thead>
             <tr>
-              <th style="width:78px;">Priority</th>
+              <th style="width:78px;">Severity</th>
               <th style="width:190px;">Target</th>
-              <th>Recommended Action</th>
-              <th style="width:170px;">Identified By</th>
+              <th>Finding &amp; Evidence</th>
+              <th style="width:130px;">Urgency</th>
               <th style="width:88px;">Date</th>
               <th style="width:72px;"></th>
               <th style="width:100px;" title="Close site via Cloudflare until fix is applied">Lock Site</th>
@@ -2941,19 +2965,30 @@ Export Power BI
           </thead>
           <tbody id="prio-tbody">
           {% for rec in all_recs %}
-            <tr data-target="{{ rec.target|lower }}">
-              <td><span class="badge badge-{{ rec.risk }}">{{ rec.risk }}</span></td>
+            <tr data-target="{{ rec.target|lower }}" data-urgency="{{ rec.urgency_class|default('low') }}">
+              <td>
+                <span class="badge badge-{{ rec.risk }}">{{ rec.risk }}</span>
+                {% if rec.confirmed %}<br><span style="font-size:10px;background:#dcfce7;color:#166534;border-radius:3px;padding:1px 5px;font-weight:700;letter-spacing:.3px;margin-top:3px;display:inline-block;">CONFIRMED</span>{% endif %}
+              </td>
               <td class="td-target" title="{{ rec.target }}">
                 {{ rec.target }}
                 <span class="maint-badge" id="maint-badge-{{ rec.target|lower|replace('.','_')|replace('/','_') }}" style="display:none;">LOCKED</span>
               </td>
               <td>
-                <div class="rec-text">
+                <div class="rec-text" style="font-weight:600;">
                   {{ rec.text }}
                   {% if rec.has_fixes %}<span class="fix-pill">Fix Available</span>{% endif %}
+                  {% if rec.cves %}<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:3px;padding:1px 5px;font-weight:700;margin-left:4px;">CVE ×{{ rec.cves|length }}</span>{% endif %}
                 </div>
+                {% if rec.evidence %}
+                <div class="rec-evidence" title="Evidence from scan output">
+                  {% for e in rec.evidence[:2] %}<span class="ev-line">{{ e[:100] }}</span>{% endfor %}
+                </div>
+                {% endif %}
               </td>
-              <td><div class="rec-agent">{{ rec.agent }}</div></td>
+              <td>
+                <span class="urgency-pill urgency-{{ rec.urgency_class|default('low') }}">{{ rec.urgency|default('Advisory') }}</span>
+              </td>
               <td class="td-dim">{{ rec.date }}</td>
               <td><button class="btn btn-sm" data-id="{{ rec.scan_id }}" onclick="openModal(+this.dataset.id)">View Fix</button></td>
               <td>
@@ -10050,10 +10085,50 @@ function buildRemediationCards(remediations) {
   if (!_curRemediations.length)
     return '<p style="color:#60a5fa;font-size:13px;">No matching remediation templates found for this scan. See the recommended actions list above.</p>';
 
+  // Urgency colour mapping
+  var UGC = {critical:'#fee2e2|#991b1b', high:'#ffedd5|#9a3412', medium:'#fef9c3|#a16207', low:'#f0fdf4|#166534'};
+  function urgencyStyle(uc) {
+    var p = (UGC[uc]||UGC.low).split('|');
+    return 'background:'+p[0]+';color:'+p[1]+';';
+  }
+
   return _curRemediations.map(function(rem, ri) {
-    var sev      = rem.severity || 'INFO';
-    var fixes    = rem.fixes    || {};
+    var sev       = rem.severity  || 'INFO';
+    var fixes     = rem.fixes     || {};
     var platforms = Object.keys(fixes);
+    var confirmed = rem.confirmed;
+    var urgency   = rem.urgency   || '';
+    var uc        = rem.urgency_class || 'low';
+    var cves      = rem.cves      || [];
+    var evidence  = rem.evidence  || [];
+
+    // Header badges
+    var badgesHtml = '<span class="badge badge-'+sev+'">'+sev+'</span>';
+    if (confirmed)
+      badgesHtml += ' <span class="rem-confirmed-badge">&#10003; CONFIRMED</span>';
+    if (urgency)
+      badgesHtml += ' <span class="rem-urgency-badge" style="'+urgencyStyle(uc)+'">'+esc(urgency)+'</span>';
+    if (cves.length)
+      badgesHtml += ' <span class="rem-cve-badge" title="Click to run CVE Analysis">CVE ×'+cves.length+'</span>';
+
+    // Evidence block (actual scan lines that triggered this finding)
+    var evidenceHtml = '';
+    if (evidence.length) {
+      var lines = evidence.map(function(e){ return '<div class="rem-evidence-line">'+esc(e)+'</div>'; }).join('');
+      evidenceHtml = '<div class="rem-evidence-block"><div class="rem-evidence-title">Evidence found in your scan</div>'+lines+'</div>';
+    }
+
+    // CVE IDs listed below description
+    var cveHtml = '';
+    if (cves.length) {
+      cveHtml = '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">'
+        + cves.map(function(c){
+            return '<a href="https://nvd.nist.gov/vuln/detail/'+esc(c)+'" target="_blank" rel="noopener" '
+              + 'style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:3px;padding:1px 7px;'
+              + 'text-decoration:none;font-weight:700;">'+esc(c)+'↗</a>';
+          }).join('')
+        + '</div>';
+    }
 
     var tabsHtml = platforms.map(function(p, i) {
       return '<button class="fix-tab'+(i===0?' active':'')+
@@ -10069,12 +10144,14 @@ function buildRemediationCards(remediations) {
 
     return '<div class="finding-card">'+
       '<div class="finding-card-hd" onclick="togFinding(this)">'+
-        '<span class="badge badge-'+sev+'">'+sev+'</span>'+
-        '<span class="finding-title">'+esc(rem.title)+'</span>'+
+        badgesHtml+
+        '<span class="finding-title" style="flex:1;">'+esc(rem.title)+'</span>'+
         '<span class="finding-toggle">+</span>'+
       '</div>'+
       '<div class="finding-body">'+
-        '<p>'+esc(rem.description)+'</p>'+
+        evidenceHtml+
+        '<p style="margin-top:'+(evidence.length?'8px':'0')+';">'+esc(rem.description)+'</p>'+
+        cveHtml+
         (platforms.length ?
           '<div class="fix-tabs-wrap">'+
             '<div class="fix-tabs">'+tabsHtml+'</div>'+

@@ -2047,6 +2047,223 @@ _FIX_STACK_KEYS: dict[str, str] = {
     'wp-config':      'wp',
 }
 
+# Smart remediation scoring — extract structured signals from scan output
+_CVE_RE  = re.compile(r'\bCVE-\d{4}-\d{4,7}\b', re.I)
+_CVSS_RE = re.compile(r'\b(?:cvss\s*(?:score)?|severity\s*score)[:\s=]+([0-9]+(?:\.[0-9]+)?)\b', re.I)
+
+# Phrases that confirm a finding is a *real* problem (not a test step or passing check)
+_CONFIRM_RE = re.compile(
+    r'\b(missing|absent|not\s+set|not\s+found|not\s+present|not\s+configured|'
+    r'no\s+(?:csp|hsts|csp|x-frame|nosniff|referrer)|'
+    r'confirmed|detected|vulnerable|exploitable|exposed|accessible|'
+    r'returns?\s*200|http\s*200|status\s*(?:code\s*)?200|injection\s+(?:found|success)|'
+    r'xss\s+(?:found|confirmed)|rce\s+(?:found|confirmed)|sqli\s+(?:found|confirmed)|'
+    r'header\s+(?:is\s+)?missing|no\s+header|header\s+not|without\s+(?:the\s+)?header)\b',
+    re.I,
+)
+
+_SEV_WEIGHT = {'CRITICAL': 40, 'HIGH': 30, 'MEDIUM': 20, 'LOW': 10}
+
+# ── Technology version extraction (shared with cve.py) ────────────────────────
+_TECH_VER_PATTERNS: list[tuple] = [
+    (re.compile(r'\bApache[/ ]([\d]+\.[\d]+(?:\.[\d]+)?)\b', re.I),      'Apache HTTP Server', 'server'),
+    (re.compile(r'\bnginx[/ ]([\d]+\.[\d]+(?:\.[\d]+)?)\b',  re.I),      'Nginx',              'server'),
+    (re.compile(r'\bPHP[/ ]([\d]+\.[\d]+(?:\.[\d]+)?)\b',    re.I),      'PHP',                'php'),
+    (re.compile(r'\bWordPress[/ ]?([\d]+\.[\d]+(?:\.[\d]+)?)\b', re.I),  'WordPress',          'cms'),
+    (re.compile(r'\bDrupal[/ ]?([\d]+\.[\d]+(?:\.[\d]+)?)\b', re.I),     'Drupal',             'cms'),
+    (re.compile(r'\bJoomla[! ]?([\d]+\.[\d]+(?:\.[\d]+)?)\b', re.I),     'Joomla',             'cms'),
+    (re.compile(r'\bOpenSSL[/ ]([\d]+\.[\d]+[^\s]{0,10})\b', re.I),      'OpenSSL',            'ssl'),
+    (re.compile(r'\bMySQL[/ ]?([\d]+\.[\d]+(?:\.[\d]+)?)\b', re.I),      'MySQL',              'db'),
+    (re.compile(r'\bPostgreSQL[/ ]?([\d]+\.[\d]+)\b', re.I),             'PostgreSQL',         'db'),
+    (re.compile(r'\bLaravel[/ ]?([\d]+\.[\d]+(?:\.[\d]+)?)\b', re.I),    'Laravel',            'framework'),
+    (re.compile(r'\bDjango[/ ]?([\d]+\.[\d]+(?:\.[\d]+)?)\b', re.I),     'Django',             'framework'),
+    (re.compile(r'\bNode\.js[/ ]?([\d]+\.[\d]+(?:\.[\d]+)?)\b', re.I),   'Node.js',            'runtime'),
+]
+
+# PHP end-of-life mapping: major.minor → (EOL date, status label)
+_PHP_EOL: dict[str, tuple[str, str]] = {
+    '5':   ('2018-12-31', 'CRITICAL — EOL since 2018, zero security patches'),
+    '7.0': ('2018-12-03', 'CRITICAL — EOL since Dec 2018'),
+    '7.1': ('2019-12-01', 'CRITICAL — EOL since Dec 2019'),
+    '7.2': ('2020-11-30', 'CRITICAL — EOL since Nov 2020'),
+    '7.3': ('2021-12-06', 'HIGH — EOL since Dec 2021'),
+    '7.4': ('2022-11-28', 'HIGH — EOL since Nov 2022'),
+    '8.0': ('2023-11-26', 'HIGH — EOL since Nov 2023'),
+    '8.1': ('2024-12-31', 'MEDIUM — EOL Dec 2024'),
+}
+
+# Co-occurrence boosts: if both IDs are present in the same scan, boost the named ID.
+# Format: ({id_a, id_b}, boost_target_id, extra_score)
+_COOCCURRENCE: list[tuple] = [
+    ({'xss-reflected',            'missing-csp'},           'missing-csp',              25),
+    ({'xss-reflected',            'missing-xcto'},          'missing-xcto',             10),
+    ({'sql-injection-confirmed',  'server-version-disclosed'}, 'server-version-disclosed', 15),
+    ({'sql-injection-confirmed',  'insecure-cookies'},      'insecure-cookies',          20),
+    ({'sql-injection-confirmed',  'directory-listing'},     'directory-listing',         10),
+    ({'php-code-execution',       'php-file-upload'},        'php-file-upload',          25),
+    ({'php-code-execution',       'sensitive-data-exposed'}, 'sensitive-data-exposed',   20),
+    ({'weak-tls',                 'sensitive-data-exposed'}, 'weak-tls',                 20),
+    ({'missing-hsts',             'weak-tls'},               'missing-hsts',             15),
+    ({'cors-wildcard',            'insecure-cookies'},       'cors-wildcard',            15),
+    ({'cors-wildcard',            'sql-injection-confirmed'},'cors-wildcard',            10),
+    ({'exposed-env-git',          'sensitive-data-exposed'}, 'exposed-env-git',          20),
+    ({'wp-login-no-ratelimit',    'wp-admin-exposed'},       'wp-login-no-ratelimit',    15),
+    ({'open-redirect',            'xss-reflected'},          'open-redirect',            15),
+    ({'broken-access-control',    'sql-injection-confirmed'},'broken-access-control',    15),
+    ({'unpatched-cms',            'sql-injection-confirmed'},'unpatched-cms',            20),
+    ({'unpatched-cms',            'xss-reflected'},          'unpatched-cms',            15),
+    ({'open-port-service',        'sql-injection-confirmed'},'open-port-service',        20),
+    ({'missing-csp',              'cors-wildcard'},          'missing-csp',              10),
+]
+
+# Regex for open port extraction from nmap-style output
+_PORT_RE = re.compile(r'\b(\d{1,5})/(?:tcp|udp)\s+(?:open|filtered)\b', re.I)
+# Regex for sensitive path mentions in findings
+_FINDING_PATH_RE = re.compile(
+    r'\b(/(?:wp-content|wp-admin|wp-includes|uploads|backup|config|admin|api|'
+    r'\.env|\.git|phpinfo|storage|logs?)[^\s"\'<>]{0,80})\b')
+
+
+def _extract_site_context(text: str, target: str) -> dict:
+    """Extract concrete site-specific details from scan output.
+
+    Returns a context dict used to personalise remediation descriptions and fix code.
+    """
+    ctx: dict = {
+        'target': target, 'server': None, 'php': None, 'cms': None,
+        'db': None, 'ssl': None, 'framework': None, 'runtime': None,
+        'versions': {}, 'cves': [], 'open_ports': [], 'specific_paths': [],
+        'php_eol': None,
+    }
+    for pat, name, category in _TECH_VER_PATTERNS:
+        m = pat.search(text)
+        if m:
+            version = m.group(1)
+            ctx['versions'][name] = version
+            if ctx.get(category) is None:
+                ctx[category] = f'{name}/{version}'
+
+    # PHP end-of-life check
+    php_ver = ctx['versions'].get('PHP', '')
+    if php_ver:
+        major_minor = '.'.join(php_ver.split('.')[:2])
+        major = php_ver.split('.')[0]
+        for key in (php_ver, major_minor, major):
+            if key in _PHP_EOL:
+                ctx['php_eol'] = (php_ver, *_PHP_EOL[key])
+                break
+
+    ctx['cves']         = list(dict.fromkeys(m.upper() for m in _CVE_RE.findall(text)))[:8]
+    ctx['open_ports']   = sorted({int(p) for p in _PORT_RE.findall(text)})[:15]
+    ctx['specific_paths'] = list(dict.fromkeys(_FINDING_PATH_RE.findall(text)))[:8]
+    return ctx
+
+
+def _extract_evidence_lines(patterns: list[str], pos_lines: list[str],
+                             n: int = 3) -> list[str]:
+    """Return up to n actual scan lines that triggered this remediation.
+
+    These are shown verbatim in the UI as 'Evidence found in your scan'.
+    """
+    hits: list[str] = []
+    seen: set[str] = set()
+    for line in pos_lines:
+        stripped = line.strip()
+        if len(stripped) < 12 or len(stripped) > 220:
+            continue
+        if any(p in line for p in patterns):
+            key = stripped[:80].lower()
+            if key not in seen:
+                seen.add(key)
+                hits.append(stripped)
+            if len(hits) >= n:
+                break
+    return hits
+
+
+def _urgency_tier(score: int, confirmed: bool) -> tuple[str, str]:
+    """Map score → (urgency_label, urgency_class).
+
+    urgency_class is used as a CSS class suffix on the frontend.
+    """
+    if score >= 65 or (confirmed and score >= 50):
+        return ('Fix within 24 hours', 'critical')
+    if score >= 45 or (confirmed and score >= 30):
+        return ('Fix within 7 days', 'high')
+    if score >= 28:
+        return ('Fix within 30 days', 'medium')
+    return ('Best practice / future sprint', 'low')
+
+
+def _enrich_remediation(rem: dict, site_ctx: dict, evidence: list[str]) -> dict:
+    """Inject site-specific context and evidence into a matched remediation.
+
+    - Personalises description with actual versions, EOL warnings, CVE IDs
+    - Substitutes real paths/versions into fix code
+    - Adds evidence quotes from the actual scan output
+    - Computes urgency tier
+    """
+    rem = dict(rem)
+    desc_parts: list[str] = [rem['description']]
+
+    # PHP EOL warning
+    if site_ctx.get('php_eol'):
+        php_ver, eol_date, eol_msg = site_ctx['php_eol']
+        if 'php' in rem.get('id', '').lower() or 'php' in rem['description'].lower():
+            desc_parts.append(
+                f'Your site is running PHP {php_ver} ({eol_msg} on {eol_date}). '
+                'Upgrade to PHP 8.2+ immediately to receive security patches.'
+            )
+
+    # Server version context
+    if site_ctx.get('server'):
+        sn = site_ctx['server'].lower()
+        if ('nginx' in sn and 'nginx' in ''.join(rem.get('fixes', {}).keys()).lower()) or \
+           ('apache' in sn and 'apache' in ''.join(rem.get('fixes', {}).keys()).lower()):
+            desc_parts.append(f'Detected on your server: {site_ctx["server"]}.')
+
+    # CVE context
+    rel_cves = rem.get('cves', [])
+    if rel_cves:
+        desc_parts.append(
+            f'CVE(s) found in this scan: {", ".join(rel_cves[:4])}. '
+            'Click "Run CVE Analysis" to get full descriptions and CVSS scores.'
+        )
+
+    # Specific paths
+    if site_ctx.get('specific_paths'):
+        path_str = ', '.join(site_ctx['specific_paths'][:3])
+        if any(p in rem.get('id', '') for p in ('env', 'git', 'dir', 'server', 'version')):
+            desc_parts.append(f'Paths detected in scan output: {path_str}')
+
+    rem['description'] = ' '.join(desc_parts)
+
+    # Evidence from actual scan output
+    if evidence:
+        rem['evidence'] = evidence
+
+    # Urgency tier
+    score      = rem.get('priority_score', 10)
+    confirmed  = rem.get('confirmed', False)
+    urgency, uc = _urgency_tier(score, confirmed)
+    rem['urgency']       = urgency
+    rem['urgency_class'] = uc
+
+    # Substitute real values into fix code
+    tgt = site_ctx.get('target', '')
+    fixes: dict[str, str] = {}
+    for k, v in rem.get('fixes', {}).items():
+        if tgt:
+            v = v.replace('yourdomain.com', tgt)
+        v = v.replace('YOUR.OFFICE.IP.HERE', '[your office IP]')
+        php_ver_str = site_ctx['versions'].get('PHP', '')
+        if php_ver_str and 'php' in k.lower():
+            major_minor = '.'.join(php_ver_str.split('.')[:2])
+            v = v.replace('php-fpm.sock', f'php{major_minor}-fpm.sock')
+        fixes[k] = v
+    rem['fixes'] = fixes
+    return rem
+
 
 # Negation patterns specific to stack detection — a line saying
 # "checking for xmlrpc.php" or "xmlrpc.php returned 404" is NOT evidence of WordPress.
@@ -2108,35 +2325,156 @@ def _filter_fixes(fixes: dict, detected: set[str]) -> dict:
     return filtered if filtered else fixes
 
 
-def match_remediations(text: str, target: str = '') -> list[dict]:
-    """Return remediation templates for vulnerabilities found in this scan.
+def _score_remediation(rem: dict, pos_lines: list[str],
+                        cves_by_line: list[tuple[str, set[str]]],
+                        cvss_max: float) -> tuple[int, bool, list[str]]:
+    """Compute priority score for a matched remediation.
 
-    - Only confirms positive findings (skips _REM_NEGATION lines).
-    - WordPress-specific remediations require WordPress to be detected.
-    - Fix stacks are filtered to those seen in the scan output.
-    - The actual target domain replaces the placeholder 'yourdomain.com'.
+    Returns (score, confirmed, cve_ids_relevant).
+    Higher score → shown first in priority actions list.
     """
-    pos_lines = [l.lower() for l in text.splitlines() if not _REM_NEGATION.search(l)]
-    pos_text  = ' '.join(pos_lines)
-    detected  = _detect_stacks(text)
+    base     = _SEV_WEIGHT.get(rem.get('severity', 'LOW'), 10)
+    patterns = rem['patterns']
 
+    # Lines in the scan output that actually matched this remediation
+    hit_lines = [l for l in pos_lines if any(p in l for p in patterns)]
+
+    # Confirmation: at least one hit line also has positive-finding language
+    confirmed = any(_CONFIRM_RE.search(l) for l in hit_lines)
+    if confirmed:
+        base += 15
+
+    # CVE bonus: CVEs that appear ON the same line as a pattern hit
+    relevant_cves: set[str] = set()
+    for line, line_cves in cves_by_line:
+        if any(p in line for p in patterns) and line_cves:
+            relevant_cves |= line_cves
+    base += min(len(relevant_cves) * 5, 20)
+
+    # CVSS score bonus (global max from scan output)
+    if cvss_max >= 9.0:
+        base += 12
+    elif cvss_max >= 7.0:
+        base += 7
+    elif cvss_max >= 4.0:
+        base += 3
+
+    # More confirming lines → higher confidence signal
+    base += min(len(hit_lines), 5) * 2
+
+    return base, confirmed, sorted(relevant_cves)
+
+
+def _extract_http_headers_from_output(text: str) -> dict[str, str]:
+    """Pull HTTP response header name→value pairs mentioned in scan output.
+
+    Handles lines like:
+      Server: nginx/1.18.0
+      X-Powered-By: PHP/7.4.3
+      > strict-transport-security: max-age=31536000
+    """
+    hdr_re = re.compile(
+        r'^\s*>?\s*([a-zA-Z][-a-zA-Z0-9]{2,40})\s*:\s*(.{1,200})$', re.M)
+    headers = {}
+    for m in hdr_re.finditer(text):
+        name  = m.group(1).strip().lower()
+        value = m.group(2).strip()
+        # Avoid picking up line-noise (e.g. "URL: https://...")
+        if name in ('url', 'host', 'connection', 'date', 'user-agent',
+                    'accept', 'accept-encoding', 'content-length', 'transfer-encoding',
+                    'keep-alive', 'vary', 'cache-control'):
+            continue
+        if name not in headers:
+            headers[name] = value
+    return headers
+
+
+def match_remediations(text: str, target: str = '') -> list[dict]:
+    """Return remediations dynamically scored, enriched, and personalised to this scan.
+
+    Pipeline:
+    1. Stack detection via text signals + HTTP header values from output
+    2. CVE extraction and per-line attribution
+    3. CVSS extraction for score boosting
+    4. Per-remediation scoring (severity + confirmation + CVE + evidence count)
+    5. Co-occurrence boosting (related vulnerabilities amplify each other)
+    6. Site context extraction (server versions, PHP EOL, CVEs, open ports)
+    7. Evidence line extraction (actual scan output lines that triggered each match)
+    8. Enrichment (_enrich_remediation injects context + urgency tier into each item)
+    9. Final sort: confirmed first, highest score first
+    """
+    raw_lines = text.splitlines()
+    pos_lines = [l.lower() for l in raw_lines if not _REM_NEGATION.search(l)]
+    pos_text  = ' '.join(pos_lines)
+
+    # ── Stack detection enriched with HTTP header values ─────────────────────
+    detected  = _detect_stacks(text)
+    http_hdrs = _extract_http_headers_from_output(text)
+    if 'nginx'    in (http_hdrs.get('server')       or '').lower():  detected.add('nginx')
+    if 'apache'   in (http_hdrs.get('server')       or '').lower():  detected.add('apache')
+    if 'php'      in (http_hdrs.get('x-powered-by') or '').lower():  detected.add('php')
+    if 'wordpress'in (http_hdrs.get('x-powered-by') or '').lower():  detected.add('wp')
+
+    # ── Per-line CVE extraction for attribution ───────────────────────────────
+    cves_by_line: list[tuple[str, set[str]]] = []
+    for raw_l in raw_lines:
+        if _REM_NEGATION.search(raw_l):
+            cves_by_line.append(('', set()))
+            continue
+        lc   = raw_l.lower()
+        cvs  = {m.upper() for m in _CVE_RE.findall(raw_l)}
+        cves_by_line.append((lc, cvs))
+
+    # Max CVSS extracted from scan output
+    cvss_vals = [float(m) for m in _CVSS_RE.findall(text) if float(m) <= 10.0]
+    cvss_max  = max(cvss_vals) if cvss_vals else 0.0
+
+    # ── Site context (versions, EOL, ports, specific paths) ───────────────────
+    site_ctx = _extract_site_context(text, target)
+
+    # ── Initial matching pass ──────────────────────────────────────────────────
     matched: list[dict] = []
+    matched_ids: set[str] = set()
+
     for rem in REMEDIATIONS:
         if not any(p in pos_text for p in rem['patterns']):
             continue
-        # WordPress-specific remediations only if WP is detected in this scan
         if rem['id'].startswith('wp-') and 'wp' not in detected:
             continue
-        # Filter fix stacks to those seen in this site's output
+
+        score, confirmed, rel_cves = _score_remediation(
+            rem, pos_lines, cves_by_line, cvss_max)
+
         fixes = _filter_fixes(rem['fixes'], detected)
-        # Substitute the actual scanned domain (if known) into fix code
-        if target:
-            fixes = {
-                k: v.replace('yourdomain.com', target)
-                     .replace('YOUR.OFFICE.IP.HERE', '[your office IP]')
-                for k, v in fixes.items()
-            }
-        matched.append({**rem, 'fixes': fixes})
+
+        evidence = _extract_evidence_lines(rem['patterns'], pos_lines, n=4)
+
+        matched.append({
+            **rem,
+            'fixes':          fixes,
+            'priority_score': score,
+            'confirmed':      confirmed,
+            'cves':           rel_cves,
+            'evidence':       evidence,
+        })
+        matched_ids.add(rem['id'])
+
+    # ── Co-occurrence boost pass ───────────────────────────────────────────────
+    for id_pair, boost_id, boost_amount in _COOCCURRENCE:
+        if id_pair.issubset(matched_ids):
+            for rem in matched:
+                if rem['id'] == boost_id:
+                    rem['priority_score'] += boost_amount
+                    if not rem.get('confirmed'):
+                        rem['confirmed'] = True   # co-occurring vulns confirm each other
+                    break
+
+    # ── Enrich each matched item with site context + urgency tier ─────────────
+    matched = [_enrich_remediation(rem, site_ctx, rem.get('evidence', []))
+               for rem in matched]
+
+    # ── Final sort: confirmed first, then by priority score descending ─────────
+    matched.sort(key=lambda r: (r['confirmed'], r['priority_score']), reverse=True)
     return matched
 
 
@@ -2167,9 +2505,9 @@ def agent_label(a: str) -> str:
 
 
 def _norm_target(raw: str) -> str:
-    """Strip scheme and path — keep only host[:port]."""
+    """Strip scheme and path — keep only lowercase host[:port]."""
     t = (raw or '').replace('https://', '').replace('http://', '')
-    return t.split('/')[0].split('?')[0].rstrip('.')
+    return t.split('/')[0].split('?')[0].rstrip('.').lower()
 
 
 def enrich(scan: dict) -> dict:
@@ -2221,27 +2559,62 @@ def _build_template_context() -> dict:
     targets = [enrich(t) for t in db.get_targets(username=_uf)]
     stats   = db.get_stats()
 
-    _prio = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2, 'INFO': 3}
-    all_recs = []
-    seen_per_target: dict[str, set] = {}
+    # Keep only the HIGHEST-SCORED version of each (target, finding_id) pair.
+    # This ensures: one entry per unique vulnerability per site, always the most
+    # evidence-rich scan wins, no stale duplicate entries from older scans.
+    _best: dict[tuple, dict] = {}   # (target, finding_key) → best rec entry
+
     for s in scans:
         tgt = s['target']
-        seen = seen_per_target.setdefault(tgt, set())
         for rem in s['remediations']:
-            k = rem['id']
-            if k not in seen:
-                seen.add(k)
-                all_recs.append({'target': tgt, 'risk': rem['severity'], 'text': rem['title'],
-                                 'agent': s['agent_label'], 'date': s['display_date'][:10],
-                                 'scan_id': s['id'], 'has_fixes': True})
+            key = (tgt, rem['id'])
+            new_score = rem.get('priority_score', 0)
+            if key not in _best or new_score > _best[key].get('priority_score', 0):
+                _best[key] = {
+                    'target':         tgt,
+                    'risk':           rem['severity'],
+                    'text':           rem['title'],
+                    'description':    rem.get('description', ''),
+                    'agent':          s['agent_label'],
+                    'date':           s['display_date'][:10],
+                    'scan_id':        s['id'],
+                    'has_fixes':      True,
+                    'priority_score': new_score,
+                    'confirmed':      rem.get('confirmed', False),
+                    'urgency':        rem.get('urgency', 'Best practice / future sprint'),
+                    'urgency_class':  rem.get('urgency_class', 'low'),
+                    'cves':           rem.get('cves', []),
+                    'evidence':       rem.get('evidence', []),
+                }
         for r in s['recs']:
-            k = r[:60].lower()
-            if k not in seen:
-                seen.add(k)
-                all_recs.append({'target': tgt, 'risk': rec_risk(r), 'text': r,
-                                 'agent': s['agent_label'], 'date': s['display_date'][:10],
-                                 'scan_id': s['id'], 'has_fixes': False})
-    all_recs.sort(key=lambda x: (_prio.get(x['risk'], 3), x['target']))
+            key = (tgt, r[:60].lower())
+            if key not in _best:
+                _best[key] = {
+                    'target':         tgt,
+                    'risk':           rec_risk(r),
+                    'text':           r,
+                    'description':    '',
+                    'agent':          s['agent_label'],
+                    'date':           s['display_date'][:10],
+                    'scan_id':        s['id'],
+                    'has_fixes':      False,
+                    'priority_score': 10,
+                    'confirmed':      False,
+                    'urgency':        'Best practice / future sprint',
+                    'urgency_class':  'low',
+                    'cves':           [],
+                    'evidence':       [],
+                }
+
+    all_recs = list(_best.values())
+    # Sort by: confirmed DESC, priority_score DESC, severity tier, then target
+    _prio = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2, 'INFO': 3}
+    all_recs.sort(key=lambda x: (
+        0 if x['confirmed'] else 1,
+        -x.get('priority_score', 0),
+        _prio.get(x['risk'], 3),
+        x['target'],
+    ))
 
     from collections import defaultdict as _dd
     _tgt_sev: dict = _dd(lambda: {'HIGH': 0, 'MEDIUM': 0, 'LOW': 0, 'INFO': 0})
@@ -7509,6 +7882,216 @@ def api_gsc_analyze():
     })
 
 
+# ── WordPress official plugin registry ───────────────────────────────────────
+# Curated list of well-known, officially distributed WordPress.org plugin slugs.
+# Anything NOT here gets verified via the WP.org Plugins API at scan time.
+_WP_OFFICIAL_PLUGINS = frozenset({
+    'akismet', 'jetpack', 'woocommerce', 'contact-form-7', 'wordfence',
+    'wordpress-seo', 'yoast-seo', 'elementor', 'classic-editor',
+    'really-simple-ssl', 'wpforms-lite', 'all-in-one-wp-migration',
+    'wp-super-cache', 'wp-optimize', 'all-in-one-seo-pack', 'updraftplus',
+    'google-site-kit', 'google-analytics-for-wordpress', 'sucuri-scanner',
+    'ithemes-security', 'better-wp-security', 'all-in-one-wp-security-and-firewall',
+    'wp-mail-smtp', 'mailchimp-for-wp', 'wps-hide-login', 'login-lockdown',
+    'limit-login-attempts-reloaded', 'two-factor', 'wp-2fa',
+    'w3-total-cache', 'wp-fastest-cache', 'litespeed-cache', 'autoptimize',
+    'smush', 'ewww-image-optimizer', 'imagify', 'shortpixel-image-optimiser',
+    'advanced-custom-fields', 'pods', 'meta-box', 'custom-post-type-ui',
+    'bbpress', 'buddypress', 'learnpress', 'lifterlms', 'learndash',
+    'wpforms', 'ninja-forms', 'gravity-forms', 'formidable', 'caldera-forms',
+    'everest-forms', 'happyforms', 'fluentform',
+    'woocommerce-payments', 'woocommerce-gateway-stripe',
+    'woocommerce-gateway-paypal-powered-by-braintree',
+    'woo-discount-rules', 'yith-woocommerce-wishlist',
+    'easy-digital-downloads', 'download-monitor',
+    'cookie-notice', 'gdpr-cookie-compliance', 'complianz', 'cookieyes',
+    'redirection', 'safe-redirect-manager',
+    'duplicate-post', 'user-role-editor', 'members',
+    'tablepress', 'ninja-tables',
+    'events-manager', 'the-events-calendar',
+    'polylang', 'loco-translate', 'say-what',
+    'regenerate-thumbnails', 'simple-image-sizes',
+    'simple-history', 'wp-activity-log',
+    'broken-link-checker', 'maintenance', 'under-construction-page',
+    'wp-statistics', 'monsterinsights', 'exactmetrics',
+    'wp-seopress', 'squirrly-seo', 'the-seo-framework', 'schema-and-structured-data-for-wp',
+    'popup-maker', 'icegram', 'optin-monster', 'mailpoet', 'convertkit',
+    'backwpup', 'duplicator', 'all-in-one-wp-migration',
+    'nextgen-gallery', 'envira-gallery', 'modula', 'media-library-assistant',
+    'custom-css-js', 'simple-custom-css', 'insert-headers-and-footers',
+    'header-footer-code-manager',
+    'miniorange-login-openid', 'nextend-social-login', 'social-login',
+    'wp-google-maps', 'leaflet-maps-marker', 'maps-marker-pro',
+    'pretty-links', 'thirstyaffiliates',
+    'disable-comments', 'classic-widgets', 'tinymce-advanced',
+    'gutenberg', 'blocksy-companion', 'kadence-blocks',
+    'essential-addons-for-elementor', 'elementor-pro',
+    'generatepress', 'astra', 'oceanwp', 'hello-elementor', 'storefront',
+    'smart-slider-3', 'master-slider', 'ml-slider',
+    'wpcf7-redirect', 'cf7-to-zapier', 'flamingo',
+    'wp-job-manager', 'wp-remote', 'wp-webhooks',
+    'cloudflare', 'aryo-activity-log', 'stream',
+    'hide-my-wp', 'wp-hide-login', 'change-wp-admin-login',
+    'anti-spam', 'cleantalk', 'wp-cerber',
+    'restrict-content-pro', 'paid-memberships-pro', 'memberpress',
+    'wpallexport', 'wp-all-import',
+    'translatepress', 'wpml',
+    'enable-media-replace', 'add-from-server',
+    'co-authors-plus', 'post-types-order',
+    'multisite-toolbar-additions', 'adminimize',
+    'check-email', 'wp-mail-logging',
+    'disable-block-editor', 'smart-custom-404-error-page',
+    'block-bad-queries', 'wp-htaccess-editor',
+    'tinymce-advanced', 'rich-text-tags',
+    'woo-variation-swatches', 'variation-swatches-for-woocommerce',
+    'woocommerce-multilingual', 'booster-for-woocommerce',
+    'wp-rollback', 'enable-jquery-migrate-helper',
+    'hummingbird-performance', 'wp-rocket',
+    'imagify', 'shortpixel-adaptive-images',
+    'bbpress-improved-notifications', 'bp-better-messages',
+    'mailster', 'newsletter', 'wp-newsletter',
+    'post-expirator', 'admin-menu-editor',
+    'searchie', 'searchwp', 'relevanssi',
+    'wptouch', 'amp', 'official-facebook-pixel',
+    'twitter-for-websites', 'instagram-feed', 'smash-balloon-social-post-feed',
+    'wpml-string-translation', 'wpml-media-translation',
+    'woocommerce-subscriptions', 'woocommerce-memberships',
+    'woocommerce-bookings', 'woocommerce-product-bundles',
+    'image-widget', 'image-map-pro', 'interactive-geo-maps',
+    'woocommerce-wishlists', 'woocommerce-shipping', 'woocommerce-tax',
+    'shortcode-ultimate', 'so-widgets-bundle', 'page-builder-by-siteorigin',
+    'beaver-builder-lite-version', 'visual-composer-website-builder',
+    'fusion-builder', 'divi-builder', 'themify-builder',
+    'wp-fastest-cache', 'cache-enabler',
+    'a3-lazy-load', 'lazy-load', 'bj-lazy-load',
+    'wordfence-login-security', 'wp-bruiser',
+    'real-time-find-and-replace', 'custom-field-suite',
+    'types', 'toolset-blocks', 'wpadverts',
+    'wp-postratings', 'kk-star-ratings',
+    'widget-logic', 'if-menu', 'wp-show-posts',
+    'featured-image-from-url', 'auto-upload-images',
+    'multi-step-form', 'step-by-step',
+    'paypal-for-woocommerce', 'stripe-payments',
+    'currency-switcher-woocommerce', 'currency-switcher',
+    'otter-blocks', 'stackable-ultimate-gutenberg-blocks',
+    'spectra', 'uagb', 'getwid',
+    'wp-staging', 'wp-clone',
+    'duplicator-pro', 'instawp-connect',
+    'filebird', 'real-media-library', 'wp-media-folder',
+    'woocommerce-product-reviews-pro', 'yotpo-social-reviews-for-woocommerce',
+    'click-to-chat-for-whatsapp', 'wati-io',
+    'facebook-for-woocommerce', 'pinterest-for-woocommerce',
+    'google-listings-and-ads', 'mailchimp-for-woocommerce',
+})
+
+# Suspicious plugin naming heuristics: patterns that suggest unofficial / malicious plugins
+_SUSP_SLUG_RE = re.compile(
+    r'^[a-z0-9]{2,5}$'                  # Very short generic slug (2-5 chars)
+    r'|[0-9]{4,}'                        # 4+ consecutive digits
+    r'|(?:update|patch|fix|security|loader|bootloader|wp-plugin)-[a-z0-9]{8,}'  # Generic + random suffix
+    r'|\b(?:shell|cmd|webshell|backdoor|hack|exploit|inject|bypass|rootkit)\b'  # Explicit bad words
+    , re.I)
+
+
+def _check_wp_plugin_official(slug: str) -> dict:
+    """Determine if a WordPress plugin slug is from WordPress.org.
+
+    Strategy (in order):
+    1. Known-good curated list → 'official' (instant, no network)
+    2. Suspicious naming heuristics → 'suspicious' (instant)
+    3. WordPress.org Plugins API → 'official' or 'unofficial' (network, 5s timeout)
+    4. Fallback → 'unknown'
+
+    Returns dict: {status, confidence, active_installs, description}
+    """
+    s = (slug or '').lower().strip()
+    result: dict = {'slug': slug, 'status': 'unknown', 'confidence': 0.5,
+                    'active_installs': None, 'wp_org_name': None}
+
+    if not s:
+        result['status'] = 'unknown'
+        return result
+
+    # 1. Known-good list
+    if s in _WP_OFFICIAL_PLUGINS:
+        result.update(status='official', confidence=1.0)
+        return result
+
+    # 2. Suspicious heuristics — fast check before network call
+    if _SUSP_SLUG_RE.search(s):
+        result.update(status='suspicious', confidence=0.85)
+        return result
+
+    # 3. WordPress.org Plugins API (real-time)
+    try:
+        import urllib.request as _ur2
+        import json as _js2
+        api_url = (
+            'https://api.wordpress.org/plugins/info/1.2/'
+            f'?action=plugin_information'
+            f'&request[slug]={s}'
+            '&fields[active_installs]=1'
+            '&fields[short_description]=1'
+        )
+        req2 = _ur2.Request(api_url, headers={'User-Agent': 'CF_AI-Scanner/1.0'})
+        with _ur2.urlopen(req2, timeout=5) as resp2:
+            data = _js2.loads(resp2.read(16384).decode('utf-8', errors='replace'))
+        if isinstance(data, dict) and data.get('slug', '').lower() == s:
+            result.update(
+                status='official',
+                confidence=0.95,
+                active_installs=data.get('active_installs'),
+                wp_org_name=data.get('name'),
+            )
+        else:
+            # API returned false or a different slug — not on WordPress.org
+            result.update(status='unofficial', confidence=0.8)
+    except Exception:
+        result['status'] = 'unknown'
+
+    return result
+
+
+# ── PHP backdoor / webshell detection patterns ────────────────────────────────
+_BACKDOOR_PATTERNS = [
+    (re.compile(r'eval\s*\(\s*base64_decode\b', re.I),
+     'eval(base64_decode()) — classic PHP webshell obfuscation', 'critical'),
+    (re.compile(r'eval\s*\(\s*\$_(?:POST|GET|REQUEST|COOKIE)\b', re.I),
+     'eval() with direct user input — arbitrary code execution', 'critical'),
+    (re.compile(r'preg_replace\s*\([^,]{0,60}/e["\']?\s*,', re.I),
+     'preg_replace /e modifier — deprecated code execution backdoor', 'critical'),
+    (re.compile(r'assert\s*\(\s*\$_(?:POST|GET|REQUEST|COOKIE)\b', re.I),
+     'assert() with user input — code execution backdoor', 'critical'),
+    (re.compile(r'(?:system|passthru|shell_exec|popen|proc_open)\s*\(\s*\$_(?:POST|GET|REQUEST|COOKIE)\b', re.I),
+     'OS command execution via user-controlled input', 'critical'),
+    (re.compile(r'create_function\s*\(\s*["\']', re.I),
+     'create_function() — deprecated PHP code injection vector', 'high'),
+    (re.compile(r'base64_decode\s*\(\s*["\'][A-Za-z0-9+/]{80,}={0,2}["\']', re.I),
+     'Large base64-encoded payload in source — likely obfuscation', 'high'),
+    (re.compile(r'\$\{\s*["\']_[A-Z]+["\']\s*\}', re.I),
+     'Variable-variable with superglobal name — obfuscation technique', 'high'),
+    (re.compile(r'<\?php\s{0,10}@?eval\s*\(', re.I),
+     'PHP file starts with eval() — classic webshell signature', 'critical'),
+    (re.compile(r'(?:chr\([0-9]+\)\.){5,}', re.I),
+     'chr()-concatenation obfuscation — encoded payload', 'high'),
+    (re.compile(r'gzinflate\s*\(', re.I),
+     'gzinflate() — often used to decompress hidden payloads', 'medium'),
+    (re.compile(r'str_rot13\s*\(', re.I),
+     'str_rot13() obfuscation detected', 'medium'),
+]
+
+
+def _scan_content_for_backdoors(content: str, path: str) -> list[dict]:
+    """Return list of backdoor findings in fetched file content."""
+    hits = []
+    for pattern, desc, severity in _BACKDOOR_PATTERNS:
+        if pattern.search(content):
+            hits.append({'path': path, 'finding': desc, 'severity': severity})
+            if severity == 'critical':
+                break  # one critical is enough per file
+    return hits
+
+
 @app.route('/api/wp/filescan', methods=['POST'])
 def api_wp_filescan():
     """Scan WordPress site for malware, suspicious files, and recent modifications.
@@ -7617,7 +8200,7 @@ def api_wp_filescan():
                     except Exception:
                         pass
 
-                    # ── Active plugins from DB ────────────────────────────────
+                    # ── Active plugins from DB — with official/unofficial check ──
                     try:
                         opts_tbl = f'{db_pfx}options'
                         cur.execute(
@@ -7629,7 +8212,18 @@ def api_wp_filescan():
                             plugin_paths = re.findall(r'"([\w/.-]+\.php)"', raw)
                             for path in plugin_paths:
                                 slug = path.split('/')[0]
-                                results['plugins'].append({'slug': slug, 'path': path})
+                                check = _check_wp_plugin_official(slug)
+                                entry = {
+                                    'slug':           slug,
+                                    'path':           path,
+                                    'status':         check['status'],
+                                    'confidence':     check['confidence'],
+                                    'active_installs':check.get('active_installs'),
+                                    'wp_org_name':    check.get('wp_org_name'),
+                                }
+                                results['plugins'].append(entry)
+                                if check['status'] in ('unofficial', 'suspicious'):
+                                    results['summary']['high'] = results['summary'].get('high', 0) + 1
                     except Exception:
                         pass
 
@@ -7657,11 +8251,37 @@ def api_wp_filescan():
                         results['upload_php_files'].append(f)
                         results['summary']['critical'] = results['summary'].get('critical', 0) + 1
                 results['recent_modified'] = plugin_data.get('recent_modified', [])
-                # Flag any non-.php recent files with suspicious extensions
-                _SUSP = {'.exe','.bat','.sh','.cmd','.js','.py'}
+                # Executables / scripts in WP dirs are always suspicious; JS/PY files only
+                # if they appear outside wp-admin/wp-includes (i.e. user-writable areas).
+                _EXEC_SUSP = {'.exe', '.bat', '.sh', '.cmd', '.ps1', '.vbs', '.jar'}
+                _SCRIPT_SUSP = {'.py', '.rb', '.pl', '.go'}
                 for fm in results['recent_modified']:
-                    if fm.get('ext','') in _SUSP:
+                    ext  = (fm.get('ext') or '').lower()
+                    fpath = (fm.get('path') or '').lower()
+                    in_core = any(seg in fpath for seg in ('/wp-admin/', '/wp-includes/'))
+                    if ext in _EXEC_SUSP:
+                        fm['suspicious'] = True
+                        fm['reason'] = 'Executable file type in WordPress directory'
                         results['summary']['high'] = results['summary'].get('high', 0) + 1
+                    elif ext in _SCRIPT_SUSP and not in_core:
+                        fm['suspicious'] = True
+                        fm['reason'] = f'Script file ({ext}) outside core directories'
+                        results['summary']['medium'] = results['summary'].get('medium', 0) + 1
+                    elif ext == '.js' and '/uploads/' in fpath:
+                        fm['suspicious'] = True
+                        fm['reason'] = 'JavaScript file in uploads directory'
+                        results['summary']['medium'] = results['summary'].get('medium', 0) + 1
+
+                # Also scan any plugin-provided file content for backdoor patterns
+                if plugin_data.get('file_samples'):
+                    backdoor_hits = []
+                    for sample in plugin_data['file_samples']:
+                        content = sample.get('content', '')
+                        fpath2  = sample.get('path', '')
+                        backdoor_hits.extend(_scan_content_for_backdoors(content, fpath2))
+                    if backdoor_hits:
+                        results['backdoor_findings'] = backdoor_hits
+                        results['summary']['critical'] = results['summary'].get('critical', 0) + len(backdoor_hits)
         except Exception:
             results['plugin_installed'] = False
 
@@ -7716,10 +8336,34 @@ def api_filescan_generic():
     results = {'platform': platform, 'site_url': site_url,
                 'exposed_files': [], 'missing_headers': [],
                 'security_headers': {}, 'platform_findings': [],
-                'summary': {'critical': 0, 'high': 0, 'medium': 0, 'info': 0}}
+                'server_info': {}, 'backdoor_findings': [],
+                'summary': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'info': 0}}
 
-    # ── 1. Security headers check ─────────────────────────────────────────────
-    code, hdrs, _ = _get('/')
+    # ── 1. Security headers + server fingerprinting ───────────────────────────
+    code, hdrs, body_root = _get('/')
+    hdrs_lower = {k.lower(): v for k, v in hdrs.items()}
+
+    # Fingerprint the server from response headers
+    server_banner = hdrs_lower.get('server', '')
+    powered_by    = hdrs_lower.get('x-powered-by', '')
+    generator_m   = re.search(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)', body_root, re.I)
+    generator_tag = generator_m.group(1) if generator_m else ''
+    results['server_info'] = {
+        'server':       server_banner,
+        'x_powered_by': powered_by,
+        'generator':    generator_tag,
+        'http_status':  code,
+    }
+    # If server exposes version → flag it
+    if re.search(r'[0-9]+\.[0-9]+', server_banner or powered_by or ''):
+        results['exposed_files'].append({
+            'path': '/ (response header)',
+            'severity': 'low',
+            'description': f'Server version disclosed in HTTP headers: {server_banner or powered_by}',
+            'status': str(code),
+        })
+        results['summary']['low'] += 1
+
     hdr_checks = [
         ('strict-transport-security', 'Strict-Transport-Security', 'Enforces HTTPS — prevents protocol downgrade attacks'),
         ('content-security-policy',   'Content-Security-Policy',   'Mitigates XSS and data injection attacks'),
@@ -7728,14 +8372,14 @@ def api_filescan_generic():
         ('referrer-policy',           'Referrer-Policy',           'Controls how much referrer info is sent'),
         ('permissions-policy',        'Permissions-Policy',        'Restricts access to browser features'),
     ]
-    hdrs_lower = {k.lower(): v for k, v in hdrs.items()}
     for key, name, desc in hdr_checks:
-        results['security_headers'][name] = hdrs_lower.get(key, '')
-        if not hdrs_lower.get(key):
+        val = hdrs_lower.get(key, '')
+        results['security_headers'][name] = val
+        if not val:
             results['missing_headers'].append({'header': name, 'description': desc})
             results['summary']['medium'] += 1
 
-    # ── 2. Exposed sensitive files (common across all platforms) ──────────────
+    # ── 2. Exposed sensitive files — fetch content for PHP files ─────────────
     common_paths = [
         ('/.env',            'critical', 'Environment file — may contain DB passwords, API keys, secrets'),
         ('/.env.local',      'critical', 'Local env file — may contain secrets'),
@@ -7749,8 +8393,13 @@ def api_filescan_generic():
         ('/phpinfo.php',     'high',     'PHP info page exposes server configuration'),
         ('/info.php',        'high',     'PHP info page exposes server configuration'),
         ('/test.php',        'medium',   'Test PHP file left on server'),
+        ('/shell.php',       'critical', 'Possible PHP webshell on server'),
+        ('/cmd.php',         'critical', 'Possible PHP webshell on server'),
+        ('/wp-content/uploads/shell.php', 'critical', 'PHP webshell in WordPress uploads'),
         ('/composer.json',   'medium',   'Composer config — reveals dependencies and versions'),
         ('/package.json',    'medium',   'NPM config — reveals dependencies and versions'),
+        ('/config.php',      'high',     'Config file potentially exposed'),
+        ('/db.php',          'high',     'Database config file potentially exposed'),
     ]
 
     # Platform-specific sensitive paths
@@ -7763,80 +8412,125 @@ def api_filescan_generic():
         'joomla':  [('/configuration.php', 'critical', 'Joomla config — may contain DB credentials'),
                     ('/administrator/', 'medium', 'Joomla admin panel exposed'),
                     ('/logs/', 'medium', 'Joomla logs directory potentially browsable'),
-                    ('/cache/', 'info', 'Joomla cache directory potentially browsable')],
-        'laravel': [('/storage/logs/laravel.log', 'high', 'Laravel log file exposed — may contain stack traces and credentials'),
+                    ('/cache/', 'info', 'Joomla cache directory potentially browsable'),
+                    ('/tmp/', 'medium', 'Joomla temp directory potentially browsable')],
+        'laravel': [('/storage/logs/laravel.log', 'high', 'Laravel log file — may contain stack traces with credentials'),
                     ('/.env', 'critical', 'Laravel .env with APP_KEY and DB credentials'),
                     ('/public/.htaccess', 'info', 'Laravel htaccess exposed'),
-                    ('/artisan', 'medium', 'Artisan CLI script exposed')],
+                    ('/artisan', 'medium', 'Artisan CLI script exposed'),
+                    ('/telescope/api/requests', 'high', 'Laravel Telescope exposed — reveals all HTTP requests')],
         'django':  [('/admin/', 'medium', 'Django admin panel accessible'),
-                    ('/__debug__/', 'high', 'Django Debug Toolbar exposed'),
+                    ('/__debug__/', 'high', 'Django Debug Toolbar exposed — reveals queries and environment'),
                     ('/static/admin/', 'info', 'Django static admin files'),
-                    ('/media/', 'info', 'Django media directory potentially browsable')],
+                    ('/media/', 'info', 'Django media directory potentially browsable'),
+                    ('/api/schema/', 'medium', 'DRF schema exposed — reveals API endpoints')],
         'nodejs':  [('/package.json', 'medium', 'npm package.json — reveals dependencies'),
                     ('/.env', 'critical', 'Node.js env file with secrets'),
-                    ('/node_modules/', 'info', 'node_modules directory potentially browsable')],
+                    ('/node_modules/', 'info', 'node_modules directory potentially browsable'),
+                    ('/graphql', 'medium', 'GraphQL endpoint — may be introspectable'),
+                    ('/metrics', 'medium', 'Prometheus metrics endpoint potentially exposed')],
+        'wordpress': [('/wp-config.php', 'critical', 'WordPress config — contains DB credentials'),
+                      ('/wp-content/debug.log', 'high', 'WordPress debug log exposed — may contain paths and errors'),
+                      ('/readme.html', 'low', 'WordPress readme — reveals version'),
+                      ('/license.txt', 'low', 'WordPress license — reveals version'),
+                      ('/wp-json/wp/v2/users', 'medium', 'WordPress REST API exposes user list')],
     }
 
+    # Auto-detect WordPress from generator tag or server info
+    wp_detected = (
+        'wordpress' in generator_tag.lower()
+        or 'wp-content' in body_root.lower()
+        or (platform == 'wordpress')
+    )
+    if wp_detected and platform not in ('drupal', 'joomla', 'laravel', 'django', 'nodejs'):
+        platform = 'wordpress'
+        results['platform'] = 'wordpress'
+
     all_paths = common_paths + platform_paths.get(platform, [])
-    for path, severity, description in all_paths:
-        code, _, body = _get(path)
-        if code == 200:
-            results['exposed_files'].append({'path': path, 'severity': severity,
-                                             'description': description, 'status': str(code)})
+    for fpath, severity, description in all_paths:
+        fcode, fhdrs, fbody = _get(fpath)
+        if fcode == 200:
+            entry = {'path': fpath, 'severity': severity,
+                     'description': description, 'status': str(fcode)}
+            results['exposed_files'].append(entry)
             results['summary'][severity] = results['summary'].get(severity, 0) + 1
+            # Scan PHP file content for backdoor patterns
+            if fpath.endswith('.php') and fbody:
+                hits = _scan_content_for_backdoors(fbody, fpath)
+                if hits:
+                    results['backdoor_findings'].extend(hits)
+                    for h in hits:
+                        sev = h['severity']
+                        results['summary'][sev] = results['summary'].get(sev, 0) + 1
 
     # ── 3. Platform-specific checks ────────────────────────────────────────────
     def _check(label, path, expect_not=None, expect=None, note=''):
-        code2, _, body2 = _get(path)
+        chk_code, _, chk_body = _get(path)
         if expect_not is not None:
-            passed = code2 not in expect_not
+            passed = chk_code not in expect_not
         elif expect is not None:
-            passed = code2 in expect
+            passed = chk_code in expect
         else:
-            passed = code2 == 200
-        detail = note or ('HTTP ' + str(code2))
+            passed = chk_code == 200
+        detail = note or ('HTTP ' + str(chk_code))
         if not passed:
             results['summary']['medium'] += 1
-        return {'check': label, 'pass': passed, 'detail': detail}
+        return {'check': label, 'pass': passed, 'detail': detail, 'http_status': chk_code}
 
     if platform == 'drupal':
         results['platform_findings'] = [
-            _check('Drupal CHANGELOG not public',   '/CHANGELOG.txt',       expect_not=[200], note='Version info should not be publicly readable'),
-            _check('Install.php removed',           '/install.php',         expect_not=[200], note='install.php must not exist on live sites'),
-            _check('Update.php protected',          '/update.php',          expect_not=[200], note='update.php must require admin auth'),
-            _check('Sites/default not browsable',   '/sites/default/',      expect_not=[200], note='Directory listing should be disabled'),
+            _check('CHANGELOG.txt not public',      '/CHANGELOG.txt',            expect_not=[200], note='Version info should not be publicly readable'),
+            _check('install.php removed',           '/install.php',              expect_not=[200], note='install.php must not exist on live sites'),
+            _check('update.php protected',          '/update.php',               expect_not=[200], note='update.php must require admin auth'),
+            _check('sites/default not browsable',   '/sites/default/',           expect_not=[200], note='Directory listing should be disabled'),
+            _check('xmlrpc.php blocked',            '/xmlrpc.php',               expect_not=[200], note='XML-RPC should be disabled if unused'),
         ]
     elif platform == 'joomla':
         results['platform_findings'] = [
-            _check('Admin panel requires auth',     '/administrator/',       expect_not=[200], note='Should redirect to login, not open admin'),
-            _check('Logs not public',               '/logs/',                expect_not=[200], note='Log directory must not be browsable'),
-            _check('Configuration.php not readable','/configuration.php',   expect_not=[200], note='Config must not be readable via HTTP'),
-            _check('Cache not browsable',           '/cache/',               expect_not=[200], note='Cache directory must not be browsable'),
+            _check('Admin panel requires auth',     '/administrator/',            expect_not=[200], note='Should redirect to login, not expose admin panel'),
+            _check('Logs not public',               '/logs/',                     expect_not=[200], note='Log directory must not be browsable'),
+            _check('configuration.php not readable','/configuration.php',        expect_not=[200], note='Config must not be readable via HTTP'),
+            _check('Cache not browsable',           '/cache/',                    expect_not=[200], note='Cache directory must not be browsable'),
+            _check('Tmp not browsable',             '/tmp/',                      expect_not=[200], note='Temp directory must not be browsable'),
         ]
     elif platform == 'laravel':
         results['platform_findings'] = [
-            _check('Debug mode off',                '/_debugbar/open',       expect_not=[200], note='Laravel Debugbar should not be publicly accessible'),
-            _check('Telescope not public',          '/telescope/api/requests', expect_not=[200], note='Laravel Telescope must require auth'),
-            _check('Storage logs not public',       '/storage/logs/laravel.log', expect_not=[200], note='Log files must not be publicly readable'),
-            _check('.env not exposed',              '/.env',                 expect_not=[200], note='.env must never be publicly accessible'),
+            _check('Debug mode off',                '/_debugbar/open',            expect_not=[200], note='Laravel Debugbar should not be publicly accessible'),
+            _check('Telescope not public',          '/telescope/api/requests',    expect_not=[200], note='Laravel Telescope must require authentication'),
+            _check('Storage logs not public',       '/storage/logs/laravel.log',  expect_not=[200], note='Log files must not be publicly readable'),
+            _check('.env not exposed',              '/.env',                      expect_not=[200], note='.env must never be publicly accessible'),
+            _check('Horizon not public',            '/horizon',                   expect_not=[200], note='Laravel Horizon must require authentication'),
         ]
     elif platform == 'django':
         results['platform_findings'] = [
-            _check('Debug Toolbar not public',      '/__debug__/',           expect_not=[200], note='Django Debug Toolbar must not be publicly accessible'),
-            _check('Admin requires auth',           '/admin/',               expect_not=[200], note='Admin should redirect to login page'),
-            _check('Media not browsable',           '/media/',               expect_not=[200], note='Media directory listing should be disabled'),
+            _check('Debug Toolbar not public',      '/__debug__/',                expect_not=[200], note='Django Debug Toolbar must not be publicly accessible'),
+            _check('Admin requires auth',           '/admin/',                    expect_not=[200], note='Admin should redirect to login — not expose Django admin'),
+            _check('Media not browsable',           '/media/',                    expect_not=[200], note='Media directory listing should be disabled'),
+            _check('API schema not public',         '/api/schema/',               expect_not=[200], note='DRF API schema reveals all endpoints and methods'),
         ]
     elif platform == 'nodejs':
         results['platform_findings'] = [
-            _check('node_modules not browsable',    '/node_modules/',        expect_not=[200], note='node_modules must never be web-accessible'),
-            _check('.env not exposed',              '/.env',                 expect_not=[200], note='.env must never be publicly accessible'),
-            _check('package.json not exposed',      '/package.json',         expect_not=[200], note='Dependency list should not be public'),
+            _check('node_modules not browsable',    '/node_modules/',             expect_not=[200], note='node_modules must never be web-accessible'),
+            _check('.env not exposed',              '/.env',                      expect_not=[200], note='.env must never be publicly accessible'),
+            _check('package.json not exposed',      '/package.json',              expect_not=[200], note='Dependency list should not be public'),
+            _check('GraphQL introspection',         '/graphql?query={__schema{types{name}}}', expect_not=[200], note='GraphQL introspection in production leaks API schema'),
+        ]
+    elif platform == 'wordpress':
+        results['platform_findings'] = [
+            _check('wp-config.php blocked',         '/wp-config.php',             expect_not=[200], note='wp-config.php must never be publicly readable'),
+            _check('xmlrpc.php blocked',            '/xmlrpc.php',                expect_not=[200], note='XML-RPC should be disabled if not explicitly needed'),
+            _check('readme.html removed',           '/readme.html',               expect_not=[200], note='readme.html reveals WordPress version'),
+            _check('wp-login rate limited',         '/wp-login.php',              expect=[302, 200], note='wp-login.php should require auth (200=exposed, 302=redirecting)'),
+            _check('debug.log not public',          '/wp-content/debug.log',      expect_not=[200], note='Debug log may contain sensitive paths and credentials'),
+            _check('wp-json users hidden',          '/wp-json/wp/v2/users',       expect_not=[200], note='User enumeration via REST API should be disabled'),
         ]
     else:
         results['platform_findings'] = [
-            _check('.env not exposed',              '/.env',                 expect_not=[200], note='.env must never be publicly accessible'),
-            _check('.git not exposed',              '/.git/HEAD',            expect_not=[200], note='Git repo must not be publicly accessible'),
-            _check('Backup files not exposed',      '/backup.sql',           expect_not=[200], note='Database backups must not be publicly accessible'),
+            _check('.env not exposed',              '/.env',                      expect_not=[200], note='.env must never be publicly accessible'),
+            _check('.git not exposed',              '/.git/HEAD',                 expect_not=[200], note='Git repo must not be publicly accessible'),
+            _check('Backup files not exposed',      '/backup.sql',                expect_not=[200], note='Database backups must not be publicly accessible'),
+            _check('Admin panel protected',         '/admin',                     expect_not=[200], note='Admin panel must require authentication'),
+            _check('Config file protected',         '/config.php',                expect_not=[200], note='Configuration files must not be web-accessible'),
         ]
 
     return jsonify(results)
