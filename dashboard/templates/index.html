@@ -14701,6 +14701,7 @@ var _ALL_PAGES = [
   { group: 'Incidents & Monitoring', pages: [
     { key: 'incidents',      label: 'Incident Management' },
     { key: 'priority',       label: 'Action Center' },
+    { key: 'syslog',         label: 'System Logs' },
     { key: 'pluginlogs',     label: 'Plugin & User Activity' },
     { key: 'logexplorer',    label: 'Log Explorer' },
     { key: 'network',        label: 'Network Monitor' },
@@ -14713,12 +14714,15 @@ var _ALL_PAGES = [
     { key: 'sca',            label: 'Static Code Analysis' },
     { key: 'dca',            label: 'Dynamic Code Analysis' },
   ]},
+  { group: 'Risk Management',        pages: [
+    { key: 'grc',            label: 'Risk Management' },
+  ]},
 ];
 
 // Presets
 var _PAGE_PRESETS = {
   default:  ['dashboard','chatbot','pluginlogs','logexplorer','network'],
-  analyst:  ['dashboard','chatbot','gsc','filescan','threatanalytics','incidents','priority','targets','logexplorer','pluginlogs','network','history'],
+  analyst:  ['dashboard','chatbot','gsc','filescan','threatanalytics','incidents','priority','syslog','targets','logexplorer','pluginlogs','network','history','grc'],
   readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
   all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
   none:     [],
