@@ -18506,10 +18506,10 @@ function _grcRiskScatterChart(risks) {
     options: {
       responsive: true,
       scales: {
-        x: { min: 0.5, max: 5.5, title: { display: true, text: 'Likelihood', font: { size: 11 }, color: '#64748b' },
-          ticks: { stepSize: 1, font: { size: 10 }, callback: function(v){ return Number.isInteger(v) ? v : ''; } } },
-        y: { min: 0.5, max: 5.5, title: { display: true, text: 'Impact', font: { size: 11 }, color: '#64748b' },
-          ticks: { stepSize: 1, font: { size: 10 }, callback: function(v){ return Number.isInteger(v) ? v : ''; } } }
+        x: { min: 0, max: 6, title: { display: true, text: 'Likelihood', font: { size: 11 }, color: '#64748b' },
+          ticks: { stepSize: 1, font: { size: 10 } } },
+        y: { min: 0, max: 6, title: { display: true, text: 'Impact', font: { size: 11 }, color: '#64748b' },
+          ticks: { stepSize: 1, font: { size: 10 } } }
       },
       plugins: {
         legend: { display: false },
