@@ -1030,6 +1030,9 @@ def admin_set_role(username):
         return jsonify({'error': 'Cannot demote yourself'}), 400
     users[username]['role'] = new_role
     _save_users(users)
+    user_email = users[username].get('email', '')
+    changed_by = session['user'].get('username', 'admin')
+    _send_role_change_email(username, user_email, new_role, changed_by)
     return jsonify({'ok': True})
 
 @app.route('/api/admin/users/<username>/plan', methods=['POST'])
@@ -11465,6 +11468,8 @@ def api_payment_notification():
     if new_status == 'active' and username in users:
         users[username]['plan'] = 'pro'
         _save_users(users)
+        user_email = users[username].get('email', '') or sub.get('email', '')
+        _send_pro_welcome_email(username, user_email, sub.get('plan_type', 'monthly'), expires_at)
     elif new_status in ('cancelled', 'failed', 'expired') and sub.get('status') == 'active':
         if username in users:
             users[username]['plan'] = 'basic'
@@ -13199,6 +13204,138 @@ def _send_account_change_email(username: str, email: str, change_type: str) -> b
             If you did not make this change, please contact us immediately at
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>
             so we can secure your account.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_role_change_email(username: str, email: str, new_role: str, changed_by: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS or not email:
+        return False
+    try:
+        import datetime as _dt
+        role_label   = 'Administrator' if new_role == 'admin' else 'Standard User'
+        role_desc    = ('You now have full administrative access to CyberINK, including user management, '
+                        'subscription management, appointment management, and all system settings.'
+                        if new_role == 'admin' else
+                        'Your account has been set to standard user access. '
+                        'Administrative controls are no longer available to your account.')
+        now_str      = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+        subject      = f'CyberINK — Your Account Role Has Been Updated'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Account Role Change</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello <strong>{username}</strong>, your CyberINK account role has been updated by an administrator.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:130px;">Account</td>
+              <td style="padding:7px 0;color:#2563eb;">{username}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">New Role</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:700;">{role_label}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Changed By</td>
+              <td style="padding:7px 0;color:#2563eb;">{changed_by}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Time (UTC)</td>
+              <td style="padding:7px 0;color:#2563eb;">{now_str}</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#475569;font-size:12px;line-height:1.6;">{role_desc}</p>
+          <p class="ep" style="color:#64748b;font-size:12px;margin-top:16px;line-height:1.6;">
+            If you did not expect this change, contact us at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_at: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS or not email:
+        return False
+    try:
+        pt  = 'Annual' if plan_type == 'annual' else 'Monthly'
+        exp = expires_at.split(' ')[0] if expires_at else '—'
+        subject = 'Welcome to CyberINK Pro — Your Subscription is Active'
+        features_basic = [
+            'Security Dashboard &amp; KPI Overview',
+            'AI Chatbot Assistant',
+            'Log Explorer &amp; Plugin Activity Logs',
+            'Incident Management',
+            'Threat Analytics &amp; Security Signals',
+            'MITRE ATT&amp;CK / Cloud SIEM',
+            'Vulnerability Overview, Weaknesses &amp; Recommendations',
+            'Risk Management &amp; Audit Control (GRC)',
+            'Inventories &amp; Network Monitor',
+            'WordPress File Scanner &amp; Domain Health',
+            'Secure Score &amp; Priority Actions',
+        ]
+        features_pro = [
+            'Security Scanner — full AI-powered scanning against any target URL',
+            'Scan Results — full findings history per target',
+            'Scan Analytics — threat trends, severity distribution, time-series analytics',
+            'Action Centre — priority findings workflow with automated triage',
+            'Automated remediation recommendations from scan output',
+            'Up to 50 scans/month per user',
+            'Priority email support (response &lt; 24 hours)',
+        ]
+        basic_rows = ''.join(
+            f'<tr><td style="padding:5px 0 5px 8px;color:#1e40af;font-size:12px;">'
+            f'<span style="color:#2563eb;font-weight:700;margin-right:6px;">+</span>{f}</td></tr>'
+            for f in features_basic
+        )
+        pro_rows = ''.join(
+            f'<tr><td style="padding:5px 0 5px 8px;color:#1e40af;font-size:12px;font-weight:600;">'
+            f'<span style="color:#2563eb;font-weight:700;margin-right:6px;">+</span>{f}</td></tr>'
+            for f in features_pro
+        )
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Your Pro Subscription is Active</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello <strong>{username}</strong>, thank you for subscribing to CyberINK Pro.
+            Your account is now upgraded and all Pro features are immediately available.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Account</td>
+              <td style="padding:7px 0;color:#2563eb;">{username}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Plan</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:700;">Pro — {pt}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Expires</td>
+              <td style="padding:7px 0;color:#2563eb;">{exp}</td>
+            </tr>
+          </table>
+          <p style="font-size:13px;font-weight:700;color:#1e3a8a;margin:0 0 6px;">Basic Features (included)</p>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:16px;background:#f8faff;
+                        border:1px solid #bfdbfe;border-radius:6px;">{basic_rows}</table>
+          <p style="font-size:13px;font-weight:700;color:#1e3a8a;margin:0 0 6px;">Pro-Exclusive Features (newly unlocked)</p>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#eff6ff;
+                        border:1px solid #93c5fd;border-radius:6px;">{pro_rows}</table>
+          <p class="ep" style="color:#64748b;font-size:12px;margin-top:4px;line-height:1.6;">
+            Log in to CyberINK to start using your Pro features. If you have any questions contact us at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
