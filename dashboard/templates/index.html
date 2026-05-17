@@ -6629,7 +6629,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <input type="hidden" id="gc-id">
       <div class="grc2-g2">
         <div class="grc2-field"><label class="grc2-lbl">Control ID *</label><input class="grc2-inp" id="gc-cid" placeholder="e.g. ISO-A.5.1"></div>
-        <div class="grc2-field"><label class="grc2-lbl">Source</label><input class="grc2-inp" id="gc-source" placeholder="Custom, Vanta, etc." value="Custom"></div>
+        <div class="grc2-field"><label class="grc2-lbl">Source</label><input class="grc2-inp" id="gc-source" placeholder="Custom" value="Custom"></div>
       </div>
       <div class="grc2-field"><label class="grc2-lbl">Title *</label><input class="grc2-inp" id="gc-title" placeholder="Control title"></div>
       <div class="grc2-g2">
@@ -7120,8 +7120,9 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Inventaris &amp; Monitor Jaringan</span><span data-t="en">Inventories &amp; Network Monitor</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Scanner File WordPress &amp; Kesehatan Domain</span><span data-t="en">WordPress File Scanner &amp; Domain Health</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Skor Keamanan &amp; Tindakan Prioritas</span><span data-t="en">Secure Score &amp; Priority Actions</span></li>
-          <li class="locked"><span style="color:#93c5fd;font-weight:700;">--</span> <span data-t="id">Connect &amp; Scan dengan Agen — khusus Pro</span><span data-t="en">Connect &amp; Scan with Agent — Pro only</span></li>
-          <li class="locked"><span style="color:#93c5fd;font-weight:700;">--</span> <span data-t="id">Manajemen Pentest Engagement — khusus Pro</span><span data-t="en">Pentest Engagement Management — Pro only</span></li>
+          <li class="locked"><span style="color:#93c5fd;font-weight:700;">--</span> <span data-t="id">Security Scanner — khusus Pro</span><span data-t="en">Security Scanner — Pro only</span></li>
+          <li class="locked"><span style="color:#93c5fd;font-weight:700;">--</span> <span data-t="id">Scan Results &amp; Scan Analytics — khusus Pro</span><span data-t="en">Scan Results &amp; Scan Analytics — Pro only</span></li>
+          <li class="locked"><span style="color:#93c5fd;font-weight:700;">--</span> <span data-t="id">Generate Pentest Report — khusus Pro</span><span data-t="en">Generate Pentest Report — Pro only</span></li>
         </ul>
         <div class="pricing-cta" id="pricing-basic-cta"><strong><span data-t="id">Hubungi administrator Anda</span><span data-t="en">Contact your administrator</span></strong> <span data-t="id">untuk mengubah paket.</span><span data-t="en">to change your plan.</span></div>
       </div>
@@ -7195,7 +7196,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     </div>
     <div class="legal-nav-back" onclick="sbNav('pricing', document.getElementById('sb-pricing'))">&larr; <span data-t="id">Kembali ke Pricing Plans</span><span data-t="en">Back to Pricing Plans</span></div>
     <div class="legal-title"><span data-t="id">Kebijakan Berlangganan &amp; Penagihan</span><span data-t="en">Subscription &amp; Billing Policy</span></div>
-    <div class="legal-updated"><span data-t="id">Berlaku sejak: 1 Januari 2025 &nbsp;&bull;&nbsp; Terakhir diperbarui: 13 Mei 2025</span><span data-t="en">Effective: 1 January 2025 &nbsp;&bull;&nbsp; Last updated: 13 May 2025</span></div>
+    <div class="legal-updated"><span data-t="id">Berlaku sejak: 1 Januari 2025 &nbsp;&bull;&nbsp; Terakhir diperbarui: 17 Mei 2025</span><span data-t="en">Effective: 1 January 2025 &nbsp;&bull;&nbsp; Last updated: 17 May 2025</span></div>
 
     <div class="legal-highlight">
       <span data-t="id">Dengan menggunakan layanan CyberINK paket Pro, Anda menyetujui ketentuan penagihan dan berlangganan yang tercantum dalam kebijakan ini. Harap baca dengan seksama sebelum melakukan pembayaran.</span>
@@ -7215,14 +7216,14 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <li><span data-t="id">Skor Keamanan &amp; Tindakan Prioritas</span><span data-t="en">Secure Score &amp; Priority Actions</span></li>
       </ul>
       <h3><span data-t="id">1.2 Paket Pro (Berbayar)</span><span data-t="en">1.2 Pro Plan (Paid)</span></h3>
-      <p><span data-t="id">Paket Pro mencakup semua fitur Basic ditambah akses ke mesin pemindaian agen AI dan manajemen pentest engagement penuh. Paket ini dikenakan biaya berlangganan per pengguna (per seat).</span><span data-t="en">The Pro plan includes all Basic features plus access to the AI agent scanning engine and full pentest engagement management. A per-user (per-seat) subscription fee applies.</span></p>
+      <p><span data-t="id">Paket Pro mencakup semua fitur Basic ditambah akses ke Security Scanner, manajemen hasil scan, analitik ancaman mendalam, dan pembuatan laporan pentest bertenaga AI. Paket ini dikenakan biaya berlangganan per pengguna (per seat).</span><span data-t="en">The Pro plan includes all Basic features plus access to the Security Scanner, scan results management, advanced threat analytics, and AI-powered pentest report generation. A per-user (per-seat) subscription fee applies.</span></p>
       <ul>
-        <li><span data-t="id">Connect &amp; Scan dengan 11 agen WSTG (perintah shell nyata, tanpa hasil hardcoded)</span><span data-t="en">Connect &amp; Scan with 11 WSTG agents (real shell commands, no hardcoded results)</span></li>
-        <li><span data-t="id">Cakupan checklist OWASP WSTG penuh — 69 item uji keamanan</span><span data-t="en">Full OWASP WSTG checklist coverage — 69 security test items</span></li>
-        <li><span data-t="id">Manajemen Pentest Engagement (temuan, checklist, Rules of Engagement, laporan AI)</span><span data-t="en">Pentest Engagement Management (findings, checklist, Rules of Engagement, AI report)</span></li>
-        <li><span data-t="id">Riwayat Scan &amp; Analitik Keamanan</span><span data-t="en">Scan History &amp; Security Analytics</span></li>
+        <li><span data-t="id">Security Scanner — pemindaian AI penuh terhadap target URL menggunakan 11 agen WSTG</span><span data-t="en">Security Scanner — full AI-powered scanning against any target URL using 11 WSTG agents</span></li>
+        <li><span data-t="id">Scan Results — riwayat temuan lengkap per target, checklist OWASP WSTG 69 item</span><span data-t="en">Scan Results — full findings history per target, 69-item OWASP WSTG checklist</span></li>
+        <li><span data-t="id">Scan Analytics — tren ancaman, distribusi severity, analitik deret waktu</span><span data-t="en">Scan Analytics — threat trends, severity distribution, time-series analytics</span></li>
+        <li><span data-t="id">Generate Pentest Report — laporan PDF profesional bertenaga AI (temuan, checklist, Rules of Engagement)</span><span data-t="en">Generate Pentest Report — AI-written professional PDF reports (findings, checklist, Rules of Engagement)</span></li>
         <li><span data-t="id">Rekomendasi remediasi otomatis dari output scan</span><span data-t="en">Automated remediation recommendations from scan output</span></li>
-        <li><span data-t="id">Hingga 50 sesi scan/bulan per pengguna</span><span data-t="en">Up to 50 scan sessions/month per user</span></li>
+        <li><span data-t="id">Hingga 50 scan/bulan per pengguna</span><span data-t="en">Up to 50 scans/month per user</span></li>
         <li><span data-t="id">Dukungan prioritas via email dengan waktu respons &lt; 24 jam kerja</span><span data-t="en">Priority email support with response time &lt; 24 business hours</span></li>
       </ul>
     </div>
@@ -7351,7 +7352,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     </div>
     <div class="legal-nav-back" onclick="sbNav('pricing', document.getElementById('sb-pricing'))">&larr; <span data-t="id">Kembali ke Pricing Plans</span><span data-t="en">Back to Pricing Plans</span></div>
     <div class="legal-title"><span data-t="id">Kebijakan Privasi</span><span data-t="en">Privacy Policy</span></div>
-    <div class="legal-updated"><span data-t="id">Berlaku sejak: 1 Januari 2025 &nbsp;&bull;&nbsp; Terakhir diperbarui: 13 Mei 2025</span><span data-t="en">Effective: 1 January 2025 &nbsp;&bull;&nbsp; Last updated: 13 May 2025</span></div>
+    <div class="legal-updated"><span data-t="id">Berlaku sejak: 1 Januari 2025 &nbsp;&bull;&nbsp; Terakhir diperbarui: 17 Mei 2025</span><span data-t="en">Effective: 1 January 2025 &nbsp;&bull;&nbsp; Last updated: 17 May 2025</span></div>
 
     <div class="legal-highlight">
       <span data-t="id">CyberINK berkomitmen untuk melindungi privasi Anda. Kebijakan ini menjelaskan data apa yang kami kumpulkan, bagaimana kami menggunakannya, dan hak-hak Anda sebagai pengguna. Kami mematuhi Undang-Undang Pelindungan Data Pribadi (UU PDP) No. 27 Tahun 2022 dan prinsip-prinsip GDPR secara sukarela.</span>
@@ -7535,28 +7536,39 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <table class="legal-table">
         <thead><tr>
           <th><span data-t="id">Mekanisme</span><span data-t="en">Mechanism</span></th>
+          <th><span data-t="id">Kategori</span><span data-t="en">Category</span></th>
           <th><span data-t="id">Tujuan</span><span data-t="en">Purpose</span></th>
           <th><span data-t="id">Dapat Dinonaktifkan?</span><span data-t="en">Can Be Disabled?</span></th>
         </tr></thead>
         <tbody>
           <tr>
             <td>Session Cookie</td>
+            <td><span data-t="id">Essential</span><span data-t="en">Essential</span></td>
             <td><span data-t="id">Autentikasi sesi login pengguna — diperlukan agar platform berfungsi</span><span data-t="en">User login session authentication — required for the platform to function</span></td>
             <td><span data-t="id">Tidak (essential)</span><span data-t="en">No (essential)</span></td>
           </tr>
           <tr>
-            <td>localStorage</td>
+            <td>localStorage (preferensi)</td>
+            <td><span data-t="id">Fungsional</span><span data-t="en">Functional</span></td>
             <td><span data-t="id">Menyimpan preferensi tata letak dashboard, status filter, dan target scan terakhir di browser Anda</span><span data-t="en">Stores dashboard layout preferences, filter state, and last scan target in your browser</span></td>
-            <td><span data-t="id">Ya — hapus dari pengaturan browser</span><span data-t="en">Yes — clear from browser settings</span></td>
+            <td><span data-t="id">Ya — pilih "Hanya yang Diperlukan" di banner persetujuan cookie</span><span data-t="en">Yes — choose "Necessary Only" in the cookie consent banner</span></td>
           </tr>
           <tr>
             <td>sessionStorage</td>
+            <td><span data-t="id">Essential</span><span data-t="en">Essential</span></td>
             <td><span data-t="id">Menyimpan status scan yang sedang berjalan selama tab browser aktif</span><span data-t="en">Stores in-progress scan state while the browser tab is active</span></td>
             <td><span data-t="id">Ya — ditutup otomatis saat tab ditutup</span><span data-t="en">Yes — automatically cleared when the tab is closed</span></td>
           </tr>
+          <tr>
+            <td>localStorage (persetujuan)</td>
+            <td><span data-t="id">Essential</span><span data-t="en">Essential</span></td>
+            <td><span data-t="id">Menyimpan pilihan persetujuan cookie per akun pengguna</span><span data-t="en">Stores cookie consent choice per user account</span></td>
+            <td><span data-t="id">Tidak — diperlukan untuk mengingat pilihan Anda</span><span data-t="en">No — required to remember your choice</span></td>
+          </tr>
         </tbody>
       </table>
-      <p><span data-t="id">Kami tidak menggunakan cookie pelacak pihak ketiga atau cookie analitik komersial.</span><span data-t="en">We do not use third-party tracking cookies or commercial analytics cookies.</span></p>
+      <p><span data-t="id">Kami tidak menggunakan cookie pelacak pihak ketiga atau cookie analitik komersial. Saat pertama kali menggunakan platform, Anda akan ditampilkan banner persetujuan cookie dengan dua pilihan: <strong>Terima Semua</strong> (semua penyimpanan fungsional aktif) atau <strong>Hanya yang Diperlukan</strong> (preferensi lokal dibersihkan dan tidak disimpan). Pilihan ini disimpan per akun dan dapat diubah kapan saja melalui tautan di bawah.</span><span data-t="en">We do not use third-party tracking cookies or commercial analytics cookies. On your first visit, a cookie consent banner appears with two options: <strong>Accept All</strong> (all functional storage enabled) or <strong>Necessary Only</strong> (local preferences cleared and not saved). This choice is stored per account and can be changed at any time via the link below.</span></p>
+      <p><a href="#" onclick="ciResetConsent(); return false;" style="color:#2563eb;font-size:12px;"><span data-t="id">Ubah Preferensi Cookie Anda</span><span data-t="en">Manage Your Cookie Preferences</span></a></p>
     </div>
 
     <div class="legal-section">
@@ -20024,7 +20036,8 @@ function dcaLoadScanners() {
       var c = document.getElementById('dca-chip-'+s); if (!c) return;
       var info = data[s] || {};
       c.className = 'dca-chip ' + (info.available ? 'avail' : 'unavail');
-      var ver = info.version ? ' <span style="font-weight:400;opacity:.8">'+info.version.split(/\s+/).pop()+'</span>' : '';
+      var _vm = info.version ? (info.version.match(/v?(\d[\d.]+\d)/)||[])[1] : null;
+      var ver = _vm ? ' <span style="font-weight:400;opacity:.8">'+_vm+'</span>' : '';
       c.innerHTML = '<div class="dca-dot '+(info.available?'on':'off')+'"></div>'+labels[s]+ver;
     });
   }).catch(function(){});
@@ -20246,6 +20259,113 @@ document.addEventListener('DOMContentLoaded', function() {
   var hd = document.querySelector('.cust-hd');
   if (hd) { hd.querySelectorAll('button').forEach(function(b){ b.remove(); }); }
 });
+</script>
+
+<!-- ── Cookie Consent Banner ────────────────────────────────────────────────── -->
+<div id="ci-cookie-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;
+  background:linear-gradient(135deg,#0f172a 0%,#172554 100%);
+  border-top:1px solid #1e3a8a;
+  box-shadow:0 -4px 24px rgba(0,0,0,.45);
+  padding:18px 28px;align-items:flex-start;gap:20px;flex-wrap:wrap;">
+  <div style="flex:1;min-width:260px;">
+    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">
+      <svg style="width:14px;height:14px;vertical-align:middle;margin-right:5px;fill:#60a5fa;" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14.5A6.5 6.5 0 1110 3.5a6.5 6.5 0 010 13zm.75-9.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm-.75 1.5a.75.75 0 01.75.75v4a.75.75 0 01-1.5 0V9.5A.75.75 0 0110 8.75z"/></svg>
+      <span data-t="id">Preferensi Cookie &amp; Penyimpanan Lokal</span><span data-t="en">Cookie &amp; Local Storage Preferences</span>
+    </div>
+    <div style="font-size:12px;color:#93c5fd;line-height:1.55;max-width:680px;">
+      <span data-t="id">CyberINK menggunakan session cookie esensial untuk autentikasi dan localStorage fungsional untuk menyimpan preferensi dashboard, status filter, dan target scan terakhir. Pilih <strong style="color:#e2e8f0;">Terima Semua</strong> untuk mengaktifkan semua penyimpanan, atau <strong style="color:#e2e8f0;">Hanya yang Diperlukan</strong> untuk mengaktifkan session cookie saja (preferensi lokal tidak akan disimpan). Pilihan Anda disimpan per akun.</span>
+      <span data-t="en">CyberINK uses an essential session cookie for authentication and functional localStorage to save dashboard preferences, filter states, and last scan target. Choose <strong style="color:#e2e8f0;">Accept All</strong> to enable all storage, or <strong style="color:#e2e8f0;">Necessary Only</strong> to enable only the session cookie (local preferences will not be saved). Your choice is stored per account.</span>
+      &nbsp;<a href="#" onclick="sbNav('privacy', document.getElementById('sb-privacy')); ciDismissBannerOnly(); return false;"
+        style="color:#60a5fa;font-size:11px;text-decoration:underline;">
+        <span data-t="id">Kebijakan Privasi</span><span data-t="en">Privacy Policy</span>
+      </a>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;flex-shrink:0;align-items:center;padding-top:2px;flex-wrap:wrap;">
+    <button onclick="ciNecessaryOnly()"
+      style="padding:8px 18px;border:1px solid #334155;border-radius:6px;background:transparent;
+             color:#94a3b8;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+             transition:background .15s,color .15s;"
+      onmouseover="this.style.background='#1e293b';this.style.color='#e2e8f0';"
+      onmouseout="this.style.background='transparent';this.style.color='#94a3b8';">
+      <span data-t="id">Hanya yang Diperlukan</span><span data-t="en">Necessary Only</span>
+    </button>
+    <button onclick="ciAcceptAll()"
+      style="padding:8px 22px;border:none;border-radius:6px;
+             background:linear-gradient(135deg,#1d4ed8,#2563eb);
+             color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;
+             box-shadow:0 2px 8px rgba(37,99,235,.4);transition:opacity .15s;"
+      onmouseover="this.style.opacity='.88';" onmouseout="this.style.opacity='1';">
+      <span data-t="id">Terima Semua</span><span data-t="en">Accept All</span>
+    </button>
+  </div>
+</div>
+
+<script>
+(function() {
+  var _CI_USER = (typeof USER_NAME !== 'undefined' ? USER_NAME : 'guest');
+  var _CI_KEY  = 'cyberink_cookie_consent_' + _CI_USER;
+
+  // Non-essential localStorage keys used for preferences
+  var _CI_PREF_KEYS = [
+    'cfai_dash_layout', 'cfai_ual_target', 'cfai_inv_statuses',
+    'cfai_log_statuses', 'cfai_inv_plugin_domain', 'cfai_cw_job'
+  ];
+
+  function _ciSaveChoice(choice) {
+    try {
+      localStorage.setItem(_CI_KEY, JSON.stringify({ choice: choice, ts: Date.now(), user: _CI_USER }));
+    } catch(e) {}
+  }
+
+  function _ciGetChoice() {
+    try {
+      var raw = localStorage.getItem(_CI_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw).choice || null;
+    } catch(e) { return null; }
+  }
+
+  window.ciCanStorePrefs = function() {
+    return _ciGetChoice() === 'all';
+  };
+
+  window.ciAcceptAll = function() {
+    _ciSaveChoice('all');
+    document.getElementById('ci-cookie-banner').style.display = 'none';
+  };
+
+  window.ciNecessaryOnly = function() {
+    _ciSaveChoice('necessary');
+    _CI_PREF_KEYS.forEach(function(k) {
+      try { localStorage.removeItem(k); } catch(e) {}
+    });
+    // Also remove any dash_panel_* keys
+    try {
+      Object.keys(localStorage).filter(function(k) {
+        return k.startsWith('dash_panel_');
+      }).forEach(function(k) { localStorage.removeItem(k); });
+    } catch(e) {}
+    document.getElementById('ci-cookie-banner').style.display = 'none';
+  };
+
+  window.ciResetConsent = function() {
+    try { localStorage.removeItem(_CI_KEY); } catch(e) {}
+    document.getElementById('ci-cookie-banner').style.display = 'flex';
+    window.scrollTo(0, document.body.scrollHeight);
+  };
+
+  window.ciDismissBannerOnly = function() {
+    document.getElementById('ci-cookie-banner').style.display = 'none';
+  };
+
+  // Show banner if this account has not yet made a choice
+  document.addEventListener('DOMContentLoaded', function() {
+    if (_ciGetChoice() === null) {
+      document.getElementById('ci-cookie-banner').style.display = 'flex';
+    }
+  });
+})();
 </script>
 </body>
 </html>
