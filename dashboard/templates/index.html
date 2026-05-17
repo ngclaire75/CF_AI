@@ -2108,6 +2108,15 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     {% endif %}
 
     <div class="sb-divider"></div>
+    <div class="sb-nav-label">Account</div>
+    <button class="sb-item" id="sb-account" onclick="sbNav('account',this)">
+      <span class="sb-label">Account Settings</span>
+    </button>
+    <button class="sb-item" id="sb-support" onclick="sbNav('support',this)">
+      <span class="sb-label">Customer Service Centre</span>
+    </button>
+
+    <div class="sb-divider"></div>
     <div class="sb-nav-label">Legal</div>
     <button class="sb-item" id="sb-policy" onclick="sbNav('policy',this)">
       <span class="sb-label">Terms of Service</span>
@@ -7388,6 +7397,172 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   </div><!-- /legal-wrap -->
   </div><!-- /page-policy -->
 
+  <!-- ══ ACCOUNT SETTINGS PAGE ══════════════════════════════════════════════ -->
+  <div id="page-account" class="page-section" style="display:none">
+  <style>
+    .acct-wrap { max-width:620px; margin:0 auto; padding:36px 24px 72px; }
+    .acct-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
+    .acct-sub { font-size:12px; color:#60a5fa; margin-bottom:32px; }
+    .acct-card { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:24px; margin-bottom:20px; }
+    .acct-card-title { font-size:14px; font-weight:700; color:#1e3a8a; margin-bottom:4px; }
+    .acct-card-desc { font-size:12px; color:#60a5fa; margin-bottom:18px; line-height:1.5; }
+    .acct-field { margin-bottom:14px; }
+    .acct-lbl { display:block; font-size:11px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
+    .acct-inp { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #bfdbfe; border-radius:6px; font-size:13px; color:#0f172a; background:#f8faff; outline:none; transition:border-color .15s; }
+    .acct-inp:focus { border-color:#2563eb; background:#fff; }
+    .acct-btn { padding:9px 22px; border:none; border-radius:6px; background:#2563eb; color:#fff; font-size:12px; font-weight:700; cursor:pointer; transition:opacity .15s; }
+    .acct-btn:hover { opacity:.88; }
+    .acct-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .acct-msg { font-size:12px; margin-top:10px; padding:8px 12px; border-radius:6px; display:none; }
+    .acct-msg.ok  { background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; }
+    .acct-msg.err { background:#eff6ff; border:1px solid #93c5fd; color:#1d4ed8; }
+    .acct-divider { border:none; border-top:1px solid #bfdbfe; margin:16px 0; }
+  </style>
+  <div class="acct-wrap">
+    <div class="acct-title">Account Settings</div>
+    <div class="acct-sub">Manage your username, email address, and password. Changes take effect immediately.</div>
+
+    <!-- Username -->
+    <div class="acct-card">
+      <div class="acct-card-title">Username</div>
+      <div class="acct-card-desc">Your username is used to log in and is visible to administrators. It must be unique across all accounts.</div>
+      <div class="acct-field">
+        <label class="acct-lbl">Current Username</label>
+        <input class="acct-inp" id="acct-cur-username" value="{{ current_user.username }}" disabled style="opacity:.6;">
+      </div>
+      <div class="acct-field">
+        <label class="acct-lbl">New Username</label>
+        <input class="acct-inp" id="acct-new-username" type="text" placeholder="Enter new username" autocomplete="off">
+      </div>
+      <button class="acct-btn" onclick="acctUpdate('username')">Update Username</button>
+      <div class="acct-msg" id="acct-msg-username"></div>
+    </div>
+
+    <!-- Email -->
+    <div class="acct-card">
+      <div class="acct-card-title">Email Address</div>
+      <div class="acct-card-desc">Your email address is used for account notifications and password recovery. It must be unique across all accounts.</div>
+      <div class="acct-field">
+        <label class="acct-lbl">Current Email</label>
+        <input class="acct-inp" id="acct-cur-email" value="{{ current_user.email or 'No email set' }}" disabled style="opacity:.6;">
+      </div>
+      <div class="acct-field">
+        <label class="acct-lbl">New Email Address</label>
+        <input class="acct-inp" id="acct-new-email" type="email" placeholder="Enter new email address" autocomplete="off">
+      </div>
+      <button class="acct-btn" onclick="acctUpdate('email')">Update Email</button>
+      <div class="acct-msg" id="acct-msg-email"></div>
+    </div>
+
+    <!-- Password -->
+    <div class="acct-card">
+      <div class="acct-card-title">Password</div>
+      <div class="acct-card-desc">Choose a strong password of at least 6 characters. You will use this password the next time you sign in.</div>
+      <div class="acct-field">
+        <label class="acct-lbl">Current Password</label>
+        <input class="acct-inp" id="acct-cur-pass" type="password" placeholder="Enter your current password" autocomplete="current-password">
+      </div>
+      <div class="acct-field">
+        <label class="acct-lbl">New Password</label>
+        <input class="acct-inp" id="acct-new-pass" type="password" placeholder="Enter new password (min 6 characters)" autocomplete="new-password">
+      </div>
+      <div class="acct-field">
+        <label class="acct-lbl">Confirm New Password</label>
+        <input class="acct-inp" id="acct-confirm-pass" type="password" placeholder="Re-enter new password" autocomplete="new-password">
+      </div>
+      <button class="acct-btn" onclick="acctUpdate('password')">Update Password</button>
+      <div class="acct-msg" id="acct-msg-password"></div>
+    </div>
+
+    <div style="font-size:11px;color:#93c5fd;line-height:1.6;padding-top:4px;">
+      All changes are saved immediately and encrypted at rest. If you change your username, your new username will be required for your next login.
+    </div>
+  </div>
+  </div><!-- /page-account -->
+
+  <!-- ══ CUSTOMER SERVICE CENTRE PAGE ══════════════════════════════════════ -->
+  <div id="page-support" class="page-section" style="display:none">
+  <style>
+    .supp-wrap { max-width:680px; margin:0 auto; padding:36px 24px 72px; }
+    .supp-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
+    .supp-sub { font-size:12px; color:#60a5fa; margin-bottom:8px; line-height:1.6; }
+    .supp-info-bar { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px 16px; margin-bottom:28px; font-size:12px; color:#1e3a8a; line-height:1.6; }
+    .supp-form { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:28px; }
+    .supp-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .supp-field { margin-bottom:16px; }
+    .supp-lbl { display:block; font-size:11px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
+    .supp-inp, .supp-sel, .supp-ta { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #bfdbfe; border-radius:6px; font-size:13px; color:#0f172a; background:#f8faff; outline:none; transition:border-color .15s; font-family:inherit; }
+    .supp-inp:focus, .supp-sel:focus, .supp-ta:focus { border-color:#2563eb; background:#fff; }
+    .supp-ta { resize:vertical; min-height:140px; line-height:1.6; }
+    .supp-sel { appearance:none; -webkit-appearance:none; cursor:pointer; }
+    .supp-char { font-size:10px; color:#93c5fd; text-align:right; margin-top:3px; }
+    .supp-btn { width:100%; padding:11px; border:none; border-radius:6px; background:#2563eb; color:#fff; font-size:13px; font-weight:700; cursor:pointer; transition:opacity .15s; letter-spacing:.2px; }
+    .supp-btn:hover { opacity:.88; }
+    .supp-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .supp-result { margin-top:16px; padding:12px 16px; border-radius:6px; font-size:13px; display:none; }
+    .supp-result.ok  { background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; }
+    .supp-result.err { background:#eff6ff; border:1px solid #93c5fd; color:#1d4ed8; }
+    .supp-section-lbl { font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.5px; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid #bfdbfe; }
+    @media(max-width:600px) { .supp-grid2 { grid-template-columns:1fr; } }
+  </style>
+  <div class="supp-wrap">
+    <div class="supp-title">Customer Service Centre</div>
+    <div class="supp-sub">Submit a support request, report an issue, or send us a message. Our team will respond to your enquiry within 3 business days.</div>
+    <div class="supp-info-bar">
+      <strong>Response times:</strong> Pro plan — within 1 business day &nbsp;&bull;&nbsp; Basic plan — within 3 business days.<br>
+      For urgent security issues affecting your account, include the word <strong>URGENT</strong> in your message title.
+    </div>
+
+    <div class="supp-form">
+      <div class="supp-section-lbl">Request Details</div>
+
+      <div class="supp-field">
+        <label class="supp-lbl" for="supp-category">Category</label>
+        <select class="supp-sel" id="supp-category">
+          <option value="">-- Select a category --</option>
+          <option value="Billing & Subscription">Billing and Subscription</option>
+          <option value="Technical Support">Technical Support</option>
+          <option value="Account & Access">Account and Access</option>
+          <option value="Feature Request">Feature Request</option>
+          <option value="Bug Report">Bug Report</option>
+          <option value="Privacy & Data">Privacy and Data</option>
+          <option value="Security Concern">Security Concern</option>
+          <option value="General Enquiry">General Enquiry</option>
+        </select>
+      </div>
+
+      <div class="supp-field">
+        <label class="supp-lbl" for="supp-title">Message Title</label>
+        <input class="supp-inp" id="supp-title" type="text" placeholder="Brief summary of your request" maxlength="120">
+      </div>
+
+      <div class="supp-grid2">
+        <div class="supp-field" style="margin-bottom:0;">
+          <label class="supp-lbl" for="supp-name">Full Name</label>
+          <input class="supp-inp" id="supp-name" type="text" placeholder="Your full name">
+        </div>
+        <div class="supp-field" style="margin-bottom:0;">
+          <label class="supp-lbl" for="supp-email">Email Address</label>
+          <input class="supp-inp" id="supp-email" type="email" placeholder="Where we should reply">
+        </div>
+      </div>
+
+      <div class="supp-field" style="margin-top:16px;">
+        <label class="supp-lbl" for="supp-message">Message</label>
+        <textarea class="supp-ta" id="supp-message" placeholder="Describe your issue or request in detail. Include any relevant URLs, error messages, or steps to reproduce." maxlength="3000" oninput="suppCharCount()"></textarea>
+        <div class="supp-char" id="supp-char">0 / 3000</div>
+      </div>
+
+      <button class="supp-btn" id="supp-submit-btn" onclick="suppSubmit()">Send Message</button>
+      <div class="supp-result" id="supp-result"></div>
+    </div>
+
+    <div style="font-size:11px;color:#93c5fd;line-height:1.6;margin-top:20px;">
+      By submitting this form you agree that your message and contact details will be used solely to respond to your enquiry. Refer to our Privacy Policy for details on data handling.
+    </div>
+  </div>
+  </div><!-- /page-support -->
+
   <!-- ══ PRIVACY POLICY PAGE ══════════════════════════════════════════════ -->
   <div id="page-privacy" class="page-section" style="display:none">
 
@@ -7866,7 +8041,7 @@ var USER_ALLOWED_PAGES = _cfai_data.user_allowed_pages;
 // Resolved allowed sections — used by sbNav guard and sidebar visibility
 var _USER_SECTIONS = USER_ALLOWED_PAGES !== null
   ? USER_ALLOWED_PAGES
-  : ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network','agents'];
+  : ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network','agents','account','support'];
 
 /* ── Timestamp ── */
 (function(){
@@ -7965,6 +8140,8 @@ var _PAGE_TITLES = {
   'invoices':      'Invoice Management',
   'sca':           'Static Code Analysis',
   'dca':           'Dynamic Code Analysis',
+  'account':       'Account Settings',
+  'support':       'Customer Service Centre',
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
@@ -8024,10 +8201,18 @@ function sbNav(section, el) {
   _currentPage = section;
   // Hide Information button on pages that have no page info entry
   (function() {
-    var _noInfo = ['pricing', 'policy', 'privacy'];
+    var _noInfo = ['pricing', 'policy', 'privacy', 'account', 'support'];
     var btn = document.getElementById('page-info-btn');
     if (btn) btn.style.display = _noInfo.indexOf(section) !== -1 ? 'none' : '';
   })();
+
+  // Pre-fill support email with logged-in user's email
+  if (section === 'support') {
+    var suppEmailEl = document.getElementById('supp-email');
+    if (suppEmailEl && !suppEmailEl.value) {
+      suppEmailEl.value = '{{ current_user.email or "" }}';
+    }
+  }
 
   // Lazy-load data for relevant pages
   if (section === 'observability') loadUnifiedOverview();
@@ -19888,6 +20073,121 @@ function grcExport() {
   window.pageInfoHide = function() {
     document.getElementById('page-info-backdrop').style.display = 'none';
     document.getElementById('page-info-modal').style.display = 'none';
+  };
+
+  // ── Account Settings ──────────────────────────────────────────────────────
+  window.acctUpdate = function(action) {
+    var payload = { action: action };
+    var msgEl   = document.getElementById('acct-msg-' + action);
+    var btn     = null;
+
+    if (action === 'username') {
+      payload.username = (document.getElementById('acct-new-username').value || '').trim();
+      btn = event && event.target;
+    } else if (action === 'email') {
+      payload.email = (document.getElementById('acct-new-email').value || '').trim();
+      btn = event && event.target;
+    } else if (action === 'password') {
+      payload.current_password  = document.getElementById('acct-cur-pass').value;
+      payload.new_password      = document.getElementById('acct-new-pass').value;
+      payload.confirm_password  = document.getElementById('acct-confirm-pass').value;
+      btn = event && event.target;
+    }
+
+    function _showMsg(ok, text) {
+      msgEl.className = 'acct-msg ' + (ok ? 'ok' : 'err');
+      msgEl.textContent = text;
+      msgEl.style.display = 'block';
+    }
+
+    if (btn) btn.disabled = true;
+    fetch('/api/account/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (btn) btn.disabled = false;
+      if (d.ok) {
+        _showMsg(true, d.message || 'Updated successfully.');
+        if (action === 'username') {
+          document.getElementById('acct-cur-username').value = payload.username;
+          document.getElementById('acct-new-username').value = '';
+          // Update topbar display name
+          var topUN = document.querySelector('.topbar-right span[style*="font-weight:600"]');
+          if (topUN) topUN.textContent = payload.username;
+        } else if (action === 'email') {
+          document.getElementById('acct-cur-email').value = payload.email;
+          document.getElementById('acct-new-email').value = '';
+        } else if (action === 'password') {
+          document.getElementById('acct-cur-pass').value = '';
+          document.getElementById('acct-new-pass').value = '';
+          document.getElementById('acct-confirm-pass').value = '';
+        }
+      } else {
+        _showMsg(false, d.error || 'An error occurred.');
+      }
+    }).catch(function() {
+      if (btn) btn.disabled = false;
+      _showMsg(false, 'Request failed. Please try again.');
+    });
+  };
+
+  // ── Customer Service Centre ───────────────────────────────────────────────
+  window.suppCharCount = function() {
+    var ta  = document.getElementById('supp-message');
+    var cnt = document.getElementById('supp-char');
+    if (ta && cnt) cnt.textContent = (ta.value.length) + ' / 3000';
+  };
+
+  window.suppSubmit = function() {
+    var btn    = document.getElementById('supp-submit-btn');
+    var result = document.getElementById('supp-result');
+    var payload = {
+      category:  (document.getElementById('supp-category').value  || '').trim(),
+      title:     (document.getElementById('supp-title').value     || '').trim(),
+      full_name: (document.getElementById('supp-name').value      || '').trim(),
+      email:     (document.getElementById('supp-email').value     || '').trim(),
+      message:   (document.getElementById('supp-message').value   || '').trim(),
+    };
+
+    function _show(ok, text) {
+      result.className = 'supp-result ' + (ok ? 'ok' : 'err');
+      result.textContent = text;
+      result.style.display = 'block';
+      result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    if (!payload.category) return _show(false, 'Please select a category.');
+    if (!payload.title)    return _show(false, 'Please enter a message title.');
+    if (!payload.full_name) return _show(false, 'Please enter your full name.');
+    if (!payload.email)    return _show(false, 'Please enter your email address.');
+    if (!payload.message)  return _show(false, 'Please enter your message.');
+
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      btn.disabled = false;
+      btn.textContent = 'Send Message';
+      if (d.ok) {
+        _show(true, d.message || 'Message sent successfully.');
+        // Clear form
+        ['supp-category','supp-title','supp-name','supp-email','supp-message'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.value = '';
+        });
+        document.getElementById('supp-char').textContent = '0 / 3000';
+      } else {
+        _show(false, d.error || 'Failed to send message.');
+      }
+    }).catch(function() {
+      btn.disabled = false;
+      btn.textContent = 'Send Message';
+      _show(false, 'Request failed. Please check your connection and try again.');
+    });
   };
 
   window.versionModalShow = function() {

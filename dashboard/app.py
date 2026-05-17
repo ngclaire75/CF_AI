@@ -1093,6 +1093,149 @@ def admin_delete_user(username):
     _save_users(users)
     return jsonify({'ok': True})
 
+# ── Account self-service ──────────────────────────────────────────────────────
+@app.route('/api/account/update', methods=['POST'])
+def account_update():
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    data             = request.get_json(force=True) or {}
+    action           = data.get('action', '')
+    current_username = session['user']['username']
+    users            = _load_users()
+    if current_username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    user = users[current_username]
+
+    if action == 'username':
+        new_un = (data.get('username') or '').strip()
+        if not new_un:
+            return jsonify({'error': 'Username is required'}), 400
+        if new_un == current_username:
+            return jsonify({'error': 'That is already your username'}), 400
+        if new_un.lower() == _DEFAULT_ADMIN.lower():
+            return jsonify({'error': 'That username is reserved'}), 400
+        if new_un in users:
+            return jsonify({'error': 'Username already taken'}), 400
+        users[new_un] = users.pop(current_username)
+        _save_users(users)
+        session['user']['username'] = new_un
+        return jsonify({'ok': True, 'message': 'Username updated. You are now logged in as ' + new_un + '.'})
+
+    elif action == 'email':
+        new_email = (data.get('email') or '').strip().lower()
+        if not new_email or '@' not in new_email or '.' not in new_email.split('@', 1)[-1]:
+            return jsonify({'error': 'A valid email address is required'}), 400
+        for k, u in users.items():
+            if k != current_username and u.get('email', '').lower() == new_email:
+                return jsonify({'error': 'Email address already in use by another account'}), 400
+        user['email'] = new_email
+        _save_users(users)
+        session['user']['email'] = new_email
+        return jsonify({'ok': True, 'message': 'Email address updated successfully.'})
+
+    elif action == 'password':
+        cur_pass     = data.get('current_password', '')
+        new_pass     = data.get('new_password', '')
+        confirm_pass = data.get('confirm_password', '')
+        if not cur_pass or not new_pass:
+            return jsonify({'error': 'Current password and new password are required'}), 400
+        if not check_password_hash(user['password'], cur_pass):
+            return jsonify({'error': 'Current password is incorrect'}), 400
+        if new_pass != confirm_pass:
+            return jsonify({'error': 'New passwords do not match'}), 400
+        if len(new_pass) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        if cur_pass == new_pass:
+            return jsonify({'error': 'New password must differ from the current one'}), 400
+        user['password'] = generate_password_hash(new_pass)
+        _save_users(users)
+        return jsonify({'ok': True, 'message': 'Password updated successfully. Use your new password next time you sign in.'})
+
+    return jsonify({'error': 'Invalid action'}), 400
+
+
+# ── Customer Service / Contact ────────────────────────────────────────────────
+_SUPPORT_EMAIL = 'darynnclaire88@gmail.com'
+
+def _send_contact_email(category: str, title: str, full_name: str,
+                        from_email: str, message: str, username: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        subject = f'[CyberINK Support] {category} — {title}'
+        safe_msg = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 16px;">
+            New Support Request
+          </p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Category</td>
+              <td style="padding:7px 0;color:#2563eb;">{category}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Title</td>
+              <td style="padding:7px 0;color:#2563eb;">{title}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Full Name</td>
+              <td style="padding:7px 0;color:#2563eb;">{full_name}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Email</td>
+              <td style="padding:7px 0;color:#2563eb;"><a href="mailto:{from_email}" style="color:#2563eb;">{from_email}</a></td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Account</td>
+              <td style="padding:7px 0;color:#2563eb;">{username}</td>
+            </tr>
+          </table>
+          <div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;
+                      letter-spacing:.4px;margin-bottom:8px;">Message</div>
+          <div style="background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;
+                      padding:14px 16px;font-size:13px;color:#1e3a8a;line-height:1.65;">
+            {safe_msg}
+          </div>
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+            Reply directly to this email to respond to the sender at
+            <a href="mailto:{from_email}" class="elink" style="color:#2563eb;">{from_email}</a>.
+          </p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Support <{_SMTP_USER}>'
+        msg['To']      = _SUPPORT_EMAIL
+        msg['Reply-To'] = from_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, _SUPPORT_EMAIL, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+@app.route('/api/contact', methods=['POST'])
+def contact_submit():
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    data      = request.get_json(force=True) or {}
+    category  = (data.get('category')  or '').strip()
+    title     = (data.get('title')     or '').strip()
+    full_name = (data.get('full_name') or '').strip()
+    email     = (data.get('email')     or '').strip()
+    message   = (data.get('message')   or '').strip()
+    if not all([category, title, full_name, email, message]):
+        return jsonify({'error': 'All fields are required'}), 400
+    if '@' not in email or '.' not in email.split('@', 1)[-1]:
+        return jsonify({'error': 'A valid email address is required'}), 400
+    if len(message) < 10:
+        return jsonify({'error': 'Message must be at least 10 characters'}), 400
+    ok = _send_contact_email(category, title, full_name, email, message, session['user']['username'])
+    if not ok:
+        return jsonify({'error': 'Failed to send message. Please try again later or contact support directly.'}), 500
+    return jsonify({'ok': True, 'message': 'Your message has been sent. We will respond within 3 business days.'})
+
+
 # ── In-memory scan job store (Connect Your Website feature) ──────────────────
 _scan_jobs: dict = {}
 
