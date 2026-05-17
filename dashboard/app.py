@@ -848,7 +848,8 @@ def login_page():
             if not user.get('verified', True):
                 error = 'Please verify your email before logging in. Check your inbox for the verification link.'
             else:
-                session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', '')}
+                session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', ''),
+                                   'country': user.get('country', ''), 'currency_code': user.get('currency_code', 'USD')}
                 return redirect(url_for('index'))
         else:
             error = 'Invalid username/email or password.'
@@ -899,10 +900,12 @@ def signup_page():
                         users[key]['verified'] = True
                         users[key]['verification_token'] = None
                         _save_users(users)
-                        session['user'] = {'username': key, 'role': 'user', 'email': identifier}
+                        session['user'] = {'username': key, 'role': 'user', 'email': identifier,
+                                           'country': '', 'currency_code': 'USD'}
                         return redirect(url_for('index'))
                 else:
-                    session['user'] = {'username': key, 'role': 'user', 'email': ''}
+                    session['user'] = {'username': key, 'role': 'user', 'email': '',
+                                       'country': '', 'currency_code': 'USD'}
                     return redirect(url_for('index'))
     return render_template('signup.html', error=error, pending_email=pending_email)
 
@@ -1150,6 +1153,20 @@ def account_update():
         user['password'] = generate_password_hash(new_pass)
         _save_users(users)
         return jsonify({'ok': True, 'message': 'Password updated successfully. Use your new password next time you sign in.'})
+
+    elif action == 'country':
+        country       = (data.get('country') or '').strip()
+        currency_code = (data.get('currency_code') or '').strip().upper()
+        if not country:
+            return jsonify({'error': 'Country is required'}), 400
+        if not currency_code:
+            return jsonify({'error': 'Currency is required'}), 400
+        user['country']       = country
+        user['currency_code'] = currency_code
+        _save_users(users)
+        session['user']['country']       = country
+        session['user']['currency_code'] = currency_code
+        return jsonify({'ok': True, 'message': f'Country set to {country} ({currency_code}).'})
 
     return jsonify({'error': 'Invalid action'}), 400
 
@@ -12615,8 +12632,15 @@ def get_appointments():
     if 'user' not in session or session['user'].get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
     appts = _load_appointments()
-    sorted_appts = sorted(appts.values(), key=lambda x: x.get('created_at', ''), reverse=True)
-    return jsonify({'appointments': sorted_appts})
+    result = []
+    for a in sorted(appts.values(), key=lambda x: x.get('created_at', ''), reverse=True):
+        item = dict(a)
+        ca = a.get('cost_amount')
+        cc = a.get('cost_currency', 'USD')
+        if ca is not None:
+            item['cost_display'] = _fmt_cost(float(ca), cc)
+        result.append(item)
+    return jsonify({'appointments': result})
 
 
 @app.route('/api/appointments/<appt_id>/approve', methods=['POST'])
@@ -12743,6 +12767,245 @@ def update_appointment_notes(appt_id):
     appts[appt_id]['updated_at']  = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
     _save_appointments(appts)
     return jsonify({'ok': True})
+
+
+# ── Currency conversion (static rates vs USD) ─────────────────────────────────
+_CURRENCY_RATES: dict[str, float] = {
+    'USD': 1.0,    'EUR': 0.93,   'GBP': 0.79,   'SGD': 1.35,
+    'MYR': 4.72,   'IDR': 16500.0,'AUD': 1.55,   'CAD': 1.36,
+    'JPY': 155.0,  'CNY': 7.24,   'INR': 84.0,   'KRW': 1380.0,
+    'THB': 36.0,   'PHP': 58.0,   'VND': 25000.0,'HKD': 7.82,
+    'NZD': 1.68,   'CHF': 0.90,   'SEK': 10.5,   'NOK': 10.7,
+    'DKK': 6.9,    'BRL': 5.1,    'MXN': 17.0,   'ZAR': 18.5,
+    'NGN': 1600.0, 'AED': 3.67,   'SAR': 3.75,   'PKR': 280.0,
+    'BDT': 110.0,  'TWD': 32.0,
+}
+_CURRENCY_SYMBOLS: dict[str, str] = {
+    'USD': '$',   'EUR': '€',   'GBP': '£',   'SGD': 'S$',
+    'MYR': 'RM',  'IDR': 'Rp',  'AUD': 'A$',  'CAD': 'C$',
+    'JPY': '¥',   'CNY': '¥',   'INR': '₹',   'KRW': '₩',
+    'THB': '฿',   'PHP': '₱',   'VND': '₫',   'HKD': 'HK$',
+    'NZD': 'NZ$', 'CHF': 'Fr',  'SEK': 'kr',  'NOK': 'kr',
+    'DKK': 'kr',  'BRL': 'R$',  'MXN': '$',   'ZAR': 'R',
+    'NGN': '₦',   'AED': 'د.إ', 'SAR': '﷼',   'PKR': '₨',
+    'BDT': '৳',   'TWD': 'NT$',
+}
+
+def _convert_currency(amount: float, from_cur: str, to_cur: str) -> float:
+    r_from = _CURRENCY_RATES.get(from_cur.upper(), 1.0)
+    r_to   = _CURRENCY_RATES.get(to_cur.upper(), 1.0)
+    return round(amount / r_from * r_to, 2)
+
+def _fmt_cost(amount: float, currency: str) -> str:
+    sym = _CURRENCY_SYMBOLS.get(currency.upper(), '')
+    if currency.upper() in ('JPY', 'KRW', 'IDR', 'VND', 'NGN'):
+        return f'{sym}{int(round(amount)):,} {currency}'
+    return f'{sym}{amount:,.2f} {currency}'
+
+
+# ── My Appointments (user-facing) ──────────────────────────────────────────────
+@app.route('/api/my-appointments', methods=['GET'])
+def my_appointments():
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    username = session['user']['username']
+    users    = _load_users()
+    user_obj = users.get(username, {})
+    cur_code = user_obj.get('currency_code', 'USD')
+    appts    = _load_appointments()
+    result   = []
+    for a in sorted(appts.values(), key=lambda x: x.get('created_at', ''), reverse=True):
+        if a.get('username') == username:
+            item = dict(a)
+            # Attach cost in user's currency
+            cost_amount   = a.get('cost_amount')
+            cost_currency = a.get('cost_currency', 'USD')
+            if cost_amount is not None:
+                converted = _convert_currency(float(cost_amount), cost_currency, cur_code)
+                item['cost_display_base']  = _fmt_cost(float(cost_amount), cost_currency)
+                item['cost_display_local'] = _fmt_cost(converted, cur_code)
+                item['cost_currency_local']= cur_code
+            result.append(item)
+    return jsonify({'appointments': result})
+
+
+def _send_user_cancel_email(service_type: str, appt_dt: str, full_name: str,
+                             user_email: str, reason: str) -> None:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return
+    safe_r = reason.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('\n','<br>')
+    body = f"""
+      <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Appointment Cancellation Request</p>
+      <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+        Hello {full_name}, your cancellation request has been received. Your appointment has been cancelled.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <tr style="border-bottom:1px solid #bfdbfe;">
+          <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:120px;">Service</td>
+          <td style="padding:7px 0;color:#2563eb;">{service_type}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #bfdbfe;">
+          <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Date and Time</td>
+          <td style="padding:7px 0;color:#2563eb;">{appt_dt}</td>
+        </tr>
+      </table>
+      <div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;letter-spacing:.4px;margin:20px 0 8px;">Reason Provided</div>
+      <div style="background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;font-size:13px;color:#1e3a8a;line-height:1.6;">{safe_r}</div>
+      <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+        To book a new appointment visit the Customer Service Centre or contact
+        <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+    try:
+        subject = f'CyberINK — Appointment Cancelled: {service_type}'
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, [user_email, _SUPPORT_EMAIL], msg.as_string())
+    except Exception:
+        pass
+
+
+def _send_user_reschedule_request_email(service_type: str, old_dt: str, new_dt: str,
+                                         full_name: str, user_email: str, reason: str) -> None:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return
+    safe_r = reason.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('\n','<br>')
+    body = f"""
+      <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Reschedule Request Submitted</p>
+      <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+        Hello {full_name}, your reschedule request has been received. Our team will review and re-confirm your appointment.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <tr style="border-bottom:1px solid #bfdbfe;">
+          <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:120px;">Service</td>
+          <td style="padding:7px 0;color:#2563eb;">{service_type}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #bfdbfe;">
+          <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Previous Date</td>
+          <td style="padding:7px 0;color:#93c5fd;text-decoration:line-through;">{old_dt}</td>
+        </tr>
+        <tr><td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Requested Date</td>
+          <td style="padding:7px 0;color:#2563eb;font-weight:600;">{new_dt}</td>
+        </tr>
+      </table>
+      <div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;letter-spacing:.4px;margin:20px 0 8px;">Reason for Reschedule</div>
+      <div style="background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;font-size:13px;color:#1e3a8a;line-height:1.6;">{safe_r}</div>
+      <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+        You will receive a separate confirmation once the team approves your new schedule.
+        Questions? Contact <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+    try:
+        subject = f'CyberINK — Reschedule Request: {service_type}'
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, [user_email, _SUPPORT_EMAIL], msg.as_string())
+    except Exception:
+        pass
+
+
+@app.route('/api/appointments/<appt_id>/user-cancel', methods=['POST'])
+def user_cancel_appointment(appt_id):
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    if session['user'].get('role') == 'admin':
+        return jsonify({'error': 'Admins use the management panel'}), 400
+    data   = request.get_json(force=True) or {}
+    reason = (data.get('reason') or '').strip()
+    if not reason:
+        return jsonify({'error': 'A cancellation reason is required'}), 400
+    appts  = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt = appts[appt_id]
+    if appt.get('username') != session['user']['username']:
+        return jsonify({'error': 'You can only cancel your own appointments'}), 403
+    if appt['status'] == 'completed':
+        return jsonify({'error': 'Cannot cancel a completed appointment'}), 400
+    if appt['status'] == 'cancelled':
+        return jsonify({'error': 'Appointment is already cancelled'}), 400
+    import datetime as _dt
+    appt.update({'status': 'cancelled', 'cancel_reason': reason,
+                 'cancelled_by': 'user',
+                 'updated_at': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')})
+    _save_appointments(appts)
+    appt_dt = _format_appt_datetime(appt['date'], appt.get('end_date', ''),
+                                     appt['time'], appt.get('duration', ''), appt['timezone'])
+    _send_user_cancel_email(appt['service_type'], appt_dt,
+                             appt['full_name'], appt['email'], reason)
+    return jsonify({'ok': True, 'message': 'Appointment cancelled. A confirmation has been sent to your email.'})
+
+
+@app.route('/api/appointments/<appt_id>/user-reschedule', methods=['POST'])
+def user_reschedule_appointment(appt_id):
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    if session['user'].get('role') == 'admin':
+        return jsonify({'error': 'Admins use the management panel'}), 400
+    data         = request.get_json(force=True) or {}
+    new_date     = (data.get('date')     or '').strip()
+    new_end_date = (data.get('end_date') or '').strip()
+    new_time     = (data.get('time')     or '').strip()
+    new_dur      = (data.get('duration') or '').strip()
+    reason       = (data.get('reason')   or '').strip()
+    if not new_date or not new_time:
+        return jsonify({'error': 'New date and time are required'}), 400
+    if not reason:
+        return jsonify({'error': 'A reason for rescheduling is required'}), 400
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt = appts[appt_id]
+    if appt.get('username') != session['user']['username']:
+        return jsonify({'error': 'You can only reschedule your own appointments'}), 403
+    if appt['status'] in ('completed', 'cancelled'):
+        return jsonify({'error': f'Cannot reschedule a {appt["status"]} appointment'}), 400
+    old_dt = _format_appt_datetime(appt['date'], appt.get('end_date', ''),
+                                    appt['time'], appt.get('duration', ''), appt['timezone'])
+    import datetime as _dt
+    appt.update({'date': new_date, 'end_date': new_end_date, 'time': new_time,
+                 'duration': new_dur or appt.get('duration', ''),
+                 'status': 'rescheduled', 'meet_link': '', 'event_link': '', 'event_id': '',
+                 'reschedule_reason': reason, 'rescheduled_by': 'user',
+                 'updated_at': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')})
+    _save_appointments(appts)
+    new_dt = _format_appt_datetime(new_date, new_end_date, new_time,
+                                    new_dur or appt.get('duration', ''), appt['timezone'])
+    _send_user_reschedule_request_email(appt['service_type'], old_dt, new_dt,
+                                         appt['full_name'], appt['email'], reason)
+    return jsonify({'ok': True, 'message': 'Reschedule request submitted. You will be notified once the team confirms your new schedule.'})
+
+
+@app.route('/api/appointments/<appt_id>/set-cost', methods=['POST'])
+def set_appointment_cost(appt_id):
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    data     = request.get_json(force=True) or {}
+    amount   = data.get('amount')
+    currency = (data.get('currency') or 'USD').strip().upper()
+    if amount is None:
+        return jsonify({'error': 'Amount is required'}), 400
+    try:
+        amount = float(amount)
+        if amount < 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Amount must be a non-negative number'}), 400
+    if currency not in _CURRENCY_RATES:
+        return jsonify({'error': f'Unsupported currency: {currency}'}), 400
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    import datetime as _dt
+    appts[appt_id]['cost_amount']   = amount
+    appts[appt_id]['cost_currency'] = currency
+    appts[appt_id]['updated_at']    = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    _save_appointments(appts)
+    return jsonify({'ok': True, 'message': f'Cost set to {_fmt_cost(amount, currency)}.'})
 
 
 # ── Google Calendar OAuth Setup (admin only) ───────────────────────────────────
