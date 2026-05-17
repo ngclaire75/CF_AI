@@ -447,7 +447,37 @@ def _get_git_version() -> str:
     except Exception:
         return 'dev'
 
-_APP_VERSION = _get_git_version()
+def _get_git_build_date() -> str:
+    try:
+        r = _subprocess.run(
+            ['git', 'log', '-1', '--format=%cd', '--date=format:%d %b %Y'],
+            capture_output=True, text=True, timeout=5,
+            cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+        v = r.stdout.strip()
+        return v if v else _datetime.datetime.now().strftime('%d %b %Y')
+    except Exception:
+        return _datetime.datetime.now().strftime('%d %b %Y')
+
+def _get_git_changelog(n: int = 10) -> list[dict]:
+    try:
+        r = _subprocess.run(
+            ['git', 'log', f'-{n}', '--format=%h|||%s'],
+            capture_output=True, text=True, timeout=5,
+            cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+        entries = []
+        for line in r.stdout.strip().splitlines():
+            if '|||' in line:
+                h, msg = line.split('|||', 1)
+                entries.append({'hash': h.strip(), 'msg': msg.strip()})
+        return entries
+    except Exception:
+        return []
+
+_APP_VERSION    = _get_git_version()
+_APP_BUILD_DATE = _get_git_build_date()
+_APP_CHANGELOG  = _get_git_changelog()
 
 # ── Privacy policy change detection ──────────────────────────────────────────
 _TEMPLATE_PATH    = os.path.join(os.path.dirname(__file__), 'templates', 'index.html')
@@ -3235,7 +3265,9 @@ def index():
     ctx['midtrans_client_key'] = _MIDTRANS_CLIENT_KEY
     ctx['midtrans_snap_js_url'] = _midtrans_snap_js_url()
     ctx['midtrans_configured'] = bool(_MIDTRANS_SERVER_KEY and _MIDTRANS_CLIENT_KEY)
-    ctx['app_version'] = _APP_VERSION
+    ctx['app_version']    = _APP_VERSION
+    ctx['app_build_date'] = _APP_BUILD_DATE
+    ctx['app_changelog']  = _APP_CHANGELOG
     resp = make_response(render_template('index.html', **ctx))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'

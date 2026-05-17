@@ -2160,9 +2160,8 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
     <div class="topbar-right">
       <div id="topbar-dashboard-actions" style="display:none;"></div>
-      <button class="btn-topbar" id="app-version-btn" title="Platform version — updates automatically on each release"
-        style="font-family:monospace;letter-spacing:.3px;cursor:default;opacity:.75;"
-        onclick="pageInfoShow()">v{{ app_version }}</button>
+      <button class="btn-topbar" id="app-version-btn" title="View version &amp; changelog"
+        onclick="versionModalShow()">Version</button>
       <button class="btn-topbar" onclick="pageInfoShow()" id="page-info-btn" title="What is this page?">? Info</button>
       <button class="btn-topbar" onclick="toggleDashboardEdit()" id="dash-edit-btn">Customize</button>
       <button class="btn-topbar primary" onclick="loadDefDashboard()">Refresh</button>
@@ -2174,6 +2173,48 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
           <span class="topbar-role {{ 'topbar-role-admin' if current_user.role == 'admin' else 'topbar-role-user' }}" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">{{ current_user.role }}</span>
         </div>
         <a href="/logout" style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:4px;background:#eff6ff;border:1px solid #bfdbfe;cursor:pointer;text-decoration:none;color:#1e3a8a;font-size:11px;font-weight:600;white-space:nowrap;" title="Sign out">Sign out</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ VERSION MODAL ══ -->
+  <div id="ver-backdrop" onclick="versionModalHide()" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:8900;backdrop-filter:blur(2px);"></div>
+  <div id="ver-modal" style="display:none;position:fixed;top:56px;right:16px;width:360px;
+    background:#fff;border:1px solid #bfdbfe;border-radius:10px;
+    box-shadow:0 12px 48px rgba(15,23,42,.22);z-index:8901;overflow:hidden;
+    transform:translateY(-8px);opacity:0;transition:transform .22s cubic-bezier(.22,.68,0,1.15),opacity .18s ease;">
+    <div style="background:linear-gradient(135deg,#172554,#2563eb);padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;">Platform Version</div>
+        <div style="font-size:10px;color:#93c5fd;font-weight:500;text-transform:uppercase;letter-spacing:.5px;">CyberINK Security Intelligence</div>
+      </div>
+      <button onclick="versionModalHide()" style="background:none;border:none;color:#93c5fd;font-size:18px;cursor:pointer;line-height:1;padding:0 2px;flex-shrink:0;">&times;</button>
+    </div>
+    <div style="padding:14px 16px 6px;">
+      <!-- Version badge row -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+        <svg style="width:16px;height:16px;flex-shrink:0;fill:none;stroke:#2563eb;stroke-width:2;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.93 4.93l2.12 2.12m9.9 9.9 2.12 2.12M4.93 19.07l2.12-2.12m9.9-9.9 2.12-2.12"/></svg>
+        <div>
+          <div style="font-size:10px;color:#60a5fa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Current Build</div>
+          <div style="font-family:monospace;font-size:14px;font-weight:700;color:#1e3a8a;letter-spacing:.5px;">v{{ app_version }}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right;">
+          <div style="font-size:10px;color:#60a5fa;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Released</div>
+          <div style="font-size:12px;font-weight:600;color:#1e3a8a;">{{ app_build_date }}</div>
+        </div>
+      </div>
+      <!-- Changelog -->
+      <div style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Recent Changes</div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;padding-right:2px;margin-bottom:10px;">
+        {% for entry in app_changelog %}
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:#f8faff;border:1px solid #e0eaff;border-radius:6px;">
+          <span style="font-family:monospace;font-size:10px;color:#60a5fa;flex-shrink:0;margin-top:1px;font-weight:600;">{{ entry.hash }}</span>
+          <span style="font-size:11px;color:#1e3a8a;line-height:1.45;flex:1;">{{ entry.msg }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="font-size:10px;color:#93c5fd;padding-bottom:12px;line-height:1.5;">
+        Version updates automatically on every deployment. Each build hash maps to a unique commit.
       </div>
     </div>
   </div>
@@ -19839,6 +19880,27 @@ function grcExport() {
   window.pageInfoHide = function() {
     document.getElementById('page-info-backdrop').style.display = 'none';
     document.getElementById('page-info-modal').style.display = 'none';
+  };
+
+  window.versionModalShow = function() {
+    var bd = document.getElementById('ver-backdrop');
+    var md = document.getElementById('ver-modal');
+    bd.style.display = 'block';
+    md.style.display = 'block';
+    void md.offsetWidth;
+    md.style.transform = 'translateY(0)';
+    md.style.opacity = '1';
+  };
+
+  window.versionModalHide = function() {
+    var bd = document.getElementById('ver-backdrop');
+    var md = document.getElementById('ver-modal');
+    md.style.transform = 'translateY(-8px)';
+    md.style.opacity = '0';
+    setTimeout(function() {
+      md.style.display = 'none';
+      bd.style.display = 'none';
+    }, 200);
   };
 
   // ── Static Code Analysis (SCA) ─────────────────────────────────────────────
