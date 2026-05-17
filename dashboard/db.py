@@ -328,13 +328,6 @@ def init_db():
             except Exception:
                 pass
 
-        # ── GRC data isolation: purge non-demo rows created before per-user scoping ──
-        # Keeps rows where username is '' (legacy demo data) or 'demo'.
-        # All other usernames get a clean empty slate.
-        for _tbl in ('grc_evidence', 'grc_risks', 'grc_controls', 'grc_tests', 'grc_audits'):
-            con.execute(
-                f"DELETE FROM {_tbl} WHERE username != '' AND username != 'demo'"
-            )
         con.commit()
 
 
