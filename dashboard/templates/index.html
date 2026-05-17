@@ -7459,8 +7459,16 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <div class="acct-card-title">Password</div>
       <div class="acct-card-desc">Choose a strong password of at least 6 characters. You will use this password the next time you sign in.</div>
       <div class="acct-field">
-        <label class="acct-lbl">Current Password</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <label class="acct-lbl" style="margin-bottom:0;">Current Password</label>
+          <button onclick="acctRequestTempPassword()" id="acct-temp-btn"
+            style="background:none;border:none;padding:0;font-size:11px;color:#2563eb;
+                   cursor:pointer;font-weight:600;text-decoration:underline;white-space:nowrap;">
+            Forgot current password?
+          </button>
+        </div>
         <input class="acct-inp" id="acct-cur-pass" type="password" placeholder="Enter your current password" autocomplete="current-password">
+        <div class="acct-msg" id="acct-msg-temppass"></div>
       </div>
       <div class="acct-field">
         <label class="acct-lbl">New Password</label>
@@ -20130,6 +20138,35 @@ function grcExport() {
       if (btn) btn.disabled = false;
       _showMsg(false, 'Request failed. Please try again.');
     });
+  };
+
+  window.acctRequestTempPassword = function() {
+    var btn    = document.getElementById('acct-temp-btn');
+    var msgEl  = document.getElementById('acct-msg-temppass');
+    function _show(ok, text) {
+      msgEl.className = 'acct-msg ' + (ok ? 'ok' : 'err');
+      msgEl.textContent = text;
+      msgEl.style.display = 'block';
+    }
+    if (!confirm('A temporary password will be generated and sent to your registered email address. Your current password will be replaced immediately. Continue?')) return;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    fetch('/api/account/temp-password', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        btn.disabled = false;
+        btn.textContent = 'Forgot current password?';
+        if (d.ok) {
+          _show(true, d.message);
+        } else {
+          _show(false, d.error || 'Failed to send temporary password.');
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
+        btn.textContent = 'Forgot current password?';
+        _show(false, 'Request failed. Please try again.');
+      });
   };
 
   // ── Customer Service Centre ───────────────────────────────────────────────

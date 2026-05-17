@@ -1236,6 +1236,87 @@ def contact_submit():
     return jsonify({'ok': True, 'message': 'Your message has been sent. We will respond within 3 business days.'})
 
 
+# ── Temporary password ───────────────────────────────────────────────────────
+import string as _string
+import secrets as _secrets
+
+def _gen_temp_password(length: int = 12) -> str:
+    alphabet = _string.ascii_letters + _string.digits
+    return ''.join(_secrets.choice(alphabet) for _ in range(length))
+
+def _send_temp_password_email(to_email: str, username: str, temp_pass: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        subject = 'CyberINK — Your Temporary Password'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 12px;">
+            Temporary Password Request
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 20px;">
+            A temporary password has been generated for your CyberINK account
+            <strong style="color:#1e3a8a;">{username}</strong>.
+            Use it to fill in the <strong>Current Password</strong> field on the
+            Account Settings page, then set a new password immediately.
+          </p>
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;
+                      padding:16px 20px;margin-bottom:20px;text-align:center;">
+            <div style="font-size:10px;font-weight:700;color:#60a5fa;text-transform:uppercase;
+                        letter-spacing:.5px;margin-bottom:6px;">Temporary Password</div>
+            <div style="font-family:monospace;font-size:22px;font-weight:800;
+                        color:#1e3a8a;letter-spacing:2px;">{temp_pass}</div>
+          </div>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 8px;">
+            Steps to regain access:
+          </p>
+          <ol style="font-size:13px;color:#475569;line-height:1.8;margin:0 0 20px;padding-left:20px;">
+            <li>Go to <strong>Account Settings</strong> in the CyberINK sidebar.</li>
+            <li>Under <strong>Change Password</strong>, enter the temporary password above in the <strong>Current Password</strong> field.</li>
+            <li>Enter and confirm your new password, then click <strong>Update Password</strong>.</li>
+          </ol>
+          <p class="ep" style="color:#64748b;font-size:11px;margin:0;line-height:1.6;">
+            If you did not request this, please contact support immediately at
+            <a href="mailto:{_SUPPORT_EMAIL}" class="elink" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.
+            Your previous password has already been replaced by this temporary one.
+          </p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['To']      = to_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+@app.route('/api/account/temp-password', methods=['POST'])
+def account_temp_password():
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    current_username = session['user']['username']
+    users = _load_users()
+    if current_username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    user  = users[current_username]
+    email = user.get('email', '').strip()
+    if not email:
+        return jsonify({'error': 'No email address is registered on this account. '
+                                 'Please contact an administrator to reset your password.'}), 400
+    temp_pass = _gen_temp_password()
+    user['password'] = generate_password_hash(temp_pass)
+    _save_users(users)
+    ok = _send_temp_password_email(email, current_username, temp_pass)
+    if not ok:
+        return jsonify({'error': 'Email could not be sent. SMTP may not be configured. '
+                                 'Please contact an administrator.'}), 500
+    return jsonify({'ok': True,
+                    'message': f'A temporary password has been sent to {email}. '
+                               'Use it in the Current Password field, then set a new password immediately.'})
+
+
 # ── In-memory scan job store (Connect Your Website feature) ──────────────────
 _scan_jobs: dict = {}
 
