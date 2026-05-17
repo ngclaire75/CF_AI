@@ -1180,7 +1180,7 @@ def _send_contact_email(category: str, title: str, full_name: str,
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        subject = f'[CyberINK Support] {category} — {title}'
+        subject = f'[CyberINK Support] {category} - {full_name}'
         safe_msg = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 16px;">
