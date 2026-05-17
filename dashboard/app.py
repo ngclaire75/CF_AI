@@ -1677,6 +1677,13 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 span.set_attribute('cfai.target', domain)
                 Runner.run(agent, f'Begin {_label} on {domain}.',
                            on_text=_ot, on_tool=_oo, on_result=_or)
+        elif agent_type in ('recon-passive', 'breach', 'subdomain', 'tech-detect', 'supply-chain'):
+            from dashboard.passive_agents import PASSIVE_RUNNERS
+            runner = PASSIVE_RUNNERS.get(agent_type)
+            if runner is None:
+                job.update({'status': 'error', 'error': f'Unknown passive agent: {agent_type}'}); return
+            t0 = _time.time()
+            runner(domain, _ot)
         else:
             base = WSTG_REGISTRY.get(agent_type)
             if base is None:
@@ -2963,6 +2970,11 @@ _AGENT_LABELS = {
     'ot':      'OT/ICS Security',
     'enum':    'API Enumeration',
     'pentest': 'Full Penetration Test',
+    'recon-passive': 'Passive Recon',
+    'breach':        'Breach & Credential Check',
+    'subdomain':     'Subdomain Enumeration',
+    'tech-detect':   'Tech Stack Detection',
+    'supply-chain':  'Supply Chain / JS Audit',
     'recon':   'Reconnaissance',
     'analyst': 'Security Analysis',
     'exploit': 'Exploit Development',
