@@ -1181,7 +1181,15 @@ def get_plugins(target: str = '', limit: int = 1000, username=None) -> list:
 
 # ── GRC CRUD ──────────────────────────────────────────────────────────────────
 
-def grc_list_risks(q='', status='', treatment='', risk_status='') -> list:
+def _grc_u_filter(username: str) -> tuple:
+    """Return (sql_snippet, params) scoping a GRC query to the given user.
+    'demo' also sees legacy rows with empty username (created before per-user data)."""
+    if username == 'demo':
+        return " AND (username = '' OR username = 'demo')", []
+    return " AND username = ?", [username]
+
+
+def grc_list_risks(q='', status='', treatment='', risk_status='', username='') -> list:
     with _connect() as con:
         sql = 'SELECT * FROM grc_risks WHERE 1=1'
         params: list = []
@@ -1194,6 +1202,8 @@ def grc_list_risks(q='', status='', treatment='', risk_status='') -> list:
             sql += ' AND treatment=?'; params.append(treatment)
         if risk_status:
             sql += ' AND risk_status=?'; params.append(risk_status)
+        u_sql, u_p = _grc_u_filter(username)
+        sql += u_sql; params += u_p
         sql += ' ORDER BY score DESC, created_at DESC'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
 
@@ -1230,7 +1240,7 @@ def grc_delete_risk(rid: int) -> bool:
     return True
 
 
-def grc_list_controls(q='', framework='', status='') -> list:
+def grc_list_controls(q='', framework='', status='', username='') -> list:
     with _connect() as con:
         sql = 'SELECT * FROM grc_controls WHERE 1=1'
         params: list = []
@@ -1241,6 +1251,8 @@ def grc_list_controls(q='', framework='', status='') -> list:
             sql += ' AND framework=?'; params.append(framework)
         if status:
             sql += ' AND status=?'; params.append(status)
+        u_sql, u_p = _grc_u_filter(username)
+        sql += u_sql; params += u_p
         sql += ' ORDER BY framework, control_id'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
 
@@ -1277,7 +1289,7 @@ def grc_delete_control(cid: int) -> bool:
     return True
 
 
-def grc_list_tests(q='', category='', status='', test_category='') -> list:
+def grc_list_tests(q='', category='', status='', test_category='', username='') -> list:
     with _connect() as con:
         sql = 'SELECT * FROM grc_tests WHERE 1=1'
         params: list = []
@@ -1290,6 +1302,8 @@ def grc_list_tests(q='', category='', status='', test_category='') -> list:
             sql += ' AND test_category=?'; params.append(test_category)
         if status:
             sql += ' AND status=?'; params.append(status)
+        u_sql, u_p = _grc_u_filter(username)
+        sql += u_sql; params += u_p
         sql += ' ORDER BY created_at DESC'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
 
@@ -1324,10 +1338,11 @@ def grc_delete_test(tid: int) -> bool:
     return True
 
 
-def grc_list_audits() -> list:
+def grc_list_audits(username='') -> list:
     with _connect() as con:
-        return [dict(r) for r in
-                con.execute('SELECT * FROM grc_audits ORDER BY created_at DESC').fetchall()]
+        u_sql, u_p = _grc_u_filter(username)
+        sql = 'SELECT * FROM grc_audits WHERE 1=1' + u_sql + ' ORDER BY created_at DESC'
+        return [dict(r) for r in con.execute(sql, u_p).fetchall()]
 
 
 def grc_create_audit(data: dict) -> int:
@@ -1360,7 +1375,7 @@ def grc_delete_audit(aid: int) -> bool:
     return True
 
 
-def grc_list_evidence(audit_id: int | None = None, ev_status: str = '') -> list:
+def grc_list_evidence(audit_id: int | None = None, ev_status: str = '', username='') -> list:
     with _connect() as con:
         sql = '''SELECT e.*, a.name as audit_name
                  FROM grc_evidence e
@@ -1371,6 +1386,8 @@ def grc_list_evidence(audit_id: int | None = None, ev_status: str = '') -> list:
             sql += ' AND e.audit_id=?'; params.append(audit_id)
         if ev_status:
             sql += ' AND e.evidence_status=?'; params.append(ev_status)
+        u_sql, u_p = _grc_u_filter(username)
+        sql += u_sql.replace('username', 'e.username'); params += u_p
         sql += ' ORDER BY e.created_at DESC'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
 
@@ -1431,30 +1448,34 @@ def grc_delete_evidence(eid: int) -> bool:
     return True
 
 
-def grc_test_category_counts() -> dict:
+def grc_test_category_counts(username='') -> dict:
     with _connect() as con:
+        u_sql, u_p = _grc_u_filter(username)
         rows = con.execute(
             "SELECT COALESCE(NULLIF(test_category,''),'Other') as cat, COUNT(*) as cnt "
-            "FROM grc_tests GROUP BY cat"
+            "FROM grc_tests WHERE 1=1" + u_sql + " GROUP BY cat", u_p
         ).fetchall()
         return {r['cat']: r['cnt'] for r in rows}
 
 
-def grc_stats() -> dict:
-    with _connect() as con:
-        def cnt(sql, *p):
-            return con.execute(sql, p).fetchone()[0]
+def grc_stats(username='') -> dict:
+    u_sql, u_p = _grc_u_filter(username)
+    u = u_sql  # shorthand
 
-        ctrl_total = cnt('SELECT COUNT(*) FROM grc_controls')
+    with _connect() as con:
+        def cnt(sql, *extra):
+            base_sql = sql + u
+            return con.execute(base_sql, list(extra) + u_p).fetchone()[0]
+
+        ctrl_total = cnt('SELECT COUNT(*) FROM grc_controls WHERE 1=1')
         ctrl_with_owner = cnt("SELECT COUNT(*) FROM grc_controls WHERE owner != ''")
         ctrl_failed_owner = cnt("SELECT COUNT(*) FROM grc_controls WHERE status='failed' AND owner != ''")
 
         # Framework compliance: % implemented per framework
         fw_rows = con.execute(
-            '''SELECT framework,
-                      COUNT(*) as total,
-                      SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) as impl
-               FROM grc_controls GROUP BY framework'''
+            'SELECT framework, COUNT(*) as total, '
+            "SUM(CASE WHEN status='implemented' THEN 1 ELSE 0 END) as impl "
+            'FROM grc_controls WHERE 1=1' + u + ' GROUP BY framework', u_p
         ).fetchall()
         framework_compliance = [
             {'framework': r['framework'],
@@ -1467,13 +1488,16 @@ def grc_stats() -> dict:
         # Test categories
         cat_rows = con.execute(
             "SELECT COALESCE(NULLIF(test_category,''),'Other') as cat, COUNT(*) as cnt "
-            "FROM grc_tests GROUP BY cat"
+            'FROM grc_tests WHERE 1=1' + u + ' GROUP BY cat', u_p
         ).fetchall()
         test_categories = {r['cat']: r['cnt'] for r in cat_rows}
 
-        # Evidence by status
+        # Evidence by status (scoped via audit owner)
         ev_rows = con.execute(
-            'SELECT evidence_status, COUNT(*) as cnt FROM grc_evidence GROUP BY evidence_status'
+            'SELECT e.evidence_status, COUNT(*) as cnt FROM grc_evidence e '
+            'LEFT JOIN grc_audits a ON a.id = e.audit_id '
+            'WHERE 1=1' + u.replace('username', 'e.username') + ' GROUP BY e.evidence_status',
+            u_p
         ).fetchall()
         ev = {r['evidence_status']: r['cnt'] for r in ev_rows}
 
@@ -1486,22 +1510,24 @@ def grc_stats() -> dict:
             'controls_assigned':           ctrl_with_owner,
             'controls_needs_reassignment': ctrl_failed_owner,
             'controls_unassigned':         ctrl_total - ctrl_with_owner,
-            'risks_total':                 cnt('SELECT COUNT(*) FROM grc_risks'),
+            'risks_total':                 cnt('SELECT COUNT(*) FROM grc_risks WHERE 1=1'),
             'risks_high':                  cnt('SELECT COUNT(*) FROM grc_risks WHERE score>=15'),
             'risks_medium':                cnt('SELECT COUNT(*) FROM grc_risks WHERE score>=8 AND score<15'),
             'risks_low':                   cnt('SELECT COUNT(*) FROM grc_risks WHERE score<8'),
             'risks_approved':              cnt("SELECT COUNT(*) FROM grc_risks WHERE risk_status='approved'"),
             'risks_treated':               cnt("SELECT COUNT(*) FROM grc_risks WHERE status IN ('in_treatment','closed')"),
-            'tests_total':                 cnt('SELECT COUNT(*) FROM grc_tests'),
+            'tests_total':                 cnt('SELECT COUNT(*) FROM grc_tests WHERE 1=1'),
             'tests_pass':                  cnt("SELECT COUNT(*) FROM grc_tests WHERE status='pass'"),
             'tests_fail':                  cnt("SELECT COUNT(*) FROM grc_tests WHERE status='fail'"),
             'tests_not_started':           cnt("SELECT COUNT(*) FROM grc_tests WHERE status='not_started'"),
             'tests_in_progress':           cnt("SELECT COUNT(*) FROM grc_tests WHERE status='in_progress'"),
-            'audits_total':                cnt('SELECT COUNT(*) FROM grc_audits'),
+            'audits_total':                cnt('SELECT COUNT(*) FROM grc_audits WHERE 1=1'),
             'audits_complete':             cnt("SELECT COUNT(*) FROM grc_audits WHERE status='complete'"),
             'audits_in_progress':          cnt("SELECT COUNT(*) FROM grc_audits WHERE status='in_progress'"),
             'audits_planned':              cnt("SELECT COUNT(*) FROM grc_audits WHERE status='planned'"),
-            'evidence_total':              cnt('SELECT COUNT(*) FROM grc_evidence'),
+            'evidence_total':              con.execute(
+                'SELECT COUNT(*) FROM grc_evidence e WHERE 1=1' + u.replace('username', 'e.username'), u_p
+            ).fetchone()[0],
             'evidence_not_ready':          ev.get('not_ready', 0),
             'evidence_flagged':            ev.get('flagged', 0),
             'evidence_ready':              ev.get('ready', 0),

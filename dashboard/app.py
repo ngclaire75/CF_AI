@@ -11105,7 +11105,8 @@ def api_grc_export():
 @app.route('/api/grc2/stats')
 @login_required
 def api_grc2_stats():
-    return jsonify(db.grc_stats())
+    username = session['user']['username']
+    return jsonify(db.grc_stats(username=username))
 
 
 @app.route('/api/grc2/risks', methods=['GET'])
@@ -11115,7 +11116,8 @@ def api_grc2_risks_list():
     status = request.args.get('status', '')
     treatment   = request.args.get('treatment', '')
     risk_status = request.args.get('risk_status', '')
-    return jsonify({'risks': db.grc_list_risks(q, status, treatment, risk_status)})
+    username = session['user']['username']
+    return jsonify({'risks': db.grc_list_risks(q, status, treatment, risk_status, username=username)})
 
 
 @app.route('/api/grc2/risks', methods=['POST'])
@@ -11150,7 +11152,8 @@ def api_grc2_controls_list():
     q = request.args.get('q', '')
     framework = request.args.get('framework', '')
     status = request.args.get('status', '')
-    return jsonify({'controls': db.grc_list_controls(q, framework, status)})
+    username = session['user']['username']
+    return jsonify({'controls': db.grc_list_controls(q, framework, status, username=username)})
 
 
 @app.route('/api/grc2/controls', methods=['POST'])
@@ -11186,7 +11189,8 @@ def api_grc2_tests_list():
     category      = request.args.get('category', '')
     status        = request.args.get('status', '')
     test_category = request.args.get('test_category', '')
-    return jsonify({'tests': db.grc_list_tests(q, category, status, test_category)})
+    username = session['user']['username']
+    return jsonify({'tests': db.grc_list_tests(q, category, status, test_category, username=username)})
 
 
 @app.route('/api/grc2/tests', methods=['POST'])
@@ -11218,7 +11222,8 @@ def api_grc2_tests_delete(tid):
 @app.route('/api/grc2/audits', methods=['GET'])
 @login_required
 def api_grc2_audits_list():
-    return jsonify({'audits': db.grc_list_audits()})
+    username = session['user']['username']
+    return jsonify({'audits': db.grc_list_audits(username=username)})
 
 
 @app.route('/api/grc2/audits', methods=['POST'])
@@ -11253,7 +11258,8 @@ def api_grc2_evidence_list():
     audit_id  = request.args.get('audit_id', '')
     ev_status = request.args.get('evidence_status', '')
     aid = int(audit_id) if audit_id.isdigit() else None
-    return jsonify({'evidence': db.grc_list_evidence(aid, ev_status)})
+    username = session['user']['username']
+    return jsonify({'evidence': db.grc_list_evidence(aid, ev_status, username=username)})
 
 
 @app.route('/api/grc2/evidence', methods=['POST'])
