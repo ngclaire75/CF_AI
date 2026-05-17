@@ -1119,9 +1119,11 @@ def account_update():
             return jsonify({'error': 'That username is reserved'}), 400
         if new_un in users:
             return jsonify({'error': 'Username already taken'}), 400
+        user_email = user.get('email', '')
         users[new_un] = users.pop(current_username)
         _save_users(users)
         session['user']['username'] = new_un
+        _send_account_change_email(new_un, user_email, 'username')
         return jsonify({'ok': True, 'message': 'Username updated. You are now logged in as ' + new_un + '.'})
 
     elif action == 'email':
@@ -1134,6 +1136,7 @@ def account_update():
         user['email'] = new_email
         _save_users(users)
         session['user']['email'] = new_email
+        _send_account_change_email(current_username, new_email, 'email')
         return jsonify({'ok': True, 'message': 'Email address updated successfully.'})
 
     elif action == 'password':
@@ -1152,6 +1155,8 @@ def account_update():
             return jsonify({'error': 'New password must differ from the current one'}), 400
         user['password'] = generate_password_hash(new_pass)
         _save_users(users)
+        user_email = user.get('email', '')
+        _send_account_change_email(current_username, user_email, 'password')
         return jsonify({'ok': True, 'message': 'Password updated successfully. Use your new password next time you sign in.'})
 
     elif action == 'country':
@@ -11471,6 +11476,7 @@ def api_payment_notification():
 @app.route('/api/payment/status', methods=['GET'])
 @login_required
 def api_payment_status():
+    import datetime as _dt
     username = session['user'].get('username', '')
     expired  = db.expire_stale_subscriptions()
     users    = _load_users()
@@ -11478,9 +11484,42 @@ def api_payment_status():
         un = s.get('username', '')
         if un in users:
             users[un]['plan'] = 'basic'
+            users[un].pop('expiry_reminder_sent', None)
     if expired:
         _save_users(users)
     sub = db.get_user_active_subscription(username)
+    # Backfill expires_at if missing (e.g. manually created or pre-webhook subscriptions)
+    if sub and not (sub.get('expires_at') or '').strip():
+        subscribed_at = (sub.get('subscribed_at') or '').strip()
+        plan_type     = sub.get('plan_type', 'monthly')
+        if subscribed_at:
+            try:
+                base       = _dt.datetime.strptime(subscribed_at.split(' ')[0], '%Y-%m-%d')
+                delta_days = 366 if plan_type == 'annual' else 31
+                computed   = (base + _dt.timedelta(days=delta_days)).strftime('%Y-%m-%d %H:%M:%S')
+                db.update_subscription_status(sub['order_id'], sub['status'], expires_at=computed)
+                sub['expires_at'] = computed
+            except Exception:
+                pass
+    # Send expiry reminder for non-admin pro users (once per expiry cycle)
+    role = session['user'].get('role', '')
+    if sub and role != 'admin':
+        expires_at = sub.get('expires_at', '')
+        plan_type  = sub.get('plan_type', 'monthly')
+        threshold  = 30 if plan_type == 'annual' else 7
+        try:
+            exp_date  = _dt.datetime.strptime(expires_at.split(' ')[0], '%Y-%m-%d').date()
+            days_left = (exp_date - _dt.date.today()).days
+            if 0 <= days_left <= threshold:
+                u         = users.get(username, {})
+                sent_for  = u.get('expiry_reminder_sent', '')
+                if sent_for != expires_at:
+                    user_email = u.get('email', '')
+                    if _send_subscription_expiry_reminder_email(username, user_email, plan_type, expires_at):
+                        users[username]['expiry_reminder_sent'] = expires_at
+                        _save_users(users)
+        except Exception:
+            pass
     all_subs = db.get_user_subscriptions(username)
     return jsonify({'subscription': sub, 'history': all_subs})
 
@@ -11493,11 +11532,15 @@ def api_payment_cancel():
     sub      = db.get_user_active_subscription(username)
     if not sub:
         return jsonify({'error': 'Tidak ada langganan aktif yang ditemukan.'}), 404
+    plan_type = sub.get('plan_type', 'monthly')
     db.cancel_subscription(sub['order_id'], _dt.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
     users = _load_users()
     if username in users:
         users[username]['plan'] = 'basic'
+        users[username].pop('expiry_reminder_sent', None)
         _save_users(users)
+    user_email = (users.get(username) or {}).get('email', '')
+    _send_subscription_cancelled_email(username, user_email, plan_type)
     return jsonify({'ok': True})
 
 
@@ -13048,6 +13091,125 @@ def _send_user_reschedule_request_email(service_type: str, old_dt: str, new_dt: 
             srv.sendmail(_SMTP_USER, [user_email, _SUPPORT_EMAIL], msg.as_string())
     except Exception:
         pass
+
+
+def _send_subscription_cancelled_email(username: str, email: str, plan_type: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS or not email:
+        return False
+    try:
+        pt = 'Annual' if plan_type == 'annual' else 'Monthly'
+        subject = 'CyberINK — Your Pro Subscription Has Been Cancelled'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Subscription Cancelled</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello <strong>{username}</strong>, your CyberINK Pro ({pt}) subscription has been successfully cancelled.
+            Your account will revert to the Basic plan immediately.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Account</td>
+              <td style="padding:7px 0;color:#2563eb;">{username}</td>
+            </tr>
+            <tr><td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Plan</td>
+              <td style="padding:7px 0;color:#2563eb;">Pro ({pt}) — Cancelled</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#64748b;font-size:12px;margin-top:20px;line-height:1.6;">
+            You can resubscribe at any time from the Pricing page. If you believe this was a mistake
+            or need help, contact us at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_subscription_expiry_reminder_email(username: str, email: str,
+                                              plan_type: str, expires_at: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS or not email:
+        return False
+    try:
+        pt   = 'Annual' if plan_type == 'annual' else 'Monthly'
+        exp  = expires_at.split(' ')[0] if expires_at else '—'
+        subject = f'CyberINK — Your Pro Subscription Expires Soon'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Subscription Expiring Soon</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello <strong>{username}</strong>, your CyberINK Pro ({pt}) subscription is expiring soon.
+            Renew now to avoid losing access to Pro features.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:130px;">Account</td>
+              <td style="padding:7px 0;color:#2563eb;">{username}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Plan</td>
+              <td style="padding:7px 0;color:#2563eb;">Pro ({pt})</td>
+            </tr>
+            <tr><td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Expiry Date</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:700;">{exp}</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#475569;font-size:12px;margin-top:20px;line-height:1.6;">
+            To renew, log in to CyberINK and visit the <strong>Pricing</strong> page.
+            If you need assistance contact us at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_account_change_email(username: str, email: str, change_type: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS or not email:
+        return False
+    try:
+        import datetime as _dt
+        now_str = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+        labels  = {'username': 'Username', 'email': 'Email Address', 'password': 'Password'}
+        label   = labels.get(change_type, change_type.capitalize())
+        subject = f'CyberINK — Your {label} Has Been Updated'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Account Change Notification</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello <strong>{username}</strong>, your CyberINK account <strong>{label}</strong> was just updated successfully.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:130px;">Change Type</td>
+              <td style="padding:7px 0;color:#2563eb;">{label} Updated</td>
+            </tr>
+            <tr><td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Time (UTC)</td>
+              <td style="padding:7px 0;color:#2563eb;">{now_str}</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#64748b;font-size:12px;margin-top:20px;line-height:1.6;">
+            If you did not make this change, please contact us immediately at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>
+            so we can secure your account.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, email, msg.as_string())
+        return True
+    except Exception:
+        return False
 
 
 @app.route('/api/appointments/<appt_id>/user-cancel', methods=['POST'])

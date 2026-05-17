@@ -2090,7 +2090,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
       <span class="sb-label">Dynamic Code Analysis</span>
     </button>
     <button class="sb-item" id="sb-grc" onclick="sbNav('grc',this)">
-      <span class="sb-label">Risk Management</span>
+      <span class="sb-label">Risk Management & Audit Control</span>
     </button>
 
     {% if current_user.role == 'admin' %}
@@ -5839,7 +5839,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <div id="grc-info-banner" style="background:#eff6ff;border-bottom:1px solid #dbeafe;padding:14px 24px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
       <div style="flex:1;">
-        <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:4px;">Risk Management Platform</div>
+        <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:4px;">Risk Management & Audit Control Platform</div>
         <div style="font-size:12px;color:#3b82f6;margin-bottom:10px;">Track and treat your organisation's security risks in line with ISO 27001, NIST CSF, CIS Controls, SOC 2, and GDPR.</div>
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0;font-size:11px;">
           <span style="background:#2563eb;color:#fff;padding:3px 10px;border-radius:4px 0 0 4px;font-weight:600;">1. Controls</span>
@@ -7183,6 +7183,26 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <div class="acct-msg" id="acct-msg-country"></div>
     </div>
 
+    <!-- Subscription — shown only for non-admin pro plan users (populated by acctLoadSub) -->
+    <div class="acct-card" id="acct-sub-card" style="display:none;">
+      <div class="acct-card-title">Subscription</div>
+      <div class="acct-card-desc">Your current Pro plan details. You can cancel at any time — your plan will revert to Basic immediately.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px;">
+        <tr style="border-bottom:1px solid #bfdbfe;">
+          <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:130px;">Plan</td>
+          <td style="padding:7px 0;color:#2563eb;font-weight:600;" id="acct-sub-plan">—</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Expires</td>
+          <td style="padding:7px 0;color:#2563eb;font-weight:600;" id="acct-sub-expires">—</td>
+        </tr>
+      </table>
+      <button class="acct-btn" id="acct-sub-cancel-btn"
+        style="background:linear-gradient(135deg,#172554,#1e3a8a);font-size:12px;"
+        onclick="acctCancelSub()">Cancel Subscription</button>
+      <div class="acct-msg" id="acct-msg-sub"></div>
+    </div>
+
     <div style="font-size:11px;color:#93c5fd;line-height:1.6;padding-top:4px;">
       All changes are saved immediately and encrypted at rest. If you change your username, your new username will be required for your next login.
     </div>
@@ -8183,7 +8203,7 @@ var _PAGE_TITLES = {
   'threatanalytics':'Threat Analytics',
   'securescore':   'Secure Score',
   'usermgmt':      'User Management',
-  'grc':           'Risk Management',
+  'grc':           'Risk Management & Audit Control',
   'agents':        'Meet Our Agents',
   'pricing':       'Pricing Plans',
   'policy':        'Subscription & Billing Policy',
@@ -8293,7 +8313,7 @@ function sbNav(section, el) {
   if (section === 'apptmgmt')   loadApptMgmt();
   if (section === 'myappts')    loadMyAppts();
   if (section === 'filemanager') loadFileManager();
-  if (section === 'account')  acctLoadCountry();
+  if (section === 'account')  { acctLoadCountry(); acctLoadSub(); }
   if (section === 'signals')       loadSignals();
   if (section === 'mitre')         loadMitreCoverage();
   if (section === 'incidents')     loadIncidents();
@@ -15205,8 +15225,8 @@ var _ALL_PAGES = [
     { key: 'sca',            label: 'Static Code Analysis' },
     { key: 'dca',            label: 'Dynamic Code Analysis' },
   ]},
-  { group: 'Risk Management',        pages: [
-    { key: 'grc',            label: 'Risk Management' },
+  { group: 'Risk Management & Audit Control', pages: [
+    { key: 'grc',            label: 'Risk Management & Audit Control' },
   ]},
   { group: 'Appointments',           pages: [
     { key: 'myappts',        label: 'My Appointments' },
@@ -18986,7 +19006,7 @@ function grcExport() {
       tips: ['Scan target data is stored locally on your server — not sent to Anthropic','API keys are stored in server environment variables, never in the database','Contact the DPO email listed for any data deletion or portability requests']
     },
     grc: {
-      title: 'Risk Management',
+      title: 'Risk Management & Audit Control',
       subtitle: 'GRC Platform',
       desc: 'Full Governance, Risk & Compliance module. Identify, score, and treat your organisation\'s security risks in line with ISO 27001, NIST CSF, CIS Controls, SOC 2, and GDPR. Risk Score = Likelihood × Impact (1–25): 1–4 Low, 5–9 Medium, 10–15 High, 16–25 Critical. Residual risk is the expected score after controls are applied — target ≤ 4.',
       tips: [
@@ -19141,6 +19161,59 @@ function grcExport() {
       .catch(function() {
         btn.disabled = false;
         btn.textContent = 'Forgot current password?';
+        _show(false, 'Request failed. Please try again.');
+      });
+  };
+
+  window.acctLoadSub = function() {
+    if (USER_ROLE === 'admin' || USER_PLAN !== 'pro') return;
+    var card = document.getElementById('acct-sub-card');
+    fetch('/api/payment/status')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var sub = d.subscription;
+        if (!sub) return;
+        var isAnnual = sub.plan_type === 'annual';
+        var pt = isAnnual ? 'Pro — Annual' : 'Pro — Monthly';
+
+        // Use stored expires_at; if absent, derive from subscribed_at + period
+        var exp = '';
+        if (sub.expires_at && sub.expires_at.trim()) {
+          exp = sub.expires_at.split(' ')[0];
+        } else if (sub.subscribed_at && sub.subscribed_at.trim()) {
+          var base = new Date(sub.subscribed_at.replace(' ', 'T') + 'Z');
+          base.setDate(base.getDate() + (isAnnual ? 366 : 31));
+          exp = base.toISOString().split('T')[0];
+        }
+
+        document.getElementById('acct-sub-plan').textContent    = pt;
+        document.getElementById('acct-sub-expires').textContent = exp || '—';
+        if (card) card.style.display = 'block';
+      }).catch(function() {});
+  };
+
+  window.acctCancelSub = function() {
+    if (!confirm('Cancel your Pro subscription? Your plan will revert to Basic immediately and a confirmation email will be sent.')) return;
+    var btn   = document.getElementById('acct-sub-cancel-btn');
+    var msgEl = document.getElementById('acct-msg-sub');
+    function _show(ok, text) {
+      msgEl.className = 'acct-msg ' + (ok ? 'ok' : 'err');
+      msgEl.textContent = text;
+      msgEl.style.display = 'block';
+    }
+    if (btn) btn.disabled = true;
+    fetch('/api/payment/cancel', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (btn) btn.disabled = false;
+        if (d.ok) {
+          _show(true, 'Subscription cancelled. A confirmation email has been sent. Reloading…');
+          setTimeout(function() { location.reload(); }, 2200);
+        } else {
+          _show(false, d.error || 'Failed to cancel subscription.');
+        }
+      }).catch(function() {
+        if (btn) btn.disabled = false;
         _show(false, 'Request failed. Please try again.');
       });
   };
