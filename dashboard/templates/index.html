@@ -7244,6 +7244,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       To set your country, go to <a href="#" onclick="sbNav('account',document.getElementById('sb-account'));return false;" style="color:#2563eb;font-weight:600;">Account Settings</a>.
     </div>
 
+    <input id="myappt-search" type="text" placeholder="Search by name or appointment type..." oninput="myapptRender()" style="width:100%;box-sizing:border-box;padding:9px 13px;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#0f172a;background:#f8faff;outline:none;margin-bottom:14px;">
     <div class="myappt-tabs">
       <button class="myappt-tab myappt-active" onclick="myapptFilter('all',this)">All</button>
       <button class="myappt-tab" onclick="myapptFilter('pending',this)">Pending</button>
@@ -7603,6 +7604,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     <div class="amgr-title">Appointment Management Centre</div>
     <div class="amgr-sub">Review, approve, reschedule, and close all appointment requests. Approved appointments auto-generate a Google Meet link sent directly to the client.</div>
     <div class="amgr-stats" id="amgr-stats"></div>
+    <input class="amgr-search" id="amgr-search" type="text" placeholder="Search by name or appointment type..." oninput="amgrRender()" style="width:100%;box-sizing:border-box;padding:9px 13px;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#0f172a;background:#f8faff;outline:none;margin-bottom:14px;">
     <div class="amgr-tabs" id="amgr-tabs">
       <button class="amgr-tab amgr-active" onclick="amgrFilter('all',this)">All</button>
       <button class="amgr-tab" onclick="amgrFilter('pending',this)">Pending</button>
@@ -19325,8 +19327,10 @@ function grcExport() {
       }).join('');
 
     var list = document.getElementById('amgr-list');
+    var q = ((document.getElementById('amgr-search')||{}).value||'').trim().toLowerCase();
     var items = _amgrFilter === 'all' ? _amgrData : _amgrData.filter(function(a){ return a.status === _amgrFilter; });
-    if (!items.length) { list.innerHTML = '<div class="amgr-empty">No appointments in this category.</div>'; return; }
+    if (q) items = items.filter(function(a){ return (a.service_type||'').toLowerCase().indexOf(q)!==-1 || (a.username||'').toLowerCase().indexOf(q)!==-1; });
+    if (!items.length) { list.innerHTML = '<div class="amgr-empty">No appointments match your search.</div>'; return; }
 
     list.innerHTML = items.map(function(a) {
       var dateStr = a.date + (a.end_date && a.end_date !== a.date ? ' — ' + a.end_date : '');
@@ -19419,12 +19423,12 @@ function grcExport() {
 
   window.amgrToggle = function(id, panel) {
     var target = document.getElementById('amgr-inline-'+panel+'-'+id);
-    var wasOpen = target && target.style.display !== 'none';
+    var wasOpen = target && target.style.display === 'block';
     ['approve','cancel','reschedule','note','cost'].forEach(function(p){
       var el = document.getElementById('amgr-inline-'+p+'-'+id);
       if (el) el.style.display = 'none';
     });
-    if (target && !wasOpen) target.style.display = '';
+    if (target && !wasOpen) target.style.display = 'block';
   };
 
   function _amgrPost(url, body, msgEl, onOk) {
@@ -19565,8 +19569,10 @@ function grcExport() {
   function myapptRender() {
     var list = document.getElementById('myappt-list');
     if (!list) return;
+    var q = ((document.getElementById('myappt-search')||{}).value||'').trim().toLowerCase();
     var items = _myapptFilter === 'all' ? _myapptData : _myapptData.filter(function(a){ return a.status === _myapptFilter; });
-    if (!items.length) { list.innerHTML = '<div class="myappt-empty">No appointments in this category.</div>'; return; }
+    if (q) items = items.filter(function(a){ return (a.service_type||'').toLowerCase().indexOf(q)!==-1; });
+    if (!items.length) { list.innerHTML = '<div class="myappt-empty">No appointments match your search.</div>'; return; }
 
     list.innerHTML = items.map(function(a) {
       var dateStr = a.date + (a.end_date && a.end_date !== a.date ? ' — ' + a.end_date : '');
