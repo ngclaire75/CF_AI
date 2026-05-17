@@ -13471,24 +13471,30 @@ def _send_grc_notification_email(username: str, email: str, action: str,
 
 def _grc_notify(username: str, action: str, tab: str, title: str) -> None:
     """Notify a user account that admin performed an action on their GRC record."""
-    if not username or username in ('', 'demo'):
-        return
-    users      = _load_users()
-    user_email = (users.get(username) or {}).get('email', '')
-    _send_grc_notification_email(username, user_email, action, tab, title, actor='admin')
+    try:
+        if not username or username in ('', 'demo'):
+            return
+        users      = _load_users()
+        user_email = (users.get(username) or {}).get('email', '')
+        _send_grc_notification_email(username, user_email, action, tab, title, actor='admin')
+    except Exception:
+        pass
 
 
 def _grc_notify_admin(actor_username: str, action: str, tab: str, title: str) -> None:
     """Notify the admin that a user account performed an action on a GRC record."""
-    users = _load_users()
-    admin_email = ''
-    for uname, udata in users.items():
-        if udata.get('role') == 'admin':
-            admin_email = udata.get('email', '')
-            break
-    if not admin_email:
-        return
-    _send_grc_notification_email('admin', admin_email, action, tab, title, actor=actor_username)
+    try:
+        users = _load_users()
+        admin_email = ''
+        for uname, udata in users.items():
+            if udata.get('role') == 'admin':
+                admin_email = udata.get('email', '')
+                break
+        if not admin_email:
+            return
+        _send_grc_notification_email('admin', admin_email, action, tab, title, actor=actor_username)
+    except Exception:
+        pass
 
 
 def _send_role_change_email(username: str, email: str, new_role: str, changed_by: str) -> bool:
