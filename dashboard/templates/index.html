@@ -7916,7 +7916,10 @@ var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'syslog', 'agents'];
 
 var _currentPage = 'dashboard';
 
-// Hide Pro sidebar buttons entirely for non-pro, non-admin users
+// Admin-only pages — blocked for everyone except admins
+var _ADMIN_PAGES = ['usermgmt', 'invoices'];
+
+// Hide Pro sidebar buttons entirely for Basic non-admin users
 (function() {
   if (USER_PLAN !== 'pro' && USER_ROLE !== 'admin') {
     _PRO_PAGES.forEach(function(key) {
@@ -7928,8 +7931,13 @@ var _currentPage = 'dashboard';
 
 function sbNav(section, el) {
   var isPublic = _PUBLIC_PAGES.indexOf(section) !== -1;
-  // Role-based access guard (public pages and admins bypass this)
-  if (!isPublic && USER_ROLE !== 'admin' && _USER_SECTIONS.indexOf(section) === -1) {
+  // Admin-only guard
+  if (_ADMIN_PAGES.indexOf(section) !== -1 && USER_ROLE !== 'admin') {
+    alert('Administrator access required.');
+    return;
+  }
+  // Role-based section whitelist — admins and Pro users bypass this
+  if (!isPublic && USER_ROLE !== 'admin' && USER_PLAN !== 'pro' && _USER_SECTIONS.indexOf(section) === -1) {
     alert('Access restricted. Contact your admin to upgrade your account.');
     return;
   }
