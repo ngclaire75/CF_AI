@@ -12640,10 +12640,69 @@ def _send_appointment_reschedule_email(service_type: str, old_dt: str, new_dt: s
         return False
 
 
+def _send_appointment_completed_email(service_type: str, appt_dt: str,
+                                       full_name: str, user_email: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        subject = f'CyberINK — Appointment Completed: {service_type}'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Appointment Completed</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello {full_name}, your appointment has been marked as completed. Thank you for choosing CyberINK Security.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Service</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:600;">{service_type}</td>
+            </tr>
+            <tr><td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Date and Time</td>
+              <td style="padding:7px 0;color:#2563eb;">{appt_dt}</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+            We hope the session was valuable. To book another appointment visit the Customer Service Centre or
+            contact <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, user_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _auto_expire_appointments() -> None:
+    """Auto-complete approved appointments whose end date (or date) has passed and email the client."""
+    import datetime as _dt
+    today = _dt.date.today().isoformat()
+    appts = _load_appointments()
+    changed = False
+    for appt in appts.values():
+        if appt.get('status') != 'approved':
+            continue
+        check_date = appt.get('end_date') or appt.get('date', '')
+        if not check_date or check_date >= today:
+            continue
+        now = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+        appt.update({'status': 'completed', 'updated_at': now, 'completed_at': now})
+        appt_dt = _format_appt_datetime(appt['date'], appt.get('end_date', ''),
+                                         appt['time'], appt.get('duration', ''), appt['timezone'])
+        _send_appointment_completed_email(appt['service_type'], appt_dt,
+                                           appt['full_name'], appt['email'])
+        changed = True
+    if changed:
+        _save_appointments(appts)
+
+
 @app.route('/api/appointments', methods=['GET'])
 def get_appointments():
     if 'user' not in session or session['user'].get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
+    _auto_expire_appointments()
     appts = _load_appointments()
     result = []
     for a in sorted(appts.values(), key=lambda x: x.get('created_at', ''), reverse=True):
@@ -12709,6 +12768,7 @@ def cancel_appointment(appt_id):
         return jsonify({'error': 'Cannot cancel a completed appointment'}), 400
     import datetime as _dt
     appt.update({'status': 'cancelled', 'admin_notes': reason,
+                 'cancel_reason': reason, 'cancelled_by': 'admin',
                  'updated_at': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')})
     _save_appointments(appts)
     appt_dt = _format_appt_datetime(appt['date'], appt.get('end_date', ''),
@@ -12732,7 +12792,11 @@ def complete_appointment(appt_id):
     now = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
     appt.update({'status': 'completed', 'updated_at': now, 'completed_at': now})
     _save_appointments(appts)
-    return jsonify({'ok': True, 'message': 'Appointment marked as completed.'})
+    appt_dt = _format_appt_datetime(appt['date'], appt.get('end_date', ''),
+                                     appt['time'], appt.get('duration', ''), appt['timezone'])
+    _send_appointment_completed_email(appt['service_type'], appt_dt,
+                                       appt['full_name'], appt['email'])
+    return jsonify({'ok': True, 'message': f'Appointment marked as completed. Notification sent to {appt["email"]}.'})
 
 
 @app.route('/api/appointments/<appt_id>/reschedule', methods=['POST'])
@@ -12821,6 +12885,7 @@ def _fmt_cost(amount: float, currency: str) -> str:
 def my_appointments():
     if 'user' not in session:
         return jsonify({'error': 'Not logged in'}), 401
+    _auto_expire_appointments()
     username = session['user']['username']
     users    = _load_users()
     user_obj = users.get(username, {})
