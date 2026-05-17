@@ -16116,7 +16116,9 @@ function umOpenPagesModal(usernames) {
 
   // Determine initial checked state from first user (for single) or intersection (for batch)
   var firstUser  = _umUsers.find(function(u){ return u.username === usernames[0]; });
-  var initPages  = (firstUser && firstUser.allowed_pages) ? firstUser.allowed_pages : [];
+  var initPages  = (firstUser && Array.isArray(firstUser.allowed_pages))
+                    ? firstUser.allowed_pages
+                    : _PAGE_PRESETS.default.slice();
   if (usernames.length > 1) initPages = []; // start unchecked for multi
 
   // Determine if any target user is on basic plan
