@@ -7807,7 +7807,7 @@ var USER_ALLOWED_PAGES = _cfai_data.user_allowed_pages;
 // Resolved allowed sections — used by sbNav guard and sidebar visibility
 var _USER_SECTIONS = USER_ALLOWED_PAGES !== null
   ? USER_ALLOWED_PAGES
-  : ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network'];
+  : ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network','agents'];
 
 /* ── Timestamp ── */
 (function(){
@@ -7909,7 +7909,7 @@ var _PAGE_TITLES = {
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
-var _PRO_PAGES = ['scan', 'targets', 'history', 'pentest', 'agents'];
+var _PRO_PAGES = ['scan', 'targets', 'history', 'pentest'];
 
 // Pages always accessible to every logged-in user regardless of plan or whitelist
 var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'syslog', 'agents'];
