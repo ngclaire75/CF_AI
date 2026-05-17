@@ -13008,6 +13008,154 @@ def set_appointment_cost(appt_id):
     return jsonify({'ok': True, 'message': f'Cost set to {_fmt_cost(amount, currency)}.'})
 
 
+# ── User File Manager ─────────────────────────────────────────────────────────
+import uuid as _uuid_fm
+from werkzeug.utils import secure_filename as _secure_fn
+
+_FILES_DIR      = os.path.join(os.path.dirname(__file__), '..', 'data', 'user_files')
+_FILES_MANIFEST = os.path.join(_FILES_DIR, 'manifest.json')
+_FILES_MAX_MB   = 50
+
+_ALLOWED_EXTS = {
+    # Documents
+    'pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv','rtf','odt','ods',
+    # Code
+    'py','js','ts','jsx','tsx','html','htm','css','scss','sass','less',
+    'php','rb','go','rs','java','kt','swift','c','cpp','h','hpp',
+    'cs','vb','sh','bash','ps1','bat','sql','json','yaml','yml','toml','xml',
+    'ini','env','conf','cfg','md','rst',
+    # Images / misc
+    'png','jpg','jpeg','gif','svg','webp','zip','tar','gz',
+}
+
+def _load_fm_manifest() -> list:
+    try:
+        if os.path.exists(_FILES_MANIFEST):
+            with open(_FILES_MANIFEST, encoding='utf-8') as fh:
+                return _json.load(fh)
+    except Exception:
+        pass
+    return []
+
+def _save_fm_manifest(entries: list) -> None:
+    os.makedirs(_FILES_DIR, exist_ok=True)
+    with open(_FILES_MANIFEST, 'w', encoding='utf-8') as fh:
+        _json.dump(entries, fh, indent=2)
+
+def _fmt_filesize(n: int) -> str:
+    for unit in ('B','KB','MB','GB'):
+        if n < 1024:
+            return f'{n:.1f} {unit}' if unit != 'B' else f'{n} B'
+        n /= 1024
+    return f'{n:.1f} TB'
+
+
+@app.route('/api/files', methods=['GET'])
+@login_required
+def list_user_files():
+    username = session['user']['username']
+    is_admin = session['user'].get('role') == 'admin'
+    entries  = _load_fm_manifest()
+    if is_admin:
+        result = entries  # admin sees all
+    else:
+        result = [e for e in entries if e.get('username') == username]
+    return jsonify({'files': sorted(result, key=lambda x: x.get('uploaded_at', ''), reverse=True)})
+
+
+@app.route('/api/files/upload', methods=['POST'])
+@login_required
+def upload_user_file():
+    username = session['user']['username']
+    files    = request.files.getlist('files')
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({'error': 'No files provided'}), 400
+
+    max_bytes = _FILES_MAX_MB * 1024 * 1024
+    saved     = []
+    errors    = []
+
+    for f in files:
+        original = f.filename or 'upload'
+        ext      = original.rsplit('.', 1)[-1].lower() if '.' in original else ''
+        if ext not in _ALLOWED_EXTS:
+            errors.append(f'{original}: file type .{ext} is not allowed')
+            continue
+        safe     = _secure_fn(original) or 'upload'
+        file_id  = 'f-' + str(_uuid_fm.uuid4())[:12]
+        dest_dir = os.path.join(_FILES_DIR, username)
+        os.makedirs(dest_dir, exist_ok=True)
+        disk_name = f'{file_id}_{safe}'
+        disk_path = os.path.join(dest_dir, disk_name)
+        f.seek(0, 2)
+        size = f.tell()
+        f.seek(0)
+        if size > max_bytes:
+            errors.append(f'{original}: exceeds {_FILES_MAX_MB} MB limit')
+            continue
+        f.save(disk_path)
+        entry = {
+            'id':          file_id,
+            'username':    username,
+            'filename':    original,
+            'safe_name':   safe,
+            'disk_name':   disk_name,
+            'size':        size,
+            'size_display':_fmt_filesize(size),
+            'ext':         ext,
+            'uploaded_at': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S'),
+        }
+        manifest = _load_fm_manifest()
+        manifest.append(entry)
+        _save_fm_manifest(manifest)
+        saved.append(entry)
+
+    if not saved and errors:
+        return jsonify({'error': errors[0], 'errors': errors}), 400
+    return jsonify({'ok': True, 'saved': len(saved),
+                    'files': saved, 'errors': errors,
+                    'message': f'{len(saved)} file(s) uploaded.' + (f' {len(errors)} skipped.' if errors else '')})
+
+
+@app.route('/api/files/<file_id>/download', methods=['GET'])
+@login_required
+def download_user_file(file_id):
+    username = session['user']['username']
+    is_admin = session['user'].get('role') == 'admin'
+    manifest = _load_fm_manifest()
+    entry    = next((e for e in manifest if e['id'] == file_id), None)
+    if not entry:
+        return jsonify({'error': 'File not found'}), 404
+    if not is_admin and entry.get('username') != username:
+        return jsonify({'error': 'Access denied'}), 403
+    disk_path = os.path.join(_FILES_DIR, entry['username'], entry['disk_name'])
+    if not os.path.exists(disk_path):
+        return jsonify({'error': 'File missing from storage'}), 404
+    return send_file(disk_path, as_attachment=True, download_name=entry['filename'])
+
+
+@app.route('/api/files/<file_id>', methods=['DELETE'])
+@login_required
+def delete_user_file(file_id):
+    username = session['user']['username']
+    is_admin = session['user'].get('role') == 'admin'
+    manifest = _load_fm_manifest()
+    entry    = next((e for e in manifest if e['id'] == file_id), None)
+    if not entry:
+        return jsonify({'error': 'File not found'}), 404
+    if not is_admin and entry.get('username') != username:
+        return jsonify({'error': 'Access denied'}), 403
+    disk_path = os.path.join(_FILES_DIR, entry['username'], entry['disk_name'])
+    try:
+        if os.path.exists(disk_path):
+            os.remove(disk_path)
+    except Exception:
+        pass
+    manifest = [e for e in manifest if e['id'] != file_id]
+    _save_fm_manifest(manifest)
+    return jsonify({'ok': True, 'message': 'File deleted.'})
+
+
 # ── Google Calendar OAuth Setup (admin only) ───────────────────────────────────
 @app.route('/api/auth/google/setup')
 def gcal_setup():

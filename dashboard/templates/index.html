@@ -2083,9 +2083,6 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-history" onclick="sbNav('history',this)">
       <span class="sb-label">Scan Analytics</span>
     </button>
-    <button class="sb-item" id="sb-pentest" onclick="sbNav('pentest',this)">
-      <span class="sb-label">Generate Pentest Report</span>
-    </button>
     <button class="sb-item" id="sb-sca" onclick="sbNav('sca',this)">
       <span class="sb-label">Static Code Analysis</span>
     </button>
@@ -2111,6 +2108,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <div class="sb-nav-label">Account</div>
     <button class="sb-item" id="sb-account" onclick="sbNav('account',this)">
       <span class="sb-label">Account Settings</span>
+    </button>
+    <button class="sb-item" id="sb-filemanager" onclick="sbNav('filemanager',this)">
+      <span class="sb-label">My File Manager</span>
     </button>
     <button class="sb-item" id="sb-support" onclick="sbNav('support',this)">
       <span class="sb-label">Customer Service Centre</span>
@@ -5728,362 +5728,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   </div>
   </div><!-- /page-securescore -->
 
-  <!-- ══ PENTEST ENGAGEMENTS PAGE ════════════════════════════════════════════ -->
-  <div id="page-pentest" class="page-section" style="display:none;height:calc(100vh - 44px);overflow:hidden;padding:16px 20px;">
-  <div class="pt2-shell" style="height:100%;">
-
-    <!-- Left pane: engagement list -->
-    <div class="pt2-list-pane">
-      <div class="pt2-list-header">
-        <div class="pt2-list-title">Pentest Engagements</div>
-        <div class="pt2-list-actions">
-          <button class="pt2-btn" onclick="pt2LoadDemo()" title="Load demo data — disappears on refresh" style="font-size:11px;color:#3b82f6;">Demo</button>
-          <button class="pt2-btn pt2-btn-primary" onclick="pt2OpenNewModal()">+ New</button>
-        </div>
-      </div>
-      <div class="pt2-list-scroll" id="pt2-eng-list">
-        <div style="color:#60a5fa;font-size:13px;padding:24px;text-align:center;">Loading…</div>
-      </div>
-    </div>
-
-    <!-- Right pane: detail -->
-    <div class="pt2-detail-pane" id="pt2-detail-pane">
-      <div class="pt2-detail-empty" id="pt2-detail-empty">Select an engagement to view details.</div>
-
-      <!-- Detail header (hidden until engagement selected) -->
-      <div class="pt2-detail-header" id="pt2-detail-header" style="display:none;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-          <div style="flex:1;min-width:0;">
-            <div class="pt2-detail-name" id="pt2-hdr-name"></div>
-            <div class="pt2-detail-client" id="pt2-hdr-client"></div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0;margin-left:12px;margin-top:2px;">
-            <button class="pt2-btn" onclick="pt2EditEngagement()">Edit</button>
-            <button class="pt2-btn pt2-btn-danger" onclick="pt2DeleteEngagement()">Delete</button>
-          </div>
-        </div>
-        <div class="pt2-detail-meta-row" id="pt2-hdr-meta"></div>
-        <div class="pt2-tab-bar" id="pt2-tab-bar">
-          <div class="pt2-tab active" data-tab="overview" onclick="pt2SwitchTab('overview')">Overview</div>
-          <div class="pt2-tab" data-tab="scope" onclick="pt2SwitchTab('scope')">Scope &amp; Auth</div>
-          <div class="pt2-tab" data-tab="roe" onclick="pt2SwitchTab('roe')">Rules of Engagement</div>
-          <div class="pt2-tab" data-tab="checklist" onclick="pt2SwitchTab('checklist')">Checklist</div>
-          <div class="pt2-tab" data-tab="targets" onclick="pt2SwitchTab('targets')">Targets &amp; Scan</div>
-          <div class="pt2-tab" data-tab="findings" onclick="pt2SwitchTab('findings')">Findings</div>
-          <div class="pt2-tab" data-tab="report" onclick="pt2SwitchTab('report')">Report</div>
-        </div>
-      </div>
-
-      <!-- Tab bodies -->
-      <div class="pt2-tab-body" id="pt2-tab-body" style="display:none;">
-
-        <!-- Overview tab -->
-        <div id="pt2-tab-overview" class="pt2-tab-content">
-          <div class="pt2-kpi-strip" id="pt2-ov-kpis"></div>
-          <div style="display:flex;gap:16px;flex-wrap:wrap;">
-            <div style="flex:1;min-width:260px;">
-              <div class="pt2-section">
-                <div class="pt2-section-title">Engagement Details</div>
-                <table style="width:100%;font-size:13px;border-collapse:collapse;" id="pt2-ov-details"></table>
-              </div>
-            </div>
-            <div style="flex:1;min-width:260px;">
-              <div class="pt2-section">
-                <div class="pt2-section-title">Severity Distribution</div>
-                <div class="pt2-sev-bar" id="pt2-ov-bar"></div>
-                <div id="pt2-ov-bar-legend" style="font-size:11px;color:#3b82f6;margin-top:6px;"></div>
-              </div>
-              <div class="pt2-section">
-                <div class="pt2-section-title">Status</div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;" id="pt2-ov-status-row"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Scope & Auth tab -->
-        <div id="pt2-tab-scope" class="pt2-tab-content" style="display:none;">
-          <div class="pt2-section">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-              <div class="pt2-section-title" style="margin:0;border:none;padding:0;">Web Targets</div>
-            </div>
-            <table class="pt2-scope-table" id="pt2-scope-web-tbl">
-              <thead><tr><th>URL</th><th>Type</th><th>Auth</th><th>Notes</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <div class="pt2-section">
-            <div class="pt2-section-title">API Scope</div>
-            <div id="pt2-scope-api" style="font-size:13px;color:#1e3a8a;white-space:pre-wrap;"></div>
-          </div>
-          <div class="pt2-section">
-            <div class="pt2-section-title">Network / IP Targets</div>
-            <table class="pt2-scope-table" id="pt2-scope-ip-tbl">
-              <thead><tr><th>IP / CIDR</th><th>Hostname</th><th>Notes</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <div class="pt2-section">
-            <div class="pt2-section-title">Authentication Configuration</div>
-            <div id="pt2-scope-auth" style="font-size:13px;color:#1e3a8a;"></div>
-          </div>
-        </div>
-
-        <!-- Rules of Engagement tab -->
-        <div id="pt2-tab-roe" class="pt2-tab-content" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div style="font-size:13px;color:#3b82f6;">Define the legal and procedural boundaries for this engagement.</div>
-            <div style="display:flex;gap:6px;">
-              <button class="pt2-btn" onclick="pt2RoeEdit()" id="pt2-roe-edit-btn">Edit</button>
-              <button class="pt2-btn pt2-btn-primary" onclick="pt2RoeSave()" id="pt2-roe-save-btn" style="display:none;">Save</button>
-              <button class="pt2-btn" onclick="pt2RoeCancel()" id="pt2-roe-cancel-btn" style="display:none;">Cancel</button>
-            </div>
-          </div>
-          <div id="pt2-roe-view"></div>
-          <div id="pt2-roe-edit" style="display:none;"></div>
-        </div>
-
-        <!-- Checklist tab -->
-        <div id="pt2-tab-checklist" class="pt2-tab-content" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div style="font-size:13px;color:#3b82f6;">Enterprise Penetration Test Checklist — track completion per section.</div>
-            <div style="font-size:12px;font-weight:600;color:#2563eb;" id="pt2-cl-total-progress"></div>
-          </div>
-          <div id="pt2-cl-body"></div>
-        </div>
-
-        <!-- Targets & Scan tab -->
-        <div id="pt2-tab-targets" class="pt2-tab-content" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div style="font-size:13px;color:#3b82f6;">Run authenticated scans against in-scope targets.</div>
-            <button class="pt2-btn pt2-btn-primary" onclick="pt2ScanAll()" id="pt2-scan-all-btn">Run All Targets</button>
-          </div>
-          <div id="pt2-targets-list"></div>
-        </div>
-
-        <!-- Findings tab -->
-        <div id="pt2-tab-findings" class="pt2-tab-content" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div style="font-size:13px;color:#3b82f6;">Document and track all discovered vulnerabilities.</div>
-            <div style="display:flex;gap:6px;">
-              <button class="pt2-btn" onclick="pt2ExportFindings()">Export XLSX</button>
-              <button class="pt2-btn pt2-btn-primary" onclick="pt2OpenFindingModal()">+ Add Finding</button>
-            </div>
-          </div>
-          <div class="pt2-findings-layout">
-            <div class="pt2-findings-sidebar">
-              <div class="pt2-filter-group">
-                <div class="pt2-filter-label">Severity</div>
-                <label class="pt2-filter-opt"><input type="checkbox" value="critical" checked onchange="pt2ApplyFilters()"> Critical</label>
-                <label class="pt2-filter-opt"><input type="checkbox" value="high" checked onchange="pt2ApplyFilters()"> High</label>
-                <label class="pt2-filter-opt"><input type="checkbox" value="medium" checked onchange="pt2ApplyFilters()"> Medium</label>
-                <label class="pt2-filter-opt"><input type="checkbox" value="low" checked onchange="pt2ApplyFilters()"> Low</label>
-                <label class="pt2-filter-opt"><input type="checkbox" value="informational" checked onchange="pt2ApplyFilters()"> Informational</label>
-              </div>
-              <div class="pt2-filter-group">
-                <div class="pt2-filter-label">Status</div>
-                <label class="pt2-filter-opt"><input type="checkbox" value="open" checked onchange="pt2ApplyFilters()"> Open</label>
-                <label class="pt2-filter-opt"><input type="checkbox" value="remediated" checked onchange="pt2ApplyFilters()"> Remediated</label>
-                <label class="pt2-filter-opt"><input type="checkbox" value="accepted" checked onchange="pt2ApplyFilters()"> Accepted Risk</label>
-                <label class="pt2-filter-opt"><input type="checkbox" value="fp" checked onchange="pt2ApplyFilters()"> False Positive</label>
-              </div>
-              <div class="pt2-filter-group">
-                <div class="pt2-filter-label">Phase</div>
-                <div id="pt2-phase-filters"></div>
-              </div>
-            </div>
-            <div class="pt2-findings-main" id="pt2-findings-list"></div>
-          </div>
-        </div>
-
-        <!-- Report tab -->
-        <div id="pt2-tab-report" class="pt2-tab-content" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div style="font-size:13px;color:#3b82f6;">Generate an AI-written executive and technical penetration test report.</div>
-            <div style="display:flex;gap:6px;">
-              <button class="pt2-btn pt2-btn-primary" onclick="pt2GenerateReport()" id="pt2-report-gen-btn">Generate Report</button>
-              <button class="pt2-btn" onclick="window.print()" id="pt2-report-print-btn" style="display:none;">Print / PDF</button>
-            </div>
-          </div>
-          <div id="pt2-report-charts" class="pt2-report-charts" style="display:none;">
-            <div class="pt2-chart-box">
-              <div class="pt2-chart-title">Severity Distribution</div>
-              <canvas id="pt2-chart-sev" width="300" height="200"></canvas>
-            </div>
-            <div class="pt2-chart-box">
-              <div class="pt2-chart-title">Findings by Phase</div>
-              <canvas id="pt2-chart-phase" width="300" height="200"></canvas>
-            </div>
-          </div>
-          <div id="pt2-report-body"></div>
-        </div>
-
-      </div><!-- /pt2-tab-body -->
-    </div><!-- /pt2-detail-pane -->
-
-  </div><!-- /pt2-shell -->
-
-  <!-- Finding Add/Edit Modal -->
-  <div id="pt2-finding-modal" class="pt2-modal-overlay" style="display:none;">
-    <div class="pt2-modal">
-      <div class="pt2-modal-header">
-        <div class="pt2-modal-title" id="pt2-fm-title">Add Finding</div>
-        <button class="pt2-modal-close" onclick="pt2CloseFindingModal()">&times;</button>
-      </div>
-      <div class="pt2-modal-body">
-        <div class="pt2-field-row">
-          <div class="pt2-field">
-            <label class="pt2-field-label">Title</label>
-            <input class="pt2-input" id="pt2-fm-ftitle" placeholder="e.g. SQL Injection in Login Form">
-          </div>
-          <div class="pt2-field">
-            <label class="pt2-field-label">Asset</label>
-            <input class="pt2-input" id="pt2-fm-asset" placeholder="e.g. https://app.example.com/login">
-          </div>
-        </div>
-        <div class="pt2-field-row">
-          <div class="pt2-field">
-            <label class="pt2-field-label">Severity</label>
-            <select class="pt2-select" id="pt2-fm-sev" style="width:100%;">
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium" selected>Medium</option>
-              <option value="low">Low</option>
-              <option value="informational">Informational</option>
-            </select>
-          </div>
-          <div class="pt2-field">
-            <label class="pt2-field-label">Phase</label>
-            <select class="pt2-select" id="pt2-fm-phase" style="width:100%;">
-              <option value="Reconnaissance">Reconnaissance</option>
-              <option value="Scanning">Scanning</option>
-              <option value="Authentication Testing">Authentication Testing</option>
-              <option value="Authorization Testing">Authorization Testing</option>
-              <option value="Session Management">Session Management</option>
-              <option value="Input Validation">Input Validation</option>
-              <option value="Configuration">Configuration</option>
-              <option value="Business Logic">Business Logic</option>
-              <option value="API Security">API Security</option>
-              <option value="Client-Side">Client-Side</option>
-              <option value="Cryptography">Cryptography</option>
-              <option value="Infrastructure">Infrastructure</option>
-            </select>
-          </div>
-        </div>
-        <div class="pt2-field-row">
-          <div class="pt2-field">
-            <label class="pt2-field-label">CVSS Score (0–10)</label>
-            <input class="pt2-input" id="pt2-fm-cvss" type="number" min="0" max="10" step="0.1" value="0">
-          </div>
-          <div class="pt2-field">
-            <label class="pt2-field-label">Status</label>
-            <select class="pt2-select" id="pt2-fm-status" style="width:100%;">
-              <option value="open">Open</option>
-              <option value="remediated">Remediated</option>
-              <option value="accepted">Accepted Risk</option>
-              <option value="fp">False Positive</option>
-            </select>
-          </div>
-        </div>
-        <div class="pt2-field-row">
-          <div class="pt2-field">
-            <label class="pt2-field-label">CVE</label>
-            <input class="pt2-input" id="pt2-fm-cve" placeholder="CVE-2024-XXXX">
-          </div>
-          <div class="pt2-field">
-            <label class="pt2-field-label">CWE</label>
-            <input class="pt2-input" id="pt2-fm-cwe" placeholder="CWE-89">
-          </div>
-        </div>
-        <div class="pt2-field">
-          <label class="pt2-field-label">Description</label>
-          <textarea class="pt2-textarea" id="pt2-fm-desc" rows="4" placeholder="Describe the vulnerability, its impact, and attack scenario in detail…"></textarea>
-        </div>
-        <div class="pt2-field">
-          <label class="pt2-field-label">Steps to Reproduce</label>
-          <textarea class="pt2-textarea" id="pt2-fm-steps" rows="4" placeholder="1. Navigate to…&#10;2. Enter payload…&#10;3. Observe…"></textarea>
-        </div>
-        <div class="pt2-field">
-          <label class="pt2-field-label">Evidence (HTTP request/response, screenshots, tool output)</label>
-          <textarea class="pt2-textarea" id="pt2-fm-evidence" rows="4" placeholder="Paste raw HTTP request, curl output, or tool findings…" style="font-family:'Consolas','Courier New',monospace;font-size:12px;"></textarea>
-        </div>
-        <div class="pt2-field">
-          <label class="pt2-field-label">Remediation</label>
-          <textarea class="pt2-textarea" id="pt2-fm-remed" rows="3" placeholder="Recommended fix and mitigation steps…"></textarea>
-        </div>
-      </div>
-      <div class="pt2-modal-footer">
-        <button class="pt2-btn" onclick="pt2CloseFindingModal()">Cancel</button>
-        <button class="pt2-btn pt2-btn-primary" onclick="pt2SaveFinding()" id="pt2-fm-save-btn">Save Finding</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- New/Edit Engagement Modal -->
-  <div id="pt2-eng-modal" class="pt2-modal-overlay" style="display:none;">
-    <div class="pt2-modal">
-      <div class="pt2-modal-header">
-        <div class="pt2-modal-title" id="pt2-em-title">New Engagement</div>
-        <button class="pt2-modal-close" onclick="pt2CloseEngModal()">&times;</button>
-      </div>
-      <div class="pt2-modal-body">
-        <div class="pt2-field-row">
-          <div class="pt2-field">
-            <label class="pt2-field-label">Engagement Name</label>
-            <input class="pt2-input" id="pt2-em-name" placeholder="e.g. Q2 2026 External Pentest">
-          </div>
-          <div class="pt2-field">
-            <label class="pt2-field-label">Client / Organisation</label>
-            <input class="pt2-input" id="pt2-em-client" placeholder="e.g. Acme Corp">
-          </div>
-        </div>
-        <div class="pt2-field">
-          <label class="pt2-field-label">Web Targets (one per line)</label>
-          <textarea class="pt2-textarea" id="pt2-em-urls" rows="3" placeholder="https://app.example.com"></textarea>
-        </div>
-        <div class="pt2-field">
-          <label class="pt2-field-label">Network / IP Targets (one per line)</label>
-          <textarea class="pt2-textarea" id="pt2-em-ips" rows="2" placeholder="192.168.1.0/24"></textarea>
-        </div>
-        <div class="pt2-field-row">
-          <div class="pt2-field">
-            <label class="pt2-field-label">Urgency</label>
-            <select class="pt2-select" id="pt2-em-urgency" style="width:100%;">
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
-          </div>
-          <div class="pt2-field">
-            <label class="pt2-field-label">Deadline</label>
-            <input class="pt2-input" id="pt2-em-deadline" type="date">
-          </div>
-        </div>
-        <div class="pt2-field">
-          <label class="pt2-field-label">Authentication Type</label>
-          <select class="pt2-select" id="pt2-em-auth-type" style="width:100%;" onchange="pt2AuthTypeChange()">
-            <option value="none">None (unauthenticated)</option>
-            <option value="bearer">Bearer Token</option>
-            <option value="apikey">API Key</option>
-            <option value="basic">Basic Auth</option>
-            <option value="oidc">OIDC / OAuth2 Client Credentials</option>
-            <option value="custom">Custom Header</option>
-          </select>
-        </div>
-        <div id="pt2-em-auth-fields"></div>
-        <div class="pt2-field">
-          <label class="pt2-field-label">Notes</label>
-          <textarea class="pt2-textarea" id="pt2-em-notes" rows="2" placeholder="Additional context, special instructions…"></textarea>
-        </div>
-      </div>
-      <div class="pt2-modal-footer">
-        <button class="pt2-btn" onclick="pt2CloseEngModal()">Cancel</button>
-        <button class="pt2-btn pt2-btn-primary" onclick="pt2SaveEngagement()" id="pt2-em-save-btn">Create Engagement</button>
-      </div>
-    </div>
-  </div>
-
-  </div><!-- /page-pentest -->
 
   <!-- ══ GRC COMPLIANCE PAGE ═════════════════════════════════════════════════ -->
   <div id="page-grc" class="page-section" style="display:none">
@@ -7187,7 +6831,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Skor Keamanan &amp; Tindakan Prioritas</span><span data-t="en">Secure Score &amp; Priority Actions</span></li>
           <li class="locked"><span style="color:#93c5fd;font-weight:700;">--</span> <span data-t="id">Security Scanner — khusus Pro</span><span data-t="en">Security Scanner — Pro only</span></li>
           <li class="locked"><span style="color:#93c5fd;font-weight:700;">--</span> <span data-t="id">Scan Results &amp; Scan Analytics — khusus Pro</span><span data-t="en">Scan Results &amp; Scan Analytics — Pro only</span></li>
-          <li class="locked"><span style="color:#93c5fd;font-weight:700;">--</span> <span data-t="id">Generate Pentest Report — khusus Pro</span><span data-t="en">Generate Pentest Report — Pro only</span></li>
         </ul>
         <div class="pricing-cta" id="pricing-basic-cta"><strong><span data-t="id">Hubungi administrator Anda</span><span data-t="en">Contact your administrator</span></strong> <span data-t="id">untuk mengubah paket.</span><span data-t="en">to change your plan.</span></div>
       </div>
@@ -7208,7 +6851,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Security Scanner — pemindaian AI penuh terhadap target URL</span><span data-t="en">Security Scanner — full AI-powered scanning against any target URL</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Scan Results — riwayat temuan lengkap per target</span><span data-t="en">Scan Results — full findings history per target</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Scan Analytics — tren ancaman, distribusi severity, analitik waktu</span><span data-t="en">Scan Analytics — threat trends, severity distribution, time-series analytics</span></li>
-          <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Generate Pentest Report — laporan PDF profesional bertenaga AI</span><span data-t="en">Generate Pentest Report — AI-written professional PDF pentest reports</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Rekomendasi remediasi otomatis dari hasil scan</span><span data-t="en">Automated remediation recommendations from scan output</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Hingga 50 scan/bulan per pengguna</span><span data-t="en">Up to 50 scans/month per user</span></li>
           <li><span style="color:#2563eb;font-weight:700;">+</span> <span data-t="id">Dukungan prioritas via email (respons &lt; 24 jam)</span><span data-t="en">Priority email support (response &lt; 24 hours)</span></li>
@@ -7281,12 +6923,11 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <li><span data-t="id">Skor Keamanan &amp; Tindakan Prioritas</span><span data-t="en">Secure Score &amp; Priority Actions</span></li>
       </ul>
       <h3><span data-t="id">1.2 Paket Pro (Berbayar)</span><span data-t="en">1.2 Pro Plan (Paid)</span></h3>
-      <p><span data-t="id">Paket Pro mencakup semua fitur Basic ditambah akses ke Security Scanner, manajemen hasil scan, analitik ancaman mendalam, dan pembuatan laporan pentest bertenaga AI. Paket ini dikenakan biaya berlangganan per pengguna (per seat).</span><span data-t="en">The Pro plan includes all Basic features plus access to the Security Scanner, scan results management, advanced threat analytics, and AI-powered pentest report generation. A per-user (per-seat) subscription fee applies.</span></p>
+      <p><span data-t="id">Paket Pro mencakup semua fitur Basic ditambah akses ke Security Scanner, manajemen hasil scan, dan analitik ancaman mendalam. Paket ini dikenakan biaya berlangganan per pengguna (per seat).</span><span data-t="en">The Pro plan includes all Basic features plus access to the Security Scanner, scan results management, and advanced threat analytics. A per-user (per-seat) subscription fee applies.</span></p>
       <ul>
         <li><span data-t="id">Security Scanner — pemindaian AI penuh terhadap target URL menggunakan 11 agen WSTG</span><span data-t="en">Security Scanner — full AI-powered scanning against any target URL using 11 WSTG agents</span></li>
         <li><span data-t="id">Scan Results — riwayat temuan lengkap per target, checklist OWASP WSTG 69 item</span><span data-t="en">Scan Results — full findings history per target, 69-item OWASP WSTG checklist</span></li>
         <li><span data-t="id">Scan Analytics — tren ancaman, distribusi severity, analitik deret waktu</span><span data-t="en">Scan Analytics — threat trends, severity distribution, time-series analytics</span></li>
-        <li><span data-t="id">Generate Pentest Report — laporan PDF profesional bertenaga AI (temuan, checklist, Rules of Engagement)</span><span data-t="en">Generate Pentest Report — AI-written professional PDF reports (findings, checklist, Rules of Engagement)</span></li>
         <li><span data-t="id">Rekomendasi remediasi otomatis dari output scan</span><span data-t="en">Automated remediation recommendations from scan output</span></li>
         <li><span data-t="id">Hingga 50 scan/bulan per pengguna</span><span data-t="en">Up to 50 scans/month per user</span></li>
         <li><span data-t="id">Dukungan prioritas via email dengan waktu respons &lt; 24 jam kerja</span><span data-t="en">Priority email support with response time &lt; 24 business hours</span></li>
@@ -7616,6 +7257,99 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   </div>
   </div><!-- /page-myappts -->
   {% endif %}
+
+  <!-- ══ MY FILE MANAGER PAGE ══════════════════════════════════════════════ -->
+  <div id="page-filemanager" class="page-section" style="display:none">
+  <style>
+    .fm-wrap { max-width:900px; margin:0 auto; padding:36px 24px 72px; }
+    .fm-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
+    .fm-sub { font-size:12px; color:#60a5fa; margin-bottom:24px; line-height:1.6; }
+    .fm-upload-zone { border:2px dashed #bfdbfe; border-radius:10px; padding:32px 24px; text-align:center; cursor:pointer; transition:background .15s,border-color .15s; background:#f8faff; margin-bottom:24px; }
+    .fm-upload-zone:hover, .fm-upload-zone.drag-over { background:#eff6ff; border-color:#2563eb; }
+    .fm-upload-hint { font-size:13px; color:#3b82f6; line-height:1.6; }
+    .fm-upload-hint strong { color:#1e3a8a; }
+    .fm-upload-sub { font-size:11px; color:#93c5fd; margin-top:4px; }
+    .fm-btn { padding:9px 22px; border:none; border-radius:6px; background:#2563eb; color:#fff; font-size:12px; font-weight:700; cursor:pointer; transition:opacity .15s; }
+    .fm-btn:hover { opacity:.88; }
+    .fm-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .fm-btn-outline { background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; }
+    .fm-btn-outline:hover { background:#dbeafe; }
+    .fm-upload-bar { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:none; font-size:12px; color:#1e3a8a; }
+    .fm-msg { font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:16px; display:none; }
+    .fm-msg.ok  { background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; }
+    .fm-msg.err { background:#dbeafe; border:1px solid #93c5fd; color:#1d4ed8; }
+    .fm-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+    .fm-search { padding:7px 12px; border:none; border-radius:6px; font-size:12px; font-family:inherit; color:#0f172a; background:#f8faff; box-shadow:0 0 0 1px #bfdbfe; outline:none; width:240px; -webkit-appearance:none; }
+    .fm-search:focus { box-shadow:0 0 0 1px #2563eb; }
+    .fm-count { font-size:12px; color:#3b82f6; }
+    .fm-table { width:100%; border-collapse:collapse; background:#fff; border:1px solid #bfdbfe; border-radius:10px; overflow:hidden; font-size:12px; }
+    .fm-table th { background:#eff6ff; color:#1e3a8a; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:10px 14px; text-align:left; border-bottom:1px solid #bfdbfe; }
+    .fm-table td { padding:11px 14px; border-bottom:1px solid #f0f5ff; color:#0f172a; vertical-align:middle; }
+    .fm-table tr:last-child td { border-bottom:none; }
+    .fm-table tr:hover td { background:#f8faff; }
+    .fm-ext { display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
+    .fm-ext.code { background:#1e3a8a; color:#bfdbfe; border-color:#1e3a8a; }
+    .fm-ext.doc  { background:#2563eb; color:#fff; border-color:#2563eb; }
+    .fm-ext.img  { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+    .fm-name { font-weight:600; color:#0f172a; word-break:break-all; max-width:260px; }
+    .fm-size { color:#3b82f6; white-space:nowrap; }
+    .fm-date { color:#60a5fa; white-space:nowrap; }
+    .fm-user { color:#3b82f6; font-size:11px; }
+    .fm-actions { display:flex; gap:6px; white-space:nowrap; }
+    .fm-dl-btn  { padding:5px 12px; border:none; border-radius:4px; background:#2563eb; color:#fff; font-size:11px; font-weight:700; cursor:pointer; }
+    .fm-dl-btn:hover { opacity:.85; }
+    .fm-del-btn { padding:5px 12px; border:1px solid #93c5fd; border-radius:4px; background:#dbeafe; color:#1d4ed8; font-size:11px; font-weight:700; cursor:pointer; }
+    .fm-del-btn:hover { opacity:.85; }
+    .fm-empty { text-align:center; color:#93c5fd; font-size:13px; padding:48px 0; }
+    .fm-prog { width:100%; height:4px; background:#bfdbfe; border-radius:4px; margin-top:8px; overflow:hidden; display:none; }
+    .fm-prog-bar { height:100%; background:#2563eb; width:0%; transition:width .3s; border-radius:4px; }
+    @media(max-width:640px){ .fm-table th:nth-child(3),.fm-table td:nth-child(3),
+      .fm-table th:nth-child(4),.fm-table td:nth-child(4) { display:none; } }
+  </style>
+  <div class="fm-wrap">
+    <div class="fm-title">My File Manager</div>
+    <div class="fm-sub">Upload, view, and manage your files. Supported formats: PDF, Office documents, source code, images, and more. Max 50 MB per file.</div>
+
+    <!-- Upload zone -->
+    <div class="fm-upload-zone" id="fmDropZone"
+         onclick="document.getElementById('fmFileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="fmHandleDrop(event)">
+      <input type="file" id="fmFileInput" multiple style="display:none" onchange="fmHandleFiles(this.files)">
+      <div class="fm-upload-hint"><strong>Click to browse</strong> or drag and drop files here</div>
+      <div class="fm-upload-sub">PDF, DOCX, XLSX, Python, JS, PHP, HTML, SQL, ZIP, images and more</div>
+    </div>
+
+    <div class="fm-upload-bar" id="fm-upload-bar">
+      <span id="fm-upload-status">Uploading...</span>
+      <div class="fm-prog"><div class="fm-prog-bar" id="fm-prog-bar"></div></div>
+    </div>
+    <div class="fm-msg" id="fm-msg"></div>
+
+    <!-- Toolbar -->
+    <div class="fm-toolbar">
+      <input class="fm-search" id="fm-search" type="text" placeholder="Search files..." oninput="fmFilter()">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="fm-count" id="fm-count"></span>
+        <button class="fm-btn fm-btn-outline" onclick="loadFileManager()" style="padding:7px 14px;">Refresh</button>
+      </div>
+    </div>
+
+    <!-- File table -->
+    <table class="fm-table">
+      <thead><tr>
+        <th>File</th>
+        <th>Type</th>
+        <th>Size</th>
+        <th>Uploaded</th>
+        {% if current_user.role == 'admin' %}<th>Owner</th>{% endif %}
+        <th>Actions</th>
+      </tr></thead>
+      <tbody id="fm-tbody"><tr><td colspan="6" class="fm-empty">Loading files...</td></tr></tbody>
+    </table>
+  </div>
+  </div><!-- /page-filemanager -->
 
   <!-- ══ CUSTOMER SERVICE CENTRE PAGE ══════════════════════════════════════ -->
   <div id="page-support" class="page-section" style="display:none">
@@ -8449,7 +8183,6 @@ var _PAGE_TITLES = {
   'threatanalytics':'Threat Analytics',
   'securescore':   'Secure Score',
   'usermgmt':      'User Management',
-  'pentest':       'Pentest Engagements',
   'grc':           'Risk Management',
   'agents':        'Meet Our Agents',
   'pricing':       'Pricing Plans',
@@ -8460,13 +8193,14 @@ var _PAGE_TITLES = {
   'sca':           'Static Code Analysis',
   'dca':           'Dynamic Code Analysis',
   'account':       'Account Settings',
+  'filemanager':   'My File Manager',
   'support':       'Customer Service Centre',
   'apptmgmt':      'Appointment Management Centre',
   'myappts':       'My Appointments',
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
-var _PRO_PAGES = ['scan', 'targets', 'history', 'pentest'];
+var _PRO_PAGES = ['scan', 'targets', 'history'];
 
 // Pages always accessible to every logged-in user regardless of plan or whitelist
 var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'syslog', 'agents'];
@@ -8522,7 +8256,7 @@ function sbNav(section, el) {
   _currentPage = section;
   // Hide Information button on pages that have no page info entry
   (function() {
-    var _noInfo = ['pricing', 'policy', 'privacy', 'account', 'support', 'apptmgmt', 'myappts'];
+    var _noInfo = ['pricing', 'policy', 'privacy', 'account', 'support', 'apptmgmt', 'myappts', 'filemanager'];
     var btn = document.getElementById('page-info-btn');
     if (btn) btn.style.display = _noInfo.indexOf(section) !== -1 ? 'none' : '';
   })();
@@ -8545,8 +8279,9 @@ function sbNav(section, el) {
 
   // Lazy-load data for relevant pages
   if (section === 'observability') loadUnifiedOverview();
-  if (section === 'apptmgmt') loadApptMgmt();
-  if (section === 'myappts')  loadMyAppts();
+  if (section === 'apptmgmt')   loadApptMgmt();
+  if (section === 'myappts')    loadMyAppts();
+  if (section === 'filemanager') loadFileManager();
   if (section === 'account')  acctLoadCountry();
   if (section === 'signals')       loadSignals();
   if (section === 'mitre')         loadMitreCoverage();
@@ -8567,7 +8302,6 @@ function sbNav(section, el) {
   if (section === 'filescan')      loadFileScanPage();
   if (section === 'usermgmt')      loadUserMgmt();
   if (section === 'invoices')      loadInvoices();
-  if (section === 'pentest')       loadPentestPage();
   if (section === 'grc')           grcInit();
   if (section === 'pricing')       initPricingPage();
   if (section === 'policy')        {}  // static page, no init needed
@@ -9405,7 +9139,7 @@ function _applySidebarAccess() {
     'sb-priority':'priority','sb-recommendations':'recommendations','sb-remediation':'remediation',
     'sb-weaknesses':'weaknesses','sb-inventories':'inventories','sb-targets':'targets',
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
-    'sb-scan':'scan','sb-history':'history','sb-pentest':'pentest','sb-grc':'grc',
+    'sb-scan':'scan','sb-history':'history','sb-grc':'grc',
     'sb-sca':'sca',
     'sb-dca':'dca',
   };
@@ -15455,7 +15189,6 @@ var _ALL_PAGES = [
     { key: 'scan',           label: 'Security Scanner' },
     { key: 'targets',        label: 'Scan Results' },
     { key: 'history',        label: 'Scan Analytics' },
-    { key: 'pentest',        label: 'Generate Pentest Report' },
     { key: 'sca',            label: 'Static Code Analysis' },
     { key: 'dca',            label: 'Dynamic Code Analysis' },
   ]},
@@ -15465,6 +15198,9 @@ var _ALL_PAGES = [
   { group: 'Appointments',           pages: [
     { key: 'myappts',        label: 'My Appointments' },
     { key: 'apptmgmt',       label: 'Appointment Management' },
+  ]},
+  { group: 'Files',                  pages: [
+    { key: 'filemanager',    label: 'My File Manager' },
   ]},
 ];
 
@@ -17688,1101 +17424,6 @@ var _pt2SevChartInst  = null;
 var _pt2PhaseChartInst= null;
 var _pt2RoeData       = {};
 
-function loadPentestPage() {
-  pt2FetchEngagements();
-}
-
-// ── Checklist structure ───────────────────────────────────────────────────────
-var _PT2_CL = [
-  { section:'Pre-Engagement & Scoping', items:['Define engagement scope, objectives, and success criteria','Obtain signed Rules of Engagement (RoE) and authorisation letter','Agree on out-of-scope assets and exclusion list','Confirm emergency contact and abort procedures','Set up isolated test environment / VPN if required'] },
-  { section:'Reconnaissance (OSINT)', items:['Passive DNS enumeration (subdomains, MX, SPF, DKIM)','WHOIS, ASN, and IP range discovery','Google dorking and Shodan / Censys exposure check','Certificate transparency log review (crt.sh)','LinkedIn / OSINT employee enumeration','Breach data check (HaveIBeenPwned, DeHashed)'] },
-  { section:'Scanning & Enumeration', items:['Port scan (TCP/UDP) on all in-scope IPs','Service version detection and banner grabbing','Web technology fingerprinting (Wappalyzer, WhatWeb)','Directory and file enumeration (Dirbuster, Gobuster)','API endpoint discovery (Swagger, OpenAPI, JS parsing)'] },
-  { section:'Authentication Testing', items:['Test for default / weak credentials on all login forms','Verify account lockout policy (brute-force protection)','Test MFA implementation — bypass attempts','Check for credential exposure in JS / HTML / API responses','Test password reset flow — token predictability, email enumeration','OAuth 2.0 / OIDC flow security (redirect_uri, state param)'] },
-  { section:'Authorisation Testing', items:["Horizontal privilege escalation (IDOR — access other users' data)",'Vertical privilege escalation (access admin / privileged functions)','Mass assignment / parameter tampering','Role-based access control enforcement','JWT validation — algorithm confusion, none algorithm, secret brute force'] },
-  { section:'Session Management', items:['Session token entropy and randomness check','Session fixation testing','Session invalidation on logout','Cookie security flags (HttpOnly, Secure, SameSite)','Concurrent session handling'] },
-  { section:'Input Validation', items:['SQL injection (manual + SQLMap)','Cross-Site Scripting (reflected, stored, DOM-based)','XML / JSON injection and XXE','Command injection and SSRF','Path traversal / local file inclusion','File upload — content type bypass, malicious file upload'] },
-  { section:'Cryptography', items:['TLS / SSL version and cipher suite assessment','Certificate validity, chain, and revocation check','Sensitive data in transit — verify encryption','Sensitive data at rest — check for plaintext storage in responses','Key management and secret rotation policy review'] },
-  { section:'Configuration & Infrastructure', items:['HTTP security headers audit (CSP, HSTS, X-Frame-Options)','Exposed admin panels and dev / debug interfaces','Cloud storage misconfiguration (S3, GCS, Azure Blob)','DNS zone transfer attempt','Open redirect testing'] },
-  { section:'API Security (OWASP API Top 10)', items:['API1: Broken Object Level Authorisation (BOLA / IDOR)','API2: Broken Authentication (token, key, session)','API3: Broken Object Property Level Authorisation','API4: Unrestricted Resource Consumption (rate limiting)','API5: Broken Function Level Authorisation (admin endpoints)','API6: Unrestricted Access to Sensitive Business Flows','API7: Server-Side Request Forgery (SSRF)','API8: Security Misconfiguration','API9: Improper Inventory Management (shadow APIs)','API10: Unsafe Consumption of APIs'] },
-  { section:'Client-Side Security', items:['JavaScript library version check (Retire.js)','Sensitive data exposure in client-side storage','Cross-site request forgery (CSRF)','Clickjacking / frame injection','WebSocket security testing'] },
-  { section:'Reporting & Deliverables', items:['All findings documented with CVSS score, CVE, CWE','Executive summary written for non-technical audience','Remediation recommendations prioritised by risk','Evidence (screenshots, HTTP requests) attached to each finding','Final report reviewed and approved before delivery','Re-test schedule agreed with client'] },
-];
-
-var _PT2_DEMO_ENG = {
-  id:9999, name:'Demo — Q2 2026 External Pentest', client:'Demo Corp Sdn Bhd', status:'active',
-  urgency:'critical', deadline:'2026-06-30',
-  scope_urls:['https://ourdomain.com','https://product.ourdomain.com','https://api.ourdomain.com'],
-  scope_ips:['203.0.113.10','203.0.113.11','203.0.113.12','203.0.113.20','198.51.100.5','198.51.100.6','198.51.100.7','198.51.100.8','198.51.100.10','198.51.100.50'],
-  auth_config:{auth_type:'oidc',token_url:'https://sso.ourdomain.com/oauth2/token',client_id:'pentest-client',client_secret:'***demo***',scope:'openid profile api.read api.write'},
-  notes:'External black-box + grey-box pentest. OIDC credentials provisioned for authenticated testing phases.',
-  created_at: new Date().toISOString(),
-};
-
-var _PT2_DEMO_SCOPE = {
-  scope_doc:'ENGAGEMENT SCOPE\n\nWeb Applications:\n- https://ourdomain.com (production)\n- https://product.ourdomain.com (product portal)\n- https://api.ourdomain.com (REST API v2)\n\nNetwork / IP Targets:\n- 203.0.113.10/29 (DMZ - 8 hosts)\n- 198.51.100.0/28 (internal-facing - 16 hosts)\n\nOut of Scope:\n- Third-party payment processor (PCI DSS boundary)\n- Legacy mail server 203.0.113.50 (in maintenance)\n- Social engineering and phishing campaigns\n- Physical access testing\n\nTesting Windows:\n- Weekdays 09:00-18:00 MYT preferred\n- Any destructive tests require prior approval via emergency contact',
-  roe_doc: JSON.stringify({engagement_info:'Q2 2026 External Penetration Test - Demo Corp Sdn Bhd',tester_details:'CyberINK Security Team - Lead: Jane Doe (jane@cyberink.io)',client_contact:'John Smith, CISO - jsmith@democorp.com - +60 12-345 6789',emergency_contact:'NOC: +60 3-1234 5678 (24/7 on-call)',start_date:'2026-06-01',end_date:'2026-06-30',testing_hours:'Weekdays 08:00-20:00 MYT. DoS/stress tests must be pre-approved.',in_scope:'All targets listed in Scope Document above',out_of_scope:'Third-party services, social engineering, physical access',methodology:'OWASP WSTG v4.2, OWASP API Top 10, PTES, NIST SP 800-115',escalation_procedure:'1. Tester pauses all activities immediately.\n2. Notify client emergency contact within 15 minutes.\n3. Document findings up to point of pause.\n4. Resume only upon written authorisation.',data_handling:'All test data and credentials stored in encrypted vault. Destroyed within 30 days post-report delivery.',legal_authorisation:'Client has provided signed authorisation letter dated 2026-05-28. Testers are indemnified against civil and criminal liability for activities within scope.',reporting_format:'PDF + XLSX findings export. Delivered via encrypted email.',nda:'NDA signed 2026-05-28. Valid for 3 years.',communication:'Daily status update via email. Weekly call every Friday 14:00 MYT.',retesting:'One complimentary retest for all Critical and High findings within 60 days.',payment_terms:'Net 30 days upon delivery of final report.',signatures:'Client Signatory: John Smith (CISO)\nTest Lead: Jane Doe\nDate: 2026-05-28'})
-};
-
-var _PT2_DEMO_FINDINGS = [
-  {id:900001,engagement_id:9999,severity:'critical',phase:'Authentication Testing',title:'OIDC Token Endpoint Accepts Arbitrary redirect_uri — OAuth Phishing Attack Vector',asset:'https://sso.ourdomain.com/oauth2/authorize',cvss_score:9.8,cve:'',cwe:'CWE-601',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The OIDC authorisation server does not validate the redirect_uri parameter against a pre-registered allowlist. An attacker can craft a malicious authorisation URL that redirects the victim\'s access token to an attacker-controlled domain upon successful authentication.\n\nDuring testing, the following PoC URL successfully caused the server to redirect the victim\'s authorisation code to https://attacker.example.com/callback, granting full account takeover capability for any user who clicks the link.',steps:'1. Construct a crafted authorisation URL:\n   GET /oauth2/authorize?response_type=code&client_id=pentest-client&redirect_uri=https://attacker.example.com/callback&scope=openid\n\n2. Deliver the URL to a target user via phishing email.\n\n3. When the victim authenticates, the server redirects to attacker.example.com with the ?code= parameter.\n\n4. Exchange the stolen code for a valid access token at the token endpoint.',evidence:'HTTP/1.1 302 Found\nLocation: https://attacker.example.com/callback?code=eyJhbGciOiJSUzI1NiJ9...&state=abc123',remediation:'Register all permitted redirect URIs in the authorisation server and perform strict string comparison against the allowlist. Return an error for any redirect_uri not in the exact allowlist. Reference: RFC 6749 Section 10.6.'},
-  {id:900002,engagement_id:9999,severity:'critical',phase:'Authorisation Testing',title:'Insecure Direct Object Reference — Full Read/Write Access to Any User Record',asset:'https://api.ourdomain.com/api/v2/users/{id}',cvss_score:9.1,cve:'',cwe:'CWE-639',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The /api/v2/users/{id} endpoint does not verify whether the authenticated user owns the requested resource. By enumerating integer IDs, any authenticated user can read and modify the profile, email address, role, and subscription tier of any other user in the system.\n\nThis constitutes a Broken Object Level Authorisation (BOLA/IDOR) vulnerability — ranked #1 in the OWASP API Security Top 10.',steps:'1. Authenticate as low-privilege test user and obtain a valid JWT.\n2. Retrieve your own profile: GET /api/v2/users/42 → 200 OK\n3. Access another user: GET /api/v2/users/1 → 200 OK, returns admin email, role: "superadmin"\n4. Modify another user\'s email: PUT /api/v2/users/1 {"email": "attacker@evil.com"} → 200 OK',evidence:'GET /api/v2/users/1 HTTP/1.1\nAuthorization: Bearer eyJ...<low_priv_token>\n\nHTTP/1.1 200 OK\n{"id":1,"email":"admin@democorp.com","role":"superadmin","subscription":"enterprise"}',remediation:'Implement server-side ownership checks on every resource endpoint. Verify that the authenticated user\'s ID matches the requested resource owner, or that the user holds an explicit admin role. Never rely on client-supplied IDs alone.'},
-  {id:900003,engagement_id:9999,severity:'high',phase:'Input Validation',title:'Reflected Cross-Site Scripting (XSS) — /search?q= Parameter',asset:'https://ourdomain.com/search',cvss_score:7.2,cve:'',cwe:'CWE-79',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The search endpoint reflects the q= parameter directly into the HTML response without output encoding. An attacker can craft a URL containing a JavaScript payload that executes in the victim\'s browser, leading to session token theft, credential harvesting, or malware delivery.',steps:'1. Navigate to: https://ourdomain.com/search?q=[script]alert(document.cookie)[/script]\n2. Observe alert box fires with session cookie value.\n3. Craft exfiltration payload with fetch() to attacker-controlled server.',evidence:'GET /search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E HTTP/1.1\n\nHTTP/1.1 200 OK\n[html]...Search results for: [script]alert(1)[/script]...',remediation:'Apply context-aware output encoding to all user-supplied data before rendering in HTML. Implement a Content-Security-Policy header with script-src \'self\' to restrict script execution to trusted origins.'},
-  {id:900004,engagement_id:9999,severity:'high',phase:'Authentication Testing',title:'No Account Lockout on Login Endpoint — Unlimited Brute-Force Attempts',asset:'https://ourdomain.com/login',cvss_score:7.5,cve:'',cwe:'CWE-307',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The login endpoint does not implement account lockout, progressive delays, or CAPTCHA after repeated failed authentication attempts. During testing, 1,000 password attempts were made against a known account within 90 seconds with no throttling, lockout, or alerting observed.',steps:'1. Identify valid username via password reset endpoint (returns different error for existing vs non-existing accounts).\n2. Run Hydra against /login with rockyou.txt wordlist.\n3. Observe: no lockout after 1,000 attempts.',evidence:'[Repeated 1,000 times with no throttling or lockout observed]\nPOST /login {"username":"admin@democorp.com","password":"wrongpassword"}\nHTTP/1.1 401 {"error":"Invalid credentials"}',remediation:'Implement account lockout (5-10 failed attempts triggers 15-minute cooldown) or progressive CAPTCHA. Deploy rate limiting at the WAF level (10 requests/minute per IP to /login).'},
-  {id:900005,engagement_id:9999,severity:'high',phase:'API Security',title:'API Rate Limiting Absent — Data Enumeration and Resource Exhaustion',asset:'https://api.ourdomain.com/api/v2/',cvss_score:7.0,cve:'',cwe:'CWE-770',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'No rate limiting is enforced on any /api/v2/ endpoint. During testing, 5,000 requests were made within 60 seconds with no throttling, 429 responses, or IP blocking observed.',steps:'1. Run ab against the API: ab -n 5000 -c 50 -H "Authorization: Bearer <token>" https://api.ourdomain.com/api/v2/users\n2. Observe all 5,000 requests return 200 OK at full speed.',evidence:'Requests per second: 83.2\nTotal: 5000/5000 succeeded (0 throttled)',remediation:'Implement API rate limiting at the gateway (100 req/min per authenticated user, 20 req/min per IP unauthenticated). Return HTTP 429 with Retry-After header when limits are exceeded.'},
-  {id:900006,engagement_id:9999,severity:'high',phase:'Configuration',title:'Exposed Swagger/OpenAPI Documentation in Production Without Authentication',asset:'https://api.ourdomain.com/api-docs',cvss_score:6.5,cve:'',cwe:'CWE-200',status:'remediated',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The Swagger UI and full OpenAPI specification are accessible without authentication. The specification reveals all internal API endpoints, request/response schemas, and several internal endpoint paths not linked from the frontend.',steps:'1. Navigate to https://api.ourdomain.com/api-docs — Swagger UI loads without authentication.\n2. Download the OpenAPI JSON and parse all endpoint paths.\n3. Discovered 47 internal endpoints including /api/v2/admin/users and /api/v2/debug/logs.',evidence:'GET /api-docs.json HTTP/1.1\n\nHTTP/1.1 200 OK\n{"openapi":"3.0.0","paths":{"/api/v2/admin/users":{...},"/api/v2/debug/logs":{...}}}',remediation:'Restrict /api-docs to authenticated internal users or IP allowlist. Consider removing Swagger UI from production entirely.'},
-  {id:900007,engagement_id:9999,severity:'medium',phase:'Session Management',title:'Session Token Not Invalidated on Logout',asset:'https://ourdomain.com',cvss_score:5.4,cve:'',cwe:'CWE-613',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'When a user logs out, the server clears the session cookie client-side but the session token remains valid server-side and can be replayed from another browser to resume the authenticated session.',steps:'1. Log in and capture the session cookie.\n2. Click "Logout" in the application.\n3. In a new incognito window, manually set the old cookie.\n4. Navigate to /dashboard — user is still authenticated.',evidence:'POST /logout HTTP/1.1 → 200 OK, Set-Cookie: session=; expires=1970\n\n[In new browser with old cookie]\nGET /dashboard HTTP/1.1, Cookie: session=abc123xyz\nHTTP/1.1 200 OK — dashboard rendered, session still valid',remediation:'Implement server-side session invalidation on logout. Maintain a server-side session store and delete the session record on logout. Use short-lived tokens (15-30 min) with silent refresh.'},
-  {id:900008,engagement_id:9999,severity:'medium',phase:'Cryptography',title:'TLS 1.0 and 1.1 Enabled on Web Server',asset:'203.0.113.10:443',cvss_score:5.9,cve:'CVE-2011-3389',cwe:'CWE-326',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The web server accepts TLS 1.0 and TLS 1.1 connections. TLS 1.0 is vulnerable to BEAST and POODLE attacks. TLS 1.1 has been deprecated by RFC 8996. RC4 and 3DES cipher suites are also accepted.',steps:'1. Run testssl.sh --protocols 203.0.113.10\n2. Observe TLSv1 and TLSv1.1 enabled.\n3. Confirm weak cipher suites: RC4, 3DES offered.',evidence:'TLSv1   ENABLED (VULNERABLE to BEAST)\nTLSv1.1 ENABLED (DEPRECATED per RFC 8996)\nTLS_RSA_WITH_RC4_128_SHA (INSECURE)\nTLS_RSA_WITH_3DES_EDE_CBC_SHA (SWEET32)',remediation:"Disable TLS 1.0 and TLS 1.1. Only allow TLS 1.2 and TLS 1.3. Remove RC4 and 3DES cipher suites. Use Mozilla's SSL Configuration Generator (Intermediate profile)."},
-  {id:900009,engagement_id:9999,severity:'medium',phase:'Configuration',title:'Missing HTTP Security Headers — CSP, HSTS, X-Frame-Options',asset:'https://ourdomain.com',cvss_score:5.3,cve:'',cwe:'CWE-16',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'Multiple important HTTP security headers are absent from all responses. Missing: Content-Security-Policy, HTTP Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options. This increases exposure to clickjacking, XSS, protocol downgrade, and MIME confusion attacks.',steps:'1. curl -I https://ourdomain.com\n2. Review response headers for security controls.',evidence:'HTTP/1.1 200 OK\nServer: nginx/1.18.0\n[NO Content-Security-Policy]\n[NO Strict-Transport-Security]\n[NO X-Frame-Options]\n[NO X-Content-Type-Options]',remediation:"Add: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\nContent-Security-Policy: default-src 'self'\nX-Frame-Options: DENY\nX-Content-Type-Options: nosniff"},
-  {id:900010,engagement_id:9999,severity:'medium',phase:'Input Validation',title:'SQL Error Messages Exposed — Information Disclosure via Error Responses',asset:'https://api.ourdomain.com/api/v2/users',cvss_score:5.0,cve:'',cwe:'CWE-209',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The API returns verbose database error messages in HTTP 500 responses including database type (PostgreSQL), table names, column names, and partial query strings. This significantly aids SQL injection attack crafting.',steps:"1. Send a malformed filter parameter: GET /api/v2/users?filter='\n2. Observe the 500 error response containing the full SQL error.",evidence:"GET /api/v2/users?filter=' HTTP/1.1\n\nHTTP/1.1 500 Internal Server Error\n{\"error\":\"PG::SyntaxError: ERROR: unterminated quoted string...SELECT * FROM users WHERE email ILIKE...\"}",remediation:'Configure the application to return generic error messages to clients. Log full errors server-side only. In production, set DEBUG=False and configure a custom error handler.'},
-  {id:900011,engagement_id:9999,severity:'low',phase:'Configuration',title:'X-Powered-By Header Reveals Backend Technology Stack',asset:'https://api.ourdomain.com',cvss_score:3.1,cve:'',cwe:'CWE-200',status:'remediated',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The X-Powered-By HTTP response header discloses the exact backend framework. While not directly exploitable, this assists an attacker in identifying known CVEs.',steps:'1. curl -I https://api.ourdomain.com\n2. Observe X-Powered-By: Express header.',evidence:'HTTP/1.1 200 OK\nX-Powered-By: Express\nServer: nginx/1.18.0',remediation:"Remove X-Powered-By header. In Express.js: app.disable('x-powered-by'). Suppress Server header version: nginx server_tokens off;"},
-  {id:900012,engagement_id:9999,severity:'low',phase:'Reconnaissance',title:'Legacy /api/v0/ Endpoint Accessible Without Authentication',asset:'https://api.ourdomain.com/api/v0/',cvss_score:3.7,cve:'',cwe:'CWE-287',status:'open',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'The deprecated API version /api/v0/ is accessible from the internet and does not enforce authentication on several endpoints.',steps:'1. GET https://api.ourdomain.com/api/v0/users — returns 200 OK (no auth required)\n2. GET https://api.ourdomain.com/api/v0/status — returns system status without auth',evidence:'GET /api/v0/users HTTP/1.1\n[No Authorization header]\n\nHTTP/1.1 200 OK\n{"users":[{"id":1,"email":"admin@democorp.com"},...]}',remediation:'Retire /api/v0/ immediately. Configure the web server to return HTTP 410 Gone for all /api/v0/ requests.'},
-  {id:900013,engagement_id:9999,severity:'informational',phase:'Reconnaissance',title:'Version Control Metadata — /.git/ Directory Check',asset:'https://ourdomain.com/.git/',cvss_score:0,cve:'',cwe:'CWE-538',status:'fp',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),description:'Directory enumeration found /.git/HEAD returned HTTP 200. Follow-up confirmed this is a custom health check endpoint returning 200 for all /.git/ paths, not a real git directory exposure. Marked as false positive.',steps:'1. curl https://ourdomain.com/.git/HEAD → 200 OK\n2. curl https://ourdomain.com/.git/config → 404 Not Found\n3. Confirmed custom 200 handler, not real git exposure.',evidence:'GET /.git/HEAD → HTTP 200 (custom handler)\nGET /.git/config → HTTP 404 (not found)\nConclusion: false positive',remediation:'No action required — false positive. Consider returning 404 for /.git/ paths to avoid confusion in future audits.'},
-];
-
-function pt2LoadDemo() {
-  _pt2IsDemo = true;
-  _pt2Engagements = [_PT2_DEMO_ENG];
-  if (!window.__pt2DemoPatch) {
-    window.__pt2DemoPatch = true;
-    var _origFetch = window.fetch;
-    window.fetch = function(url, opts) {
-      if (typeof url !== 'string') return _origFetch.apply(window, arguments);
-      if (url.indexOf('/api/pentest/engagements/9999/findings') !== -1 && (!opts || !opts.method || opts.method === 'GET'))
-        return Promise.resolve({ok:true,json:function(){ return Promise.resolve({findings:_PT2_DEMO_FINDINGS}); }});
-      if (url.indexOf('/api/pentest/engagements/9999/scope') !== -1 && (!opts || !opts.method || opts.method === 'GET'))
-        return Promise.resolve({ok:true,json:function(){ return Promise.resolve(_PT2_DEMO_SCOPE); }});
-      if (url.indexOf('/api/pentest/engagements/9999/checklist') !== -1 && (!opts || !opts.method || opts.method === 'GET'))
-        return Promise.resolve({ok:true,json:function(){ return Promise.resolve({checklist:[]}); }});
-      if (url.indexOf('/api/pentest/engagements/9999/report/generate') !== -1)
-        return Promise.resolve({ok:true,json:function(){ return Promise.resolve({report_md:'# Demo Report\n\nThis is demo mode. Generate a report from a real engagement to see AI-written content.',sev_counts:{critical:2,high:4,medium:4,low:2,informational:1},total_findings:13,engagement:{name:'Demo — Q2 2026 External Pentest',client:'Demo Corp Sdn Bhd'}}); }});
-      if (url.indexOf('/api/pentest/engagements/9999/scans') !== -1)
-        return Promise.resolve({ok:true,json:function(){ return Promise.resolve({scans:[]}); }});
-      return _origFetch.apply(window, arguments);
-    };
-  }
-  pt2RenderList();
-  pt2SelectEngagement(9999);
-}
-
-// ── Engagement list ───────────────────────────────────────────────────────────
-function pt2FetchEngagements() {
-  fetch('/api/pentest/engagements').then(function(r){return r.json();}).then(function(d){
-    if (_pt2IsDemo) return;
-    _pt2Engagements = d.engagements || [];
-    pt2RenderList();
-    if (_pt2SelectedId) {
-      var e = _pt2Engagements.find(function(x){return x.id===_pt2SelectedId;});
-      if (e) pt2SelectEngagement(e.id);
-    }
-  }).catch(function(){
-    var el = document.getElementById('pt2-eng-list');
-    if (el) el.innerHTML = '<div style="color:#1e3a8a;font-size:12px;padding:16px;">Failed to load engagements.</div>';
-  });
-}
-
-function pt2RenderList() {
-  var el = document.getElementById('pt2-eng-list');
-  if (!el) return;
-  if (!_pt2Engagements.length) {
-    el.innerHTML = '<div style="color:#60a5fa;font-size:12px;padding:24px;text-align:center;">No engagements yet. Click + New to start.</div>';
-    return;
-  }
-  el.innerHTML = _pt2Engagements.map(function(e) {
-    var active = e.id === _pt2SelectedId ? ' active' : '';
-    return '<div class="pt2-eng-card' + active + '" onclick="pt2SelectEngagement(' + e.id + ')">'
-      + '<div class="pt2-eng-card-name">' + _esc(e.name) + '</div>'
-      + (e.client ? '<div class="pt2-eng-card-client">' + _esc(e.client) + '</div>' : '')
-      + '<div class="pt2-eng-card-meta">'
-      + '<span class="pt2-badge pt2-badge-' + (e.status||'pending') + '">' + (e.status||'pending') + '</span>'
-      + '<span class="pt2-badge pt2-badge-' + (e.urgency||'normal') + '">' + (e.urgency||'normal') + '</span>'
-      + (e.deadline ? '<span style="font-size:10px;color:#60a5fa;">Due ' + _esc(e.deadline) + '</span>' : '')
-      + '</div></div>';
-  }).join('');
-}
-
-function pt2SelectEngagement(eid) {
-  _pt2SelectedId = eid;
-  _pt2ActiveTab = 'overview';
-  pt2RenderList();
-  var eng = _pt2Engagements.find(function(x){return x.id===eid;});
-  if (!eng) return;
-  document.getElementById('pt2-detail-empty').style.display = 'none';
-  document.getElementById('pt2-detail-header').style.display = '';
-  document.getElementById('pt2-tab-body').style.display = '';
-  document.getElementById('pt2-hdr-name').textContent = eng.name;
-  document.getElementById('pt2-hdr-client').textContent = eng.client || '';
-  var meta = document.getElementById('pt2-hdr-meta');
-  meta.innerHTML = '<span class="pt2-badge pt2-badge-' + (eng.status||'pending') + '">' + (eng.status||'pending') + '</span>'
-    + '<span class="pt2-badge pt2-badge-' + (eng.urgency||'normal') + '">' + (eng.urgency||'normal') + '</span>'
-    + (eng.deadline ? '<span style="font-size:11px;color:#3b82f6;">Deadline: ' + _esc(eng.deadline) + '</span>' : '');
-  document.querySelectorAll('.pt2-tab').forEach(function(t){t.classList.remove('active');});
-  var ov = document.querySelector('.pt2-tab[data-tab="overview"]');
-  if (ov) ov.classList.add('active');
-  document.querySelectorAll('.pt2-tab-content').forEach(function(t){t.style.display='none';});
-  var ovPanel = document.getElementById('pt2-tab-overview');
-  if (ovPanel) ovPanel.style.display = 'block';
-  pt2RenderOverview(eng);
-}
-
-function pt2SwitchTab(tab) {
-  _pt2ActiveTab = tab;
-  document.querySelectorAll('.pt2-tab').forEach(function(t){t.classList.toggle('active', t.dataset.tab===tab);});
-  document.querySelectorAll('.pt2-tab-content').forEach(function(t){t.style.display='none';});
-  var panel = document.getElementById('pt2-tab-' + tab);
-  if (panel) panel.style.display = 'block';
-  var eid = _pt2SelectedId;
-  var eng = _pt2Engagements.find(function(x){return x.id===eid;});
-  if (!eng) return;
-  if (tab === 'overview')  pt2RenderOverview(eng);
-  if (tab === 'scope')     pt2RenderScope(eng);
-  if (tab === 'roe')       pt2RenderRoe(eid);
-  if (tab === 'checklist') pt2RenderChecklist(eid);
-  if (tab === 'targets')   pt2RenderTargets(eng);
-  if (tab === 'findings')  pt2LoadFindings(eid);
-}
-
-// ── Overview ──────────────────────────────────────────────────────────────────
-function pt2RenderOverview(eng) {
-  var kpis = document.getElementById('pt2-ov-kpis');
-  var dets = document.getElementById('pt2-ov-details');
-  if (!kpis || !dets) return;
-  dets.innerHTML = [['Engagement',_esc(eng.name)],['Client',_esc(eng.client||'—')],
-    ['Status','<span class="pt2-badge pt2-badge-'+(eng.status||'pending')+'">'+(eng.status||'pending')+'</span>'],
-    ['Urgency','<span class="pt2-badge pt2-badge-'+(eng.urgency||'normal')+'">'+(eng.urgency||'normal')+'</span>'],
-    ['Deadline',_esc(eng.deadline||'—')],['Web Targets',String((eng.scope_urls||[]).length)],
-    ['IP / Network Targets',String((eng.scope_ips||[]).length)],['Created',(eng.created_at||'').slice(0,10)],
-  ].map(function(r){
-    return '<tr><td style="font-size:12px;color:#3b82f6;font-weight:600;padding:5px 0;width:160px;vertical-align:top;">'+r[0]+'</td><td style="font-size:13px;color:#0f172a;padding:5px 0;">'+r[1]+'</td></tr>';
-  }).join('');
-  fetch('/api/pentest/engagements/'+eng.id+'/findings').then(function(r){return r.json();}).then(function(d){
-    var f = d.findings||[];
-    var sevs = {critical:0,high:0,medium:0,low:0,informational:0};
-    f.forEach(function(x){var s=(x.severity||'informational').toLowerCase();sevs[s]=(sevs[s]||0)+1;});
-    var total = f.length;
-    kpis.innerHTML = [{label:'Findings',val:total,cls:''},{label:'Critical',val:sevs.critical,cls:'critical'},
-      {label:'High',val:sevs.high,cls:'high'},{label:'Medium',val:sevs.medium,cls:'medium'},
-      {label:'Low',val:sevs.low,cls:'low'},{label:'Open',val:f.filter(function(x){return x.status==='open';}).length,cls:''},
-    ].map(function(k){return '<div class="pt2-kpi-tile"><div class="pt2-kpi-num '+k.cls+'">'+k.val+'</div><div class="pt2-kpi-label">'+k.label+'</div></div>';}).join('');
-    var bar = document.getElementById('pt2-ov-bar');
-    var leg = document.getElementById('pt2-ov-bar-legend');
-    var clr = {critical:'#172554',high:'#1d4ed8',medium:'#3b82f6',low:'#3b82f6',informational:'#3b82f6'};
-    if (bar && total > 0) {
-      bar.innerHTML = Object.keys(sevs).map(function(s){
-        var pct=(sevs[s]/total*100).toFixed(1);
-        return sevs[s]?'<div class="pt2-sev-bar-seg" style="width:'+pct+'%;background:'+clr[s]+';" title="'+s+': '+sevs[s]+'"></div>':'';
-      }).join('');
-      if (leg) leg.textContent = Object.keys(sevs).filter(function(s){return sevs[s]>0;}).map(function(s){return s.charAt(0).toUpperCase()+s.slice(1)+': '+sevs[s];}).join(' | ');
-    } else if (bar) {
-      bar.innerHTML = '<div style="background:#dbeafe;width:100%;"></div>';
-      if (leg) leg.textContent = 'No findings yet';
-    }
-    var sr = document.getElementById('pt2-ov-status-row');
-    if (sr) {
-      sr.innerHTML = '<select class="pt2-select" id="pt2-status-sel" style="font-size:12px;">'
-        +['pending','active','completed'].map(function(s){return '<option value="'+s+'"'+(s===eng.status?' selected':'')+'>'+s.charAt(0).toUpperCase()+s.slice(1)+'</option>';}).join('')
-        +'</select>'
-        +'<button class="pt2-btn pt2-btn-primary" onclick="pt2SetStatus(document.getElementById(\'pt2-status-sel\').value)" style="font-size:11px;">Update Status</button>';
-    }
-  }).catch(function(){kpis.innerHTML='';});
-}
-
-function pt2SetStatus(status) {
-  var eid = _pt2SelectedId;
-  if (!eid || (_pt2IsDemo && eid===9999)) return;
-  fetch('/api/pentest/engagements/'+eid+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:status})}).then(function(){pt2FetchEngagements();});
-}
-
-// ── Scope & Auth ──────────────────────────────────────────────────────────────
-function pt2RenderScope(eng) {
-  var webTbl = document.querySelector('#pt2-scope-web-tbl tbody');
-  var ipTbl  = document.querySelector('#pt2-scope-ip-tbl tbody');
-  var authDiv= document.getElementById('pt2-scope-auth');
-  if (!webTbl||!ipTbl) return;
-  var ac = eng.auth_config||{};
-  var atype = ac.auth_type||ac.type||'none';
-  var authBadge = (atype&&atype!=='none') ? '<span class="pt2-badge pt2-badge-medium">'+_esc(atype)+'</span>' : '<span class="pt2-badge pt2-badge-pending">None</span>';
-  webTbl.innerHTML = (eng.scope_urls||[]).length
-    ? (eng.scope_urls||[]).map(function(u){return '<tr><td>'+_esc(u)+'</td><td><span class="pt2-badge pt2-badge-active">Web</span></td><td>'+authBadge+'</td><td>In scope</td></tr>';}).join('')
-    : '<tr><td colspan="4" style="color:#60a5fa;text-align:center;padding:12px;">No web targets defined.</td></tr>';
-  ipTbl.innerHTML = (eng.scope_ips||[]).length
-    ? (eng.scope_ips||[]).map(function(ip){return '<tr><td>'+_esc(ip)+'</td><td>—</td><td>In scope</td></tr>';}).join('')
-    : '<tr><td colspan="3" style="color:#60a5fa;text-align:center;padding:12px;">No IP targets defined.</td></tr>';
-  if (authDiv) {
-    if (!atype||atype==='none') { authDiv.innerHTML='<span style="color:#60a5fa;">No authentication configured.</span>'; return; }
-    authDiv.innerHTML='<table style="font-size:13px;border-collapse:collapse;width:100%;">'
-      +'<tr><td style="color:#3b82f6;font-weight:600;padding:4px 0;width:140px;">Auth Type</td><td>'+authBadge+'</td></tr>'
-      +(ac.token_url?'<tr><td style="color:#3b82f6;font-weight:600;padding:4px 0;">Token URL</td><td>'+_esc(ac.token_url)+'</td></tr>':'')
-      +(ac.client_id?'<tr><td style="color:#3b82f6;font-weight:600;padding:4px 0;">Client ID</td><td>'+_esc(ac.client_id)+'</td></tr>':'')
-      +(ac.bearer_token?'<tr><td style="color:#3b82f6;font-weight:600;padding:4px 0;">Token</td><td style="font-family:monospace;font-size:11px;">'+_esc(ac.bearer_token.slice(0,12)+'…')+'</td></tr>':'')
-      +(ac.basic_user?'<tr><td style="color:#3b82f6;font-weight:600;padding:4px 0;">Username</td><td>'+_esc(ac.basic_user)+'</td></tr>':'')
-      +'</table>';
-  }
-}
-
-// ── Rules of Engagement ───────────────────────────────────────────────────────
-var _PT2_ROE_FIELDS = [
-  {key:'engagement_info',label:'Engagement Information'},{key:'tester_details',label:'Tester / Team Details'},
-  {key:'client_contact',label:'Client Primary Contact'},{key:'emergency_contact',label:'Emergency Contact (24/7)'},
-  {key:'start_date',label:'Start Date'},{key:'end_date',label:'End Date'},
-  {key:'testing_hours',label:'Permitted Testing Hours'},{key:'in_scope',label:'In-Scope Targets'},
-  {key:'out_of_scope',label:'Out-of-Scope / Exclusions'},{key:'methodology',label:'Methodology & Standards'},
-  {key:'escalation_procedure',label:'Escalation Procedure'},{key:'data_handling',label:'Data Handling & Retention'},
-  {key:'legal_authorisation',label:'Legal Authorisation'},{key:'reporting_format',label:'Reporting Format & Delivery'},
-  {key:'nda',label:'NDA / Confidentiality'},{key:'communication',label:'Communication Plan'},
-  {key:'retesting',label:'Re-testing Policy'},{key:'payment_terms',label:'Payment Terms'},{key:'signatures',label:'Signatures'},
-];
-
-function pt2RenderRoe(eid) {
-  fetch('/api/pentest/engagements/'+eid+'/scope').then(function(r){return r.json();}).then(function(d){
-    _pt2RoeData = d;
-    var roe = {};
-    try { roe = JSON.parse(d.roe_doc||'{}'); } catch(e) { roe = {}; }
-    var viewEl = document.getElementById('pt2-roe-view');
-    var editEl = document.getElementById('pt2-roe-edit');
-    if (!viewEl||!editEl) return;
-    var multiKeys = {in_scope:1,out_of_scope:1,escalation_procedure:1,data_handling:1,methodology:1,signatures:1,communication:1,legal_authorisation:1};
-    viewEl.innerHTML = _PT2_ROE_FIELDS.map(function(f){
-      return '<div class="pt2-roe-field"><div class="pt2-roe-label">'+f.label+'</div>'
-        +'<div class="pt2-roe-val">'+(roe[f.key]?_esc(roe[f.key]):'<span style="color:#d1d5db;">Not specified</span>')+'</div></div>';
-    }).join('');
-    editEl.innerHTML = _PT2_ROE_FIELDS.map(function(f){
-      var val = roe[f.key]||'';
-      return '<div class="pt2-roe-field"><div class="pt2-roe-label">'+f.label+'</div>'
-        +(multiKeys[f.key]
-          ?'<textarea class="pt2-roe-input" id="pt2-roe-field-'+f.key+'" rows="3">'+_esc(val)+'</textarea>'
-          :'<input class="pt2-roe-input" id="pt2-roe-field-'+f.key+'" value="'+_esc(val)+'" style="min-height:0;resize:none;">')
-        +'</div>';
-    }).join('');
-  }).catch(function(){});
-}
-
-function pt2RoeEdit() {
-  document.getElementById('pt2-roe-view').style.display='none';
-  document.getElementById('pt2-roe-edit').style.display='';
-  document.getElementById('pt2-roe-edit-btn').style.display='none';
-  document.getElementById('pt2-roe-save-btn').style.display='';
-  document.getElementById('pt2-roe-cancel-btn').style.display='';
-}
-
-function pt2RoeCancel() {
-  document.getElementById('pt2-roe-view').style.display='';
-  document.getElementById('pt2-roe-edit').style.display='none';
-  document.getElementById('pt2-roe-edit-btn').style.display='';
-  document.getElementById('pt2-roe-save-btn').style.display='none';
-  document.getElementById('pt2-roe-cancel-btn').style.display='none';
-}
-
-function pt2RoeSave() {
-  var eid = _pt2SelectedId;
-  var roeObj = {};
-  _PT2_ROE_FIELDS.forEach(function(f){var el=document.getElementById('pt2-roe-field-'+f.key);if(el)roeObj[f.key]=el.value;});
-  if (_pt2IsDemo && eid===9999) { _PT2_DEMO_SCOPE.roe_doc=JSON.stringify(roeObj); pt2RoeCancel(); pt2RenderRoe(eid); return; }
-  fetch('/api/pentest/engagements/'+eid+'/scope',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({roe_doc:JSON.stringify(roeObj)})}).then(function(){pt2RoeCancel();pt2RenderRoe(eid);});
-}
-
-// ── Checklist ─────────────────────────────────────────────────────────────────
-function pt2RenderChecklist(eid) {
-  fetch('/api/pentest/engagements/'+eid+'/checklist').then(function(r){return r.json();}).then(function(d){
-    var checked = {};
-    (d.checklist||[]).forEach(function(row){checked[row.section+'||'+row.item]=!!row.checked;});
-    var tot=0, chk=0;
-    _PT2_CL.forEach(function(s){tot+=s.items.length;s.items.forEach(function(it){if(checked[s.section+'||'+it])chk++;});});
-    var prog = document.getElementById('pt2-cl-total-progress');
-    if (prog) prog.textContent = chk+' / '+tot+' completed';
-    var body = document.getElementById('pt2-cl-body');
-    if (!body) return;
-    body.innerHTML = _PT2_CL.map(function(sec){
-      var done = sec.items.filter(function(it){return checked[sec.section+'||'+it];}).length;
-      return '<div class="pt2-cl-section"><div class="pt2-cl-section-title">'+_esc(sec.section)+' <span style="font-weight:400;color:#3b82f6;">('+done+'/'+sec.items.length+')</span></div>'
-        +sec.items.map(function(it){
-          var isChk = checked[sec.section+'||'+it]||false;
-          var lid = 'cl-'+Math.abs(_pt2HashStr(sec.section+'||'+it)).toString(36);
-          return '<label class="pt2-cl-item'+(isChk?' checked-item':'')+'" id="'+lid+'" style="cursor:pointer;">'
-            +'<input type="checkbox"'+(isChk?' checked':'')+' onchange="pt2ToggleCl('+eid+','+JSON.stringify(sec.section)+','+JSON.stringify(it)+',this.checked,\''+lid+'\')">'
-            +_esc(it)+'</label>';
-        }).join('')+'</div>';
-    }).join('');
-  }).catch(function(){});
-}
-
-function pt2ToggleCl(eid, section, item, checked, lid) {
-  var lbl = document.getElementById(lid);
-  if (lbl) lbl.classList.toggle('checked-item', checked);
-  if (_pt2IsDemo && eid===9999) return;
-  fetch('/api/pentest/engagements/'+eid+'/checklist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({section:section,item:item,checked:checked})}).catch(function(){});
-}
-
-function _pt2HashStr(s) {
-  var h=0; for(var i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;} return h;
-}
-
-// ── Targets & Scan ────────────────────────────────────────────────────────────
-function pt2RenderTargets(eng) {
-  var el = document.getElementById('pt2-targets-list');
-  if (!el) return;
-  var all = (eng.scope_urls||[]).concat(eng.scope_ips||[]);
-  if (!all.length) { el.innerHTML='<div style="color:#60a5fa;font-size:13px;padding:24px;text-align:center;">No targets defined. Edit the engagement to add URLs or IP ranges.</div>'; return; }
-  var ips = eng.scope_ips||[];
-  el.innerHTML = all.map(function(t){
-    var rowId = 'pt2-tgt-'+Math.abs(_pt2HashStr(t)).toString(36);
-    var isIp = ips.indexOf(t)!==-1;
-    return '<div class="pt2-scan-row" id="'+rowId+'">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'
-      +'<div><span class="pt2-badge '+(isIp?'pt2-badge-pending':'pt2-badge-active')+'" style="font-size:9px;">'+(isIp?'IP':'URL')+'</span>'
-      +' <span class="pt2-scan-target">'+_esc(t)+'</span></div>'
-      +'<div style="display:flex;align-items:center;gap:8px;">'
-      +'<span id="'+rowId+'-status" style="font-size:11px;font-weight:600;color:#60a5fa;">Idle</span>'
-      +'<button class="pt2-btn" id="'+rowId+'-btn" onclick="pt2ScanTarget('+eng.id+',\''+_esc(t).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\',\''+rowId+'\')">Scan</button>'
-      +'</div></div>'
-      +'<div id="'+rowId+'-output" class="pt2-scan-output"></div>'
-      +'</div>';
-  }).join('');
-}
-
-function pt2ScanAll() {
-  var eng = _pt2Engagements.find(function(x){return x.id===_pt2SelectedId;});
-  if (!eng) return;
-  if (_pt2IsDemo && eng.id===9999) { alert('Demo mode: scanning is disabled.'); return; }
-  (eng.scope_urls||[]).concat(eng.scope_ips||[]).forEach(function(t){
-    var rowId='pt2-tgt-'+Math.abs(_pt2HashStr(t)).toString(36);
-    pt2ScanTarget(eng.id,t,rowId);
-  });
-}
-
-function pt2ScanTarget(eid, target, rowId) {
-  if (_pt2IsDemo && eid===9999) { alert('Demo mode: scanning is disabled. Use a real engagement to run scans.'); return; }
-  var statusEl=document.getElementById(rowId+'-status');
-  var btn=document.getElementById(rowId+'-btn');
-  if (statusEl){statusEl.style.color='#3b82f6';statusEl.textContent='Queuing…';}
-  if (btn) btn.disabled=true;
-  fetch('/api/pentest/engagements/'+eid+'/scan-target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:target})})
-    .then(function(r){return r.json();}).then(function(d){
-      if (d.job_id){if(statusEl){statusEl.style.color='#0078d4';statusEl.textContent='Scanning…';} pt2PollScan(eid,d.job_id,rowId,statusEl,btn);}
-      else{if(statusEl){statusEl.style.color='#1e3a8a';statusEl.textContent=d.error||'Error';}if(btn)btn.disabled=false;}
-    }).catch(function(){if(statusEl){statusEl.style.color='#1e3a8a';statusEl.textContent='Error';}if(btn)btn.disabled=false;});
-}
-
-function pt2PollScan(eid,jobId,rowId,statusEl,btn) {
-  var key=eid+'-'+rowId;
-  var outEl=document.getElementById(rowId+'-output');
-  if (_pt2ScanPollers[key]) clearInterval(_pt2ScanPollers[key]);
-  _pt2ScanPollers[key]=setInterval(function(){
-    fetch('/api/pentest/jobs/'+jobId).then(function(r){return r.json();}).then(function(d){
-      if(outEl&&d.output){outEl.classList.add('visible');outEl.textContent=d.output.slice(-4000);outEl.scrollTop=outEl.scrollHeight;}
-      if(d.status==='done'||d.status==='error'){
-        clearInterval(_pt2ScanPollers[key]);delete _pt2ScanPollers[key];
-        if(statusEl){statusEl.style.color=d.status==='done'?'#2563eb':'#1e3a8a';statusEl.textContent=d.status==='done'?'Done':('Error: '+(d.error||'').slice(0,40));}
-        if(btn)btn.disabled=false;
-        if(_pt2ActiveTab==='findings')pt2LoadFindings(eid);
-      }
-    }).catch(function(){});
-  },4000);
-}
-
-// ── Findings ──────────────────────────────────────────────────────────────────
-function pt2LoadFindings(eid) {
-  var listEl=document.getElementById('pt2-findings-list');
-  if(listEl)listEl.innerHTML='<div style="color:#3b82f6;font-size:12px;padding:16px;">Loading…</div>';
-  fetch('/api/pentest/engagements/'+eid+'/findings').then(function(r){return r.json();}).then(function(d){
-    _pt2Findings=d.findings||[];
-    pt2BuildPhaseFilters();
-    pt2ApplyFilters();
-  }).catch(function(){if(listEl)listEl.innerHTML='<div style="color:#1e3a8a;font-size:12px;padding:16px;">Failed to load findings.</div>';});
-}
-
-function pt2BuildPhaseFilters() {
-  var phases={};
-  _pt2Findings.forEach(function(f){if(f.phase)phases[f.phase]=true;});
-  var el=document.getElementById('pt2-phase-filters');
-  if(!el)return;
-  el.innerHTML=Object.keys(phases).map(function(p){return '<label class="pt2-filter-opt"><input type="checkbox" value="'+_esc(p)+'" class="pt2-phase-filter" checked onchange="pt2ApplyFilters()"> '+_esc(p)+'</label>';}).join('');
-}
-
-function pt2ApplyFilters() {
-  var sevSet=['critical','high','medium','low','informational'];
-  var statSet=['open','remediated','accepted','fp'];
-  var sevVals=[],statVals=[],phaseVals=[];
-  document.querySelectorAll('#pt2-tab-findings .pt2-findings-sidebar input[type=checkbox]').forEach(function(cb){
-    if(!cb.checked)return;
-    if(cb.classList.contains('pt2-phase-filter'))phaseVals.push(cb.value);
-    else if(sevSet.indexOf(cb.value)!==-1)sevVals.push(cb.value);
-    else if(statSet.indexOf(cb.value)!==-1)statVals.push(cb.value);
-  });
-  var filtered=_pt2Findings.filter(function(f){
-    var sev=(f.severity||'informational').toLowerCase(),stat=(f.status||'open').toLowerCase(),phase=f.phase||'';
-    return (sevVals.length===0||sevVals.indexOf(sev)!==-1)&&(statVals.length===0||statVals.indexOf(stat)!==-1)&&(phaseVals.length===0||phaseVals.indexOf(phase)!==-1);
-  });
-  var listEl=document.getElementById('pt2-findings-list');
-  if(!listEl)return;
-  if(!filtered.length){listEl.innerHTML='<div style="color:#60a5fa;font-size:13px;padding:24px;text-align:center;">'+(_pt2Findings.length?'No findings match the current filters.':'No findings yet. Click + Add Finding to document a vulnerability.')+'</div>';return;}
-  var ord={critical:0,high:1,medium:2,low:3,informational:4};
-  filtered.sort(function(a,b){return(ord[(a.severity||'informational').toLowerCase()]||99)-(ord[(b.severity||'informational').toLowerCase()]||99);});
-  listEl.innerHTML=filtered.map(function(f){
-    var sev=(f.severity||'informational').toLowerCase(),stat=f.status||'open';
-    return '<div class="pt2-finding-card sev-'+sev+'">'
-      +'<div class="pt2-finding-title">'+_esc(f.title)+'</div>'
-      +'<div class="pt2-finding-meta">'
-      +'<span class="pt2-badge pt2-badge-'+sev+'">'+sev.toUpperCase()+'</span>'
-      +'<span class="pt2-badge pt2-badge-'+stat+'">'+_esc(stat)+'</span>'
-      +(f.phase?'<span class="pt2-badge pt2-badge-pending">'+_esc(f.phase)+'</span>':'')
-      +(f.cvss_score?'<span style="font-size:11px;font-weight:700;color:#1e3a8a;">CVSS '+parseFloat(f.cvss_score).toFixed(1)+'</span>':'')
-      +(f.cve?'<span style="font-size:11px;color:#3b82f6;">'+_esc(f.cve)+'</span>':'')
-      +(f.cwe?'<span style="font-size:11px;color:#3b82f6;">'+_esc(f.cwe)+'</span>':'')
-      +(f.asset?'<span style="font-size:11px;color:#3b82f6;font-family:monospace;">'+_esc(f.asset)+'</span>':'')
-      +'</div>'
-      +(f.description?'<div class="pt2-finding-section"><div class="pt2-finding-section-label">Description</div><div class="pt2-finding-section-body">'+_esc(f.description)+'</div></div>':'')
-      +(f.steps?'<div class="pt2-finding-section"><div class="pt2-finding-section-label">Steps to Reproduce</div><div class="pt2-finding-section-body">'+_esc(f.steps)+'</div></div>':'')
-      +(f.evidence?'<div class="pt2-finding-section"><div class="pt2-finding-section-label">Evidence</div><div class="pt2-finding-evidence">'+_esc(f.evidence)+'</div></div>':'')
-      +(f.remediation?'<div class="pt2-finding-section"><div class="pt2-finding-section-label">Remediation</div><div class="pt2-finding-section-body">'+_esc(f.remediation)+'</div></div>':'')
-      +'<div class="pt2-finding-actions"><button class="pt2-btn" onclick="pt2EditFinding('+f.id+')">Edit</button><button class="pt2-btn pt2-btn-danger" onclick="pt2DeleteFinding('+f.id+')">Delete</button></div>'
-      +'</div>';
-  }).join('');
-}
-
-function pt2OpenFindingModal() {
-  _pt2EditingFid=null;
-  document.getElementById('pt2-fm-title').textContent='Add Finding';
-  document.getElementById('pt2-fm-save-btn').textContent='Save Finding';
-  ['pt2-fm-ftitle','pt2-fm-asset','pt2-fm-cve','pt2-fm-cwe','pt2-fm-desc','pt2-fm-steps','pt2-fm-evidence','pt2-fm-remed'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('pt2-fm-sev').value='medium';
-  document.getElementById('pt2-fm-phase').value='Input Validation';
-  document.getElementById('pt2-fm-cvss').value='0';
-  document.getElementById('pt2-fm-status').value='open';
-  document.getElementById('pt2-finding-modal').style.display='flex';
-}
-
-function pt2EditFinding(fid) {
-  var f=_pt2Findings.find(function(x){return x.id===fid;});
-  if(!f)return;
-  _pt2EditingFid=fid;
-  document.getElementById('pt2-fm-title').textContent='Edit Finding';
-  document.getElementById('pt2-fm-save-btn').textContent='Update Finding';
-  document.getElementById('pt2-fm-ftitle').value=f.title||'';
-  document.getElementById('pt2-fm-asset').value=f.asset||'';
-  document.getElementById('pt2-fm-sev').value=f.severity||'medium';
-  document.getElementById('pt2-fm-phase').value=f.phase||'Input Validation';
-  document.getElementById('pt2-fm-cvss').value=f.cvss_score||0;
-  document.getElementById('pt2-fm-status').value=f.status||'open';
-  document.getElementById('pt2-fm-cve').value=f.cve||'';
-  document.getElementById('pt2-fm-cwe').value=f.cwe||'';
-  document.getElementById('pt2-fm-desc').value=f.description||'';
-  document.getElementById('pt2-fm-steps').value=f.steps||'';
-  document.getElementById('pt2-fm-evidence').value=f.evidence||'';
-  document.getElementById('pt2-fm-remed').value=f.remediation||'';
-  document.getElementById('pt2-finding-modal').style.display='flex';
-}
-
-function pt2CloseFindingModal() { document.getElementById('pt2-finding-modal').style.display='none'; _pt2EditingFid=null; }
-
-function pt2SaveFinding() {
-  var title=(document.getElementById('pt2-fm-ftitle').value||'').trim();
-  if(!title){alert('Title is required.');return;}
-  var eid=_pt2SelectedId;
-  var payload={title:title,asset:document.getElementById('pt2-fm-asset').value,severity:document.getElementById('pt2-fm-sev').value,phase:document.getElementById('pt2-fm-phase').value,cvss_score:parseFloat(document.getElementById('pt2-fm-cvss').value)||0,status:document.getElementById('pt2-fm-status').value,cve:document.getElementById('pt2-fm-cve').value,cwe:document.getElementById('pt2-fm-cwe').value,description:document.getElementById('pt2-fm-desc').value,steps:document.getElementById('pt2-fm-steps').value,evidence:document.getElementById('pt2-fm-evidence').value,remediation:document.getElementById('pt2-fm-remed').value};
-  if(_pt2IsDemo&&eid===9999){
-    var f=Object.assign({},payload,{id:_pt2EditingFid||(900000+Date.now()%10000),engagement_id:9999,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
-    if(_pt2EditingFid){var idx=_pt2Findings.findIndex(function(x){return x.id===_pt2EditingFid;});if(idx!==-1)_pt2Findings[idx]=f;var di=_PT2_DEMO_FINDINGS.findIndex(function(x){return x.id===_pt2EditingFid;});if(di!==-1)_PT2_DEMO_FINDINGS[di]=f;}
-    else{_pt2Findings.push(f);_PT2_DEMO_FINDINGS.push(f);}
-    pt2CloseFindingModal();pt2ApplyFilters();return;
-  }
-  var url=_pt2EditingFid?'/api/pentest/findings/'+_pt2EditingFid:'/api/pentest/engagements/'+eid+'/findings';
-  var method=_pt2EditingFid?'PUT':'POST';
-  document.getElementById('pt2-fm-save-btn').disabled=true;
-  fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(){document.getElementById('pt2-fm-save-btn').disabled=false;pt2CloseFindingModal();pt2LoadFindings(eid);}).catch(function(){document.getElementById('pt2-fm-save-btn').disabled=false;alert('Save failed.');});
-}
-
-function pt2DeleteFinding(fid) {
-  if(!confirm('Delete this finding? This cannot be undone.'))return;
-  var eid=_pt2SelectedId;
-  if(_pt2IsDemo&&eid===9999){_pt2Findings=_pt2Findings.filter(function(f){return f.id!==fid;});pt2ApplyFilters();return;}
-  fetch('/api/pentest/findings/'+fid,{method:'DELETE'}).then(function(){pt2LoadFindings(eid);});
-}
-
-function pt2ExportFindings() {
-  var eid=_pt2SelectedId;
-  if(_pt2IsDemo&&eid===9999){alert('Export is not available in demo mode.');return;}
-  window.location.href='/api/pentest/engagements/'+eid+'/findings/export';
-}
-
-// ── Report ────────────────────────────────────────────────────────────────────
-function pt2GenerateReport() {
-  var eid=_pt2SelectedId;
-  var bodyEl=document.getElementById('pt2-report-body');
-  var btn=document.getElementById('pt2-report-gen-btn');
-  if(!bodyEl)return;
-  if(_pt2IsDemo&&eid===9999)_pt2Findings=_PT2_DEMO_FINDINGS;
-  bodyEl.innerHTML='<div style="color:#3b82f6;font-size:13px;padding:24px;text-align:center;">Generating report — this may take 30–60 seconds…</div>';
-  if(btn)btn.disabled=true;
-  document.getElementById('pt2-report-charts').style.display='none';
-  fetch('/api/pentest/engagements/'+eid+'/report/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})})
-    .then(function(r){return r.json();}).then(function(d){
-      if(btn)btn.disabled=false;
-      if(d.error){bodyEl.innerHTML='<div style="color:#1e3a8a;font-size:13px;padding:24px;">'+_esc(d.error)+'</div>';return;}
-      document.getElementById('pt2-report-print-btn').style.display='';
-      pt2DrawCharts(d.sev_counts,_pt2Findings);
-      pt2RenderReportHtml(d.report_md||'');
-    }).catch(function(err){if(btn)btn.disabled=false;bodyEl.innerHTML='<div style="color:#1e3a8a;font-size:13px;padding:24px;">Request failed: '+_esc(String(err))+'</div>';});
-}
-
-function pt2DrawCharts(sevCounts,findings) {
-  var chartsEl=document.getElementById('pt2-report-charts');
-  if(chartsEl)chartsEl.style.display='flex';
-  var sevCtx=document.getElementById('pt2-chart-sev');
-  if(sevCtx){
-    if(_pt2SevChartInst){_pt2SevChartInst.destroy();_pt2SevChartInst=null;}
-    var clr={critical:'#172554',high:'#1d4ed8',medium:'#3b82f6',low:'#3b82f6',informational:'#3b82f6'};
-    var labs=[],data=[],colors=[];
-    Object.keys(sevCounts||{}).forEach(function(k){if((sevCounts[k]||0)>0){labs.push(k.charAt(0).toUpperCase()+k.slice(1));data.push(sevCounts[k]);colors.push(clr[k]||'#94a3b8');}});
-    if(data.length&&typeof Chart!=='undefined')_pt2SevChartInst=new Chart(sevCtx,{type:'pie',data:{labels:labs,datasets:[{data:data,backgroundColor:colors,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:11}}}}}});
-  }
-  var phCtx=document.getElementById('pt2-chart-phase');
-  if(phCtx&&findings){
-    if(_pt2PhaseChartInst){_pt2PhaseChartInst.destroy();_pt2PhaseChartInst=null;}
-    var phaseCounts={};
-    (findings||[]).forEach(function(f){if(f.phase)phaseCounts[f.phase]=(phaseCounts[f.phase]||0)+1;});
-    var pLabs=Object.keys(phaseCounts),pData=pLabs.map(function(k){return phaseCounts[k];});
-    if(pLabs.length&&typeof Chart!=='undefined')_pt2PhaseChartInst=new Chart(phCtx,{type:'bar',data:{labels:pLabs,datasets:[{label:'Findings',data:pData,backgroundColor:'#0078d4',borderRadius:4}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}});
-  }
-}
-
-function pt2RenderReportHtml(md) {
-  var bodyEl=document.getElementById('pt2-report-body');
-  if(!bodyEl)return;
-  var html=md.replace(/^### (.+)$/gm,'<h3>$1</h3>').replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/^# (.+)$/gm,'<h2 style="font-size:18px;">$1</h2>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/^- (.+)$/gm,'<li>$1</li>').replace(/^(\d+)\. (.+)$/gm,'<li>$2</li>').replace(/(<li>.*?<\/li>)/gs,'<ul>$1</ul>').replace(/\n\n+/g,'</p><p>').replace(/\n/g,'<br>');
-  bodyEl.innerHTML='<div class="pt2-report-section"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px 24px;line-height:1.7;font-size:13px;color:#1e3a8a;">'+html+'</div></div>';
-}
-
-// ── Engagement Modal ──────────────────────────────────────────────────────────
-function pt2OpenNewModal() {
-  _pt2EditingEid=null;
-  document.getElementById('pt2-em-title').textContent='New Engagement';
-  document.getElementById('pt2-em-save-btn').textContent='Create Engagement';
-  ['pt2-em-name','pt2-em-client','pt2-em-urls','pt2-em-ips','pt2-em-notes'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('pt2-em-urgency').value='normal';
-  document.getElementById('pt2-em-auth-type').value='none';
-  document.getElementById('pt2-em-deadline').value='';
-  pt2AuthTypeChange();
-  document.getElementById('pt2-eng-modal').style.display='flex';
-}
-
-function pt2EditEngagement() {
-  var eng=_pt2Engagements.find(function(x){return x.id===_pt2SelectedId;});
-  if(!eng)return;
-  if(_pt2IsDemo&&eng.id===9999){alert('Cannot edit demo engagement.');return;}
-  _pt2EditingEid=eng.id;
-  document.getElementById('pt2-em-title').textContent='Edit Engagement';
-  document.getElementById('pt2-em-save-btn').textContent='Save Changes';
-  document.getElementById('pt2-em-name').value=eng.name||'';
-  document.getElementById('pt2-em-client').value=eng.client||'';
-  document.getElementById('pt2-em-urls').value=(eng.scope_urls||[]).join('\n');
-  document.getElementById('pt2-em-ips').value=(eng.scope_ips||[]).join('\n');
-  document.getElementById('pt2-em-urgency').value=eng.urgency||'normal';
-  document.getElementById('pt2-em-deadline').value=eng.deadline||'';
-  document.getElementById('pt2-em-notes').value=eng.notes||'';
-  var ac=eng.auth_config||{};
-  document.getElementById('pt2-em-auth-type').value=ac.auth_type||ac.type||'none';
-  pt2AuthTypeChange();
-  document.getElementById('pt2-eng-modal').style.display='flex';
-}
-
-function pt2CloseEngModal() { document.getElementById('pt2-eng-modal').style.display='none'; _pt2EditingEid=null; }
-
-function pt2AuthTypeChange() {
-  var atype=document.getElementById('pt2-em-auth-type').value;
-  var fieldsEl=document.getElementById('pt2-em-auth-fields');
-  var html='';
-  if(atype==='bearer')html='<div class="pt2-field"><label class="pt2-field-label">Bearer Token</label><input class="pt2-input" id="pt2-em-bearer" placeholder="eyJhbGci…"></div>';
-  else if(atype==='apikey')html='<div class="pt2-field-row"><div class="pt2-field"><label class="pt2-field-label">Header Name</label><input class="pt2-input" id="pt2-em-apikey-header" value="X-API-Key"></div><div class="pt2-field"><label class="pt2-field-label">API Key Value</label><input class="pt2-input" id="pt2-em-apikey-val"></div></div>';
-  else if(atype==='oidc')html='<div class="pt2-field"><label class="pt2-field-label">Token Endpoint URL</label><input class="pt2-input" id="pt2-em-oidc-url" placeholder="https://sso.example.com/oauth2/token"></div><div class="pt2-field-row"><div class="pt2-field"><label class="pt2-field-label">Client ID</label><input class="pt2-input" id="pt2-em-oidc-cid"></div><div class="pt2-field"><label class="pt2-field-label">Client Secret</label><input class="pt2-input" id="pt2-em-oidc-sec" type="password"></div></div><div class="pt2-field"><label class="pt2-field-label">Scope</label><input class="pt2-input" id="pt2-em-oidc-scope" value="openid profile"></div>';
-  else if(atype==='basic')html='<div class="pt2-field-row"><div class="pt2-field"><label class="pt2-field-label">Username</label><input class="pt2-input" id="pt2-em-basic-user"></div><div class="pt2-field"><label class="pt2-field-label">Password</label><input class="pt2-input" id="pt2-em-basic-pass" type="password"></div></div>';
-  else if(atype==='custom')html='<div class="pt2-field"><label class="pt2-field-label">Custom Headers (one per line: Name: Value)</label><textarea class="pt2-textarea" id="pt2-em-custom-hdrs" rows="3" placeholder="X-Custom-Token: abc123"></textarea></div>';
-  if(fieldsEl)fieldsEl.innerHTML=html;
-}
-
-function pt2SaveEngagement() {
-  var name=(document.getElementById('pt2-em-name').value||'').trim();
-  if(!name){alert('Engagement name is required.');return;}
-  var atype=document.getElementById('pt2-em-auth-type').value;
-  var authCfg={auth_type:atype};
-  if(atype==='bearer'){var el=document.getElementById('pt2-em-bearer');if(el)authCfg.bearer_token=el.value;}
-  if(atype==='apikey'){var h=document.getElementById('pt2-em-apikey-header');if(h)authCfg.api_key_header=h.value;var v=document.getElementById('pt2-em-apikey-val');if(v)authCfg.api_key=v.value;}
-  if(atype==='oidc'){var tu=document.getElementById('pt2-em-oidc-url');if(tu)authCfg.token_url=tu.value;var ci=document.getElementById('pt2-em-oidc-cid');if(ci)authCfg.client_id=ci.value;var cs=document.getElementById('pt2-em-oidc-sec');if(cs)authCfg.client_secret=cs.value;var sc=document.getElementById('pt2-em-oidc-scope');if(sc)authCfg.scope=sc.value;}
-  if(atype==='basic'){var bu=document.getElementById('pt2-em-basic-user');if(bu)authCfg.basic_user=bu.value;var bp=document.getElementById('pt2-em-basic-pass');if(bp)authCfg.basic_pass=bp.value;}
-  if(atype==='custom'){var hdrs={};var ch=document.getElementById('pt2-em-custom-hdrs');if(ch)(ch.value||'').split('\n').forEach(function(line){var idx=line.indexOf(':');if(idx>0)hdrs[line.slice(0,idx).trim()]=line.slice(idx+1).trim();});authCfg.custom_headers=hdrs;}
-  var payload={name:name,client:(document.getElementById('pt2-em-client').value||'').trim(),scope_urls:(document.getElementById('pt2-em-urls').value||'').split('\n').map(function(s){return s.trim();}).filter(Boolean),scope_ips:(document.getElementById('pt2-em-ips').value||'').split('\n').map(function(s){return s.trim();}).filter(Boolean),auth_config:authCfg,urgency:document.getElementById('pt2-em-urgency').value,deadline:document.getElementById('pt2-em-deadline').value,notes:(document.getElementById('pt2-em-notes').value||'').trim()};
-  var url=_pt2EditingEid?'/api/pentest/engagements/'+_pt2EditingEid:'/api/pentest/engagements';
-  var method=_pt2EditingEid?'PUT':'POST';
-  var btn=document.getElementById('pt2-em-save-btn');if(btn)btn.disabled=true;
-  fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
-    if(btn)btn.disabled=false;
-    if(d.error){alert(d.error);return;}
-    pt2CloseEngModal();_pt2IsDemo=false;pt2FetchEngagements();
-    if(!_pt2EditingEid&&d.id)setTimeout(function(){pt2SelectEngagement(d.id);},400);
-  }).catch(function(){if(btn)btn.disabled=false;alert('Request failed.');});
-}
-
-function pt2DeleteEngagement() {
-  var eid=_pt2SelectedId;if(!eid)return;
-  if(_pt2IsDemo&&eid===9999){_pt2IsDemo=false;_pt2Engagements=[];_pt2SelectedId=null;pt2RenderList();document.getElementById('pt2-detail-empty').style.display='';document.getElementById('pt2-detail-header').style.display='none';document.getElementById('pt2-tab-body').style.display='none';return;}
-  if(!confirm('Delete this engagement and all findings? This cannot be undone.'))return;
-  fetch('/api/pentest/engagements/'+eid,{method:'DELETE'}).then(function(){_pt2SelectedId=null;document.getElementById('pt2-detail-empty').style.display='';document.getElementById('pt2-detail-header').style.display='none';document.getElementById('pt2-tab-body').style.display='none';pt2FetchEngagements();});
-}
-
-// legacy stubs — keep old ptLoadDemo alias working
-function ptLoadDemo() { pt2LoadDemo(); }
-function ptOpenNewModal() { pt2OpenNewModal(); }
-
-// ── Old pentest v1 code removed — all functionality moved to pt2* functions ──
-function ptLoadDemoREMOVED_NOOP() {
-  var demo = [{
-    id: 9999,
-    name: 'Demo — Enterprise Pentest (ourdomain.com)',
-    client: 'Demo Corp',
-    status: 'active',
-    urgency: 'critical',
-    deadline: '2026-05-14',
-    scope_urls: ['ourdomain.com', 'product.ourdomain.com'],
-    scope_ips: ['203.0.113.10', '203.0.113.11', '203.0.113.12'],
-    auth_config: { type: 'oidc', token_url: 'https://sso.ourdomain.com/oauth2/token', client_id: 'pentest-client', scope: 'openid profile api' },
-    created_at: new Date().toISOString(),
-  }];
-  // Inject fake scans so findings panel works
-  var fakeScan = {
-    id: 88001, engagement_id: 9999, target: 'ourdomain.com', agent_type: 'pentest',
-    status: 'ok', risk: 'HIGH', latency_s: 42,
-    display_date: new Date().toISOString().slice(0,16).replace('T',' '),
-    agent_label: 'Full Penetration Test',
-    recs: [
-      'Disable HTTP and enforce HTTPS-only redirects across all endpoints',
-      'Rotate OIDC client_secret — current secret exceeds 90-day rotation policy',
-      'Enforce Content-Security-Policy header on all product pages',
-      'Require MFA for all admin and privileged accounts (ISO 27001 A.9.4.2)',
-      'Rate-limit /api/v1/auth/token endpoint — currently allows unlimited requests',
-    ],
-    output: '[DEMO] This is mock data for preview only. Run a real scan to see actual results.\n\n'
-      + '=== ATHN ===\nAuthentication Testing\n'
-      + 'CRITICAL: OIDC token endpoint accepts invalid redirect_uri — potential OAuth phishing\n'
-      + 'HIGH: Login form allows unlimited password attempts — no account lockout detected\n'
-      + 'HIGH: Session token not rotated after privilege escalation\n\n'
-      + '=== INPV ===\nInput Validation\n'
-      + 'MEDIUM: XSS reflected in /search?q= parameter (no output encoding)\n'
-      + 'MEDIUM: SQL error messages exposed on /api/v1/users?filter= endpoint\n\n'
-      + '=== APIT ===\nAPI Security Testing\n'
-      + 'HIGH: /api/v1/users/{id} — IDOR, can access any user record by changing id\n'
-      + 'MEDIUM: API returns internal stack traces on 500 errors\n'
-      + 'LOW: API versioning not enforced — /api/v0/ still accessible with no auth\n',
-  };
-  var fakeScan2 = {
-    id: 88002, engagement_id: 9999, target: 'product.ourdomain.com', agent_type: 'apit',
-    status: 'ok', risk: 'MEDIUM', latency_s: 28,
-    display_date: new Date().toISOString().slice(0,16).replace('T',' '),
-    agent_label: 'API Security Testing',
-    recs: [
-      'Add Authorization header validation to all /api/v2/ routes',
-      'Remove debug endpoints /api/v2/_debug and /api/v2/internal/health from production',
-      'Enforce CORS allowlist — current policy allows requests from any origin',
-    ],
-    output: '[DEMO] product.ourdomain.com API scan\n\nMEDIUM: CORS wildcard (*) on all API responses\nMEDIUM: API key accepted in query param — should be header only\nLOW: X-Powered-By header exposes backend technology\n',
-  };
-
-  // Patch fetch so the scans endpoint returns fake data for this demo engagement
-  if (!window.__grcDemoPatchApplied) {
-    window.__grcDemoPatchApplied = true;
-    var _origFetch = window.fetch;
-    window.fetch = function(url, opts) {
-      if (typeof url === 'string' && url.indexOf('/api/pentest/engagements/9999/scans') !== -1) {
-        return Promise.resolve({ ok: true, json: function() { return Promise.resolve({ scans: [fakeScan, fakeScan2] }); } });
-      }
-      return _origFetch.apply(window, arguments);
-    };
-  }
-
-  // Inject into state, re-render list, recalculate KPIs (demo excluded), then auto-select
-  _ptEngagements = demo;
-  _ptRenderList();
-  _ptUpdateKpis();   // recalculates with the demo excluded (id 9999 filtered out)
-  ptSelectEngagement(9999);
-}
-
-function _ptFetchEngagements() {
-  fetch('/api/pentest/engagements').then(function(r){ return r.json(); }).then(function(data) {
-    _ptEngagements = data.engagements || [];
-    _ptRenderList();
-    _ptUpdateKpis();
-    if (_ptSelectedId) {
-      var e = _ptEngagements.find(function(x){ return x.id === _ptSelectedId; });
-      if (e) _ptRenderDetail(e);
-    }
-  }).catch(function(){ document.getElementById('pt-eng-list').innerHTML = '<div style="color:#1e3a8a;font-size:12px;padding:16px;">Failed to load engagements.</div>'; });
-}
-
-function _ptUpdateKpis() {
-  // Exclude the ephemeral demo engagement (id 9999) from all KPI counts
-  var real = _ptEngagements.filter(function(e){ return e.id !== 9999; });
-  document.getElementById('pt-kpi-total').textContent = real.length;
-  document.getElementById('pt-kpi-done').textContent  = real.filter(function(e){ return e.status === 'completed'; }).length;
-  // findings counts require fetching scans — leave as dash for now
-}
-
-function _ptRenderList() {
-  var el = document.getElementById('pt-eng-list');
-  if (!_ptEngagements.length) {
-    el.innerHTML = '<div style="color:#60a5fa;font-size:12px;padding:24px;text-align:center;">No engagements yet. Click + New to start.</div>';
-    return;
-  }
-  el.innerHTML = _ptEngagements.map(function(e) {
-    var urgClr = e.urgency === 'critical' ? '#1e3a8a' : e.urgency === 'high' ? '#2563eb' : '#1e3a8a';
-    var active  = e.id === _ptSelectedId ? ' active' : '';
-    return '<div class="pt-eng-card' + active + '" onclick="ptSelectEngagement(' + e.id + ')">'
-      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:4px;">'
-      + '<span style="font-size:13px;font-weight:700;color:#0f172a;line-height:1.3;">' + _esc(e.name) + '</span>'
-      + '<span class="pt-status-pill pt-status-' + e.status + '">' + e.status + '</span>'
-      + '</div>'
-      + (e.client ? '<div style="font-size:11px;color:#3b82f6;margin-bottom:4px;">' + _esc(e.client) + '</div>' : '')
-      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
-      + '<span style="font-size:11px;font-weight:700;color:' + urgClr + ';">' + e.urgency.toUpperCase() + '</span>'
-      + (e.deadline ? '<span style="font-size:11px;color:#3b82f6;">Due ' + e.deadline + '</span>' : '')
-      + '</div>'
-      + '</div>';
-  }).join('');
-}
-
-function ptSelectEngagement(eid) {
-  _ptSelectedId = eid;
-  _ptRenderList();
-  var eng = _ptEngagements.find(function(x){ return x.id === eid; });
-  if (eng) _ptRenderDetail(eng);
-}
-
-function _ptRenderDetail(eng) {
-  var panel = document.getElementById('pt-detail-panel');
-  var urlList  = (eng.scope_urls  || []).join('\n');
-  var ipList   = (eng.scope_ips   || []).join('\n');
-  var authCfg  = eng.auth_config  || {};
-
-  var html = '<div style="background:#fff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 24px;">';
-
-  // Header
-  html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">'
-    + '<div>'
-    + '<div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:2px;">' + _esc(eng.name) + '</div>'
-    + (eng.client ? '<div style="font-size:12px;color:#3b82f6;">' + _esc(eng.client) + '</div>' : '')
-    + '</div>'
-    + '<div style="display:flex;gap:8px;align-items:center;">'
-    + '<span class="pt-status-pill pt-status-' + eng.status + '" style="font-size:11px;">' + eng.status + '</span>'
-    + (eng.status !== 'completed' ? '<button class="pt-btn pt-btn-primary" onclick="ptMarkDone(' + eng.id + ')">Mark complete</button>' : '')
-    + '<button class="pt-btn" onclick="ptOpenReport(' + eng.id + ')">Report</button>'
-    + '<button class="pt-btn pt-btn-danger" onclick="ptDeleteEngagement(' + eng.id + ')">Delete</button>'
-    + '</div>'
-    + '</div>';
-
-  // Tabs
-  html += '<div style="display:flex;gap:0;border-bottom:1px solid #edebe9;margin-bottom:16px;" id="pt-tabs-' + eng.id + '">'
-    + '<button class="pt-tab active" id="pt-tab-targets-' + eng.id + '" onclick="ptTab(' + eng.id + ',\'targets\')">Targets</button>'
-    + '<button class="pt-tab" id="pt-tab-findings-' + eng.id + '" onclick="ptTab(' + eng.id + ',\'findings\')">Findings</button>'
-    + '<button class="pt-tab" id="pt-tab-info-' + eng.id + '" onclick="ptTab(' + eng.id + ',\'info\')">Scope &amp; Info</button>'
-    + '</div>';
-
-  // Tab content container
-  html += '<div id="pt-tabcontent-' + eng.id + '">';
-
-  // Targets tab (active by default)
-  html += _ptRenderTargetsTab(eng, true);
-
-  // Findings tab (hidden)
-  html += '<div id="pt-panel-findings-' + eng.id + '" style="display:none"><div style="color:#60a5fa;font-size:13px;padding:24px;text-align:center;">Click "Load findings" to aggregate results from all scans.</div>'
-    + '<div style="text-align:center;margin-bottom:12px;"><button class="pt-btn pt-btn-primary" onclick="ptLoadFindings(' + eng.id + ')">Load findings</button></div>'
-    + '<div id="pt-findings-body-' + eng.id + '"></div>'
-    + '</div>';
-
-  // Info tab (hidden)
-  html += '<div id="pt-panel-info-' + eng.id + '" style="display:none">'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">'
-    + '<div><span style="color:#3b82f6;font-weight:700;">Urgency: </span><span>' + eng.urgency + '</span></div>'
-    + '<div><span style="color:#3b82f6;font-weight:700;">Deadline: </span><span>' + (eng.deadline || '—') + '</span></div>'
-    + '</div>'
-    + (urlList ? '<div style="margin-top:12px;"><div class="pt-label" style="margin-bottom:6px;">Web URL scope</div><pre style="background:#f8faff;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;word-break:break-all;">' + _esc(urlList) + '</pre></div>' : '')
-    + (ipList  ? '<div style="margin-top:12px;"><div class="pt-label" style="margin-bottom:6px;">IP / network scope</div><pre style="background:#f8faff;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;">' + _esc(ipList) + '</pre></div>' : '')
-    + (eng.notes ? '<div style="margin-top:12px;"><div class="pt-label" style="margin-bottom:6px;">Notes</div><div style="font-size:13px;color:#1e3a8a;white-space:pre-wrap;">' + _esc(eng.notes) + '</div></div>' : '')
-    + (authCfg.type && authCfg.type !== 'none' ? '<div style="margin-top:12px;"><span style="color:#3b82f6;font-weight:700;">Auth: </span><span style="font-size:12px;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:3px;">' + authCfg.type + '</span></div>' : '')
-    + '</div>';
-
-  html += '</div>';  // /tabcontent
-  html += '</div>';  // /card
-  panel.innerHTML = html;
-
-  // Inline tab style
-  panel.querySelectorAll('.pt-tab').forEach(function(btn) {
-    btn.style.cssText = 'padding:8px 16px;border:none;background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:#3b82f6;border-bottom:2px solid transparent;font-family:inherit;transition:all .12s;margin-bottom:-1px;';
-  });
-  var activeTab = panel.querySelector('.pt-tab.active');
-  if (activeTab) { activeTab.style.color = '#0078d4'; activeTab.style.borderBottomColor = '#0078d4'; }
-}
-
-function _ptRenderTargetsTab(eng, visible) {
-  var urls = eng.scope_urls || [];
-  var ips  = eng.scope_ips  || [];
-  var allTargets = urls.concat(ips);
-  var display = visible ? '' : 'display:none';
-
-  var html = '<div id="pt-panel-targets-' + eng.id + '" style="' + display + '">';
-
-  if (!allTargets.length) {
-    html += '<div style="color:#60a5fa;font-size:13px;padding:24px;text-align:center;">No targets defined. Edit the engagement to add URLs or IP ranges.</div>';
-  } else {
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-      + '<span style="font-size:12px;color:#3b82f6;">' + allTargets.length + ' target' + (allTargets.length !== 1 ? 's' : '') + '</span>'
-      + '<button class="pt-btn pt-btn-primary" onclick="ptScanAll(' + eng.id + ')">Scan all targets</button>'
-      + '</div>';
-    allTargets.forEach(function(t) {
-      var tid = 'pt-tgt-' + eng.id + '-' + _ptHashStr(t);
-      var isIp = ips.indexOf(t) !== -1;
-      html += '<div style="margin-bottom:6px;">'
-        + '<div class="pt-target-row" id="' + tid + '" style="margin-bottom:0;border-radius:6px 6px 0 0;">'
-        + '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:' + (isIp ? '#f3f4f6' : '#dbeafe') + ';color:' + (isIp ? '#1e3a8a' : '#1e40af') + ';flex-shrink:0;">' + (isIp ? 'IP' : 'URL') + '</span>'
-        + '<span class="pt-target-url">' + _esc(t) + '</span>'
-        + '<span class="pt-scan-status pt-scan-idle" id="' + tid + '-status">Idle</span>'
-        + '<button class="pt-btn" style="padding:4px 8px;font-size:11px;" onclick="ptScanTarget(' + eng.id + ',\'' + _esc(t) + '\',\'' + tid + '\')">Scan</button>'
-        + '</div>'
-        + '<pre id="' + tid + '-output" style="display:none;font-size:10px;font-family:monospace;background:#0f1117;color:#a5d6a7;padding:8px 10px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin:0;"></pre>'
-        + '</div>';
-    });
-  }
-  html += '</div>';
-  return html;
-}
-
-function _ptHashStr(s) {
-  var h = 0;
-  for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
-  return Math.abs(h).toString(36);
-}
-
-function ptTab(eid, tab) {
-  ['targets','findings','info'].forEach(function(t) {
-    var p = document.getElementById('pt-panel-' + t + '-' + eid);
-    var b = document.getElementById('pt-tab-' + t + '-' + eid);
-    if (!p || !b) return;
-    var active = t === tab;
-    p.style.display = active ? '' : 'none';
-    b.classList.toggle('active', active);
-    b.style.color = active ? '#0078d4' : '#3b82f6';
-    b.style.borderBottomColor = active ? '#0078d4' : 'transparent';
-  });
-}
-
-function ptScanTarget(eid, target, rowId) {
-  var statusEl = document.getElementById(rowId + '-status');
-  if (statusEl) { statusEl.className = 'pt-scan-status pt-scan-running'; statusEl.textContent = 'Scanning…'; }
-  fetch('/api/pentest/engagements/' + eid + '/scan-target', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target: target })
-  }).then(function(r){ return r.json(); }).then(function(d) {
-    if (d.job_id) {
-      _ptPollScan(eid, d.job_id, rowId, statusEl);
-    } else {
-      if (statusEl) { statusEl.className = 'pt-scan-status pt-scan-error'; statusEl.textContent = 'Error'; }
-    }
-  }).catch(function() {
-    if (statusEl) { statusEl.className = 'pt-scan-status pt-scan-error'; statusEl.textContent = 'Error'; }
-  });
-}
-
-function _ptPollScan(eid, jobId, rowId, statusEl) {
-  var key = eid + '-' + rowId;
-  var outputEl = document.getElementById(rowId + '-output');
-  var lastLen  = 0;
-  if (_ptScanPollers[key]) clearInterval(_ptScanPollers[key]);
-  _ptScanPollers[key] = setInterval(function() {
-    fetch('/api/pentest/jobs/' + jobId).then(function(r){ return r.json(); }).then(function(d) {
-      // Show live output while running
-      if (outputEl && d.output && d.output.length > lastLen) {
-        lastLen = d.output.length;
-        outputEl.style.display = '';
-        outputEl.textContent = d.output.slice(-3000); // last 3k chars for perf
-        outputEl.scrollTop = outputEl.scrollHeight;
-      }
-      if (d.status === 'done' || d.status === 'error') {
-        clearInterval(_ptScanPollers[key]);
-        delete _ptScanPollers[key];
-        if (statusEl) {
-          statusEl.className = 'pt-scan-status ' + (d.status === 'done' ? 'pt-scan-done' : 'pt-scan-error');
-          statusEl.textContent = d.status === 'done' ? 'Done' : (d.error ? 'Error: ' + d.error.slice(0, 60) : 'Error');
-        }
-        // Auto-refresh findings panel if visible
-        var findingsPanel = document.getElementById('pt-panel-findings-' + eid);
-        if (findingsPanel && findingsPanel.style.display !== 'none') {
-          ptLoadFindings(eid);
-        }
-      }
-    }).catch(function(){});
-  }, 4000);
-}
-
-function ptScanAll(eid) {
-  var eng = _ptEngagements.find(function(x){ return x.id === eid; });
-  if (!eng) return;
-  var all = (eng.scope_urls || []).concat(eng.scope_ips || []);
-  all.forEach(function(t) {
-    var tid = 'pt-tgt-' + eid + '-' + _ptHashStr(t);
-    ptScanTarget(eid, t, tid);
-  });
-}
-
-function ptLoadFindings(eid) {
-  var body = document.getElementById('pt-findings-body-' + eid);
-  if (body) body.innerHTML = '<div style="color:#3b82f6;font-size:12px;padding:16px;text-align:center;">Loading…</div>';
-  fetch('/api/pentest/engagements/' + eid + '/scans').then(function(r){ return r.json(); }).then(function(d) {
-    var scans = d.scans || [];
-    // Build flat findings list from each scan's recs + risk level
-    var findings = [];
-    scans.forEach(function(s) {
-      var risk = (s.risk || 'info').toLowerCase();
-      var recs = s.recs || [];
-      if (!recs.length && s.output) {
-        // Fallback: show a summary row
-        findings.push({ severity: risk, title: 'Scan result', description: (s.output || '').slice(0, 300), target: s.target });
-      } else {
-        recs.forEach(function(r) {
-          findings.push({ severity: risk, title: r, description: '', target: s.target });
-        });
-      }
-    });
-    var sevOrder = { critical:0, high:1, medium:2, low:3, info:4 };
-    findings.sort(function(a,b){ return (sevOrder[a.severity]||99) - (sevOrder[b.severity]||99); });
-    // Never let demo data (eid 9999) pollute the real KPI banner
-    if (eid !== 9999) {
-      document.getElementById('pt-kpi-critical').textContent = findings.filter(function(f){ return f.severity === 'critical'; }).length;
-      document.getElementById('pt-kpi-high').textContent     = findings.filter(function(f){ return f.severity === 'high'; }).length;
-    }
-    if (!body) return;
-    if (!findings.length) {
-      body.innerHTML = '<div style="color:#60a5fa;font-size:13px;padding:24px;text-align:center;">No findings yet. Run scans first.</div>';
-      return;
-    }
-    body.innerHTML = findings.map(function(f) {
-      var sev = (f.severity || 'info').toLowerCase();
-      return '<div class="pt-finding-row">'
-        + '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">'
-        + '<span class="pt-sev pt-sev-' + sev + '">' + sev.toUpperCase() + '</span>'
-        + '<span style="font-size:12px;color:#3b82f6;">' + _esc(f.target || '') + '</span>'
-        + '</div>'
-        + '<div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:4px;">' + _esc(f.title || 'Finding') + '</div>'
-        + (f.description ? '<div style="font-size:12px;color:#3b82f6;">' + _esc(f.description) + '</div>' : '')
-        + '</div>';
-    }).join('');
-  }).catch(function() {
-    if (body) body.innerHTML = '<div style="color:#1e3a8a;font-size:12px;padding:16px;">Failed to load scans.</div>';
-  });
-}
-
-function ptOpenReport(eid) {
-  window.open('/api/pentest/engagements/' + eid + '/report', '_blank');
-}
-
-function ptMarkDone(eid) {
-  fetch('/api/pentest/engagements/' + eid + '/status', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: 'completed' })
-  }).then(function(){ _ptFetchEngagements(); });
-}
-
-function ptDeleteEngagement(eid) {
-  if (!confirm('Delete this engagement and all associated data? This cannot be undone.')) return;
-  fetch('/api/pentest/engagements/' + eid, { method: 'DELETE' }).then(function() {
-    _ptSelectedId = null;
-    document.getElementById('pt-detail-panel').innerHTML = '<div style="color:#60a5fa;font-size:13px;padding:48px;text-align:center;background:#f9f9f9;border:1px solid #bfdbfe;border-radius:8px;">Select an engagement to view details.</div>';
-    _ptFetchEngagements();
-  });
-}
-
-// ── Old modal (kept for reference; pt2OpenNewModal() is the live version) ─────
-
-function ptOpenNewModalOLD() {
-  document.getElementById('pt-modal-bg') && (document.getElementById('pt-modal-bg').style.display = 'flex');
-}
-
-function ptCloseModal() {
-  document.getElementById('pt-modal-bg').style.display = 'none';
-  document.getElementById('pt-modal-err').style.display = 'none';
-}
-
-function ptAuthTab(mode) {
-  _ptAuthMode = mode;
-  ['none','bearer','apikey','oidc','basic','custom'].forEach(function(m) {
-    var tab  = document.getElementById('pt-at-' + m);
-    var pane = document.getElementById('pt-auth-' + m);
-    if (tab) tab.classList.toggle('active', m === mode);
-    if (pane) pane.style.display = m === mode && mode !== 'none' ? '' : 'none';
-  });
-}
-
-function ptCreateEngagement() {
-  var name = (document.getElementById('pt-f-name').value || '').trim();
-  if (!name) { _ptShowErr('Engagement name is required.'); return; }
-
-  var urls = (document.getElementById('pt-f-urls').value || '').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
-  var ips  = (document.getElementById('pt-f-ips').value  || '').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
-
-  var authCfg = { type: _ptAuthMode };
-  if (_ptAuthMode === 'bearer') { authCfg.token = document.getElementById('pt-f-bearer').value.trim(); }
-  if (_ptAuthMode === 'apikey') { authCfg.header = document.getElementById('pt-f-apikey-name').value.trim(); authCfg.value = document.getElementById('pt-f-apikey-val').value.trim(); }
-  if (_ptAuthMode === 'oidc')   { authCfg.token_url = document.getElementById('pt-f-oidc-ep').value.trim(); authCfg.client_id = document.getElementById('pt-f-oidc-cid').value.trim(); authCfg.client_secret = document.getElementById('pt-f-oidc-sec').value.trim(); authCfg.scope = document.getElementById('pt-f-oidc-scope').value.trim(); }
-  if (_ptAuthMode === 'basic')  { authCfg.username = document.getElementById('pt-f-basic-user').value.trim(); authCfg.password = document.getElementById('pt-f-basic-pass').value; }
-  if (_ptAuthMode === 'custom') {
-    var hdrs = {};
-    (document.getElementById('pt-f-custom-hdrs').value || '').split('\n').forEach(function(line) {
-      var idx = line.indexOf(':');
-      if (idx > 0) { hdrs[line.slice(0, idx).trim()] = line.slice(idx + 1).trim(); }
-    });
-    authCfg.headers = hdrs;
-  }
-
-  var payload = {
-    name:        name,
-    client:      (document.getElementById('pt-f-client').value   || '').trim(),
-    scope_urls:  urls,
-    scope_ips:   ips,
-    auth_config: authCfg,
-    urgency:     document.getElementById('pt-f-urgency').value,
-    deadline:    document.getElementById('pt-f-deadline').value,
-    notes:       (document.getElementById('pt-f-notes').value    || '').trim()
-  };
-
-  fetch('/api/pentest/engagements', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(function(r){ return r.json(); }).then(function(d) {
-    if (d.error) { _ptShowErr(d.error); return; }
-    ptCloseModal();
-    _ptClearForm();
-    _ptFetchEngagements();
-    if (d.id) setTimeout(function(){ ptSelectEngagement(d.id); }, 400);
-  }).catch(function(){ _ptShowErr('Request failed. Please try again.'); });
-}
-
-function _ptClearForm() {
-  ['pt-f-name','pt-f-client','pt-f-urls','pt-f-ips','pt-f-notes','pt-f-bearer',
-   'pt-f-apikey-name','pt-f-apikey-val','pt-f-oidc-ep','pt-f-oidc-cid','pt-f-oidc-sec',
-   'pt-f-basic-user','pt-f-basic-pass','pt-f-custom-hdrs'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  document.getElementById('pt-f-oidc-scope').value = 'openid profile';
-  document.getElementById('pt-f-urgency').value    = 'normal';
-  ptAuthTab('none');
-}
-
-function _ptShowErr(msg) {
-  var e = document.getElementById('pt-modal-err');
-  e.textContent = msg;
-  e.style.display = '';
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
 // GRC COMPLIANCE PAGE
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -20307,12 +18948,6 @@ function grcExport() {
       desc: 'Statistical analysis of your scan history. Shows scan frequency charts, severity trends over time, most-scanned targets, agent usage breakdown, and success/failure ratios.',
       tips: ['The trend chart shows whether your security posture is improving over time','Most-scanned targets indicates which sites receive the most attention','Low success rate may indicate connectivity or authentication issues']
     },
-    pentest: {
-      title: 'Penetration Testing',
-      subtitle: 'Engagement Manager',
-      desc: 'Full pentest lifecycle management. Create engagements with client details, define scope and Rules of Engagement, run OWASP WSTG checklists, document findings with severity ratings, and generate AI-written reports.',
-      tips: ['Create a new engagement with "+ New" and fill in client and scope details','Use the Targets & Scan tab to run agents directly within an engagement','The Report tab generates a professional PDF-ready security report using AI']
-    },
     usermgmt: {
       title: 'User Management',
       subtitle: 'Admin — Account Control',
@@ -21020,6 +19655,157 @@ function grcExport() {
     _myapptPost('/api/appointments/'+id+'/user-reschedule', {date:date,end_date:edate,time:time,duration:dur,reason:reason}, msgEl);
   };
   // ── End My Appointments ─────────────────────────────────────────────────────
+
+  // ── My File Manager ─────────────────────────────────────────────────────────
+  var _fmData   = [];
+  var _isAdmin  = ('{{ current_user.role }}' === 'admin');
+
+  var _CODE_EXTS = ['py','js','ts','jsx','tsx','php','rb','go','rs','java','kt','swift',
+    'c','cpp','h','hpp','cs','vb','sh','bash','ps1','bat','sql','html','htm',
+    'css','scss','sass','less','json','yaml','yml','toml','xml','ini','env','conf','cfg','md','rst'];
+  var _DOC_EXTS  = ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv','rtf','odt','ods'];
+  var _IMG_EXTS  = ['png','jpg','jpeg','gif','svg','webp'];
+
+  function _fmExtClass(ext) {
+    ext = (ext||'').toLowerCase();
+    if (_CODE_EXTS.indexOf(ext) !== -1) return 'code';
+    if (_DOC_EXTS.indexOf(ext)  !== -1) return 'doc';
+    if (_IMG_EXTS.indexOf(ext)  !== -1) return 'img';
+    return '';
+  }
+
+  function _fmEsc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  window.loadFileManager = function() {
+    var tbody = document.getElementById('fm-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" class="fm-empty">Loading...</td></tr>';
+    fetch('/api/files').then(function(r){ return r.json(); }).then(function(d){
+      _fmData = d.files || [];
+      fmRender(_fmData);
+    }).catch(function(){
+      tbody.innerHTML = '<tr><td colspan="6" class="fm-empty">Failed to load files.</td></tr>';
+    });
+  };
+
+  function fmRender(files) {
+    var tbody  = document.getElementById('fm-tbody');
+    var countEl= document.getElementById('fm-count');
+    if (!tbody) return;
+    if (countEl) countEl.textContent = files.length + ' file' + (files.length === 1 ? '' : 's');
+    if (!files.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="fm-empty">No files uploaded yet. Drag and drop files above to get started.</td></tr>';
+      return;
+    }
+    var cols = _isAdmin ? 6 : 5;
+    tbody.innerHTML = files.map(function(f) {
+      var ext      = _fmEsc(f.ext || '');
+      var extClass = _fmExtClass(f.ext);
+      var dateStr  = f.uploaded_at ? f.uploaded_at.replace('T',' ').slice(0,16) + ' UTC' : '';
+      var ownerCol = _isAdmin ? '<td class="fm-user">'+_fmEsc(f.username||'')+'</td>' : '';
+      return '<tr>'
+        + '<td><div class="fm-name" title="'+_fmEsc(f.filename)+'">'+_fmEsc(f.filename)+'</div></td>'
+        + '<td><span class="fm-ext '+extClass+'">'+ext+'</span></td>'
+        + '<td class="fm-size">'+_fmEsc(f.size_display||'')+'</td>'
+        + '<td class="fm-date">'+_fmEsc(dateStr)+'</td>'
+        + ownerCol
+        + '<td><div class="fm-actions">'
+          + '<button class="fm-dl-btn" onclick="fmDownload(\''+_fmEsc(f.id)+'\')">Download</button>'
+          + '<button class="fm-del-btn" onclick="fmDelete(\''+_fmEsc(f.id)+'\',\''+_fmEsc(f.filename)+'\')">Delete</button>'
+        + '</div></td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  window.fmFilter = function() {
+    var q = (document.getElementById('fm-search').value || '').toLowerCase();
+    var filtered = q ? _fmData.filter(function(f){
+      return (f.filename||'').toLowerCase().indexOf(q) !== -1
+          || (f.ext||'').toLowerCase().indexOf(q) !== -1
+          || (f.username||'').toLowerCase().indexOf(q) !== -1;
+    }) : _fmData;
+    fmRender(filtered);
+  };
+
+  window.fmHandleDrop = function(e) {
+    e.preventDefault();
+    document.getElementById('fmDropZone').classList.remove('drag-over');
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) fmHandleFiles(files);
+  };
+
+  window.fmHandleFiles = function(files) {
+    if (!files || !files.length) return;
+    var bar    = document.getElementById('fm-upload-bar');
+    var status = document.getElementById('fm-upload-status');
+    var prog   = document.getElementById('fm-prog-bar');
+    var progWrap = document.querySelector('.fm-prog');
+    var msgEl  = document.getElementById('fm-msg');
+    if (bar)    { bar.style.display = ''; }
+    if (status) { status.textContent = 'Uploading ' + files.length + ' file(s)...'; }
+    if (prog)   { prog.style.width = '20%'; progWrap.style.display = ''; }
+    if (msgEl)  { msgEl.style.display = 'none'; }
+
+    var fd = new FormData();
+    for (var i = 0; i < files.length; i++) fd.append('files', files[i]);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/files/upload');
+    xhr.upload.onprogress = function(e) {
+      if (e.lengthComputable && prog) {
+        prog.style.width = Math.round(e.loaded / e.total * 90) + '%';
+      }
+    };
+    xhr.onload = function() {
+      if (prog) prog.style.width = '100%';
+      setTimeout(function(){
+        if (bar) bar.style.display = 'none';
+        if (prog) { prog.style.width = '0%'; progWrap.style.display = 'none'; }
+      }, 600);
+      try {
+        var d = JSON.parse(xhr.responseText);
+        msgEl.className = 'fm-msg ' + (d.ok ? 'ok' : 'err');
+        msgEl.textContent = d.message || d.error || (d.ok ? 'Uploaded.' : 'Error.');
+        msgEl.style.display = '';
+        if (d.ok) loadFileManager();
+      } catch(ex) {
+        msgEl.className = 'fm-msg err';
+        msgEl.textContent = 'Upload failed.';
+        msgEl.style.display = '';
+      }
+    };
+    xhr.onerror = function() {
+      if (bar) bar.style.display = 'none';
+      msgEl.className = 'fm-msg err';
+      msgEl.textContent = 'Network error during upload.';
+      msgEl.style.display = '';
+    };
+    xhr.send(fd);
+  };
+
+  window.fmDownload = function(fileId) {
+    window.location.href = '/api/files/' + encodeURIComponent(fileId) + '/download';
+  };
+
+  window.fmDelete = function(fileId, filename) {
+    if (!confirm('Delete "' + filename + '"? This cannot be undone.')) return;
+    fetch('/api/files/' + encodeURIComponent(fileId), {method: 'DELETE'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var msgEl = document.getElementById('fm-msg');
+        msgEl.className = 'fm-msg ' + (d.ok ? 'ok' : 'err');
+        msgEl.textContent = d.message || d.error || (d.ok ? 'Deleted.' : 'Error.');
+        msgEl.style.display = '';
+        if (d.ok) loadFileManager();
+      })
+      .catch(function(){
+        var msgEl = document.getElementById('fm-msg');
+        msgEl.className = 'fm-msg err'; msgEl.textContent = 'Request failed.'; msgEl.style.display = '';
+      });
+  };
+  // ── End File Manager ────────────────────────────────────────────────────────
 
   window.versionModalShow = function() {
     var bd = document.getElementById('ver-backdrop');
