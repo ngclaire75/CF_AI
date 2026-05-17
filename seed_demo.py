@@ -88,36 +88,34 @@ outputs = [
 ]
 findings_counts = [3,2,3,4,2,2,2,2,2]
 
-for i, target in enumerate(TARGETS):
-    for j in range(random.randint(3,6)):
-        days = random.randint(0, 30)
-        risk = random.choice(risks)
-        out_idx = (i + j) % len(outputs)
-        scan_rows.append((
-            ts(days, random.randint(0,23)), ts(days, random.randint(0,23)),
-            target, risk, outputs[out_idx],
-            'completed', findings_counts[out_idx % len(findings_counts)],
-            DEMO, 'nmap+nikto', random.randint(10,90)
-        ))
-
-# Determine columns available
+# Determine columns available in scans table
 cols_info = con.execute("PRAGMA table_info(scans)").fetchall()
 col_names = [c['name'] for c in cols_info]
 
-# Build insert based on available columns
-base_cols = ['created_at','updated_at','target','risk','output','status','findings_count','username']
-extra = []
-if 'scan_type' in col_names: extra.append('scan_type')
-if 'score'     in col_names: extra.append('score')
-
-insert_cols = base_cols + extra
-placeholders = ','.join(['?']*len(insert_cols))
-
-for row in scan_rows:
-    vals = list(row[:8])
-    if 'scan_type' in col_names: vals.append(row[8])
-    if 'score'     in col_names: vals.append(row[9])
-    con.execute(f"INSERT INTO scans ({','.join(insert_cols)}) VALUES ({placeholders})", vals)
+for i, target in enumerate(TARGETS):
+    for j in range(random.randint(3,6)):
+        days = random.randint(0, 30)
+        risk_val = random.choice(risks)
+        out_idx = (i + j) % len(outputs)
+        created = ts(days, random.randint(0,23))
+        row_data = {
+            'created_at':     created,
+            'updated_at':     created,
+            'target':         target,
+            'risk':           risk_val,
+            'output':         outputs[out_idx],
+            'status':         'completed',
+            'findings_count': findings_counts[out_idx % len(findings_counts)],
+            'username':       DEMO,
+            'scan_type':      'nmap+nikto',
+            'score':          random.randint(10, 90),
+        }
+        # Only insert columns that actually exist in this DB
+        insert_cols = [c for c in row_data if c in col_names]
+        vals = [row_data[c] for c in insert_cols]
+        placeholders = ','.join(['?']*len(insert_cols))
+        con.execute(f"INSERT INTO scans ({','.join(insert_cols)}) VALUES ({placeholders})", vals)
+        scan_rows.append(row_data)
 
 con.commit()
 print(f'Inserted {len(scan_rows)} demo scans across {len(TARGETS)} targets')
