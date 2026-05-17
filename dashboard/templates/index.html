@@ -7513,7 +7513,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .supp-section-lbl { font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.5px; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid #bfdbfe; }
     @media(max-width:600px) { .supp-grid2 { grid-template-columns:1fr; } }
     .appt-intro { font-size:12px; color:#3b82f6; line-height:1.65; margin-bottom:20px; }
-    .appt-services { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .appt-services { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
     .appt-svc-card { border:1.5px solid #bfdbfe; border-radius:8px; padding:14px; cursor:pointer; transition:border-color .15s,background .15s; background:#f8faff; }
     .appt-svc-card:hover { border-color:#2563eb; background:#eff6ff; }
     .appt-svc-card.appt-selected { border-color:#2563eb; background:#eff6ff; outline:2px solid #bfdbfe; outline-offset:2px; }
@@ -7600,6 +7600,11 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
             <div class="appt-svc-name">Website Security Analysis</div>
             <div class="appt-svc-desc">In-depth vulnerability assessment, OWASP Top-10 review, and security analysis of your web properties with a detailed findings report.</div>
             <div class="appt-svc-dur">Typical duration: 1-2 hours</div>
+          </div>
+          <div class="appt-svc-card" id="appt-svc-3" onclick="apptSelectService(this,'Manual Report Writing','90')">
+            <div class="appt-svc-name">Manual Report Writing</div>
+            <div class="appt-svc-desc">Collaborative session to produce a customised security report — findings documentation, executive summary, risk ratings, and remediation recommendations.</div>
+            <div class="appt-svc-dur">Typical duration: 1.5-2 hours</div>
           </div>
         </div>
 

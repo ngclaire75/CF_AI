@@ -12078,6 +12078,11 @@ _APPT_PREP: dict = {
         'Have admin access to your web hosting panel or CMS ready.',
         'Prepare a list of any known vulnerabilities or recent security incidents.',
     ],
+    'Manual Report Writing': [
+        'Gather any existing scan results, audit logs, or findings you want included.',
+        'Prepare a brief overview of the systems or scope the report should cover.',
+        'Have stakeholder names and titles ready for the executive summary.',
+    ],
 }
 
 
@@ -12113,6 +12118,7 @@ def _create_gcal_appointment(service_type: str, date_str: str, time_str: str,
             'Dashboard Feature Training':   'Personalised walkthrough of CyberINK Security Intelligence platform features.',
             'On-Site Cyber Security Audit': 'Comprehensive on-premises security assessment.',
             'Website Security Analysis':    'In-depth vulnerability assessment and security analysis of web properties.',
+            'Manual Report Writing':        'Collaborative session to produce a customised security report with findings, risk ratings, and remediation recommendations.',
         }
         desc_lines = [f'Service: {service_type}', svc_descs.get(service_type, ''), '',
                       f'Client: {full_name}']
@@ -12334,7 +12340,8 @@ def book_appointment():
     company      = (data.get('company')      or '').strip()
     notes        = (data.get('notes')        or '').strip()
 
-    valid_services = {'Dashboard Feature Training', 'On-Site Cyber Security Audit', 'Website Security Analysis'}
+    valid_services = {'Dashboard Feature Training', 'On-Site Cyber Security Audit',
+                      'Website Security Analysis', 'Manual Report Writing'}
     if not service_type or service_type not in valid_services:
         return jsonify({'error': 'Please select a valid service type.'}), 400
     if not date_str or not time_str:
