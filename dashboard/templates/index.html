@@ -6534,7 +6534,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- Evidence modal -->
   <div class="grc2-modal-bg" id="grc2-ev-modal">
     <div class="grc2-modal">
-      <div class="grc2-mhd">Add Evidence<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcClose('grc2-ev-modal')">Close</button></div>
+      <div class="grc2-mhd"><span id="grc2-ev-hd">Add Evidence</span><button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcClose('grc2-ev-modal')">Close</button></div>
+      <input type="hidden" id="gev-id">
       <div class="grc2-field"><label class="grc2-lbl">Title *</label><input class="grc2-inp" id="gev-title" placeholder="Evidence title"></div>
       <div class="grc2-g2">
         <div class="grc2-field"><label class="grc2-lbl">Evidence Status</label>
@@ -17756,7 +17757,8 @@ function _grcRenderRisks(rows) {
       +'<td>'+rsBadge+'</td>'
       +(USER_ROLE==='admin' ? '<td style="font-size:11px;color:#2563eb;">'+(_ge(r.username)||'<span style="color:#94a3b8;">—</span>')+'</td>' : '')
       +'<td style="white-space:nowrap;">'
-        +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditRisk('+r.id+')">Edit</button>'
+        +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditRisk('+r.id+')">Edit</button> '
+        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelRisk('+r.id+')">Delete</button>'
       +'</td></tr>';
   }).join('');
 }
@@ -18456,23 +18458,39 @@ function _grcRenderEvidence(rows) {
         }).join('')
       +'</select></td>'
       +(USER_ROLE==='admin' ? '<td style="font-size:11px;color:#2563eb;">'+(_ge(r.username)||'<span style="color:#94a3b8;">—</span>')+'</td>' : '')
-      +'<td><button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelEvidence('+r.id+')">Delete</button></td>'
+      +'<td style="white-space:nowrap;">'
+        +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditEvidence('+r.id+')">Edit</button> '
+        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelEvidence('+r.id+')">Delete</button>'
+      +'</td>'
       +'</tr>';
   }).join('');
 }
 
-function grcOpenEvidence() {
-  document.getElementById('gev-title').value  = '';
-  document.getElementById('gev-desc').value   = '';
-  document.getElementById('gev-status').value = 'not_ready';
-  document.getElementById('gev-type').value   = '';
-  document.getElementById('gev-ctrl').value   = '';
-  document.getElementById('gev-by').value     = '';
-  document.getElementById('gev-file').value   = '';
+function grcOpenEvidence(data) {
+  document.getElementById('grc2-ev-hd').textContent = data ? 'Edit Evidence' : 'Add Evidence';
+  document.getElementById('gev-id').value     = data ? data.id : '';
+  document.getElementById('gev-title').value  = data ? data.title : '';
+  document.getElementById('gev-desc').value   = data ? (data.description||'') : '';
+  document.getElementById('gev-status').value = data ? (data.evidence_status||'not_ready') : 'not_ready';
+  document.getElementById('gev-type').value   = data ? (data.evidence_type||'') : '';
+  document.getElementById('gev-ctrl').value   = data ? (data.control_id||'') : '';
+  document.getElementById('gev-by').value     = data ? (data.collected_by||'') : '';
+  document.getElementById('gev-file').value   = data ? (data.file_name||'') : '';
+  var gevAudit = document.getElementById('gev-audit');
+  if (gevAudit && data && data.audit_id) gevAudit.value = data.audit_id;
+  else if (gevAudit) gevAudit.value = '';
+  var gevAt = document.getElementById('gev-assignto');
+  if (gevAt) gevAt.value = data ? (data.username||'') : '';
   document.getElementById('grc2-ev-modal').classList.add('open');
 }
 
+function grcEditEvidence(id) {
+  var e = _grcAllEvidence.find(function(x){ return x.id===id; });
+  if (e) grcOpenEvidence(e);
+}
+
 function grcSaveEvidence() {
+  var id = _gv('gev-id');
   var p = {
     title:_gv('gev-title'), description:_gv('gev-desc'),
     evidence_status:_gv('gev-status'), evidence_type:_gv('gev-type'),
@@ -18481,7 +18499,8 @@ function grcSaveEvidence() {
   };
   if (!p.title) { alert('Title is required.'); return; }
   if (USER_ROLE === 'admin') { var at = _gv('gev-assignto'); if (at) p.assigned_to = at; }
-  fetch('/api/grc2/evidence', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
+  var url = id ? '/api/grc2/evidence/'+id : '/api/grc2/evidence';
+  fetch(url, {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
     .then(function(r){ return r.json(); }).then(function(){
       grcClose('grc2-ev-modal'); grcLoadEvidence();
     }).catch(function(){});
