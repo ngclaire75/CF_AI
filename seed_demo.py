@@ -108,7 +108,11 @@ for i, target in enumerate(TARGETS):
             'findings_count': findings_counts[out_idx % len(findings_counts)],
             'username':       DEMO,
             'scan_type':      'nmap+nikto',
+            'agent_type':     'nmap+nikto',
             'score':          random.randint(10, 90),
+            'agent_id':       '',
+            'error':          '',
+            'notes':          '',
         }
         # Only insert columns that actually exist in this DB
         insert_cols = [c for c in row_data if c in col_names]
