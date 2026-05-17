@@ -18477,10 +18477,10 @@ var _grcMatrixBgPlugin = {
     }
     for (var l = 1; l <= 5; l++) {
       for (var i = 1; i <= 5; i++) {
-        var x1 = xAxis.getPixelForValue(l - 0.5);
-        var x2 = xAxis.getPixelForValue(l + 0.5);
-        var y1 = yAxis.getPixelForValue(i + 0.5);
-        var y2 = yAxis.getPixelForValue(i - 0.5);
+        var x1 = xAxis.getPixelForValue(l - 1);
+        var x2 = xAxis.getPixelForValue(l);
+        var y1 = yAxis.getPixelForValue(i);
+        var y2 = yAxis.getPixelForValue(i - 1);
         ctx.fillStyle = zoneColor(l, i);
         ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
       }
