@@ -12046,6 +12046,384 @@ def api_dca_azure_workitem():
         return jsonify({'ok': False, 'error': str(exc)}), 400
 
 
+# ── Google Calendar / Meet — Appointment Booking ──────────────────────────────
+import uuid as _uuid
+
+try:
+    from google.oauth2.credentials import Credentials as _GCreds
+    from google.auth.transport.requests import Request as _GRequest
+    from google_auth_oauthlib.flow import Flow as _GFlow
+    from googleapiclient.discovery import build as _gbuild
+    _GCAL_AVAILABLE = True
+except ImportError:
+    _GCAL_AVAILABLE = False
+
+_GCAL_SCOPES     = ['https://www.googleapis.com/auth/calendar']
+_GCAL_CREDS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'google_oauth_credentials.json')
+_GCAL_TOKEN_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'google_oauth_token.json')
+
+_APPT_PREP: dict = {
+    'Dashboard Feature Training': [
+        'No preparation needed — bring any questions you have about the platform.',
+        'Consider noting which features or sections you find most confusing.',
+        'Have your account credentials ready to log in during the session.',
+    ],
+    'On-Site Cyber Security Audit': [
+        'Prepare a list of all systems, networks, and physical access points on-site.',
+        'Ensure a technical contact is available to assist during the audit.',
+        'Have network diagrams or asset inventories ready if available.',
+    ],
+    'Website Security Analysis': [
+        'Provide the full URL(s) of the website(s) to be assessed.',
+        'Have admin access to your web hosting panel or CMS ready.',
+        'Prepare a list of any known vulnerabilities or recent security incidents.',
+    ],
+}
+
+
+def _get_gcal_service():
+    if not _GCAL_AVAILABLE or not os.path.exists(_GCAL_TOKEN_FILE):
+        return None
+    try:
+        creds = _GCreds.from_authorized_user_file(_GCAL_TOKEN_FILE, _GCAL_SCOPES)
+        if creds.expired and creds.refresh_token:
+            creds.refresh(_GRequest())
+            with open(_GCAL_TOKEN_FILE, 'w') as fh:
+                fh.write(creds.to_json())
+        return _gbuild('calendar', 'v3', credentials=creds, cache_discovery=False)
+    except Exception:
+        return None
+
+
+def _create_gcal_appointment(service_type: str, date_str: str, time_str: str,
+                              duration_min: int, timezone: str,
+                              full_name: str, user_email: str,
+                              company: str, notes: str) -> dict | None:
+    svc = _get_gcal_service()
+    if not svc:
+        return None
+    try:
+        import datetime as _dt
+        start_naive = _dt.datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %H:%M')
+        end_naive   = start_naive + _dt.timedelta(minutes=duration_min)
+        start_iso   = start_naive.strftime('%Y-%m-%dT%H:%M:%S')
+        end_iso     = end_naive.strftime('%Y-%m-%dT%H:%M:%S')
+
+        svc_descs = {
+            'Dashboard Feature Training':   'Personalised walkthrough of CyberINK Security Intelligence platform features.',
+            'On-Site Cyber Security Audit': 'Comprehensive on-premises security assessment.',
+            'Website Security Analysis':    'In-depth vulnerability assessment and security analysis of web properties.',
+        }
+        desc_lines = [f'Service: {service_type}', svc_descs.get(service_type, ''), '',
+                      f'Client: {full_name}']
+        if company:
+            desc_lines.append(f'Company: {company}')
+        desc_lines.append(f'Email: {user_email}')
+        if notes:
+            desc_lines.extend(['', 'Notes:', notes])
+
+        event = {
+            'summary':     f'[CyberINK] {service_type} — {full_name}',
+            'description': '\n'.join(desc_lines),
+            'start': {'dateTime': start_iso, 'timeZone': timezone},
+            'end':   {'dateTime': end_iso,   'timeZone': timezone},
+            'attendees': [
+                {'email': user_email,   'displayName': full_name},
+                {'email': _SUPPORT_EMAIL, 'displayName': 'CyberINK Support'},
+            ],
+            'conferenceData': {
+                'createRequest': {
+                    'requestId': str(_uuid.uuid4()),
+                    'conferenceSolutionKey': {'type': 'hangoutsMeet'},
+                }
+            },
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'email',  'minutes': 1440},
+                    {'method': 'popup',  'minutes': 30},
+                ],
+            },
+        }
+        result = svc.events().insert(
+            calendarId='primary',
+            body=event,
+            conferenceDataVersion=1,
+            sendUpdates='all',
+        ).execute()
+        return {
+            'meet_link':  result.get('hangoutLink', ''),
+            'event_link': result.get('htmlLink', ''),
+            'event_id':   result.get('id', ''),
+        }
+    except Exception as exc:
+        app.logger.error(f'[GCAL] Event creation failed: {exc}')
+        return None
+
+
+def _format_appt_datetime(date_str: str, time_str: str, duration_min: int, timezone: str) -> str:
+    try:
+        import datetime as _dt
+        dt  = _dt.datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %H:%M')
+        end = dt + _dt.timedelta(minutes=duration_min)
+        return (f'{dt.strftime("%A, %d %B %Y")} at {dt.strftime("%H:%M")} — '
+                f'{end.strftime("%H:%M")} ({timezone})')
+    except Exception:
+        return f'{date_str} {time_str} ({duration_min} min, {timezone})'
+
+
+def _send_appointment_admin_email(service_type: str, date_str: str, time_str: str,
+                                   duration_min: int, timezone: str, full_name: str,
+                                   user_email: str, company: str, notes: str,
+                                   meet_link: str, event_link: str, username: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        appt_dt    = _format_appt_datetime(date_str, time_str, duration_min, timezone)
+        subject    = f'[CyberINK Appointment] {service_type} — {full_name}'
+        safe_notes = notes.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
+
+        company_row = (f'<tr style="border-bottom:1px solid #bfdbfe;"><td style="padding:7px 0;'
+                       f'font-weight:700;color:#1e3a8a;width:130px;">Company</td>'
+                       f'<td style="padding:7px 0;color:#2563eb;">{company}</td></tr>') if company else ''
+        meet_row = (f'<tr style="border-bottom:1px solid #bfdbfe;"><td style="padding:7px 0;'
+                    f'font-weight:700;color:#1e3a8a;">Google Meet</td><td style="padding:7px 0;">'
+                    f'<a href="{meet_link}" style="color:#2563eb;">{meet_link}</a></td></tr>') if meet_link else ''
+        event_row = (f'<tr style="border-bottom:1px solid #bfdbfe;"><td style="padding:7px 0;'
+                     f'font-weight:700;color:#1e3a8a;">Calendar</td><td style="padding:7px 0;">'
+                     f'<a href="{event_link}" style="color:#2563eb;">View in Google Calendar</a>'
+                     f'</td></tr>') if event_link else ''
+        notes_block = (f'<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+                       f'letter-spacing:.4px;margin:20px 0 8px;">Additional Notes</div>'
+                       f'<div style="background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;'
+                       f'padding:12px 16px;font-size:13px;color:#1e3a8a;line-height:1.6;">'
+                       f'{safe_notes}</div>') if notes else ''
+
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 16px;">
+            New Appointment Request
+          </p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:130px;">Service</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:600;">{service_type}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Date and Time</td>
+              <td style="padding:7px 0;color:#2563eb;">{appt_dt}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Full Name</td>
+              <td style="padding:7px 0;color:#2563eb;">{full_name}</td>
+            </tr>
+            {company_row}
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Email</td>
+              <td style="padding:7px 0;"><a href="mailto:{user_email}" style="color:#2563eb;">{user_email}</a></td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Account</td>
+              <td style="padding:7px 0;color:#2563eb;">{username}</td>
+            </tr>
+            {meet_row}
+            {event_row}
+          </table>
+          {notes_block}
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+            Reply to this email to contact the client at
+            <a href="mailto:{user_email}" style="color:#2563eb;">{user_email}</a>.
+          </p>"""
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject']  = subject
+        msg['From']     = f'CyberINK Appointments <{_SMTP_USER}>'
+        msg['To']       = _SUPPORT_EMAIL
+        msg['Reply-To'] = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, _SUPPORT_EMAIL, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_appointment_user_email(service_type: str, date_str: str, time_str: str,
+                                  duration_min: int, timezone: str,
+                                  full_name: str, user_email: str, meet_link: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        appt_dt = _format_appt_datetime(date_str, time_str, duration_min, timezone)
+        subject = f'CyberINK — Appointment Request Received: {service_type}'
+
+        if meet_link:
+            meet_block = (f'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;'
+                          f'padding:14px 16px;margin:20px 0;text-align:center;">'
+                          f'<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+                          f'letter-spacing:.4px;margin-bottom:8px;">Google Meet Link</div>'
+                          f'<a href="{meet_link}" style="color:#2563eb;font-size:13px;font-weight:600;'
+                          f'word-break:break-all;">{meet_link}</a>'
+                          f'<div style="font-size:11px;color:#3b82f6;margin-top:6px;">'
+                          f'This link will be active at your appointment time.</div></div>')
+        else:
+            meet_block = ('<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;'
+                          'padding:14px 16px;margin:20px 0;font-size:12px;color:#1e3a8a;">'
+                          'A Google Meet link will be sent to you once the appointment is confirmed by our team.'
+                          '</div>')
+
+        prep_items = _APPT_PREP.get(service_type, [])
+        prep_block = ''
+        if prep_items:
+            items_html = ''.join(f'<li style="margin-bottom:6px;color:#1e3a8a;">{i}</li>' for i in prep_items)
+            prep_block = (f'<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+                          f'letter-spacing:.4px;margin:20px 0 10px;">How to Prepare</div>'
+                          f'<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.65;">'
+                          f'{items_html}</ul>')
+
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
+            Appointment Request Received
+          </p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello {full_name}, your appointment request has been received. Our team will review
+            and confirm within 1 business day.
+          </p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Service</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:600;">{service_type}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Date and Time</td>
+              <td style="padding:7px 0;color:#2563eb;">{appt_dt}</td>
+            </tr>
+          </table>
+          {meet_block}
+          {prep_block}
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:20px;line-height:1.6;">
+            To cancel or reschedule, reply to this email or contact us at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.
+          </p>"""
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, user_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+@app.route('/api/book-appointment', methods=['POST'])
+def book_appointment():
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    data         = request.get_json(force=True) or {}
+    service_type = (data.get('service_type') or '').strip()
+    date_str     = (data.get('date')         or '').strip()
+    time_str     = (data.get('time')         or '').strip()
+    duration_min = int(data.get('duration', 60))
+    timezone     = (data.get('timezone')     or 'Asia/Jakarta').strip()
+    full_name    = (data.get('full_name')    or '').strip()
+    user_email   = (data.get('email')        or '').strip()
+    company      = (data.get('company')      or '').strip()
+    notes        = (data.get('notes')        or '').strip()
+
+    valid_services = {'Dashboard Feature Training', 'On-Site Cyber Security Audit', 'Website Security Analysis'}
+    if not service_type or service_type not in valid_services:
+        return jsonify({'error': 'Please select a valid service type.'}), 400
+    if not date_str or not time_str:
+        return jsonify({'error': 'Date and time are required.'}), 400
+    if not full_name:
+        return jsonify({'error': 'Full name is required.'}), 400
+    if not user_email or '@' not in user_email:
+        return jsonify({'error': 'A valid email address is required.'}), 400
+    if duration_min not in (30, 60, 90, 120):
+        duration_min = 60
+
+    try:
+        import datetime as _dt
+        appt_date = _dt.datetime.strptime(date_str, '%Y-%m-%d').date()
+        if appt_date <= _dt.date.today():
+            return jsonify({'error': 'Please select a future date for your appointment.'}), 400
+    except ValueError:
+        return jsonify({'error': 'Invalid date format.'}), 400
+
+    gcal_result = _create_gcal_appointment(
+        service_type, date_str, time_str, duration_min, timezone,
+        full_name, user_email, company, notes
+    )
+    meet_link  = gcal_result['meet_link']  if gcal_result else ''
+    event_link = gcal_result['event_link'] if gcal_result else ''
+
+    _send_appointment_admin_email(
+        service_type, date_str, time_str, duration_min, timezone,
+        full_name, user_email, company, notes,
+        meet_link, event_link, session['user']['username']
+    )
+    _send_appointment_user_email(
+        service_type, date_str, time_str, duration_min, timezone,
+        full_name, user_email, meet_link
+    )
+
+    if meet_link:
+        msg = f'Appointment confirmed. A Google Meet link has been sent to {user_email}.'
+    else:
+        msg = f'Appointment request submitted. You will receive a confirmation email at {user_email}.'
+    return jsonify({'ok': True, 'message': msg, 'meet_link': meet_link})
+
+
+# ── Google Calendar OAuth Setup (admin only) ───────────────────────────────────
+@app.route('/api/auth/google/setup')
+def gcal_setup():
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return 'Unauthorized', 403
+    if not _GCAL_AVAILABLE:
+        return ('Google Calendar API libraries not installed.\n'
+                'Run: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib'), 503
+    if not os.path.exists(_GCAL_CREDS_FILE):
+        return (f'Google OAuth credentials file not found.\n'
+                f'Download credentials.json from Google Cloud Console and save to:\n{_GCAL_CREDS_FILE}'), 503
+    if _get_gcal_service():
+        return 'Google Calendar is already connected.', 200
+    try:
+        from flask import redirect as _redir
+        cb = request.host_url.rstrip('/') + '/api/auth/google/callback'
+        flow = _GFlow.from_client_secrets_file(_GCAL_CREDS_FILE, scopes=_GCAL_SCOPES, redirect_uri=cb)
+        auth_url, state = flow.authorization_url(access_type='offline',
+                                                  include_granted_scopes='true', prompt='consent')
+        session['gcal_oauth_state'] = state
+        return _redir(auth_url)
+    except Exception as exc:
+        return f'OAuth setup error: {exc}', 500
+
+
+@app.route('/api/auth/google/callback')
+def gcal_callback():
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return 'Unauthorized', 403
+    if not _GCAL_AVAILABLE:
+        return 'Google Calendar libraries not installed.', 503
+    try:
+        cb = request.host_url.rstrip('/') + '/api/auth/google/callback'
+        flow = _GFlow.from_client_secrets_file(_GCAL_CREDS_FILE, scopes=_GCAL_SCOPES, redirect_uri=cb)
+        flow.fetch_token(authorization_response=request.url)
+        creds = flow.credentials
+        os.makedirs(os.path.dirname(_GCAL_TOKEN_FILE), exist_ok=True)
+        with open(_GCAL_TOKEN_FILE, 'w') as fh:
+            fh.write(creds.to_json())
+        return ('Google Calendar connected successfully. '
+                'Appointments will now auto-create Google Meet links. '
+                'You may close this tab.'), 200
+    except Exception as exc:
+        return f'OAuth callback error: {exc}', 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('CFAI_DASHBOARD_PORT', 8889))
     print(f'CF_AI Dashboard running on http://0.0.0.0:{port}')

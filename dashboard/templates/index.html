@@ -7499,7 +7499,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .supp-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .supp-field { margin-bottom:16px; }
     .supp-lbl { display:block; font-size:11px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
-    .supp-inp, .supp-sel, .supp-ta { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #bfdbfe; border-radius:6px; font-size:13px; color:#0f172a; background:#f8faff; outline:none; transition:border-color .15s; font-family:inherit; }
+    .supp-inp, .supp-sel, .supp-ta { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #bfdbfe; border-radius:6px; font-size:13px; color:#0f172a; background:#f8faff; outline:none; transition:border-color .15s; font-family:inherit; box-shadow:none; -webkit-appearance:none; appearance:none; }
     .supp-inp:focus, .supp-sel:focus, .supp-ta:focus { border-color:#2563eb; background:#fff; }
     .supp-ta { resize:vertical; min-height:140px; line-height:1.6; }
     .supp-sel { appearance:none; -webkit-appearance:none; cursor:pointer; }
@@ -7512,6 +7512,16 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .supp-result.err { background:#eff6ff; border:1px solid #93c5fd; color:#1d4ed8; }
     .supp-section-lbl { font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.5px; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid #bfdbfe; }
     @media(max-width:600px) { .supp-grid2 { grid-template-columns:1fr; } }
+    .appt-intro { font-size:12px; color:#3b82f6; line-height:1.65; margin-bottom:20px; }
+    .appt-services { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .appt-svc-card { border:1.5px solid #bfdbfe; border-radius:8px; padding:14px; cursor:pointer; transition:border-color .15s,background .15s; background:#f8faff; }
+    .appt-svc-card:hover { border-color:#2563eb; background:#eff6ff; }
+    .appt-svc-card.appt-selected { border-color:#2563eb; background:#eff6ff; outline:2px solid #bfdbfe; outline-offset:2px; }
+    .appt-svc-name { font-size:12px; font-weight:700; color:#1e3a8a; margin-bottom:5px; }
+    .appt-svc-desc { font-size:11px; color:#3b82f6; line-height:1.5; margin-bottom:6px; }
+    .appt-svc-dur { font-size:10px; color:#93c5fd; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+    .appt-divider { border:none; border-top:1px solid #bfdbfe; margin:20px 0; }
+    @media(max-width:700px){ .appt-services { grid-template-columns:1fr; } }
   </style>
   <div class="supp-wrap">
     <div class="supp-title">Customer Service Centre</div>
@@ -7567,6 +7577,107 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
     <div style="font-size:11px;color:#93c5fd;line-height:1.6;margin-top:20px;">
       By submitting this form you agree that your message and contact details will be used solely to respond to your enquiry. Refer to our Privacy Policy for details on data handling.
+    </div>
+
+    <!-- Book an Appointment -->
+    <div style="margin-top:24px;">
+      <div class="supp-form">
+        <div class="supp-section-lbl">Book an Appointment</div>
+        <div class="appt-intro">Schedule a consultation with our security specialists. Select the service that best suits your needs — our team will confirm and send you a Google Meet link for the session.</div>
+
+        <div class="appt-services">
+          <div class="appt-svc-card" id="appt-svc-0" onclick="apptSelectService(this,'Dashboard Feature Training','60')">
+            <div class="appt-svc-name">Dashboard Feature Training</div>
+            <div class="appt-svc-desc">Personalised walkthrough of CyberINK's security intelligence platform — dashboards, scanning tools, GRC controls, and reporting.</div>
+            <div class="appt-svc-dur">Typical duration: 1 hour</div>
+          </div>
+          <div class="appt-svc-card" id="appt-svc-1" onclick="apptSelectService(this,'On-Site Cyber Security Audit','120')">
+            <div class="appt-svc-name">On-Site Cyber Security Audit</div>
+            <div class="appt-svc-desc">Comprehensive on-premises security assessment covering physical access controls, network segmentation, and endpoint security posture.</div>
+            <div class="appt-svc-dur">Typical duration: 2-4 hours</div>
+          </div>
+          <div class="appt-svc-card" id="appt-svc-2" onclick="apptSelectService(this,'Website Security Analysis','60')">
+            <div class="appt-svc-name">Website Security Analysis</div>
+            <div class="appt-svc-desc">In-depth vulnerability assessment, OWASP Top-10 review, and security analysis of your web properties with a detailed findings report.</div>
+            <div class="appt-svc-dur">Typical duration: 1-2 hours</div>
+          </div>
+        </div>
+
+        <div id="appt-form" style="display:none;margin-top:4px;">
+          <hr class="appt-divider">
+          <div class="supp-section-lbl" id="appt-form-heading" style="margin-bottom:16px;"></div>
+
+          <div class="supp-grid2">
+            <div class="supp-field">
+              <label class="supp-lbl" for="appt-date">Preferred Date</label>
+              <input class="supp-inp" id="appt-date" type="date">
+            </div>
+            <div class="supp-field">
+              <label class="supp-lbl" for="appt-time">Preferred Time</label>
+              <input class="supp-inp" id="appt-time" type="time" value="10:00">
+            </div>
+          </div>
+
+          <div class="supp-grid2">
+            <div class="supp-field">
+              <label class="supp-lbl" for="appt-duration">Duration</label>
+              <select class="supp-sel" id="appt-duration">
+                <option value="30">30 minutes</option>
+                <option value="60" selected>1 hour</option>
+                <option value="90">1.5 hours</option>
+                <option value="120">2 hours</option>
+              </select>
+            </div>
+            <div class="supp-field">
+              <label class="supp-lbl" for="appt-tz">Timezone</label>
+              <select class="supp-sel" id="appt-tz">
+                <option value="Asia/Jakarta">Asia/Jakarta (WIB, UTC+7)</option>
+                <option value="Asia/Makassar">Asia/Makassar (WITA, UTC+8)</option>
+                <option value="Asia/Jayapura">Asia/Jayapura (WIT, UTC+9)</option>
+                <option value="Asia/Singapore">Asia/Singapore (SGT, UTC+8)</option>
+                <option value="Australia/Sydney">Australia/Sydney</option>
+                <option value="Pacific/Auckland">Pacific/Auckland</option>
+                <option value="UTC">UTC</option>
+                <option value="Europe/London">Europe/London (GMT/BST)</option>
+                <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                <option value="America/New_York">America/New_York (EST/EDT)</option>
+                <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="supp-grid2">
+            <div class="supp-field">
+              <label class="supp-lbl" for="appt-name">Full Name</label>
+              <input class="supp-inp" id="appt-name" type="text" placeholder="Your full name">
+            </div>
+            <div class="supp-field">
+              <label class="supp-lbl" for="appt-email">Email Address</label>
+              <input class="supp-inp" id="appt-email" type="email" placeholder="Confirmation will be sent here">
+            </div>
+          </div>
+
+          <div class="supp-field">
+            <label class="supp-lbl" for="appt-company">Company / Organisation <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#93c5fd;">(optional)</span></label>
+            <input class="supp-inp" id="appt-company" type="text" placeholder="Your company or organisation name">
+          </div>
+
+          <div class="supp-field">
+            <label class="supp-lbl" for="appt-notes">Additional Notes <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#93c5fd;">(optional)</span></label>
+            <textarea class="supp-ta" id="appt-notes" placeholder="Specific areas to focus on, questions you have, or any other context that will help us prepare." style="min-height:90px;" maxlength="1000" oninput="apptCharCount()"></textarea>
+            <div class="supp-char" id="appt-char">0 / 1000</div>
+          </div>
+
+          <input type="hidden" id="appt-service-type">
+          <button class="supp-btn" id="appt-submit-btn" onclick="apptSubmit()">Confirm Appointment Request</button>
+          <div class="supp-result" id="appt-result"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:#93c5fd;line-height:1.6;margin-top:16px;">
+      By booking an appointment you agree that your contact details will be used to schedule and manage the session. Refer to our Privacy Policy for details on data handling.
     </div>
   </div>
   </div><!-- /page-support -->
@@ -8214,11 +8325,18 @@ function sbNav(section, el) {
     if (btn) btn.style.display = _noInfo.indexOf(section) !== -1 ? 'none' : '';
   })();
 
-  // Pre-fill support email with logged-in user's email
+  // Pre-fill support and appointment forms with logged-in user's email
   if (section === 'support') {
+    var _userEmail = '{{ current_user.email or "" }}';
     var suppEmailEl = document.getElementById('supp-email');
-    if (suppEmailEl && !suppEmailEl.value) {
-      suppEmailEl.value = '{{ current_user.email or "" }}';
+    if (suppEmailEl && !suppEmailEl.value) suppEmailEl.value = _userEmail;
+    var apptEmailEl = document.getElementById('appt-email');
+    if (apptEmailEl && !apptEmailEl.value) apptEmailEl.value = _userEmail;
+    // Set appointment date minimum to tomorrow
+    var apptDateEl = document.getElementById('appt-date');
+    if (apptDateEl) {
+      var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+      apptDateEl.min = tmr.toISOString().slice(0, 10);
     }
   }
 
@@ -20224,6 +20342,94 @@ function grcExport() {
       btn.disabled = false;
       btn.textContent = 'Send Message';
       _show(false, 'Request failed. Please check your connection and try again.');
+    });
+  };
+
+  window.apptSelectService = function(card, svcName, defaultDuration) {
+    document.querySelectorAll('.appt-svc-card').forEach(function(c) { c.classList.remove('appt-selected'); });
+    card.classList.add('appt-selected');
+    document.getElementById('appt-service-type').value = svcName;
+    var durEl = document.getElementById('appt-duration');
+    if (durEl) durEl.value = defaultDuration || '60';
+    var hEl = document.getElementById('appt-form-heading');
+    if (hEl) hEl.textContent = svcName;
+    var formEl = document.getElementById('appt-form');
+    if (formEl) {
+      formEl.style.display = '';
+      setTimeout(function() { formEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60);
+    }
+    // Set minimum date to tomorrow
+    var dateEl = document.getElementById('appt-date');
+    if (dateEl && !dateEl.value) {
+      var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+      dateEl.min = tomorrow.toISOString().slice(0, 10);
+    }
+  };
+
+  window.apptCharCount = function() {
+    var ta  = document.getElementById('appt-notes');
+    var cnt = document.getElementById('appt-char');
+    if (ta && cnt) cnt.textContent = ta.value.length + ' / 1000';
+  };
+
+  window.apptSubmit = function() {
+    var btn    = document.getElementById('appt-submit-btn');
+    var result = document.getElementById('appt-result');
+    function _show(ok, text) {
+      result.className = 'supp-result ' + (ok ? 'ok' : 'err');
+      result.textContent = text;
+      result.style.display = 'block';
+      result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    var svcType  = (document.getElementById('appt-service-type').value || '').trim();
+    var date     = (document.getElementById('appt-date').value    || '').trim();
+    var time     = (document.getElementById('appt-time').value    || '').trim();
+    var duration = parseInt(document.getElementById('appt-duration').value || '60', 10);
+    var timezone = (document.getElementById('appt-tz').value      || 'Asia/Jakarta').trim();
+    var fullName = (document.getElementById('appt-name').value    || '').trim();
+    var email    = (document.getElementById('appt-email').value   || '').trim();
+    var company  = (document.getElementById('appt-company').value || '').trim();
+    var notes    = (document.getElementById('appt-notes').value   || '').trim();
+
+    if (!svcType)  return _show(false, 'Please select an appointment type above.');
+    if (!date)     return _show(false, 'Please select a preferred date.');
+    if (!time)     return _show(false, 'Please select a preferred time.');
+    if (!fullName) return _show(false, 'Please enter your full name.');
+    if (!email || email.indexOf('@') < 0) return _show(false, 'Please enter a valid email address.');
+
+    var parts = date.split('-');
+    var sel = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    if (sel <= today) return _show(false, 'Please select a future date for your appointment.');
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+    fetch('/api/book-appointment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service_type: svcType, date: date, time: time,
+        duration: duration, timezone: timezone, full_name: fullName,
+        email: email, company: company, notes: notes })
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      btn.disabled = false;
+      btn.textContent = 'Confirm Appointment Request';
+      if (d.ok) {
+        _show(true, d.message || 'Appointment request submitted successfully.');
+        ['appt-date','appt-name','appt-email','appt-company','appt-notes'].forEach(function(id) {
+          var el = document.getElementById(id); if (el) el.value = '';
+        });
+        var tEl = document.getElementById('appt-time'); if (tEl) tEl.value = '10:00';
+        document.getElementById('appt-char').textContent = '0 / 1000';
+        document.getElementById('appt-form').style.display = 'none';
+        document.getElementById('appt-service-type').value = '';
+        document.querySelectorAll('.appt-svc-card').forEach(function(c) { c.classList.remove('appt-selected'); });
+      } else {
+        _show(false, d.error || 'Failed to submit appointment. Please try again.');
+      }
+    }).catch(function() {
+      btn.disabled = false;
+      btn.textContent = 'Confirm Appointment Request';
+      _show(false, 'Network error. Please check your connection and try again.');
     });
   };
 
