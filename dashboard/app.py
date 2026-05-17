@@ -8580,8 +8580,9 @@ def api_mitre_coverage():
 @app.route('/api/incidents', methods=['GET'])
 def api_incidents_get():
     status = request.args.get('status')
-    return jsonify({'incidents': db.get_incidents(status=status),
-                    'stats': db.get_incident_stats()})
+    uf = _cu_filter()
+    return jsonify({'incidents': db.get_incidents(status=status, username=uf),
+                    'stats': db.get_incident_stats(username=uf)})
 
 
 @app.route('/api/incidents', methods=['POST'])
@@ -8659,7 +8660,7 @@ def api_unified_overview():
         'mitre_total':      coverage['total'],
         'mitre_severities': coverage['severities'],
         'recent_high_signals': recent_signals[:10],
-        'incident_stats':   db.get_incident_stats(),
+        'incident_stats':   db.get_incident_stats(username=_cu_filter()),
     })
 
 
@@ -8672,7 +8673,7 @@ def api_stream_signals():
         while True:
             try:
                 stats = db.get_stats()
-                inc   = db.get_incident_stats()
+                inc   = db.get_incident_stats(username=_cu_filter())
                 recent = db.get_recent_scans(5, username=_cu_filter())
                 payload = _json.dumps({
                     'total_scans': stats['total_scans'],

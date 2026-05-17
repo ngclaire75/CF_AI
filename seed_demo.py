@@ -127,6 +127,7 @@ print(f'Inserted {len(scan_rows)} demo scans across {len(TARGETS)} targets')
 # ── 2b. Incidents ─────────────────────────────────────────────────────────────
 try:
     con.execute("DELETE FROM incidents WHERE username=?", (DEMO,))
+    inc_cols = [c['name'] for c in con.execute("PRAGMA table_info(incidents)").fetchall()]
     incidents = [
         ('Brute Force Login Attempt', 'high',    'open',          'inktelligence.online', 'Multiple failed login attempts from 192.168.1.x'),
         ('Outdated Plugin Exploited',  'critical','investigating', 'shop.inktelligence.online', 'WooCommerce CVE-2023-2986 exploitation attempt detected'),
@@ -138,9 +139,13 @@ try:
         ('SQL Injection Attempt',      'high',    'resolved',      'shop.inktelligence.online', 'SQLi payload detected and blocked in checkout endpoint'),
     ]
     for i, (title, sev, status, target, desc) in enumerate(incidents):
+        row = {'created_at': ts(i*3+1), 'updated_at': ts(i*3),
+               'title': title, 'severity': sev, 'status': status,
+               'target': target, 'description': desc, 'username': DEMO}
+        icols = [c for c in row if c in inc_cols]
         con.execute(
-            "INSERT INTO incidents (created_at, updated_at, title, severity, status, target, description, username) VALUES (?,?,?,?,?,?,?,?)",
-            (ts(i*3+1), ts(i*3), title, sev, status, target, desc, DEMO)
+            f"INSERT INTO incidents ({','.join(icols)}) VALUES ({','.join(['?']*len(icols))})",
+            [row[c] for c in icols]
         )
     con.commit()
     print(f'Inserted {len(incidents)} demo incidents')

@@ -284,6 +284,16 @@ def init_db():
             )
         ''')
 
+        # ── General migrations ────────────────────────────────────────────────
+        for tbl, col, defn in [
+            ('incidents', 'username', "TEXT DEFAULT ''"),
+        ]:
+            try:
+                con.execute(f'ALTER TABLE {tbl} ADD COLUMN {col} {defn}')
+                con.commit()
+            except Exception:
+                pass
+
         # ── GRC migration: add new columns to existing tables ─────────────────
         _grc_alters = [
             ('grc_risks',    'residual_risk', 'INTEGER DEFAULT 0'),
@@ -540,7 +550,7 @@ def get_scans(limit=500, username=None):
             ).fetchall()
         else:
             rows = con.execute(
-                'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?', (limit,)
+                "SELECT * FROM scans WHERE username != 'demo' ORDER BY created_at DESC LIMIT ?", (limit,)
             ).fetchall()
     return [dict(r) for r in rows]
 
@@ -553,10 +563,10 @@ def get_scan(scan_id):
 
 def get_stats():
     with _connect() as con:
-        total   = con.execute('SELECT COUNT(*) FROM scans').fetchone()[0]
-        targets = con.execute('SELECT COUNT(DISTINCT target) FROM scans').fetchone()[0]
-        avg_lat = con.execute('SELECT AVG(latency_s) FROM scans').fetchone()[0] or 0
-        ok_cnt  = con.execute("SELECT COUNT(*) FROM scans WHERE status = 'ok'").fetchone()[0]
+        total   = con.execute("SELECT COUNT(*) FROM scans WHERE username != 'demo'").fetchone()[0]
+        targets = con.execute("SELECT COUNT(DISTINCT target) FROM scans WHERE username != 'demo'").fetchone()[0]
+        avg_lat = con.execute("SELECT AVG(latency_s) FROM scans WHERE username != 'demo'").fetchone()[0] or 0
+        ok_cnt  = con.execute("SELECT COUNT(*) FROM scans WHERE status = 'ok' AND username != 'demo'").fetchone()[0]
     return {
         'total_scans':    total,
         'unique_targets': targets,
@@ -583,8 +593,9 @@ def get_targets(username=None):
                 SELECT s.* FROM scans s
                 INNER JOIN (
                     SELECT target, MAX(created_at) AS latest
-                    FROM scans GROUP BY target
+                    FROM scans WHERE username != 'demo' GROUP BY target
                 ) g ON s.target = g.target AND s.created_at = g.latest
+                WHERE s.username != 'demo'
                 ORDER BY s.created_at DESC
             ''').fetchall()
     return [dict(r) for r in rows]
@@ -599,7 +610,7 @@ def get_scans_for_target(target: str, username=None) -> list:
             ).fetchall()
         else:
             rows = con.execute(
-                'SELECT * FROM scans WHERE target=? ORDER BY created_at DESC LIMIT 50',
+                "SELECT * FROM scans WHERE target=? AND username != 'demo' ORDER BY created_at DESC LIMIT 50",
                 (target,)
             ).fetchall()
     return [dict(r) for r in rows]
@@ -614,24 +625,28 @@ def get_recent_scans(limit: int = 50, username=None) -> list:
             ).fetchall()
         else:
             rows = con.execute(
-                'SELECT * FROM scans ORDER BY created_at DESC LIMIT ?', (limit,)
+                "SELECT * FROM scans WHERE username != 'demo' ORDER BY created_at DESC LIMIT ?", (limit,)
             ).fetchall()
     return [dict(r) for r in rows]
 
 
 # ── Incident management ───────────────────────────────────────────────────────
 
-def get_incidents(status: str = None, limit: int = 100) -> list:
+def get_incidents(status: str = None, limit: int = 100, username: str = None) -> list:
     with _connect() as con:
-        if status:
-            rows = con.execute(
-                'SELECT * FROM incidents WHERE status=? ORDER BY created_at DESC LIMIT ?',
-                (status, limit)
-            ).fetchall()
+        if username:
+            base = "SELECT * FROM incidents WHERE username=?"
+            params: list = [username]
+            if status:
+                base += " AND status=?"
+                params.append(status)
         else:
-            rows = con.execute(
-                'SELECT * FROM incidents ORDER BY created_at DESC LIMIT ?', (limit,)
-            ).fetchall()
+            base = "SELECT * FROM incidents WHERE username != 'demo'"
+            params = []
+            if status:
+                base += " AND status=?"
+                params.append(status)
+        rows = con.execute(base + " ORDER BY created_at DESC LIMIT ?", params + [limit]).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -689,12 +704,16 @@ def delete_incident(incident_id: int) -> bool:
         return cur.rowcount > 0
 
 
-def get_incident_stats() -> dict:
+def get_incident_stats(username: str = None) -> dict:
+    scope = "WHERE username=?" if username else "WHERE username != 'demo'"
+    params = [username] if username else []
     with _connect() as con:
-        total    = con.execute('SELECT COUNT(*) FROM incidents').fetchone()[0]
-        open_c   = con.execute("SELECT COUNT(*) FROM incidents WHERE status='open'").fetchone()[0]
-        inv_c    = con.execute("SELECT COUNT(*) FROM incidents WHERE status='investigating'").fetchone()[0]
-        res_c    = con.execute("SELECT COUNT(*) FROM incidents WHERE status='resolved'").fetchone()[0]
+        def _c(extra=''):
+            return con.execute(f"SELECT COUNT(*) FROM incidents {scope}{extra}", params + []).fetchone()[0]
+        total = _c()
+        open_c = con.execute(f"SELECT COUNT(*) FROM incidents {scope} AND status='open'", params).fetchone()[0]
+        inv_c  = con.execute(f"SELECT COUNT(*) FROM incidents {scope} AND status='investigating'", params).fetchone()[0]
+        res_c  = con.execute(f"SELECT COUNT(*) FROM incidents {scope} AND status='resolved'", params).fetchone()[0]
     return {'total': total, 'open': open_c, 'investigating': inv_c, 'resolved': res_c}
 
 
