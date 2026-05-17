@@ -18182,7 +18182,7 @@ function _grcRenderCtrl(rows) {
       +'</td>'
       +'<td style="white-space:nowrap;">'
         +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditCtrl('+r.id+')">Edit</button> '
-        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelCtrl('+r.id+')">Del</button>'
+        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelCtrl('+r.id+')">Delete</button>'
       +'</td></tr>';
   }).join('');
 }
@@ -18667,7 +18667,7 @@ function _grcRenderTests(rows) {
       +'<td><span style="background:'+stBg+';color:'+stColor+';font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px;">'+stBadge+'</span></td>'
       +'<td style="white-space:nowrap;">'
         +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditTest('+r.id+')">Edit</button> '
-        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelTest('+r.id+')">Del</button>'
+        +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelTest('+r.id+')">Delete</button>'
       +'</td></tr>';
   }).join('');
 }
@@ -18948,7 +18948,7 @@ function _grcRenderEvidence(rows) {
           return '<option value="'+s+'"'+(sc===s?' selected':'')+'>'+stLabels[s]+'</option>';
         }).join('')
       +'</select></td>'
-      +'<td><button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelEvidence('+r.id+')">Del</button></td>'
+      +'<td><button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelEvidence('+r.id+')">Delete</button></td>'
       +'</tr>';
   }).join('');
 }
