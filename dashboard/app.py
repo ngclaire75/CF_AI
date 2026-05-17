@@ -11181,11 +11181,30 @@ def api_grc_export():
 # GRC RISK MANAGEMENT (grc2)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _grc_is_admin() -> bool:
+    return session.get('user', {}).get('role') == 'admin'
+
+
+@app.route('/api/grc2/users')
+@login_required
+def api_grc2_users():
+    if not _grc_is_admin():
+        return jsonify({'error': 'Admin only'}), 403
+    users = _load_users()
+    result = [
+        {'username': un, 'email': u.get('email', '')}
+        for un, u in users.items()
+        if u.get('role') != 'admin' and un != 'demo'
+    ]
+    return jsonify({'users': result})
+
+
 @app.route('/api/grc2/stats')
 @login_required
 def api_grc2_stats():
     username = session['user']['username']
-    return jsonify(db.grc_stats(username=username))
+    is_admin = _grc_is_admin()
+    return jsonify(db.grc_stats(username=username, is_admin=is_admin))
 
 
 @app.route('/api/grc2/risks', methods=['GET'])
@@ -11196,7 +11215,7 @@ def api_grc2_risks_list():
     treatment   = request.args.get('treatment', '')
     risk_status = request.args.get('risk_status', '')
     username = session['user']['username']
-    return jsonify({'risks': db.grc_list_risks(q, status, treatment, risk_status, username=username)})
+    return jsonify({'risks': db.grc_list_risks(q, status, treatment, risk_status, username=username, is_admin=_grc_is_admin())})
 
 
 @app.route('/api/grc2/risks', methods=['POST'])
@@ -11205,8 +11224,11 @@ def api_grc2_risks_create():
     d = request.get_json(silent=True) or {}
     if not d.get('title'):
         return jsonify({'error': 'title required'}), 400
-    d['username'] = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    d['username'] = assigned_to or session['user'].get('username', '')
     rid = db.grc_create_risk(d)
+    if assigned_to:
+        _grc_notify(assigned_to, 'added', 'Risk', d.get('title', ''))
     return jsonify({'id': rid})
 
 
@@ -11214,6 +11236,10 @@ def api_grc2_risks_create():
 @login_required
 def api_grc2_risks_update(rid):
     d = request.get_json(silent=True) or {}
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    if assigned_to:
+        db.grc_set_record_user('grc_risks', rid, assigned_to)
+        _grc_notify(assigned_to, 'updated', 'Risk', d.get('title', ''))
     db.grc_update_risk(rid, d)
     return jsonify({'ok': True})
 
@@ -11232,7 +11258,7 @@ def api_grc2_controls_list():
     framework = request.args.get('framework', '')
     status = request.args.get('status', '')
     username = session['user']['username']
-    return jsonify({'controls': db.grc_list_controls(q, framework, status, username=username)})
+    return jsonify({'controls': db.grc_list_controls(q, framework, status, username=username, is_admin=_grc_is_admin())})
 
 
 @app.route('/api/grc2/controls', methods=['POST'])
@@ -11241,8 +11267,11 @@ def api_grc2_controls_create():
     d = request.get_json(silent=True) or {}
     if not d.get('title') or not d.get('control_id'):
         return jsonify({'error': 'control_id and title required'}), 400
-    d['username'] = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    d['username'] = assigned_to or session['user'].get('username', '')
     cid = db.grc_create_control(d)
+    if assigned_to:
+        _grc_notify(assigned_to, 'added', 'Control', d.get('title', ''))
     return jsonify({'id': cid})
 
 
@@ -11250,6 +11279,10 @@ def api_grc2_controls_create():
 @login_required
 def api_grc2_controls_update(cid):
     d = request.get_json(silent=True) or {}
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    if assigned_to:
+        db.grc_set_record_user('grc_controls', cid, assigned_to)
+        _grc_notify(assigned_to, 'updated', 'Control', d.get('title', ''))
     db.grc_update_control(cid, d)
     return jsonify({'ok': True})
 
@@ -11269,7 +11302,7 @@ def api_grc2_tests_list():
     status        = request.args.get('status', '')
     test_category = request.args.get('test_category', '')
     username = session['user']['username']
-    return jsonify({'tests': db.grc_list_tests(q, category, status, test_category, username=username)})
+    return jsonify({'tests': db.grc_list_tests(q, category, status, test_category, username=username, is_admin=_grc_is_admin())})
 
 
 @app.route('/api/grc2/tests', methods=['POST'])
@@ -11278,8 +11311,11 @@ def api_grc2_tests_create():
     d = request.get_json(silent=True) or {}
     if not d.get('name'):
         return jsonify({'error': 'name required'}), 400
-    d['username'] = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    d['username'] = assigned_to or session['user'].get('username', '')
     tid = db.grc_create_test(d)
+    if assigned_to:
+        _grc_notify(assigned_to, 'added', 'Test', d.get('name', ''))
     return jsonify({'id': tid})
 
 
@@ -11287,6 +11323,10 @@ def api_grc2_tests_create():
 @login_required
 def api_grc2_tests_update(tid):
     d = request.get_json(silent=True) or {}
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    if assigned_to:
+        db.grc_set_record_user('grc_tests', tid, assigned_to)
+        _grc_notify(assigned_to, 'updated', 'Test', d.get('name', ''))
     db.grc_update_test(tid, d)
     return jsonify({'ok': True})
 
@@ -11302,7 +11342,7 @@ def api_grc2_tests_delete(tid):
 @login_required
 def api_grc2_audits_list():
     username = session['user']['username']
-    return jsonify({'audits': db.grc_list_audits(username=username)})
+    return jsonify({'audits': db.grc_list_audits(username=username, is_admin=_grc_is_admin())})
 
 
 @app.route('/api/grc2/audits', methods=['POST'])
@@ -11311,8 +11351,11 @@ def api_grc2_audits_create():
     d = request.get_json(silent=True) or {}
     if not d.get('name'):
         return jsonify({'error': 'name required'}), 400
-    d['username'] = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    d['username'] = assigned_to or session['user'].get('username', '')
     aid = db.grc_create_audit(d)
+    if assigned_to:
+        _grc_notify(assigned_to, 'added', 'Audit', d.get('name', ''))
     return jsonify({'id': aid})
 
 
@@ -11320,6 +11363,10 @@ def api_grc2_audits_create():
 @login_required
 def api_grc2_audits_update(aid):
     d = request.get_json(silent=True) or {}
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    if assigned_to:
+        db.grc_set_record_user('grc_audits', aid, assigned_to)
+        _grc_notify(assigned_to, 'updated', 'Audit', d.get('name', ''))
     db.grc_update_audit(aid, d)
     return jsonify({'ok': True})
 
@@ -11338,7 +11385,7 @@ def api_grc2_evidence_list():
     ev_status = request.args.get('evidence_status', '')
     aid = int(audit_id) if audit_id.isdigit() else None
     username = session['user']['username']
-    return jsonify({'evidence': db.grc_list_evidence(aid, ev_status, username=username)})
+    return jsonify({'evidence': db.grc_list_evidence(aid, ev_status, username=username, is_admin=_grc_is_admin())})
 
 
 @app.route('/api/grc2/evidence', methods=['POST'])
@@ -11347,8 +11394,11 @@ def api_grc2_evidence_create():
     d = request.get_json(silent=True) or {}
     if not d.get('title'):
         return jsonify({'error': 'title required'}), 400
-    d['username'] = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    d['username'] = assigned_to or session['user'].get('username', '')
     eid = db.grc_create_evidence(d)
+    if assigned_to:
+        _grc_notify(assigned_to, 'added', 'Evidence', d.get('title', ''))
     return jsonify({'id': eid})
 
 
@@ -11356,6 +11406,10 @@ def api_grc2_evidence_create():
 @login_required
 def api_grc2_evidence_update(eid):
     d = request.get_json(silent=True) or {}
+    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
+    if assigned_to:
+        db.grc_set_record_user('grc_evidence', eid, assigned_to)
+        _grc_notify(assigned_to, 'updated', 'Evidence', d.get('title', ''))
     db.grc_update_evidence(eid, d)
     return jsonify({'ok': True})
 
@@ -13215,6 +13269,62 @@ def _send_account_change_email(username: str, email: str, change_type: str) -> b
         return True
     except Exception:
         return False
+
+
+def _send_grc_notification_email(username: str, email: str, action: str,
+                                  tab: str, title: str) -> bool:
+    if not _SMTP_USER or not _SMTP_PASS or not email:
+        return False
+    try:
+        import datetime as _dt
+        now_str = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+        verb    = 'added to' if action == 'added' else 'updated in'
+        subject = f'CyberINK — New {tab} {verb.split()[0].capitalize()} in Your Risk Management'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
+            Risk Management Update</p>
+          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            Hello <strong>{username}</strong>, your administrator has {verb} your
+            <strong>Risk Management &amp; Audit Control</strong> workspace.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Section</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:600;">{tab}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Item</td>
+              <td style="padding:7px 0;color:#2563eb;">{title}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Action</td>
+              <td style="padding:7px 0;color:#2563eb;">{action.capitalize()}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Time (UTC)</td>
+              <td style="padding:7px 0;color:#2563eb;">{now_str}</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#475569;font-size:12px;line-height:1.6;">
+            Log in to CyberINK and open the <strong>Risk Management &amp; Audit Control</strong>
+            page to review this update. If you have questions, contact us at
+            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _grc_notify(username: str, action: str, tab: str, title: str) -> None:
+    users      = _load_users()
+    user_email = (users.get(username) or {}).get('email', '')
+    _send_grc_notification_email(username, user_email, action, tab, title)
 
 
 def _send_role_change_email(username: str, email: str, new_role: str, changed_by: str) -> bool:

@@ -1189,15 +1189,28 @@ def get_plugins(target: str = '', limit: int = 1000, username=None) -> list:
 
 # ── GRC CRUD ──────────────────────────────────────────────────────────────────
 
-def _grc_u_filter(username: str) -> tuple:
+def _grc_u_filter(username: str, is_admin: bool = False) -> tuple:
     """Return (sql_snippet, params) scoping a GRC query to the given user.
-    'demo' also sees legacy rows with empty username (created before per-user data)."""
+    Admin sees all real-user rows (excludes legacy empty and demo rows).
+    'demo' also sees legacy rows with empty username."""
+    if is_admin:
+        return " AND username != '' AND username != 'demo'", []
     if username == 'demo':
         return " AND (username = '' OR username = 'demo')", []
     return " AND username = ?", [username]
 
 
-def grc_list_risks(q='', status='', treatment='', risk_status='', username='') -> list:
+def grc_set_record_user(table: str, record_id: int, username: str) -> None:
+    """Reassign a GRC record to a different user account (admin use)."""
+    _allowed = {'grc_risks', 'grc_controls', 'grc_tests', 'grc_audits', 'grc_evidence'}
+    if table not in _allowed:
+        return
+    with _connect() as con:
+        con.execute(f'UPDATE {table} SET username=? WHERE id=?', (username, record_id))
+        con.commit()
+
+
+def grc_list_risks(q='', status='', treatment='', risk_status='', username='', is_admin=False) -> list:
     with _connect() as con:
         sql = 'SELECT * FROM grc_risks WHERE 1=1'
         params: list = []
@@ -1210,7 +1223,7 @@ def grc_list_risks(q='', status='', treatment='', risk_status='', username='') -
             sql += ' AND treatment=?'; params.append(treatment)
         if risk_status:
             sql += ' AND risk_status=?'; params.append(risk_status)
-        u_sql, u_p = _grc_u_filter(username)
+        u_sql, u_p = _grc_u_filter(username, is_admin=is_admin)
         sql += u_sql; params += u_p
         sql += ' ORDER BY score DESC, created_at DESC'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
@@ -1248,7 +1261,7 @@ def grc_delete_risk(rid: int) -> bool:
     return True
 
 
-def grc_list_controls(q='', framework='', status='', username='') -> list:
+def grc_list_controls(q='', framework='', status='', username='', is_admin=False) -> list:
     with _connect() as con:
         sql = 'SELECT * FROM grc_controls WHERE 1=1'
         params: list = []
@@ -1259,7 +1272,7 @@ def grc_list_controls(q='', framework='', status='', username='') -> list:
             sql += ' AND framework=?'; params.append(framework)
         if status:
             sql += ' AND status=?'; params.append(status)
-        u_sql, u_p = _grc_u_filter(username)
+        u_sql, u_p = _grc_u_filter(username, is_admin=is_admin)
         sql += u_sql; params += u_p
         sql += ' ORDER BY framework, control_id'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
@@ -1297,7 +1310,7 @@ def grc_delete_control(cid: int) -> bool:
     return True
 
 
-def grc_list_tests(q='', category='', status='', test_category='', username='') -> list:
+def grc_list_tests(q='', category='', status='', test_category='', username='', is_admin=False) -> list:
     with _connect() as con:
         sql = 'SELECT * FROM grc_tests WHERE 1=1'
         params: list = []
@@ -1310,7 +1323,7 @@ def grc_list_tests(q='', category='', status='', test_category='', username='') 
             sql += ' AND test_category=?'; params.append(test_category)
         if status:
             sql += ' AND status=?'; params.append(status)
-        u_sql, u_p = _grc_u_filter(username)
+        u_sql, u_p = _grc_u_filter(username, is_admin=is_admin)
         sql += u_sql; params += u_p
         sql += ' ORDER BY created_at DESC'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
@@ -1346,9 +1359,9 @@ def grc_delete_test(tid: int) -> bool:
     return True
 
 
-def grc_list_audits(username='') -> list:
+def grc_list_audits(username='', is_admin=False) -> list:
     with _connect() as con:
-        u_sql, u_p = _grc_u_filter(username)
+        u_sql, u_p = _grc_u_filter(username, is_admin=is_admin)
         sql = 'SELECT * FROM grc_audits WHERE 1=1' + u_sql + ' ORDER BY created_at DESC'
         return [dict(r) for r in con.execute(sql, u_p).fetchall()]
 
@@ -1383,7 +1396,7 @@ def grc_delete_audit(aid: int) -> bool:
     return True
 
 
-def grc_list_evidence(audit_id: int | None = None, ev_status: str = '', username='') -> list:
+def grc_list_evidence(audit_id: int | None = None, ev_status: str = '', username='', is_admin=False) -> list:
     with _connect() as con:
         sql = '''SELECT e.*, a.name as audit_name
                  FROM grc_evidence e
@@ -1394,7 +1407,7 @@ def grc_list_evidence(audit_id: int | None = None, ev_status: str = '', username
             sql += ' AND e.audit_id=?'; params.append(audit_id)
         if ev_status:
             sql += ' AND e.evidence_status=?'; params.append(ev_status)
-        u_sql, u_p = _grc_u_filter(username)
+        u_sql, u_p = _grc_u_filter(username, is_admin=is_admin)
         sql += u_sql.replace('username', 'e.username'); params += u_p
         sql += ' ORDER BY e.created_at DESC'
         return [dict(r) for r in con.execute(sql, params).fetchall()]
@@ -1456,9 +1469,9 @@ def grc_delete_evidence(eid: int) -> bool:
     return True
 
 
-def grc_test_category_counts(username='') -> dict:
+def grc_test_category_counts(username='', is_admin=False) -> dict:
     with _connect() as con:
-        u_sql, u_p = _grc_u_filter(username)
+        u_sql, u_p = _grc_u_filter(username, is_admin=is_admin)
         rows = con.execute(
             "SELECT COALESCE(NULLIF(test_category,''),'Other') as cat, COUNT(*) as cnt "
             "FROM grc_tests WHERE 1=1" + u_sql + " GROUP BY cat", u_p
@@ -1466,8 +1479,8 @@ def grc_test_category_counts(username='') -> dict:
         return {r['cat']: r['cnt'] for r in rows}
 
 
-def grc_stats(username='') -> dict:
-    u_sql, u_p = _grc_u_filter(username)
+def grc_stats(username='', is_admin=False) -> dict:
+    u_sql, u_p = _grc_u_filter(username, is_admin=is_admin)
     u = u_sql  # shorthand
 
     with _connect() as con:

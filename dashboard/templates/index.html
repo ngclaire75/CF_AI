@@ -5941,7 +5941,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <table class="grc2-tbl">
           <thead><tr>
             <th style="width:32px;"><input type="checkbox" id="grc-ctrl-all-cb" onchange="grcCtrlSelectAll(this)"></th>
-            <th>CONTROL ID</th><th>CONTROL</th><th>OWNER</th><th>SOURCE</th><th>FRAMEWORK MAPPING</th><th>TESTS</th><th style="width:80px;"></th>
+            <th>CONTROL ID</th><th>CONTROL</th><th>OWNER</th><th>SOURCE</th><th>FRAMEWORK MAPPING</th><th>TESTS</th>
+            <th id="grc-ctrl-acct-th" style="display:none;">ACCOUNT</th><th style="width:80px;"></th>
           </tr></thead>
           <tbody id="grc-ctrl-tbody"></tbody>
         </table>
@@ -6040,7 +6041,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           <thead><tr>
             <th style="width:32px;"><input type="checkbox"></th>
             <th>RISK SCENARIO</th><th>OWNER</th><th>RISK SCORE</th>
-            <th>TREATMENT</th><th>RESIDUAL RISK</th><th>STATUS</th><th style="width:60px;"></th>
+            <th>TREATMENT</th><th>RESIDUAL RISK</th><th>STATUS</th>
+            <th id="grc-risk-acct-th" style="display:none;">ACCOUNT</th><th style="width:60px;"></th>
           </tr></thead>
           <tbody id="grc-risk-tbody"></tbody>
         </table>
@@ -6208,7 +6210,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           <table class="grc2-tbl">
             <thead><tr>
               <th style="width:32px;"><input type="checkbox"></th>
-              <th>NAME</th><th>CATEGORY</th><th>OWNER</th><th>TYPE</th><th>STATUS</th><th style="width:60px;"></th>
+              <th>NAME</th><th>CATEGORY</th><th>OWNER</th><th>TYPE</th><th>STATUS</th>
+              <th id="grc-test-acct-th" style="display:none;">ACCOUNT</th><th style="width:60px;"></th>
             </tr></thead>
             <tbody id="grc-test-tbody"></tbody>
           </table>
@@ -6242,7 +6245,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       </div>
       <div style="overflow-x:auto;">
         <table class="grc2-tbl">
-          <thead><tr><th>NAME</th><th>AUDITOR</th><th>SCOPE</th><th>STATUS</th><th>START</th><th>END</th><th style="width:80px;"></th></tr></thead>
+          <thead><tr><th>NAME</th><th>AUDITOR</th><th>SCOPE</th><th>STATUS</th><th>START</th><th>END</th><th id="grc-audit-acct-th" style="display:none;">ACCOUNT</th></tr></thead>
           <tbody id="grc-audit-tbody"></tbody>
         </table>
       </div>
@@ -6274,7 +6277,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <div style="overflow-x:auto;">
         <table class="grc2-tbl">
           <thead><tr>
-            <th>EVIDENCE</th><th>TYPE</th><th>OWNER</th><th>AUDITOR ASSESSMENT</th><th style="width:140px;"></th>
+            <th>EVIDENCE</th><th>TYPE</th><th>OWNER</th><th>AUDITOR ASSESSMENT</th><th id="grc-ev-acct-th" style="display:none;">ACCOUNT</th><th style="width:60px;"></th>
           </tr></thead>
           <tbody id="grc-ev-tbody"></tbody>
         </table>
@@ -6365,6 +6368,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       </div>
       <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gc-desc" placeholder="Control description"></textarea></div>
       <div class="grc2-field"><label class="grc2-lbl">Notes</label><textarea class="grc2-ta" id="gc-notes" placeholder="Additional notes"></textarea></div>
+      <div class="grc2-field grc-admin-assign" style="display:none;"><label class="grc2-lbl">Assign to Account</label>
+        <select class="grc2-sel" id="gc-assignto"><option value="">-- Select user account --</option></select></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
         <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-ctrl-modal')">Cancel</button>
         <button class="grc2-btn" onclick="grcSaveCtrl()">Save Control</button>
@@ -6436,6 +6441,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <div class="grc2-field"><label class="grc2-lbl">Due Date</label><input class="grc2-inp" type="date" id="gr-due"></div>
       <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gr-desc" placeholder="Risk description"></textarea></div>
       <div class="grc2-field"><label class="grc2-lbl">Treatment Notes</label><textarea class="grc2-ta" id="gr-notes" placeholder="Treatment plan, mitigations..."></textarea></div>
+      <div class="grc2-field grc-admin-assign" style="display:none;"><label class="grc2-lbl">Assign to Account</label>
+        <select class="grc2-sel" id="gr-assignto"><option value="">-- Select user account --</option></select></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
         <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-risk-modal')">Cancel</button>
         <button class="grc2-btn" onclick="grcSaveRisk()">Save Risk</button>
@@ -6478,6 +6485,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       </div>
       <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gt-desc" placeholder="Test description"></textarea></div>
       <div class="grc2-field"><label class="grc2-lbl">Result Notes</label><textarea class="grc2-ta" id="gt-result" placeholder="Test result notes"></textarea></div>
+      <div class="grc2-field grc-admin-assign" style="display:none;"><label class="grc2-lbl">Assign to Account</label>
+        <select class="grc2-sel" id="gt-assignto"><option value="">-- Select user account --</option></select></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
         <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-test-modal')">Cancel</button>
         <button class="grc2-btn" onclick="grcSaveTest()">Save Test</button>
@@ -6513,6 +6522,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       </div>
       <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gau-desc"></textarea></div>
       <div class="grc2-field"><label class="grc2-lbl">Findings</label><textarea class="grc2-ta" id="gau-findings"></textarea></div>
+      <div class="grc2-field grc-admin-assign" style="display:none;"><label class="grc2-lbl">Assign to Account</label>
+        <select class="grc2-sel" id="gau-assignto"><option value="">-- Select user account --</option></select></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
         <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-audit-modal')">Cancel</button>
         <button class="grc2-btn" onclick="grcSaveAudit()">Save Audit</button>
@@ -6548,6 +6559,8 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <div class="grc2-field"><label class="grc2-lbl">File Reference</label><input class="grc2-inp" id="gev-file" placeholder="filename.pdf"></div>
       </div>
       <div class="grc2-field"><label class="grc2-lbl">Description</label><textarea class="grc2-ta" id="gev-desc"></textarea></div>
+      <div class="grc2-field grc-admin-assign" style="display:none;"><label class="grc2-lbl">Assign to Account</label>
+        <select class="grc2-sel" id="gev-assignto"><option value="">-- Select user account --</option></select></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
         <button class="grc2-btn grc2-btn-out" onclick="grcClose('grc2-ev-modal')">Cancel</button>
         <button class="grc2-btn" onclick="grcSaveEvidence()">Save Evidence</button>
@@ -17476,6 +17489,28 @@ function grcInit() {
   _grcInited = true;
   grcLoadStats();
   grcLoadControls();
+  if (USER_ROLE === 'admin') _grcLoadUserList();
+}
+
+var _grcUserList = [];
+
+function _grcLoadUserList() {
+  fetch('/api/grc2/users').then(function(r){ return r.json(); }).then(function(d){
+    _grcUserList = d.users || [];
+    var opts = '<option value="">-- Select user account --</option>'
+      + _grcUserList.map(function(u){
+          return '<option value="'+_ge(u.username)+'">'+_ge(u.username)+(u.email?' ('+_ge(u.email)+')':'')+'</option>';
+        }).join('');
+    ['gc-assignto','gr-assignto','gt-assignto','gau-assignto','gev-assignto'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = opts;
+    });
+    document.querySelectorAll('.grc-admin-assign').forEach(function(el){ el.style.display = ''; });
+    ['grc-ctrl-acct-th','grc-risk-acct-th','grc-test-acct-th','grc-audit-acct-th','grc-ev-acct-th'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+  }).catch(function(){});
 }
 
 function grcTab(tab) {
@@ -17599,6 +17634,7 @@ function _grcRenderCtrl(rows) {
         +(testCount ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:600;border-radius:10px;padding:2px 8px;">'+testCount+'</span>'
           : '<span style="color:#94a3b8;font-size:12px;">—</span>')
       +'</td>'
+      +(USER_ROLE==='admin' ? '<td style="font-size:11px;color:#2563eb;">'+(_ge(r.username)||'<span style="color:#94a3b8;">—</span>')+'</td>' : '')
       +'<td style="white-space:nowrap;">'
         +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditCtrl('+r.id+')">Edit</button> '
         +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelCtrl('+r.id+')">Delete</button>'
@@ -17620,6 +17656,8 @@ function grcOpenCtrl(data) {
   document.getElementById('gc-due').value     = data ? data.due_date : '';
   document.getElementById('gc-desc').value    = data ? data.description : '';
   document.getElementById('gc-notes').value   = data ? data.notes : '';
+  var gcAt = document.getElementById('gc-assignto');
+  if (gcAt) gcAt.value = data ? (data.username || '') : '';
   document.getElementById('grc2-ctrl-modal').classList.add('open');
 }
 
@@ -17644,6 +17682,7 @@ function grcSaveCtrl() {
     notes:            _gv('gc-notes'),
   };
   if (!p.title || !p.control_id) { alert('Control ID and Title are required.'); return; }
+  if (USER_ROLE === 'admin') { var at = _gv('gc-assignto'); if (at) p.assigned_to = at; }
   var url = id ? '/api/grc2/controls/'+id : '/api/grc2/controls';
   fetch(url, {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
     .then(function(r){ return r.json(); }).then(function(){
@@ -17715,6 +17754,7 @@ function _grcRenderRisks(rows) {
       +'<td>'+treatBadge+'</td>'
       +'<td style="text-align:center;"><span style="font-size:13px;font-weight:600;color:#2563eb;">'+(r.residual_risk||0)+'</span></td>'
       +'<td>'+rsBadge+'</td>'
+      +(USER_ROLE==='admin' ? '<td style="font-size:11px;color:#2563eb;">'+(_ge(r.username)||'<span style="color:#94a3b8;">—</span>')+'</td>' : '')
       +'<td style="white-space:nowrap;">'
         +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditRisk('+r.id+')">Edit</button>'
       +'</td></tr>';
@@ -17827,6 +17867,8 @@ function grcOpenRisk(data) {
   document.getElementById('gr-due').value       = data ? data.due_date : '';
   document.getElementById('gr-desc').value      = data ? data.description : '';
   document.getElementById('gr-notes').value     = data ? data.notes : '';
+  var grAt = document.getElementById('gr-assignto');
+  if (grAt) grAt.value = data ? (data.username || '') : '';
   grcCalcScore();
   document.getElementById('grc2-risk-modal').classList.add('open');
 }
@@ -17875,6 +17917,7 @@ function grcSaveRisk() {
     due_date:_gv('gr-due'), description:_gv('gr-desc'), notes:_gv('gr-notes'),
   };
   if (!p.title) { alert('Title is required.'); return; }
+  if (USER_ROLE === 'admin') { var at = _gv('gr-assignto'); if (at) p.assigned_to = at; }
   var url = id ? '/api/grc2/risks/'+id : '/api/grc2/risks';
   fetch(url, {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
     .then(function(r){ return r.json(); }).then(function(){
@@ -18120,6 +18163,7 @@ function _grcRenderTests(rows) {
       +'<td style="font-size:12px;">'+(_ge(r.owner)||'—')+'</td>'
       +'<td style="font-size:12px;color:#64748b;">'+(_ge(r.category||'Manual'))+'</td>'
       +'<td><span style="background:'+stBg+';color:'+stColor+';font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px;">'+stBadge+'</span></td>'
+      +(USER_ROLE==='admin' ? '<td style="font-size:11px;color:#2563eb;">'+(_ge(r.username)||'<span style="color:#94a3b8;">—</span>')+'</td>' : '')
       +'<td style="white-space:nowrap;">'
         +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditTest('+r.id+')">Edit</button> '
         +'<button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelTest('+r.id+')">Delete</button>'
@@ -18139,6 +18183,8 @@ function grcOpenTest(data) {
   document.getElementById('gt-lastrun').value = data ? data.last_run : '';
   document.getElementById('gt-desc').value    = data ? data.description : '';
   document.getElementById('gt-result').value  = data ? data.result_notes : '';
+  var gtAt = document.getElementById('gt-assignto');
+  if (gtAt) gtAt.value = data ? (data.username || '') : '';
   document.getElementById('grc2-test-modal').classList.add('open');
 }
 
@@ -18155,6 +18201,7 @@ function grcSaveTest() {
     last_run:_gv('gt-lastrun'), description:_gv('gt-desc'), result_notes:_gv('gt-result'),
   };
   if (!p.name) { alert('Name is required.'); return; }
+  if (USER_ROLE === 'admin') { var at = _gv('gt-assignto'); if (at) p.assigned_to = at; }
   var url = id ? '/api/grc2/tests/'+id : '/api/grc2/tests';
   fetch(url, {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
     .then(function(r){ return r.json(); }).then(function(){
@@ -18250,6 +18297,7 @@ function _grcRenderAuditCards(audits) {
       +'<div style="font-size:12px;color:#64748b;margin-bottom:2px;">Auditor: '+(_ge(a.auditor)||'—')+'</div>'
       +'<div style="font-size:12px;color:#64748b;margin-bottom:2px;">Scope: '+(_ge(a.scope)||'—')+'</div>'
       +'<div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">'+(_ge(a.start_date)||'—')+' — '+(_ge(a.end_date)||'—')+'</div>'
+      +(USER_ROLE==='admin' && a.username ? '<div style="font-size:11px;color:#2563eb;margin-bottom:4px;">Account: '+_ge(a.username)+'</div>' : '')
       + timeline
       +'<div style="display:flex;gap:6px;margin-top:8px;">'
         +'<button class="grc2-btn grc2-btn-out grc2-btn-sm" onclick="grcEditAudit('+a.id+')">Edit</button>'
@@ -18275,6 +18323,7 @@ function _grcRenderAuditTable(audits) {
       +'<td><span style="background:'+stBg+';color:'+stColor+';font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px;">'+stLabel+'</span></td>'
       +'<td style="font-size:12px;color:#64748b;">'+(_ge(a.start_date)||'—')+'</td>'
       +'<td style="font-size:12px;color:#64748b;">'+(_ge(a.end_date)||'—')+'</td>'
+      +(USER_ROLE==='admin' ? '<td style="font-size:11px;color:#2563eb;">'+(_ge(a.username)||'<span style="color:#94a3b8;">—</span>')+'</td>' : '')
       +'</tr>';
   }).join('');
 }
@@ -18291,6 +18340,8 @@ function grcOpenAudit(data) {
   document.getElementById('gau-end').value     = data ? data.end_date : '';
   document.getElementById('gau-desc').value    = data ? data.description : '';
   document.getElementById('gau-findings').value= data ? data.findings : '';
+  var gauAt = document.getElementById('gau-assignto');
+  if (gauAt) gauAt.value = data ? (data.username || '') : '';
   document.getElementById('grc2-audit-modal').classList.add('open');
 }
 
@@ -18307,6 +18358,7 @@ function grcSaveAudit() {
     end_date:_gv('gau-end'), description:_gv('gau-desc'), findings:_gv('gau-findings'),
   };
   if (!p.name) { alert('Audit name is required.'); return; }
+  if (USER_ROLE === 'admin') { var at = _gv('gau-assignto'); if (at) p.assigned_to = at; }
   var url = id ? '/api/grc2/audits/'+id : '/api/grc2/audits';
   fetch(url, {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
     .then(function(r){ return r.json(); }).then(function(){
@@ -18403,6 +18455,7 @@ function _grcRenderEvidence(rows) {
           return '<option value="'+s+'"'+(sc===s?' selected':'')+'>'+stLabels[s]+'</option>';
         }).join('')
       +'</select></td>'
+      +(USER_ROLE==='admin' ? '<td style="font-size:11px;color:#2563eb;">'+(_ge(r.username)||'<span style="color:#94a3b8;">—</span>')+'</td>' : '')
       +'<td><button class="grc2-btn grc2-btn-del grc2-btn-sm" onclick="grcDelEvidence('+r.id+')">Delete</button></td>'
       +'</tr>';
   }).join('');
@@ -18427,6 +18480,7 @@ function grcSaveEvidence() {
     collected_by:_gv('gev-by'), file_name:_gv('gev-file'),
   };
   if (!p.title) { alert('Title is required.'); return; }
+  if (USER_ROLE === 'admin') { var at = _gv('gev-assignto'); if (at) p.assigned_to = at; }
   fetch('/api/grc2/evidence', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)})
     .then(function(r){ return r.json(); }).then(function(){
       grcClose('grc2-ev-modal'); grcLoadEvidence();
