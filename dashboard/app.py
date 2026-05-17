@@ -12058,9 +12058,21 @@ try:
 except ImportError:
     _GCAL_AVAILABLE = False
 
-_GCAL_SCOPES     = ['https://www.googleapis.com/auth/calendar']
-_GCAL_CREDS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'google_oauth_credentials.json')
-_GCAL_TOKEN_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'google_oauth_token.json')
+_GCAL_SCOPES      = ['https://www.googleapis.com/auth/calendar']
+_GCAL_TOKEN_FILE  = os.path.join(os.path.dirname(__file__), '..', 'data', 'google_oauth_token.json')
+_GCAL_CLIENT_ID   = os.environ.get('GOOGLE_CLIENT_ID', '')
+_GCAL_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+
+def _gcal_client_config(redirect_uri: str) -> dict:
+    return {
+        'web': {
+            'client_id':     _GCAL_CLIENT_ID,
+            'client_secret': _GCAL_CLIENT_SECRET,
+            'redirect_uris': [redirect_uri],
+            'auth_uri':      'https://accounts.google.com/o/oauth2/auth',
+            'token_uri':     'https://oauth2.googleapis.com/token',
+        }
+    }
 
 _APPT_PREP: dict = {
     'Dashboard Feature Training': [
@@ -12393,15 +12405,15 @@ def gcal_setup():
     if not _GCAL_AVAILABLE:
         return ('Google Calendar API libraries not installed.\n'
                 'Run: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib'), 503
-    if not os.path.exists(_GCAL_CREDS_FILE):
-        return (f'Google OAuth credentials file not found.\n'
-                f'Download credentials.json from Google Cloud Console and save to:\n{_GCAL_CREDS_FILE}'), 503
+    if not _GCAL_CLIENT_ID or not _GCAL_CLIENT_SECRET:
+        return 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set in .env', 503
     if _get_gcal_service():
         return 'Google Calendar is already connected.', 200
     try:
         from flask import redirect as _redir
         cb = request.host_url.rstrip('/') + '/api/auth/google/callback'
-        flow = _GFlow.from_client_secrets_file(_GCAL_CREDS_FILE, scopes=_GCAL_SCOPES, redirect_uri=cb)
+        flow = _GFlow.from_client_config(_gcal_client_config(cb), scopes=_GCAL_SCOPES)
+        flow.redirect_uri = cb
         auth_url, state = flow.authorization_url(access_type='offline',
                                                   include_granted_scopes='true', prompt='consent')
         session['gcal_oauth_state'] = state
@@ -12418,7 +12430,8 @@ def gcal_callback():
         return 'Google Calendar libraries not installed.', 503
     try:
         cb = request.host_url.rstrip('/') + '/api/auth/google/callback'
-        flow = _GFlow.from_client_secrets_file(_GCAL_CREDS_FILE, scopes=_GCAL_SCOPES, redirect_uri=cb)
+        flow = _GFlow.from_client_config(_gcal_client_config(cb), scopes=_GCAL_SCOPES)
+        flow.redirect_uri = cb
         flow.fetch_token(authorization_response=request.url)
         creds = flow.credentials
         os.makedirs(os.path.dirname(_GCAL_TOKEN_FILE), exist_ok=True)
