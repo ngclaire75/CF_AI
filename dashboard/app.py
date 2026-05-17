@@ -12098,6 +12098,26 @@ _APPT_PREP: dict = {
 }
 
 
+def _parse_duration_minutes(s: str) -> int:
+    """Parse a human duration string to minutes. Returns 60 if unparseable."""
+    import re as _re
+    if not s:
+        return 60
+    s = s.lower().strip()
+    if 'full day' in s or 'whole day' in s:
+        return 480
+    if 'half day' in s or 'half-day' in s:
+        return 240
+    total = 0
+    m = _re.search(r'(\d+(?:\.\d+)?)\s*h(?:our|r)?s?', s)
+    if m:
+        total += int(float(m.group(1)) * 60)
+    m = _re.search(r'(\d+)\s*m(?:in(?:ute)?s?)?', s)
+    if m:
+        total += int(m.group(1))
+    return total if total > 0 else 60
+
+
 def _get_gcal_service():
     if not _GCAL_AVAILABLE or not os.path.exists(_GCAL_TOKEN_FILE):
         return None
@@ -12112,8 +12132,8 @@ def _get_gcal_service():
         return None
 
 
-def _create_gcal_appointment(service_type: str, date_str: str, time_str: str,
-                              duration_min: int, timezone: str,
+def _create_gcal_appointment(service_type: str, date_str: str, end_date_str: str,
+                              time_str: str, duration_str: str, timezone: str,
                               full_name: str, user_email: str,
                               company: str, notes: str) -> dict | None:
     svc = _get_gcal_service()
@@ -12121,8 +12141,12 @@ def _create_gcal_appointment(service_type: str, date_str: str, time_str: str,
         return None
     try:
         import datetime as _dt
-        start_naive = _dt.datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %H:%M')
-        end_naive   = start_naive + _dt.timedelta(minutes=duration_min)
+        duration_min = _parse_duration_minutes(duration_str)
+        start_naive  = _dt.datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %H:%M')
+        if end_date_str and end_date_str != date_str:
+            end_naive = _dt.datetime.strptime(f'{end_date_str} {time_str}', '%Y-%m-%d %H:%M')
+        else:
+            end_naive = start_naive + _dt.timedelta(minutes=duration_min)
         start_iso   = start_naive.strftime('%Y-%m-%dT%H:%M:%S')
         end_iso     = end_naive.strftime('%Y-%m-%dT%H:%M:%S')
 
@@ -12179,25 +12203,32 @@ def _create_gcal_appointment(service_type: str, date_str: str, time_str: str,
         return None
 
 
-def _format_appt_datetime(date_str: str, time_str: str, duration_min: int, timezone: str) -> str:
+def _format_appt_datetime(date_str: str, end_date_str: str, time_str: str,
+                          duration_str: str, timezone: str) -> str:
     try:
         import datetime as _dt
-        dt  = _dt.datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %H:%M')
-        end = dt + _dt.timedelta(minutes=duration_min)
-        return (f'{dt.strftime("%A, %d %B %Y")} at {dt.strftime("%H:%M")} — '
-                f'{end.strftime("%H:%M")} ({timezone})')
+        dt = _dt.datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %H:%M')
+        result = f'{dt.strftime("%A, %d %B %Y")} at {dt.strftime("%H:%M")}'
+        if end_date_str and end_date_str != date_str:
+            edt = _dt.datetime.strptime(end_date_str, '%Y-%m-%d')
+            result += f' — {edt.strftime("%A, %d %B %Y")}'
+        if duration_str:
+            result += f' · {duration_str}'
+        result += f' ({timezone})'
+        return result
     except Exception:
-        return f'{date_str} {time_str} ({duration_min} min, {timezone})'
+        return f'{date_str} {time_str} ({timezone})'
 
 
-def _send_appointment_admin_email(service_type: str, date_str: str, time_str: str,
-                                   duration_min: int, timezone: str, full_name: str,
-                                   user_email: str, company: str, notes: str,
-                                   meet_link: str, event_link: str, username: str) -> bool:
+def _send_appointment_admin_email(service_type: str, date_str: str, end_date_str: str,
+                                   time_str: str, duration_str: str, timezone: str,
+                                   full_name: str, user_email: str, company: str,
+                                   notes: str, meet_link: str, event_link: str,
+                                   username: str) -> bool:
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        appt_dt    = _format_appt_datetime(date_str, time_str, duration_min, timezone)
+        appt_dt    = _format_appt_datetime(date_str, end_date_str, time_str, duration_str, timezone)
         subject    = f'[CyberINK Appointment] {service_type} — {full_name}'
         safe_notes = notes.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
 
@@ -12266,13 +12297,13 @@ def _send_appointment_admin_email(service_type: str, date_str: str, time_str: st
         return False
 
 
-def _send_appointment_user_email(service_type: str, date_str: str, time_str: str,
-                                  duration_min: int, timezone: str,
+def _send_appointment_user_email(service_type: str, date_str: str, end_date_str: str,
+                                  time_str: str, duration_str: str, timezone: str,
                                   full_name: str, user_email: str, meet_link: str) -> bool:
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        appt_dt = _format_appt_datetime(date_str, time_str, duration_min, timezone)
+        appt_dt = _format_appt_datetime(date_str, end_date_str, time_str, duration_str, timezone)
         subject = f'CyberINK — Appointment Request Received: {service_type}'
 
         if meet_link:
@@ -12341,16 +12372,17 @@ def _send_appointment_user_email(service_type: str, date_str: str, time_str: str
 def book_appointment():
     if 'user' not in session:
         return jsonify({'error': 'Not logged in'}), 401
-    data         = request.get_json(force=True) or {}
-    service_type = (data.get('service_type') or '').strip()
-    date_str     = (data.get('date')         or '').strip()
-    time_str     = (data.get('time')         or '').strip()
-    duration_min = int(data.get('duration', 60))
-    timezone     = (data.get('timezone')     or 'Asia/Jakarta').strip()
-    full_name    = (data.get('full_name')    or '').strip()
-    user_email   = (data.get('email')        or '').strip()
-    company      = (data.get('company')      or '').strip()
-    notes        = (data.get('notes')        or '').strip()
+    data          = request.get_json(force=True) or {}
+    service_type  = (data.get('service_type') or '').strip()
+    date_str      = (data.get('date')         or '').strip()
+    end_date_str  = (data.get('end_date')     or '').strip()
+    time_str      = (data.get('time')         or '').strip()
+    duration_str  = (data.get('duration')     or '').strip()
+    timezone      = (data.get('timezone')     or 'Asia/Jakarta').strip()
+    full_name     = (data.get('full_name')    or '').strip()
+    user_email    = (data.get('email')        or '').strip()
+    company       = (data.get('company')      or '').strip()
+    notes         = (data.get('notes')        or '').strip()
 
     valid_services = {'Dashboard Feature Training', 'On-Site Cyber Security Audit',
                       'Website Security Analysis', 'Manual Report Writing'}
@@ -12362,31 +12394,33 @@ def book_appointment():
         return jsonify({'error': 'Full name is required.'}), 400
     if not user_email or '@' not in user_email:
         return jsonify({'error': 'A valid email address is required.'}), 400
-    if duration_min not in (30, 60, 90, 120):
-        duration_min = 60
 
     try:
         import datetime as _dt
         appt_date = _dt.datetime.strptime(date_str, '%Y-%m-%d').date()
         if appt_date <= _dt.date.today():
-            return jsonify({'error': 'Please select a future date for your appointment.'}), 400
+            return jsonify({'error': 'Please select a future start date.'}), 400
+        if end_date_str:
+            end_appt = _dt.datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            if end_appt < appt_date:
+                return jsonify({'error': 'End date cannot be before the start date.'}), 400
     except ValueError:
         return jsonify({'error': 'Invalid date format.'}), 400
 
     gcal_result = _create_gcal_appointment(
-        service_type, date_str, time_str, duration_min, timezone,
+        service_type, date_str, end_date_str, time_str, duration_str, timezone,
         full_name, user_email, company, notes
     )
     meet_link  = gcal_result['meet_link']  if gcal_result else ''
     event_link = gcal_result['event_link'] if gcal_result else ''
 
     _send_appointment_admin_email(
-        service_type, date_str, time_str, duration_min, timezone,
+        service_type, date_str, end_date_str, time_str, duration_str, timezone,
         full_name, user_email, company, notes,
         meet_link, event_link, session['user']['username']
     )
     _send_appointment_user_email(
-        service_type, date_str, time_str, duration_min, timezone,
+        service_type, date_str, end_date_str, time_str, duration_str, timezone,
         full_name, user_email, meet_link
     )
 

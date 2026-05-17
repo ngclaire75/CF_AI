@@ -7587,22 +7587,22 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <div class="appt-intro">Schedule a consultation with our security specialists. Select the service that best suits your needs — our team will confirm and send you a Google Meet link for the session.</div>
 
         <div class="appt-services">
-          <div class="appt-svc-card" id="appt-svc-0" onclick="apptSelectService(this,'Dashboard Feature Training','60')">
+          <div class="appt-svc-card" id="appt-svc-0" onclick="apptSelectService(this,'Dashboard Feature Training','1 hour')">
             <div class="appt-svc-name">Dashboard Feature Training</div>
             <div class="appt-svc-desc">Personalised walkthrough of CyberINK's security intelligence platform — dashboards, scanning tools, GRC controls, and reporting.</div>
             <div class="appt-svc-dur">Typical duration: 1 hour</div>
           </div>
-          <div class="appt-svc-card" id="appt-svc-1" onclick="apptSelectService(this,'On-Site Cyber Security Audit','120')">
+          <div class="appt-svc-card" id="appt-svc-1" onclick="apptSelectService(this,'On-Site Cyber Security Audit','2 hours')">
             <div class="appt-svc-name">On-Site Cyber Security Audit</div>
             <div class="appt-svc-desc">Comprehensive on-premises security assessment covering physical access controls, network segmentation, and endpoint security posture.</div>
             <div class="appt-svc-dur">Typical duration: 2-4 hours</div>
           </div>
-          <div class="appt-svc-card" id="appt-svc-2" onclick="apptSelectService(this,'Website Security Analysis','60')">
+          <div class="appt-svc-card" id="appt-svc-2" onclick="apptSelectService(this,'Website Security Analysis','1 hour')">
             <div class="appt-svc-name">Website Security Analysis</div>
             <div class="appt-svc-desc">In-depth vulnerability assessment, OWASP Top-10 review, and security analysis of your web properties with a detailed findings report.</div>
             <div class="appt-svc-dur">Typical duration: 1-2 hours</div>
           </div>
-          <div class="appt-svc-card" id="appt-svc-3" onclick="apptSelectService(this,'Manual Report Writing','90')">
+          <div class="appt-svc-card" id="appt-svc-3" onclick="apptSelectService(this,'Manual Report Writing','1.5 hours')">
             <div class="appt-svc-name">Manual Report Writing</div>
             <div class="appt-svc-desc">Collaborative session to produce a customised security report — findings documentation, executive summary, risk ratings, and remediation recommendations.</div>
             <div class="appt-svc-dur">Typical duration: 1.5-2 hours</div>
@@ -7615,42 +7615,42 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
           <div class="supp-grid2">
             <div class="supp-field">
-              <label class="supp-lbl" for="appt-date">Preferred Date</label>
+              <label class="supp-lbl" for="appt-date">Start Date</label>
               <input class="supp-inp" id="appt-date" type="date">
             </div>
             <div class="supp-field">
-              <label class="supp-lbl" for="appt-time">Preferred Time</label>
-              <input class="supp-inp" id="appt-time" type="time" value="10:00">
+              <label class="supp-lbl" for="appt-end-date">End Date <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#93c5fd;">(optional)</span></label>
+              <input class="supp-inp" id="appt-end-date" type="date">
             </div>
           </div>
 
           <div class="supp-grid2">
             <div class="supp-field">
-              <label class="supp-lbl" for="appt-duration">Duration</label>
-              <select class="supp-sel" id="appt-duration">
-                <option value="30">30 minutes</option>
-                <option value="60" selected>1 hour</option>
-                <option value="90">1.5 hours</option>
-                <option value="120">2 hours</option>
-              </select>
+              <label class="supp-lbl" for="appt-time">Start Time</label>
+              <input class="supp-inp" id="appt-time" type="time" value="10:00">
             </div>
             <div class="supp-field">
-              <label class="supp-lbl" for="appt-tz">Timezone</label>
-              <select class="supp-sel" id="appt-tz">
-                <option value="Asia/Jakarta">Asia/Jakarta (WIB, UTC+7)</option>
-                <option value="Asia/Makassar">Asia/Makassar (WITA, UTC+8)</option>
-                <option value="Asia/Jayapura">Asia/Jayapura (WIT, UTC+9)</option>
-                <option value="Asia/Singapore">Asia/Singapore (SGT, UTC+8)</option>
-                <option value="Australia/Sydney">Australia/Sydney</option>
-                <option value="Pacific/Auckland">Pacific/Auckland</option>
-                <option value="UTC">UTC</option>
-                <option value="Europe/London">Europe/London (GMT/BST)</option>
-                <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
-                <option value="America/New_York">America/New_York (EST/EDT)</option>
-                <option value="America/Chicago">America/Chicago (CST/CDT)</option>
-                <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
-              </select>
+              <label class="supp-lbl" for="appt-duration">Duration</label>
+              <input class="supp-inp" id="appt-duration" type="text" placeholder="e.g. 1 hour, 2 hours 30 min, half day">
             </div>
+          </div>
+
+          <div class="supp-field">
+            <label class="supp-lbl" for="appt-tz">Timezone</label>
+            <select class="supp-sel" id="appt-tz">
+              <option value="Asia/Jakarta">Asia/Jakarta (WIB, UTC+7)</option>
+              <option value="Asia/Makassar">Asia/Makassar (WITA, UTC+8)</option>
+              <option value="Asia/Jayapura">Asia/Jayapura (WIT, UTC+9)</option>
+              <option value="Asia/Singapore">Asia/Singapore (SGT, UTC+8)</option>
+              <option value="Australia/Sydney">Australia/Sydney</option>
+              <option value="Pacific/Auckland">Pacific/Auckland</option>
+              <option value="UTC">UTC</option>
+              <option value="Europe/London">Europe/London (GMT/BST)</option>
+              <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+              <option value="America/New_York">America/New_York (EST/EDT)</option>
+              <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+              <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+            </select>
           </div>
 
           <div class="supp-grid2">
@@ -8338,12 +8338,13 @@ function sbNav(section, el) {
     if (suppEmailEl && !suppEmailEl.value) suppEmailEl.value = _userEmail;
     var apptEmailEl = document.getElementById('appt-email');
     if (apptEmailEl && !apptEmailEl.value) apptEmailEl.value = _userEmail;
-    // Set appointment date minimum to tomorrow
+    // Set appointment date minimums to tomorrow
+    var _tmr = new Date(); _tmr.setDate(_tmr.getDate() + 1);
+    var _tmrStr = _tmr.toISOString().slice(0, 10);
     var apptDateEl = document.getElementById('appt-date');
-    if (apptDateEl) {
-      var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
-      apptDateEl.min = tmr.toISOString().slice(0, 10);
-    }
+    if (apptDateEl) apptDateEl.min = _tmrStr;
+    var apptEndDateEl = document.getElementById('appt-end-date');
+    if (apptEndDateEl) apptEndDateEl.min = _tmrStr;
   }
 
   // Lazy-load data for relevant pages
@@ -20356,7 +20357,7 @@ function grcExport() {
     card.classList.add('appt-selected');
     document.getElementById('appt-service-type').value = svcName;
     var durEl = document.getElementById('appt-duration');
-    if (durEl) durEl.value = defaultDuration || '60';
+    if (durEl && !durEl.value) durEl.value = defaultDuration || '1 hour';
     var hEl = document.getElementById('appt-form-heading');
     if (hEl) hEl.textContent = svcName;
     var formEl = document.getElementById('appt-form');
@@ -20364,12 +20365,12 @@ function grcExport() {
       formEl.style.display = '';
       setTimeout(function() { formEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60);
     }
-    // Set minimum date to tomorrow
+    var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+    var tmrStr = tmr.toISOString().slice(0, 10);
     var dateEl = document.getElementById('appt-date');
-    if (dateEl && !dateEl.value) {
-      var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-      dateEl.min = tomorrow.toISOString().slice(0, 10);
-    }
+    if (dateEl) { dateEl.min = tmrStr; if (!dateEl.value) dateEl.value = ''; }
+    var endEl = document.getElementById('appt-end-date');
+    if (endEl) endEl.min = tmrStr;
   };
 
   window.apptCharCount = function() {
@@ -20387,41 +20388,48 @@ function grcExport() {
       result.style.display = 'block';
       result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    var svcType  = (document.getElementById('appt-service-type').value || '').trim();
-    var date     = (document.getElementById('appt-date').value    || '').trim();
-    var time     = (document.getElementById('appt-time').value    || '').trim();
-    var duration = parseInt(document.getElementById('appt-duration').value || '60', 10);
-    var timezone = (document.getElementById('appt-tz').value      || 'Asia/Jakarta').trim();
-    var fullName = (document.getElementById('appt-name').value    || '').trim();
-    var email    = (document.getElementById('appt-email').value   || '').trim();
-    var company  = (document.getElementById('appt-company').value || '').trim();
-    var notes    = (document.getElementById('appt-notes').value   || '').trim();
+    var svcType  = (document.getElementById('appt-service-type').value  || '').trim();
+    var date     = (document.getElementById('appt-date').value          || '').trim();
+    var endDate  = (document.getElementById('appt-end-date').value      || '').trim();
+    var time     = (document.getElementById('appt-time').value          || '').trim();
+    var duration = (document.getElementById('appt-duration').value      || '').trim();
+    var timezone = (document.getElementById('appt-tz').value            || 'Asia/Jakarta').trim();
+    var fullName = (document.getElementById('appt-name').value          || '').trim();
+    var email    = (document.getElementById('appt-email').value         || '').trim();
+    var company  = (document.getElementById('appt-company').value       || '').trim();
+    var notes    = (document.getElementById('appt-notes').value         || '').trim();
 
     if (!svcType)  return _show(false, 'Please select an appointment type above.');
-    if (!date)     return _show(false, 'Please select a preferred date.');
-    if (!time)     return _show(false, 'Please select a preferred time.');
+    if (!date)     return _show(false, 'Please select a start date.');
+    if (!time)     return _show(false, 'Please select a start time.');
     if (!fullName) return _show(false, 'Please enter your full name.');
     if (!email || email.indexOf('@') < 0) return _show(false, 'Please enter a valid email address.');
 
     var parts = date.split('-');
     var sel = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     var today = new Date(); today.setHours(0, 0, 0, 0);
-    if (sel <= today) return _show(false, 'Please select a future date for your appointment.');
+    if (sel <= today) return _show(false, 'Please select a future start date.');
+
+    if (endDate) {
+      var ep = endDate.split('-');
+      var esel = new Date(parseInt(ep[0]), parseInt(ep[1]) - 1, parseInt(ep[2]));
+      if (esel < sel) return _show(false, 'End date cannot be before the start date.');
+    }
 
     btn.disabled = true;
     btn.textContent = 'Submitting...';
     fetch('/api/book-appointment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ service_type: svcType, date: date, time: time,
-        duration: duration, timezone: timezone, full_name: fullName,
+      body: JSON.stringify({ service_type: svcType, date: date, end_date: endDate,
+        time: time, duration: duration, timezone: timezone, full_name: fullName,
         email: email, company: company, notes: notes })
     }).then(function(r) { return r.json(); }).then(function(d) {
       btn.disabled = false;
       btn.textContent = 'Confirm Appointment Request';
       if (d.ok) {
         _show(true, d.message || 'Appointment request submitted successfully.');
-        ['appt-date','appt-name','appt-email','appt-company','appt-notes'].forEach(function(id) {
+        ['appt-date','appt-end-date','appt-duration','appt-name','appt-email','appt-company','appt-notes'].forEach(function(id) {
           var el = document.getElementById(id); if (el) el.value = '';
         });
         var tEl = document.getElementById('appt-time'); if (tEl) tEl.value = '10:00';
