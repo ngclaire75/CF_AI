@@ -9431,6 +9431,177 @@ def api_grc_export():
     )
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# GRC RISK MANAGEMENT (grc2)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/api/grc2/stats')
+@login_required
+def api_grc2_stats():
+    return jsonify(db.grc_stats())
+
+
+@app.route('/api/grc2/risks', methods=['GET'])
+@login_required
+def api_grc2_risks_list():
+    q = request.args.get('q', '')
+    status = request.args.get('status', '')
+    treatment = request.args.get('treatment', '')
+    return jsonify({'risks': db.grc_list_risks(q, status, treatment)})
+
+
+@app.route('/api/grc2/risks', methods=['POST'])
+@login_required
+def api_grc2_risks_create():
+    d = request.get_json(silent=True) or {}
+    if not d.get('title'):
+        return jsonify({'error': 'title required'}), 400
+    d['username'] = session['user'].get('username', '')
+    rid = db.grc_create_risk(d)
+    return jsonify({'id': rid})
+
+
+@app.route('/api/grc2/risks/<int:rid>', methods=['PUT'])
+@login_required
+def api_grc2_risks_update(rid):
+    d = request.get_json(silent=True) or {}
+    db.grc_update_risk(rid, d)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/risks/<int:rid>', methods=['DELETE'])
+@login_required
+def api_grc2_risks_delete(rid):
+    db.grc_delete_risk(rid)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/controls', methods=['GET'])
+@login_required
+def api_grc2_controls_list():
+    q = request.args.get('q', '')
+    framework = request.args.get('framework', '')
+    status = request.args.get('status', '')
+    return jsonify({'controls': db.grc_list_controls(q, framework, status)})
+
+
+@app.route('/api/grc2/controls', methods=['POST'])
+@login_required
+def api_grc2_controls_create():
+    d = request.get_json(silent=True) or {}
+    if not d.get('title') or not d.get('control_id'):
+        return jsonify({'error': 'control_id and title required'}), 400
+    d['username'] = session['user'].get('username', '')
+    cid = db.grc_create_control(d)
+    return jsonify({'id': cid})
+
+
+@app.route('/api/grc2/controls/<int:cid>', methods=['PUT'])
+@login_required
+def api_grc2_controls_update(cid):
+    d = request.get_json(silent=True) or {}
+    db.grc_update_control(cid, d)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/controls/<int:cid>', methods=['DELETE'])
+@login_required
+def api_grc2_controls_delete(cid):
+    db.grc_delete_control(cid)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/tests', methods=['GET'])
+@login_required
+def api_grc2_tests_list():
+    q = request.args.get('q', '')
+    category = request.args.get('category', '')
+    status = request.args.get('status', '')
+    return jsonify({'tests': db.grc_list_tests(q, category, status)})
+
+
+@app.route('/api/grc2/tests', methods=['POST'])
+@login_required
+def api_grc2_tests_create():
+    d = request.get_json(silent=True) or {}
+    if not d.get('name'):
+        return jsonify({'error': 'name required'}), 400
+    d['username'] = session['user'].get('username', '')
+    tid = db.grc_create_test(d)
+    return jsonify({'id': tid})
+
+
+@app.route('/api/grc2/tests/<int:tid>', methods=['PUT'])
+@login_required
+def api_grc2_tests_update(tid):
+    d = request.get_json(silent=True) or {}
+    db.grc_update_test(tid, d)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/tests/<int:tid>', methods=['DELETE'])
+@login_required
+def api_grc2_tests_delete(tid):
+    db.grc_delete_test(tid)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/audits', methods=['GET'])
+@login_required
+def api_grc2_audits_list():
+    return jsonify({'audits': db.grc_list_audits()})
+
+
+@app.route('/api/grc2/audits', methods=['POST'])
+@login_required
+def api_grc2_audits_create():
+    d = request.get_json(silent=True) or {}
+    if not d.get('name'):
+        return jsonify({'error': 'name required'}), 400
+    d['username'] = session['user'].get('username', '')
+    aid = db.grc_create_audit(d)
+    return jsonify({'id': aid})
+
+
+@app.route('/api/grc2/audits/<int:aid>', methods=['PUT'])
+@login_required
+def api_grc2_audits_update(aid):
+    d = request.get_json(silent=True) or {}
+    db.grc_update_audit(aid, d)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/audits/<int:aid>', methods=['DELETE'])
+@login_required
+def api_grc2_audits_delete(aid):
+    db.grc_delete_audit(aid)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/grc2/evidence', methods=['GET'])
+@login_required
+def api_grc2_evidence_list():
+    return jsonify({'evidence': db.grc_list_evidence()})
+
+
+@app.route('/api/grc2/evidence', methods=['POST'])
+@login_required
+def api_grc2_evidence_create():
+    d = request.get_json(silent=True) or {}
+    if not d.get('title'):
+        return jsonify({'error': 'title required'}), 400
+    d['username'] = session['user'].get('username', '')
+    eid = db.grc_create_evidence(d)
+    return jsonify({'id': eid})
+
+
+@app.route('/api/grc2/evidence/<int:eid>', methods=['DELETE'])
+@login_required
+def api_grc2_evidence_delete(eid):
+    db.grc_delete_evidence(eid)
+    return jsonify({'ok': True})
+
+
 # ── Payment routes (Midtrans) ─────────────────────────────────────────────────
 
 @app.route('/api/payment/create-transaction', methods=['POST'])

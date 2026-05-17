@@ -198,6 +198,91 @@ def init_db():
         con.execute('CREATE INDEX IF NOT EXISTS idx_sub_username  ON subscriptions(username)')
         con.execute('CREATE INDEX IF NOT EXISTS idx_sub_status    ON subscriptions(status)')
         con.execute('CREATE INDEX IF NOT EXISTS idx_sub_order_id  ON subscriptions(order_id)')
+
+        # ── GRC Risk Management ───────────────────────────────────────────────
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS grc_risks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                title       TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                category    TEXT DEFAULT '',
+                likelihood  INTEGER DEFAULT 3,
+                impact      INTEGER DEFAULT 3,
+                score       INTEGER DEFAULT 9,
+                status      TEXT DEFAULT 'open',
+                treatment   TEXT DEFAULT 'mitigate',
+                owner       TEXT DEFAULT '',
+                due_date    TEXT DEFAULT '',
+                notes       TEXT DEFAULT '',
+                username    TEXT DEFAULT ''
+            )
+        ''')
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS grc_controls (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                control_id  TEXT NOT NULL DEFAULT '',
+                title       TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                framework   TEXT DEFAULT 'ISO 27001',
+                category    TEXT DEFAULT '',
+                status      TEXT DEFAULT 'not_started',
+                owner       TEXT DEFAULT '',
+                due_date    TEXT DEFAULT '',
+                evidence    TEXT DEFAULT '',
+                notes       TEXT DEFAULT '',
+                username    TEXT DEFAULT ''
+            )
+        ''')
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS grc_tests (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                name         TEXT NOT NULL,
+                description  TEXT DEFAULT '',
+                category     TEXT DEFAULT 'manual',
+                control_ref  TEXT DEFAULT '',
+                status       TEXT DEFAULT 'not_started',
+                last_run     TEXT DEFAULT '',
+                result_notes TEXT DEFAULT '',
+                owner        TEXT DEFAULT '',
+                username     TEXT DEFAULT ''
+            )
+        ''')
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS grc_audits (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                name        TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                auditor     TEXT DEFAULT '',
+                scope       TEXT DEFAULT '',
+                status      TEXT DEFAULT 'planned',
+                start_date  TEXT DEFAULT '',
+                end_date    TEXT DEFAULT '',
+                findings    TEXT DEFAULT '',
+                notes       TEXT DEFAULT '',
+                username    TEXT DEFAULT ''
+            )
+        ''')
+        con.execute('''
+            CREATE TABLE IF NOT EXISTS grc_evidence (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                audit_id     INTEGER DEFAULT NULL,
+                control_id   TEXT DEFAULT '',
+                title        TEXT NOT NULL,
+                description  TEXT DEFAULT '',
+                file_name    TEXT DEFAULT '',
+                collected_by TEXT DEFAULT '',
+                username     TEXT DEFAULT ''
+            )
+        ''')
         con.commit()
 
 
@@ -1039,3 +1124,229 @@ def get_plugins(target: str = '', limit: int = 1000, username=None) -> list:
                 'SELECT * FROM plugins ORDER BY updated_at DESC LIMIT ?', (limit,)
             ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ── GRC CRUD ──────────────────────────────────────────────────────────────────
+
+def grc_list_risks(q='', status='', treatment='') -> list:
+    with _connect() as con:
+        sql = 'SELECT * FROM grc_risks WHERE 1=1'
+        params: list = []
+        if q:
+            sql += ' AND (title LIKE ? OR category LIKE ? OR owner LIKE ?)'
+            params += [f'%{q}%', f'%{q}%', f'%{q}%']
+        if status:
+            sql += ' AND status=?'; params.append(status)
+        if treatment:
+            sql += ' AND treatment=?'; params.append(treatment)
+        sql += ' ORDER BY score DESC, created_at DESC'
+        return [dict(r) for r in con.execute(sql, params).fetchall()]
+
+
+def grc_create_risk(data: dict) -> int:
+    cols = ['title','description','category','likelihood','impact','score',
+            'status','treatment','owner','due_date','notes','username']
+    with _connect() as con:
+        cur = con.execute(
+            f'INSERT INTO grc_risks ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
+            [data.get(c, '') for c in cols]
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def grc_update_risk(rid: int, data: dict) -> bool:
+    cols = ['title','description','category','likelihood','impact','score',
+            'status','treatment','owner','due_date','notes']
+    with _connect() as con:
+        sets = ', '.join(f'{c}=?' for c in cols) + ", updated_at=datetime('now')"
+        con.execute(f'UPDATE grc_risks SET {sets} WHERE id=?',
+                    [data.get(c, '') for c in cols] + [rid])
+        con.commit()
+    return True
+
+
+def grc_delete_risk(rid: int) -> bool:
+    with _connect() as con:
+        con.execute('DELETE FROM grc_risks WHERE id=?', (rid,))
+        con.commit()
+    return True
+
+
+def grc_list_controls(q='', framework='', status='') -> list:
+    with _connect() as con:
+        sql = 'SELECT * FROM grc_controls WHERE 1=1'
+        params: list = []
+        if q:
+            sql += ' AND (control_id LIKE ? OR title LIKE ? OR category LIKE ? OR owner LIKE ?)'
+            params += [f'%{q}%', f'%{q}%', f'%{q}%', f'%{q}%']
+        if framework:
+            sql += ' AND framework=?'; params.append(framework)
+        if status:
+            sql += ' AND status=?'; params.append(status)
+        sql += ' ORDER BY framework, control_id'
+        return [dict(r) for r in con.execute(sql, params).fetchall()]
+
+
+def grc_create_control(data: dict) -> int:
+    cols = ['control_id','title','description','framework','category',
+            'status','owner','due_date','evidence','notes','username']
+    with _connect() as con:
+        cur = con.execute(
+            f'INSERT INTO grc_controls ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
+            [data.get(c, '') for c in cols]
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def grc_update_control(cid: int, data: dict) -> bool:
+    cols = ['control_id','title','description','framework','category',
+            'status','owner','due_date','evidence','notes']
+    with _connect() as con:
+        sets = ', '.join(f'{c}=?' for c in cols) + ", updated_at=datetime('now')"
+        con.execute(f'UPDATE grc_controls SET {sets} WHERE id=?',
+                    [data.get(c, '') for c in cols] + [cid])
+        con.commit()
+    return True
+
+
+def grc_delete_control(cid: int) -> bool:
+    with _connect() as con:
+        con.execute('DELETE FROM grc_controls WHERE id=?', (cid,))
+        con.commit()
+    return True
+
+
+def grc_list_tests(q='', category='', status='') -> list:
+    with _connect() as con:
+        sql = 'SELECT * FROM grc_tests WHERE 1=1'
+        params: list = []
+        if q:
+            sql += ' AND (name LIKE ? OR control_ref LIKE ? OR owner LIKE ?)'
+            params += [f'%{q}%', f'%{q}%', f'%{q}%']
+        if category:
+            sql += ' AND category=?'; params.append(category)
+        if status:
+            sql += ' AND status=?'; params.append(status)
+        sql += ' ORDER BY created_at DESC'
+        return [dict(r) for r in con.execute(sql, params).fetchall()]
+
+
+def grc_create_test(data: dict) -> int:
+    cols = ['name','description','category','control_ref','status',
+            'last_run','result_notes','owner','username']
+    with _connect() as con:
+        cur = con.execute(
+            f'INSERT INTO grc_tests ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
+            [data.get(c, '') for c in cols]
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def grc_update_test(tid: int, data: dict) -> bool:
+    cols = ['name','description','category','control_ref','status',
+            'last_run','result_notes','owner']
+    with _connect() as con:
+        sets = ', '.join(f'{c}=?' for c in cols) + ", updated_at=datetime('now')"
+        con.execute(f'UPDATE grc_tests SET {sets} WHERE id=?',
+                    [data.get(c, '') for c in cols] + [tid])
+        con.commit()
+    return True
+
+
+def grc_delete_test(tid: int) -> bool:
+    with _connect() as con:
+        con.execute('DELETE FROM grc_tests WHERE id=?', (tid,))
+        con.commit()
+    return True
+
+
+def grc_list_audits() -> list:
+    with _connect() as con:
+        return [dict(r) for r in
+                con.execute('SELECT * FROM grc_audits ORDER BY created_at DESC').fetchall()]
+
+
+def grc_create_audit(data: dict) -> int:
+    cols = ['name','description','auditor','scope','status',
+            'start_date','end_date','findings','notes','username']
+    with _connect() as con:
+        cur = con.execute(
+            f'INSERT INTO grc_audits ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
+            [data.get(c, '') for c in cols]
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def grc_update_audit(aid: int, data: dict) -> bool:
+    cols = ['name','description','auditor','scope','status',
+            'start_date','end_date','findings','notes']
+    with _connect() as con:
+        sets = ', '.join(f'{c}=?' for c in cols) + ", updated_at=datetime('now')"
+        con.execute(f'UPDATE grc_audits SET {sets} WHERE id=?',
+                    [data.get(c, '') for c in cols] + [aid])
+        con.commit()
+    return True
+
+
+def grc_delete_audit(aid: int) -> bool:
+    with _connect() as con:
+        con.execute('DELETE FROM grc_audits WHERE id=?', (aid,))
+        con.commit()
+    return True
+
+
+def grc_list_evidence() -> list:
+    with _connect() as con:
+        rows = con.execute('''
+            SELECT e.*, a.name as audit_name
+            FROM grc_evidence e
+            LEFT JOIN grc_audits a ON a.id = e.audit_id
+            ORDER BY e.created_at DESC
+        ''').fetchall()
+        return [dict(r) for r in rows]
+
+
+def grc_create_evidence(data: dict) -> int:
+    cols = ['audit_id','control_id','title','description','file_name','collected_by','username']
+    with _connect() as con:
+        cur = con.execute(
+            f'INSERT INTO grc_evidence ({",".join(cols)}) VALUES ({",".join("?"*len(cols))})',
+            [data.get(c) or None if c == 'audit_id' else data.get(c, '') for c in cols]
+        )
+        con.commit()
+        return cur.lastrowid
+
+
+def grc_delete_evidence(eid: int) -> bool:
+    with _connect() as con:
+        con.execute('DELETE FROM grc_evidence WHERE id=?', (eid,))
+        con.commit()
+    return True
+
+
+def grc_stats() -> dict:
+    with _connect() as con:
+        def cnt(sql, *p):
+            return con.execute(sql, p).fetchone()[0]
+        return {
+            'controls_total':       cnt('SELECT COUNT(*) FROM grc_controls'),
+            'controls_implemented': cnt("SELECT COUNT(*) FROM grc_controls WHERE status='implemented'"),
+            'controls_in_progress': cnt("SELECT COUNT(*) FROM grc_controls WHERE status='in_progress'"),
+            'controls_not_started': cnt("SELECT COUNT(*) FROM grc_controls WHERE status='not_started'"),
+            'risks_total':          cnt('SELECT COUNT(*) FROM grc_risks'),
+            'risks_high':           cnt('SELECT COUNT(*) FROM grc_risks WHERE score>=15'),
+            'risks_medium':         cnt('SELECT COUNT(*) FROM grc_risks WHERE score>=8 AND score<15'),
+            'risks_low':            cnt('SELECT COUNT(*) FROM grc_risks WHERE score<8'),
+            'tests_total':          cnt('SELECT COUNT(*) FROM grc_tests'),
+            'tests_pass':           cnt("SELECT COUNT(*) FROM grc_tests WHERE status='pass'"),
+            'tests_fail':           cnt("SELECT COUNT(*) FROM grc_tests WHERE status='fail'"),
+            'tests_not_started':    cnt("SELECT COUNT(*) FROM grc_tests WHERE status='not_started'"),
+            'audits_total':         cnt('SELECT COUNT(*) FROM grc_audits'),
+            'audits_complete':      cnt("SELECT COUNT(*) FROM grc_audits WHERE status='complete'"),
+            'audits_in_progress':   cnt("SELECT COUNT(*) FROM grc_audits WHERE status='in_progress'"),
+            'audits_planned':       cnt("SELECT COUNT(*) FROM grc_audits WHERE status='planned'"),
+        }
