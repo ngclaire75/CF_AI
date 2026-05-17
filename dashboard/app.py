@@ -11224,22 +11224,35 @@ def api_grc2_risks_create():
     d = request.get_json(silent=True) or {}
     if not d.get('title'):
         return jsonify({'error': 'title required'}), 400
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    d['username'] = assigned_to or session['user'].get('username', '')
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    d['username'] = assigned_to or actor
     rid = db.grc_create_risk(d)
-    if assigned_to:
+    if is_admin and assigned_to:
         _grc_notify(assigned_to, 'added', 'Risk', d.get('title', ''))
+    elif not is_admin:
+        _grc_notify_admin(actor, 'added', 'Risk', d.get('title', ''))
     return jsonify({'id': rid})
 
 
 @app.route('/api/grc2/risks/<int:rid>', methods=['PUT'])
 @login_required
 def api_grc2_risks_update(rid):
-    d = request.get_json(silent=True) or {}
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    if assigned_to:
-        db.grc_set_record_user('grc_risks', rid, assigned_to)
-        _grc_notify(assigned_to, 'updated', 'Risk', d.get('title', ''))
+    d           = request.get_json(silent=True) or {}
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    existing    = db.grc_get_record('grc_risks', rid)
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    title       = d.get('title') or existing.get('title', '')
+    if is_admin:
+        if assigned_to:
+            db.grc_set_record_user('grc_risks', rid, assigned_to)
+            _grc_notify(assigned_to, 'updated', 'Risk', title)
+        elif existing.get('username') and existing['username'] not in ('', 'demo'):
+            _grc_notify(existing['username'], 'updated', 'Risk', title)
+    else:
+        _grc_notify_admin(actor, 'updated', 'Risk', title)
     db.grc_update_risk(rid, d)
     return jsonify({'ok': True})
 
@@ -11247,7 +11260,16 @@ def api_grc2_risks_update(rid):
 @app.route('/api/grc2/risks/<int:rid>', methods=['DELETE'])
 @login_required
 def api_grc2_risks_delete(rid):
+    is_admin = _grc_is_admin()
+    actor    = session['user'].get('username', '')
+    existing = db.grc_get_record('grc_risks', rid)
+    title    = existing.get('title', '')
+    owner    = existing.get('username', '')
     db.grc_delete_risk(rid)
+    if is_admin and owner and owner not in ('', 'demo'):
+        _grc_notify(owner, 'deleted', 'Risk', title)
+    elif not is_admin:
+        _grc_notify_admin(actor, 'deleted', 'Risk', title)
     return jsonify({'ok': True})
 
 
@@ -11267,22 +11289,35 @@ def api_grc2_controls_create():
     d = request.get_json(silent=True) or {}
     if not d.get('title') or not d.get('control_id'):
         return jsonify({'error': 'control_id and title required'}), 400
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    d['username'] = assigned_to or session['user'].get('username', '')
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    d['username'] = assigned_to or actor
     cid = db.grc_create_control(d)
-    if assigned_to:
+    if is_admin and assigned_to:
         _grc_notify(assigned_to, 'added', 'Control', d.get('title', ''))
+    elif not is_admin:
+        _grc_notify_admin(actor, 'added', 'Control', d.get('title', ''))
     return jsonify({'id': cid})
 
 
 @app.route('/api/grc2/controls/<int:cid>', methods=['PUT'])
 @login_required
 def api_grc2_controls_update(cid):
-    d = request.get_json(silent=True) or {}
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    if assigned_to:
-        db.grc_set_record_user('grc_controls', cid, assigned_to)
-        _grc_notify(assigned_to, 'updated', 'Control', d.get('title', ''))
+    d           = request.get_json(silent=True) or {}
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    existing    = db.grc_get_record('grc_controls', cid)
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    title       = d.get('title') or existing.get('title', '')
+    if is_admin:
+        if assigned_to:
+            db.grc_set_record_user('grc_controls', cid, assigned_to)
+            _grc_notify(assigned_to, 'updated', 'Control', title)
+        elif existing.get('username') and existing['username'] not in ('', 'demo'):
+            _grc_notify(existing['username'], 'updated', 'Control', title)
+    else:
+        _grc_notify_admin(actor, 'updated', 'Control', title)
     db.grc_update_control(cid, d)
     return jsonify({'ok': True})
 
@@ -11290,7 +11325,16 @@ def api_grc2_controls_update(cid):
 @app.route('/api/grc2/controls/<int:cid>', methods=['DELETE'])
 @login_required
 def api_grc2_controls_delete(cid):
+    is_admin = _grc_is_admin()
+    actor    = session['user'].get('username', '')
+    existing = db.grc_get_record('grc_controls', cid)
+    title    = existing.get('title', '')
+    owner    = existing.get('username', '')
     db.grc_delete_control(cid)
+    if is_admin and owner and owner not in ('', 'demo'):
+        _grc_notify(owner, 'deleted', 'Control', title)
+    elif not is_admin:
+        _grc_notify_admin(actor, 'deleted', 'Control', title)
     return jsonify({'ok': True})
 
 
@@ -11311,22 +11355,35 @@ def api_grc2_tests_create():
     d = request.get_json(silent=True) or {}
     if not d.get('name'):
         return jsonify({'error': 'name required'}), 400
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    d['username'] = assigned_to or session['user'].get('username', '')
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    d['username'] = assigned_to or actor
     tid = db.grc_create_test(d)
-    if assigned_to:
+    if is_admin and assigned_to:
         _grc_notify(assigned_to, 'added', 'Test', d.get('name', ''))
+    elif not is_admin:
+        _grc_notify_admin(actor, 'added', 'Test', d.get('name', ''))
     return jsonify({'id': tid})
 
 
 @app.route('/api/grc2/tests/<int:tid>', methods=['PUT'])
 @login_required
 def api_grc2_tests_update(tid):
-    d = request.get_json(silent=True) or {}
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    if assigned_to:
-        db.grc_set_record_user('grc_tests', tid, assigned_to)
-        _grc_notify(assigned_to, 'updated', 'Test', d.get('name', ''))
+    d           = request.get_json(silent=True) or {}
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    existing    = db.grc_get_record('grc_tests', tid)
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    title       = d.get('name') or existing.get('name', '')
+    if is_admin:
+        if assigned_to:
+            db.grc_set_record_user('grc_tests', tid, assigned_to)
+            _grc_notify(assigned_to, 'updated', 'Test', title)
+        elif existing.get('username') and existing['username'] not in ('', 'demo'):
+            _grc_notify(existing['username'], 'updated', 'Test', title)
+    else:
+        _grc_notify_admin(actor, 'updated', 'Test', title)
     db.grc_update_test(tid, d)
     return jsonify({'ok': True})
 
@@ -11334,7 +11391,16 @@ def api_grc2_tests_update(tid):
 @app.route('/api/grc2/tests/<int:tid>', methods=['DELETE'])
 @login_required
 def api_grc2_tests_delete(tid):
+    is_admin = _grc_is_admin()
+    actor    = session['user'].get('username', '')
+    existing = db.grc_get_record('grc_tests', tid)
+    title    = existing.get('name', '')
+    owner    = existing.get('username', '')
     db.grc_delete_test(tid)
+    if is_admin and owner and owner not in ('', 'demo'):
+        _grc_notify(owner, 'deleted', 'Test', title)
+    elif not is_admin:
+        _grc_notify_admin(actor, 'deleted', 'Test', title)
     return jsonify({'ok': True})
 
 
@@ -11351,22 +11417,35 @@ def api_grc2_audits_create():
     d = request.get_json(silent=True) or {}
     if not d.get('name'):
         return jsonify({'error': 'name required'}), 400
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    d['username'] = assigned_to or session['user'].get('username', '')
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    d['username'] = assigned_to or actor
     aid = db.grc_create_audit(d)
-    if assigned_to:
+    if is_admin and assigned_to:
         _grc_notify(assigned_to, 'added', 'Audit', d.get('name', ''))
+    elif not is_admin:
+        _grc_notify_admin(actor, 'added', 'Audit', d.get('name', ''))
     return jsonify({'id': aid})
 
 
 @app.route('/api/grc2/audits/<int:aid>', methods=['PUT'])
 @login_required
 def api_grc2_audits_update(aid):
-    d = request.get_json(silent=True) or {}
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    if assigned_to:
-        db.grc_set_record_user('grc_audits', aid, assigned_to)
-        _grc_notify(assigned_to, 'updated', 'Audit', d.get('name', ''))
+    d           = request.get_json(silent=True) or {}
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    existing    = db.grc_get_record('grc_audits', aid)
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    title       = d.get('name') or existing.get('name', '')
+    if is_admin:
+        if assigned_to:
+            db.grc_set_record_user('grc_audits', aid, assigned_to)
+            _grc_notify(assigned_to, 'updated', 'Audit', title)
+        elif existing.get('username') and existing['username'] not in ('', 'demo'):
+            _grc_notify(existing['username'], 'updated', 'Audit', title)
+    else:
+        _grc_notify_admin(actor, 'updated', 'Audit', title)
     db.grc_update_audit(aid, d)
     return jsonify({'ok': True})
 
@@ -11374,7 +11453,16 @@ def api_grc2_audits_update(aid):
 @app.route('/api/grc2/audits/<int:aid>', methods=['DELETE'])
 @login_required
 def api_grc2_audits_delete(aid):
+    is_admin = _grc_is_admin()
+    actor    = session['user'].get('username', '')
+    existing = db.grc_get_record('grc_audits', aid)
+    title    = existing.get('name', '')
+    owner    = existing.get('username', '')
     db.grc_delete_audit(aid)
+    if is_admin and owner and owner not in ('', 'demo'):
+        _grc_notify(owner, 'deleted', 'Audit', title)
+    elif not is_admin:
+        _grc_notify_admin(actor, 'deleted', 'Audit', title)
     return jsonify({'ok': True})
 
 
@@ -11394,22 +11482,35 @@ def api_grc2_evidence_create():
     d = request.get_json(silent=True) or {}
     if not d.get('title'):
         return jsonify({'error': 'title required'}), 400
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    d['username'] = assigned_to or session['user'].get('username', '')
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    d['username'] = assigned_to or actor
     eid = db.grc_create_evidence(d)
-    if assigned_to:
+    if is_admin and assigned_to:
         _grc_notify(assigned_to, 'added', 'Evidence', d.get('title', ''))
+    elif not is_admin:
+        _grc_notify_admin(actor, 'added', 'Evidence', d.get('title', ''))
     return jsonify({'id': eid})
 
 
 @app.route('/api/grc2/evidence/<int:eid>', methods=['PUT'])
 @login_required
 def api_grc2_evidence_update(eid):
-    d = request.get_json(silent=True) or {}
-    assigned_to = d.pop('assigned_to', '').strip() if _grc_is_admin() else ''
-    if assigned_to:
-        db.grc_set_record_user('grc_evidence', eid, assigned_to)
-        _grc_notify(assigned_to, 'updated', 'Evidence', d.get('title', ''))
+    d           = request.get_json(silent=True) or {}
+    is_admin    = _grc_is_admin()
+    actor       = session['user'].get('username', '')
+    existing    = db.grc_get_record('grc_evidence', eid)
+    assigned_to = d.pop('assigned_to', '').strip() if is_admin else ''
+    title       = d.get('title') or existing.get('title', '')
+    if is_admin:
+        if assigned_to:
+            db.grc_set_record_user('grc_evidence', eid, assigned_to)
+            _grc_notify(assigned_to, 'updated', 'Evidence', title)
+        elif existing.get('username') and existing['username'] not in ('', 'demo'):
+            _grc_notify(existing['username'], 'updated', 'Evidence', title)
+    else:
+        _grc_notify_admin(actor, 'updated', 'Evidence', title)
     db.grc_update_evidence(eid, d)
     return jsonify({'ok': True})
 
@@ -11417,7 +11518,16 @@ def api_grc2_evidence_update(eid):
 @app.route('/api/grc2/evidence/<int:eid>', methods=['DELETE'])
 @login_required
 def api_grc2_evidence_delete(eid):
+    is_admin = _grc_is_admin()
+    actor    = session['user'].get('username', '')
+    existing = db.grc_get_record('grc_evidence', eid)
+    title    = existing.get('title', '')
+    owner    = existing.get('username', '')
     db.grc_delete_evidence(eid)
+    if is_admin and owner and owner not in ('', 'demo'):
+        _grc_notify(owner, 'deleted', 'Evidence', title)
+    elif not is_admin:
+        _grc_notify_admin(actor, 'deleted', 'Evidence', title)
     return jsonify({'ok': True})
 
 
@@ -13272,42 +13382,80 @@ def _send_account_change_email(username: str, email: str, change_type: str) -> b
 
 
 def _send_grc_notification_email(username: str, email: str, action: str,
-                                  tab: str, title: str) -> bool:
+                                  tab: str, title: str, actor: str = 'admin') -> bool:
+    """Send GRC change notification to a user account (actor='admin') or to admin (actor=username)."""
     if not _SMTP_USER or not _SMTP_PASS or not email:
         return False
     try:
         import datetime as _dt
-        now_str = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
-        verb    = 'added to' if action == 'added' else 'updated in'
-        subject = f'CyberINK — New {tab} {verb.split()[0].capitalize()} in Your Risk Management'
+        now_str = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+        action_lc = action.lower()
+        if action_lc == 'added':
+            action_label = 'Added'
+            action_desc  = 'A new record has been added to your workspace.'
+            action_color = '#1d4ed8'
+            action_bg    = '#dbeafe'
+        elif action_lc == 'updated':
+            action_label = 'Updated'
+            action_desc  = 'An existing record in your workspace has been modified.'
+            action_color = '#2563eb'
+            action_bg    = '#eff6ff'
+        elif action_lc == 'deleted':
+            action_label = 'Deleted'
+            action_desc  = 'A record has been permanently removed from your workspace.'
+            action_color = '#1e3a8a'
+            action_bg    = '#dbeafe'
+        else:
+            action_label = action.capitalize()
+            action_desc  = 'A change has occurred in your workspace.'
+            action_color = '#2563eb'
+            action_bg    = '#eff6ff'
+
+        if actor == 'admin':
+            subject   = f'CyberINK — Risk Management {action_label}: {title}'
+            intro = (f'Hello <strong>{username}</strong>, your administrator has made a change '
+                     f'to your <strong>Risk Management &amp; Audit Control</strong> workspace.')
+            note  = ('Log in to CyberINK and open the <strong>Risk Management &amp; Audit Control</strong> '
+                     'page to review. If this was unexpected, contact your administrator at '
+                     f'<a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.')
+        else:
+            subject   = f'CyberINK — User {actor} {action_label} a {tab} Record'
+            intro = (f'Hello <strong>Admin</strong>, user account <strong>{actor}</strong> has '
+                     f'{action_lc} a record in the '
+                     f'<strong>Risk Management &amp; Audit Control</strong> section.')
+            note  = ('Log in to CyberINK and open the <strong>Risk Management &amp; Audit Control</strong> '
+                     'page to review the change.')
+
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
-            Risk Management Update</p>
-          <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Hello <strong>{username}</strong>, your administrator has {verb} your
-            <strong>Risk Management &amp; Audit Control</strong> workspace.</p>
-          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
-            <tr style="border-bottom:1px solid #bfdbfe;">
-              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Section</td>
-              <td style="padding:7px 0;color:#2563eb;font-weight:600;">{tab}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #bfdbfe;">
-              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Item</td>
-              <td style="padding:7px 0;color:#2563eb;">{title}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #bfdbfe;">
-              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Action</td>
-              <td style="padding:7px 0;color:#2563eb;">{action.capitalize()}</td>
+            Risk Management &amp; Audit Control — {action_label}</p>
+          <p class="ep" style="color:#475569;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            {intro}</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
+            <tr style="background:#eff6ff;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;width:120px;border-bottom:1px solid #bfdbfe;">Section</td>
+              <td style="padding:9px 12px;color:#0f172a;font-weight:600;border-bottom:1px solid #bfdbfe;">{tab}</td>
             </tr>
             <tr>
-              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Time (UTC)</td>
-              <td style="padding:7px 0;color:#2563eb;">{now_str}</td>
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;border-bottom:1px solid #bfdbfe;">Item</td>
+              <td style="padding:9px 12px;color:#0f172a;border-bottom:1px solid #bfdbfe;">{title or '(untitled)'}</td>
+            </tr>
+            <tr style="background:#eff6ff;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;border-bottom:1px solid #bfdbfe;">Action</td>
+              <td style="padding:9px 12px;border-bottom:1px solid #bfdbfe;">
+                <span style="background:{action_bg};color:{action_color};font-size:11px;font-weight:700;border-radius:4px;padding:3px 10px;">{action_label}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;border-bottom:1px solid #bfdbfe;">{"Performed by" if actor != "admin" else "Account"}</td>
+              <td style="padding:9px 12px;color:#2563eb;font-weight:600;border-bottom:1px solid #bfdbfe;">{actor if actor != "admin" else username}</td>
+            </tr>
+            <tr style="background:#eff6ff;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Time (UTC)</td>
+              <td style="padding:9px 12px;color:#64748b;">{now_str}</td>
             </tr>
           </table>
-          <p class="ep" style="color:#475569;font-size:12px;line-height:1.6;">
-            Log in to CyberINK and open the <strong>Risk Management &amp; Audit Control</strong>
-            page to review this update. If you have questions, contact us at
-            <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
+          <p class="ep" style="color:#475569;font-size:12px;line-height:1.6;">{note}</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
@@ -13322,9 +13470,25 @@ def _send_grc_notification_email(username: str, email: str, action: str,
 
 
 def _grc_notify(username: str, action: str, tab: str, title: str) -> None:
+    """Notify a user account that admin performed an action on their GRC record."""
+    if not username or username in ('', 'demo'):
+        return
     users      = _load_users()
     user_email = (users.get(username) or {}).get('email', '')
-    _send_grc_notification_email(username, user_email, action, tab, title)
+    _send_grc_notification_email(username, user_email, action, tab, title, actor='admin')
+
+
+def _grc_notify_admin(actor_username: str, action: str, tab: str, title: str) -> None:
+    """Notify the admin that a user account performed an action on a GRC record."""
+    users = _load_users()
+    admin_email = ''
+    for uname, udata in users.items():
+        if udata.get('role') == 'admin':
+            admin_email = udata.get('email', '')
+            break
+    if not admin_email:
+        return
+    _send_grc_notification_email('admin', admin_email, action, tab, title, actor=actor_username)
 
 
 def _send_role_change_email(username: str, email: str, new_role: str, changed_by: str) -> bool:

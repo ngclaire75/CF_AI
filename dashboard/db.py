@@ -1200,6 +1200,16 @@ def _grc_u_filter(username: str, is_admin: bool = False) -> tuple:
     return " AND username = ?", [username]
 
 
+def grc_get_record(table: str, record_id: int) -> dict:
+    """Return a single GRC record as a dict (empty dict if not found)."""
+    _allowed = {'grc_risks', 'grc_controls', 'grc_tests', 'grc_audits', 'grc_evidence'}
+    if table not in _allowed:
+        return {}
+    with _connect() as con:
+        row = con.execute(f'SELECT * FROM {table} WHERE id=?', (record_id,)).fetchone()
+        return dict(row) if row else {}
+
+
 def grc_set_record_user(table: str, record_id: int, username: str) -> None:
     """Reassign a GRC record to a different user account (admin use)."""
     _allowed = {'grc_risks', 'grc_controls', 'grc_tests', 'grc_audits', 'grc_evidence'}
