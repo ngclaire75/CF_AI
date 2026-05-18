@@ -666,6 +666,98 @@ def _save_credit_requests(reqs: list):
     with open(_CREDIT_REQUESTS_FILE, 'w') as f:
         _json.dump(reqs, f, indent=2)
 
+# ── Anthropic low-balance alert (throttled — max 1 email per hour) ────────────
+_ant_alert_lock      = _threading.Lock()
+_ant_alert_last_sent = 0.0   # epoch seconds
+
+def _is_anthropic_credit_error(exc) -> bool:
+    """Return True if the exception is an Anthropic insufficient-credit error."""
+    msg = str(exc).lower()
+    return any(k in msg for k in (
+        'credit balance', 'credit_balance_too_low',
+        'insufficient_quota', 'billing', 'your account',
+        'exceeded your current quota',
+    ))
+
+def _maybe_send_low_balance_alert(exc):
+    """Fire a one-per-hour admin email when Anthropic API returns a credit error."""
+    import time as _time2
+    global _ant_alert_last_sent
+    if not _is_anthropic_credit_error(exc):
+        return
+    with _ant_alert_lock:
+        now = _time2.time()
+        if now - _ant_alert_last_sent < 3600:   # already alerted within last hour
+            return
+        _ant_alert_last_sent = now
+    _threading.Thread(target=_send_admin_low_balance_alert, args=(str(exc),), daemon=True).start()
+
+def _send_admin_low_balance_alert(error_detail: str = '') -> bool:
+    """Email admin: Anthropic API key is out of credits."""
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        recipients = [_SMTP_USER]
+        try:
+            for u in _load_users().values():
+                e = u.get('email', '').strip()
+                if u.get('role') == 'admin' and e and e not in recipients:
+                    recipients.append(e)
+        except Exception:
+            pass
+        subject = '[CyberINK] URGENT — Anthropic API credit balance too low'
+        body = f"""
+          <p class="eh1" style="color:#dc2626;font-size:16px;font-weight:700;margin:0 0 8px;">
+            Anthropic API Credit Balance Too Low
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 16px;">
+            A user just tried to use the AI Assistant or Security Scanner but the
+            <strong>Anthropic API key has run out of credits</strong>.
+            AI features are currently unavailable until the balance is topped up.
+          </p>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;
+                        border:1px solid #fecaca;border-radius:6px;background:#fef2f2;">
+            <tr style="border-bottom:1px solid #fecaca;">
+              <td style="padding:9px 12px;font-weight:700;color:#991b1b;width:140px;">Status</td>
+              <td style="padding:9px 12px;color:#dc2626;font-weight:700;">Anthropic API credits exhausted</td>
+            </tr>
+            <tr style="border-bottom:1px solid #fecaca;">
+              <td style="padding:9px 12px;font-weight:700;color:#991b1b;">Error</td>
+              <td style="padding:9px 12px;color:#374151;font-size:11px;">{error_detail[:300]}</td>
+            </tr>
+            <tr>
+              <td style="padding:9px 12px;font-weight:700;color:#991b1b;">Action needed</td>
+              <td style="padding:9px 12px;color:#374151;">Top up credits on the Anthropic console immediately</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#64748b;font-size:12px;line-height:1.7;margin-bottom:16px;">
+            Monthly users: top up <strong>Rp 163.000</strong> (&asymp; $10 USD).<br>
+            Annual users: top up <strong>Rp 815.000</strong> (&asymp; $50 USD).<br>
+            Monitor usage at
+            <a href="https://console.anthropic.com/settings/usage" style="color:#2563eb;">
+              console.anthropic.com/settings/usage</a>.
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+            <a href="https://console.anthropic.com/settings/billing"
+              style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;
+                     padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
+                     letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              Top Up Anthropic Credits Now &rarr;
+            </a>
+          </td></tr></table>"""
+        for to_email in recipients:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From']    = f'CyberINK <{_SMTP_USER}>'
+            msg['To']      = to_email
+            msg.attach(MIMEText(_email_html(subject, body), 'html'))
+            with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+                srv.login(_SMTP_USER, _SMTP_PASS)
+                srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
 # ── Per-user AI credit system ──────────────────────────────────────────────────
 _credits_lock = _threading.Lock()
 
@@ -2401,6 +2493,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         _job_persist(job_id, job)
 
     except Exception as exc:
+        _maybe_send_low_balance_alert(exc)
         import traceback as _tb
         tb = _tb.format_exc()[-1200:]
         job['chunks'].append({'k': 'txt', 'd': f'\n[ERROR] {exc}\n{tb}'})
@@ -7721,6 +7814,7 @@ Be concise, accurate, and actionable. Use markdown for structure. For CVEs alway
                 for text in stream.text_stream:
                     yield f"data: {_json.dumps({'text': text})}\n\n"
         except Exception as e:
+            _maybe_send_low_balance_alert(e)
             yield f"data: {_json.dumps({'error': str(e)})}\n\n"
         yield "data: [DONE]\n\n"
 
