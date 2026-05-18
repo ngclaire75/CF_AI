@@ -612,6 +612,45 @@ _DEFAULT_USER_PAGES = [
     'sca', 'dca', 'grc', 'myappts', 'filemanager', 'support',
 ]
 
+# ── Daily usage limits (Pro plan) ─────────────────────────────────────────────
+_USAGE_FILE   = os.path.join(os.path.dirname(__file__), '..', 'data', 'usage.json')
+_DAILY_LIMITS = {'prompts': 500, 'scans': 50}
+_usage_lock   = _threading.Lock()
+
+def _load_usage() -> dict:
+    try:
+        with open(_USAGE_FILE) as f:
+            return _json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+def _save_usage(data: dict):
+    os.makedirs(os.path.dirname(_USAGE_FILE), exist_ok=True)
+    with open(_USAGE_FILE, 'w') as f:
+        _json.dump(data, f)
+
+def _check_and_use(username: str, key: str) -> tuple:
+    """Check daily limit and consume one unit. Returns (ok, used_after, limit)."""
+    today = _datetime.date.today().isoformat()
+    limit = _DAILY_LIMITS.get(key, 0)
+    with _usage_lock:
+        data = _load_usage()
+        uday = data.setdefault(username, {}).setdefault(today, {})
+        used = uday.get(key, 0)
+        if used >= limit:
+            return False, used, limit
+        uday[key] = used + 1
+        cutoff = (_datetime.date.today() - _datetime.timedelta(days=7)).isoformat()
+        for d in list(data[username].keys()):
+            if d < cutoff:
+                del data[username][d]
+        _save_usage(data)
+        return True, used + 1, limit
+
+def _get_usage_today(username: str) -> dict:
+    today = _datetime.date.today().isoformat()
+    return _load_usage().get(username, {}).get(today, {})
+
 def _load_users() -> dict:
     os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
     if not os.path.exists(_USERS_FILE):
@@ -3871,6 +3910,16 @@ def api_connect_scan():
     target = (data.get('target') or '').strip()
     if not target:
         return jsonify({'error': 'target is required'}), 400
+
+    # ── Per-user daily scan limit ──────────────────────────────────────────────
+    _cu_s = session.get('user') or {}
+    if _cu_s.get('role') != 'admin':
+        _uplan = _load_users().get(_cu_s.get('username', ''), {}).get('plan', 'basic')
+        if _uplan != 'pro':
+            return jsonify({'error': 'Security scanning requires a Pro plan. Upgrade to continue.', 'upgrade': True}), 403
+        _ok, _used, _lim = _check_and_use(_cu_s.get('username', ''), 'scans')
+        if not _ok:
+            return jsonify({'error': f'Daily scan limit reached ({_lim}/day). Resets at midnight UTC.', 'limit_reached': True, 'used': _used, 'limit': _lim}), 429
 
     def _s(k): return (data.get(k) or '').strip()
 
@@ -7531,6 +7580,16 @@ def api_chat():
 
     if not message:
         return jsonify({'error': 'message is required'}), 400
+
+    # ── Per-user daily prompt limit ────────────────────────────────────────────
+    _cu_s = session.get('user') or {}
+    if _cu_s.get('role') != 'admin':
+        _uplan = _load_users().get(_cu_s.get('username', ''), {}).get('plan', 'basic')
+        if _uplan != 'pro':
+            return jsonify({'error': 'AI Assistant requires a Pro plan. Upgrade to continue.', 'upgrade': True}), 403
+        _ok, _used, _lim = _check_and_use(_cu_s.get('username', ''), 'prompts')
+        if not _ok:
+            return jsonify({'error': f'Daily prompt limit reached ({_lim}/day). Resets at midnight UTC.', 'limit_reached': True, 'used': _used, 'limit': _lim}), 429
 
     api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
     if not api_key:
@@ -11637,6 +11696,11 @@ def api_payment_notification():
     if new_status == 'active' and username in users:
         users[username]['plan'] = 'pro'
         _save_users(users)
+        # Give a fresh daily usage slate on new subscription
+        with _usage_lock:
+            _ud = _load_usage()
+            _ud.setdefault(username, {})[_datetime.date.today().isoformat()] = {}
+            _save_usage(_ud)
         user_email = users[username].get('email', '') or sub.get('email', '')
         _send_pro_welcome_email(username, user_email, sub.get('plan_type', 'monthly'), expires_at)
     elif new_status in ('cancelled', 'failed', 'expired') and sub.get('status') == 'active':
@@ -11645,6 +11709,24 @@ def api_payment_notification():
             _save_users(users)
 
     return jsonify({'status': 'ok'})
+
+
+@app.route('/api/usage')
+@login_required
+def api_usage():
+    """Return today's AI prompt and scan usage for the current user."""
+    cu    = _cu()
+    uname = cu.get('username', '')
+    if cu.get('role') == 'admin':
+        return jsonify({'admin': True, 'prompts': {'used': 0, 'limit': None}, 'scans': {'used': 0, 'limit': None}})
+    users = _load_users()
+    plan  = users.get(uname, {}).get('plan', 'basic')
+    today = _get_usage_today(uname)
+    return jsonify({
+        'plan': plan,
+        'prompts': {'used': today.get('prompts', 0), 'limit': _DAILY_LIMITS['prompts'] if plan == 'pro' else 0},
+        'scans':   {'used': today.get('scans', 0),   'limit': _DAILY_LIMITS['scans']   if plan == 'pro' else 0},
+    })
 
 
 @app.route('/api/payment/status', methods=['GET'])

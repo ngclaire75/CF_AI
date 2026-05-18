@@ -2759,9 +2759,12 @@ Export Power BI
   <!-- ══ AI CHATBOT PAGE ══════════════════════════════════════════════════ -->
   <div id="page-chatbot" class="page-section" style="display:none">
   <div style="display:flex;flex-direction:column;height:100%;max-width:860px;margin:0 auto;padding:24px 24px 0;">
-    <div style="margin-bottom:16px;">
-      <div style="font-size:20px;font-weight:600;color:#0f172a;">AI Chatbot</div>
-      <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Ask anything — CVE analysis, scan results, dashboard features, security advice.</div>
+    <div style="margin-bottom:16px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-size:20px;font-weight:600;color:#0f172a;">AI Chatbot</div>
+        <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Ask anything — CVE analysis, scan results, dashboard features, security advice.</div>
+      </div>
+      <div id="chat-usage-bar" style="font-size:12px;color:#64748b;text-align:right;min-width:160px;"></div>
     </div>
 
     <!-- Chat messages area -->
@@ -3085,6 +3088,7 @@ Export Power BI
         <div class="sec-title">Connect & Scan with Agent</div>
         <div class="sec-desc">Enter your URL, optionally provide hosting credentials for a deeper authenticated scan, then pick an AI agent.</div>
       </div>
+      <div id="scan-usage-bar" style="font-size:12px;color:#64748b;text-align:right;min-width:160px;"></div>
     </div>
     <div class="card" style="padding:20px 24px;">
       <!-- Row 1: URL + Agent + Run -->
@@ -8343,7 +8347,9 @@ function sbNav(section, el) {
   if (section === 'syslog')        initSyslogPage();
   // Stop syslog live timer when navigating away
   if (section !== 'syslog' && _slTimer) { clearInterval(_slTimer); _slTimer = null; }
-  if (section === 'sca') scaCheck();
+  if (section === 'sca')     scaCheck();
+  if (section === 'chatbot') updateChatUsage();
+  if (section === 'scan')    updateScanUsage();
   if (section === 'dca') dcaLoadScanners();
   if (section !== 'syslog') { var _stb = document.getElementById('sl-scroll-top-btn'); if (_stb) _stb.style.display = 'none'; }
 }
@@ -11389,7 +11395,17 @@ function startConnectScan() {
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
-    if (d.error) { cwSetStatus('<span class="cs-error">Error: ' + d.error + '</span>'); cwUnlock(); return; }
+    if (d.error) {
+      if (d.upgrade) {
+        cwSetStatus('<span class="cs-error">Pro plan required. <a href="#" onclick="sbNav(\'pricing\',document.getElementById(\'sb-pricing\'));return false;" style="color:#2563eb;text-decoration:underline;">Upgrade →</a></span>');
+      } else if (d.limit_reached) {
+        cwSetStatus('<span class="cs-error">' + _esc(d.error) + '</span>');
+        updateScanUsage();
+      } else {
+        cwSetStatus('<span class="cs-error">Error: ' + _esc(d.error) + '</span>');
+      }
+      cwUnlock(); return;
+    }
     _cwJobId  = d.job_id;
     _cwOffset = 0;
     _cwScanId = null;
@@ -14219,6 +14235,34 @@ function chatClear() {
   msgs.innerHTML = '<div id="chat-welcome" style="background:#eff6ff;border-radius:6px;padding:16px 18px;font-size:13px;color:#1e3a8a;line-height:1.6;"><strong>Conversation cleared.</strong> Ask me anything.</div>';
 }
 
+function _renderUsageBar(used, limit, label) {
+  if (limit === null) return '<span style="color:#22c55e;">Unlimited</span>';
+  if (limit === 0) return '<span style="color:#f59e0b;">Pro plan required</span>';
+  var pct = Math.min(100, Math.round(used / limit * 100));
+  var color = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#22c55e';
+  return '<div style="font-size:11px;color:#64748b;margin-bottom:3px;">' + label + ': <strong style="color:' + color + ';">' + used + ' / ' + limit + '</strong> today</div>'
+    + '<div style="width:120px;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">'
+    + '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:2px;transition:width .3s;"></div></div>';
+}
+
+function updateChatUsage() {
+  fetch('/api/usage').then(function(r){ return r.json(); }).then(function(d) {
+    var bar = document.getElementById('chat-usage-bar');
+    if (!bar) return;
+    if (d.admin) { bar.innerHTML = ''; return; }
+    bar.innerHTML = _renderUsageBar(d.prompts.used, d.prompts.limit, 'AI Prompts');
+  }).catch(function(){});
+}
+
+function updateScanUsage() {
+  fetch('/api/usage').then(function(r){ return r.json(); }).then(function(d) {
+    var bar = document.getElementById('scan-usage-bar');
+    if (!bar) return;
+    if (d.admin) { bar.innerHTML = ''; return; }
+    bar.innerHTML = _renderUsageBar(d.scans.used, d.scans.limit, 'Scans');
+  }).catch(function(){});
+}
+
 function _chatAppend(role, text, id) {
   var msgs = document.getElementById('chat-messages');
   if (!msgs) return null;
@@ -14276,12 +14320,17 @@ function chatSend() {
 
   var fullText = '';
 
+  var _chatErrUpgrade = false, _chatErrLimit = false;
   fetch('/api/chat', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({message: msg, history: _chatHistory.slice(0, -1)})
   }).then(function(r) {
-    if (!r.ok) return r.json().then(function(d){ throw new Error(d.error || 'HTTP ' + r.status); });
+    if (!r.ok) return r.json().then(function(d){
+      _chatErrUpgrade = !!d.upgrade;
+      _chatErrLimit   = !!d.limit_reached;
+      throw new Error(d.error || 'HTTP ' + r.status);
+    });
     var reader = r.body.getReader();
     var decoder = new TextDecoder();
     var buffer = '';
@@ -14318,7 +14367,15 @@ function chatSend() {
     read();
   }).catch(function(e) {
     btn.disabled = false; btn.textContent = 'Send';
-    aiDiv.innerHTML = '<span style="color:#1e3a8a;">Error: ' + _esc(String(e)) + '</span>';
+    if (_chatErrUpgrade) {
+      aiDiv.innerHTML = '<div style="background:#eff6ff;border-radius:6px;padding:12px 14px;color:#1e3a8a;"><strong>Pro plan required.</strong><br><span style="font-size:12px;">' + _esc(String(e.message||e)) + '</span><br><a href="#" onclick="sbNav(\'pricing\',document.getElementById(\'sb-pricing\'));return false;" style="color:#2563eb;font-size:12px;text-decoration:underline;">Upgrade to Pro →</a></div>';
+    } else if (_chatErrLimit) {
+      aiDiv.innerHTML = '<div style="background:#fffbeb;border-radius:6px;padding:12px 14px;color:#92400e;"><strong>Daily limit reached.</strong><br><span style="font-size:12px;">' + _esc(String(e.message||e)) + '</span></div>';
+      updateChatUsage();
+    } else {
+      aiDiv.innerHTML = '<span style="color:#1e3a8a;">Error: ' + _esc(String(e.message||e)) + '</span>';
+    }
+    _chatErrUpgrade = false; _chatErrLimit = false;
   });
 }
 
