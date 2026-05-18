@@ -8126,9 +8126,7 @@ var MIDTRANS_CONFIGURED = _cfai_data.midtrans_configured;
 var USER_ALLOWED_PAGES = _cfai_data.user_allowed_pages;
 
 // Resolved allowed sections — used by sbNav guard and sidebar visibility
-var _USER_SECTIONS = USER_ALLOWED_PAGES !== null
-  ? USER_ALLOWED_PAGES
-  : ['dashboard','chatbot','pluginlogs','logexplorer','inventories','network','agents','account','support'];
+var _USER_SECTIONS = USER_ALLOWED_PAGES !== null ? USER_ALLOWED_PAGES : [];
 
 /* ── Timestamp ── */
 (function(){
@@ -8272,9 +8270,9 @@ function sbNav(section, el) {
     alert('Administrator access required.');
     return;
   }
-  // Role-based section whitelist — admins and Pro users bypass this
-  if (!isPublic && USER_ROLE !== 'admin' && USER_PLAN !== 'pro' && _USER_SECTIONS.indexOf(section) === -1) {
-    alert('Access restricted. Contact your admin to upgrade your account.');
+  // Per-user page whitelist — enforced for all non-admin users regardless of plan
+  if (!isPublic && USER_ROLE !== 'admin' && USER_ALLOWED_PAGES !== null && USER_ALLOWED_PAGES.indexOf(section) === -1) {
+    alert('Access restricted. Contact your admin to enable this page.');
     return;
   }
   // Plan-based gate — Pro pages redirect Basic users to pricing
@@ -9185,9 +9183,10 @@ function _applySidebarAccess() {
     'sb-priority':'priority','sb-recommendations':'recommendations','sb-remediation':'remediation',
     'sb-weaknesses':'weaknesses','sb-inventories':'inventories','sb-targets':'targets',
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
+    'sb-syslog':'syslog','sb-agents':'agents',
     'sb-scan':'scan','sb-history':'history','sb-grc':'grc',
-    'sb-sca':'sca',
-    'sb-dca':'dca',
+    'sb-sca':'sca','sb-dca':'dca',
+    'sb-filemanager':'filemanager','sb-myappts':'myappts',
   };
 
   Object.keys(_SB_MAP).forEach(function(id) {

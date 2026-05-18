@@ -606,6 +606,12 @@ _USERS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'users.json'
 _DEFAULT_ADMIN = 'admin'
 _DEFAULT_ADMIN_PASS = 'admin123'
 
+_DEFAULT_USER_PAGES = [
+    'chatbot', 'gsc', 'filescan', 'agents', 'dashboard', 'threatanalytics',
+    'incidents', 'syslog', 'pluginlogs', 'logexplorer', 'network',
+    'sca', 'dca', 'grc', 'myappts', 'filemanager',
+]
+
 def _load_users() -> dict:
     os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
     if not os.path.exists(_USERS_FILE):
@@ -618,12 +624,6 @@ def _load_users() -> dict:
         return default
     with open(_USERS_FILE) as f:
         users = _json.load(f)
-    # Default page list for non-admin users
-    _DEFAULT_USER_PAGES = [
-        'chatbot', 'gsc', 'filescan', 'agents', 'dashboard', 'threatanalytics',
-        'incidents', 'syslog', 'pluginlogs', 'logexplorer', 'network',
-        'sca', 'dca', 'grc', 'myappts', 'filemanager',
-    ]
     # Migrate older entries + always enforce admin account
     changed = False
     for uname, u in users.items():
@@ -891,6 +891,8 @@ def signup_page():
                     'email': identifier if is_email else '',
                     'verified': verified,
                     'verification_token': token if is_email else None,
+                    'allowed_pages': _DEFAULT_USER_PAGES[:],
+                    'plan': 'basic',
                 }
                 _save_users(users)
                 if is_email:
@@ -1012,6 +1014,8 @@ def admin_create_user():
     users[username] = {
         'password': generate_password_hash(password),
         'role': role, 'email': '', 'verified': True, 'verification_token': None,
+        'allowed_pages': None if role == 'admin' else _DEFAULT_USER_PAGES[:],
+        'plan': 'pro' if role == 'admin' else 'basic',
     }
     _save_users(users)
     return jsonify({'ok': True})
@@ -3582,9 +3586,7 @@ def index():
     else:
         users = _load_users()
         u = users.get(user['username'], {})
-        ctx['user_allowed_pages'] = u.get('allowed_pages', [
-            'dashboard', 'chatbot', 'pluginlogs', 'logexplorer', 'inventories', 'network',
-        ])
+        ctx['user_allowed_pages'] = u.get('allowed_pages') or _DEFAULT_USER_PAGES[:]
         ctx['user_plan'] = u.get('plan', 'basic')
         # Always read fresh profile fields from users.json so template reflects saved changes
         user = dict(user)
