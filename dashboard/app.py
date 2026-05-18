@@ -28,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for, flash, send_file, make_response
+from flask import Flask, render_template, jsonify, abort, request, Response, stream_with_context, redirect, session, url_for, flash, send_file, make_response, send_from_directory
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import smtplib
@@ -426,6 +426,12 @@ def _wp_xmlrpc_verify(site_url: str, username: str, password: str) -> bool:
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = os.environ.get('CFAI_SECRET_KEY', 'cfai-dev-secret-change-in-prod-2026')
+
+_IMAGES_DIR = os.path.join(os.path.dirname(__file__), '..', 'images')
+
+@app.route('/images/<path:filename>')
+def serve_images(filename):
+    return send_from_directory(_IMAGES_DIR, filename)
 
 # ── SMTP / email config ───────────────────────────────────────────────────────
 _SMTP_USER = os.environ.get('SMTP_USER', '')
