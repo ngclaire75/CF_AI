@@ -20285,7 +20285,7 @@ function grcExport() {
       var line   = (f.start && f.start.line) ? f.start.line : '';
       var ruleId = f.check_id || '';
       var msg    = (f.extra && f.extra.message) ? f.extra.message : '';
-      var snippet = (f.extra && f.extra.lines) ? f.extra.lines.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+      var snippet = (f.extra && f.extra.lines) ? String(f.extra.lines).replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
       return '<tr class="sca-finding-row">' +
         '<td>' + scaSeverityBadge(sev) + '</td>' +
         '<td class="sca-location">' + file + (line ? ':' + line : '') + '</td>' +
@@ -20522,17 +20522,17 @@ function dcaExportHTML() {
   var sc={critical:'#fef2f2',high:'#fff7ed',medium:'#fffbeb',low:'#f0fdf4',info:'#f8fafc'};
   var rows=_dcaFindings.map(function(f){
     return '<tr style="background:'+sc[f.severity||'info']+'">'
-      +'<td style="padding:8px;border:1px solid #e2e8f0"><b>'+f.severity+'</b></td>'
-      +'<td style="padding:8px;border:1px solid #e2e8f0">'+f.title+'</td>'
-      +'<td style="padding:8px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px">'+f.url+'</td>'
-      +'<td style="padding:8px;border:1px solid #e2e8f0">'+f.method+'</td>'
-      +'<td style="padding:8px;border:1px solid #e2e8f0">'+f.scanner+'</td>'
-      +'<td style="padding:8px;border:1px solid #e2e8f0;max-width:320px">'+f.description+'</td></tr>';
+      +'<td style="padding:8px;border:1px solid #e2e8f0"><b>'+_dcaEsc(f.severity)+'</b></td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0">'+_dcaEsc(f.title)+'</td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px">'+_dcaEsc(f.url)+'</td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0">'+_dcaEsc(f.method)+'</td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0">'+_dcaEsc(f.scanner)+'</td>'
+      +'<td style="padding:8px;border:1px solid #e2e8f0;max-width:320px">'+_dcaEsc(f.description)+'</td></tr>';
   }).join('');
   var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>DAST Report</title>'
     +'<style>body{font-family:Arial,sans-serif;padding:20px;color:#1e293b}table{border-collapse:collapse;width:100%}th{background:#1e3a8a;color:#fff;padding:10px;border:1px solid #1e40af;text-align:left}h1{color:#1e3a8a}</style></head>'
     +'<body><h1>Dynamic Code Analysis Report</h1>'
-    +'<p><b>Target:</b> '+(document.getElementById('dca-target').value||'')+'</p>'
+    +'<p><b>Target:</b> '+_dcaEsc(document.getElementById('dca-target').value||'')+'</p>'
     +'<p><b>Date:</b> '+new Date().toLocaleString()+'</p>'
     +'<p><b>Findings:</b> '+_dcaFindings.length+'</p>'
     +'<table><thead><tr><th>Severity</th><th>Title</th><th>URL</th><th>Method</th><th>Scanner</th><th>Description</th></tr></thead>'

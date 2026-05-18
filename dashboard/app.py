@@ -11888,7 +11888,7 @@ def api_sca_scan():
             except _json.JSONDecodeError:
                 return jsonify({'ok': False, 'error': 'Semgrep output could not be parsed',
                                 'stderr': res.stderr[:400]}), 500
-            findings = data.get('results', [])
+            findings = data.get('results') or []
             # Strip temp dir prefix from file paths
             for r in findings:
                 r['path'] = os.path.basename(r.get('path', ''))
@@ -11998,7 +11998,7 @@ def api_dca_scan():
                 cmd += ['-c', auth_cookie]
             try:
                 _sp.run(cmd, capture_output=True, timeout=180)
-                if os.path.exists(out_file):
+                if os.path.exists(out_file) and os.path.getsize(out_file) > 0:
                     with open(out_file) as f:
                         raw = _jd.load(f)
                     sev_words = [(['critical','remote code','rce','sql inject'], 'critical'),
@@ -12075,7 +12075,7 @@ def api_dca_scan():
                 cmd += ['--cookie', auth_cookie]
             try:
                 _sp.run(cmd, capture_output=True, timeout=300)
-                if os.path.exists(out_file):
+                if os.path.exists(out_file) and os.path.getsize(out_file) > 0:
                     with open(out_file) as f:
                         raw = _jd.load(f)
                     sev_levels = ['info', 'low', 'medium', 'high', 'critical']
