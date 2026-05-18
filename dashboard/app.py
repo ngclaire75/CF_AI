@@ -13183,6 +13183,84 @@ def my_appointments():
     return jsonify({'appointments': result})
 
 
+def _send_appt_edit_admin_email(appt: dict, changed: dict, actor: str) -> None:
+    if not _SMTP_USER or not _SMTP_PASS:
+        return
+    try:
+        import datetime as _dt
+        now_str = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+        appt_dt = _format_appt_datetime(appt['date'], appt.get('end_date', ''),
+                                         appt['time'], appt.get('duration', ''), appt.get('timezone', ''))
+        label_map = {
+            'service_type': 'Service Type', 'date': 'Start Date', 'end_date': 'End Date',
+            'time': 'Time', 'duration': 'Duration', 'timezone': 'Timezone',
+            'full_name': 'Full Name', 'email': 'Email', 'company': 'Company', 'notes': 'Notes',
+        }
+        if changed:
+            changes_rows = ''.join(
+                f'<tr style="border-bottom:1px solid #bfdbfe;">'
+                f'<td style="padding:7px 12px;font-weight:700;color:#1e3a8a;width:110px;">{label_map.get(k, k)}</td>'
+                f'<td style="padding:7px 12px;color:#64748b;text-decoration:line-through;">{v["old"] or "—"}</td>'
+                f'<td style="padding:7px 12px;color:#2563eb;font-weight:600;">{v["new"] or "—"}</td>'
+                f'</tr>'
+                for k, v in changed.items()
+            )
+            changes_html = (
+                '<p style="font-size:12px;font-weight:700;color:#1e3a8a;margin:16px 0 6px;">Changes Made</p>'
+                '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">'
+                '<tr style="background:#eff6ff;"><th style="padding:7px 12px;text-align:left;color:#1e3a8a;">Field</th>'
+                '<th style="padding:7px 12px;text-align:left;color:#64748b;">Previous</th>'
+                '<th style="padding:7px 12px;text-align:left;color:#2563eb;">New Value</th></tr>'
+                + changes_rows + '</table>'
+            )
+        else:
+            changes_html = '<p style="font-size:12px;color:#64748b;margin-top:12px;">No field values changed.</p>'
+        subject = f'CyberINK — Appointment Edited by {actor}'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Appointment Edited by User</p>
+          <p class="ep" style="color:#475569;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            User account <strong>{actor}</strong> has edited their appointment details.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:120px;">Account</td>
+              <td style="padding:7px 0;color:#2563eb;">{actor}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Booking Name</td>
+              <td style="padding:7px 0;color:#0f172a;">{appt.get('full_name','')}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Service</td>
+              <td style="padding:7px 0;color:#0f172a;">{appt.get('service_type','')}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Schedule</td>
+              <td style="padding:7px 0;color:#0f172a;">{appt_dt}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Status</td>
+              <td style="padding:7px 0;color:#2563eb;font-weight:600;text-transform:capitalize;">{appt.get('status','')}</td>
+            </tr>
+            <tr>
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Edited At</td>
+              <td style="padding:7px 0;color:#64748b;">{now_str}</td>
+            </tr>
+          </table>
+          {changes_html}
+          <p class="ep" style="color:#475569;font-size:12px;line-height:1.6;">
+            Log in to CyberINK and open <strong>Appointment Management</strong> to review this appointment.</p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['To']      = _SMTP_USER
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, _SMTP_USER, msg.as_string())
+    except Exception:
+        pass
+
+
 def _send_user_cancel_email(service_type: str, appt_dt: str, full_name: str,
                              user_email: str, reason: str) -> None:
     if not _SMTP_USER or not _SMTP_PASS:
@@ -13699,6 +13777,57 @@ def user_reschedule_appointment(appt_id):
     _send_user_reschedule_request_email(appt['service_type'], old_dt, new_dt,
                                          appt['full_name'], appt['email'], reason)
     return jsonify({'ok': True, 'message': 'Reschedule request submitted. You will be notified once the team confirms your new schedule.'})
+
+
+@app.route('/api/appointments/<appt_id>/user-edit', methods=['PUT'])
+def user_edit_appointment(appt_id):
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    if session['user'].get('role') == 'admin':
+        return jsonify({'error': 'Admins use the management panel'}), 400
+    data = request.get_json(force=True) or {}
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt = appts[appt_id]
+    if appt.get('username') != session['user']['username']:
+        return jsonify({'error': 'You can only edit your own appointments'}), 403
+    if appt.get('status') == 'completed':
+        return jsonify({'error': 'Completed appointments cannot be edited'}), 400
+    import datetime as _dt
+    editable = ['service_type', 'date', 'end_date', 'time', 'duration',
+                'timezone', 'full_name', 'email', 'company', 'notes']
+    changed = {}
+    for field in editable:
+        if field in data and data[field] != appt.get(field, ''):
+            changed[field] = {'old': appt.get(field, ''), 'new': data[field]}
+            appt[field] = data[field]
+    appt['updated_at'] = _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    _save_appointments(appts)
+    try:
+        _send_appt_edit_admin_email(appt, changed, session['user']['username'])
+    except Exception:
+        pass
+    return jsonify({'ok': True, 'message': 'Appointment updated successfully.'})
+
+
+@app.route('/api/appointments/<appt_id>/user-delete', methods=['DELETE'])
+def user_delete_appointment(appt_id):
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    if session['user'].get('role') == 'admin':
+        return jsonify({'error': 'Admins use the management panel'}), 400
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt = appts[appt_id]
+    if appt.get('username') != session['user']['username']:
+        return jsonify({'error': 'You can only delete your own appointments'}), 403
+    if appt.get('status') == 'completed':
+        return jsonify({'error': 'Completed appointments cannot be deleted'}), 400
+    del appts[appt_id]
+    _save_appointments(appts)
+    return jsonify({'ok': True, 'message': 'Appointment deleted.'})
 
 
 @app.route('/api/appointments/<appt_id>/set-cost', methods=['POST'])

@@ -19738,11 +19738,16 @@ function grcExport() {
       var adminNoteRow     = a.admin_notes ? '<div style="font-size:11px;color:#3b82f6;margin-top:3px;">Note from team: '+_myapptEsc(a.admin_notes)+'</div>' : '';
       var submittedStr     = a.created_at ? a.created_at.replace('T',' ').slice(0,16) + ' UTC' : '';
 
-      var canAct = (a.status === 'pending' || a.status === 'approved' || a.status === 'rescheduled');
+      var canActFull = (a.status === 'pending' || a.status === 'approved' || a.status === 'rescheduled');
+      var canDelete  = (a.status !== 'completed');
       var actions = '';
-      if (canAct) {
+      if (canActFull) {
         actions += '<button class="myappt-btn myappt-btn-reschedule" onclick="myapptToggle(\''+a.id+'\',\'reschedule\')">Request Reschedule</button>';
         actions += '<button class="myappt-btn myappt-btn-cancel" onclick="myapptToggle(\''+a.id+'\',\'cancel\')">Cancel Appointment</button>';
+        actions += '<button class="myappt-btn" onclick="myapptToggle(\''+a.id+'\',\'edit\')">Edit</button>';
+      }
+      if (canDelete) {
+        actions += '<button class="myappt-btn myappt-btn-cancel" onclick="myapptDoDelete(\''+a.id+'\')">Delete</button>';
       }
 
       return '<div class="myappt-card" id="myappt-card-'+a.id+'">'
@@ -19754,7 +19759,7 @@ function grcExport() {
         + (a.notes ? '<div class="myappt-row" style="margin-top:4px;color:#3b82f6;">Your note: '+_myapptEsc(a.notes)+'</div>' : '')
         + reschedReasonRow + cancelReasonRow + adminNoteRow
         + '<div style="font-size:10px;color:#93c5fd;margin-top:6px;">Submitted: '+submittedStr+'</div>'
-        + (canAct ? '<hr class="myappt-divider"><div class="myappt-actions">'+actions+'</div>' : '')
+        + (actions ? '<hr class="myappt-divider"><div class="myappt-actions">'+actions+'</div>' : '')
         + '<div class="myappt-inline" id="myappt-inline-cancel-'+a.id+'">'
           + '<div class="myappt-inline-lbl">Reason for cancellation <span style="color:#1d4ed8;">(required)</span></div>'
           + '<textarea class="myappt-ta" id="myappt-reason-'+a.id+'" placeholder="Please explain why you are cancelling this appointment."></textarea>'
@@ -19773,6 +19778,22 @@ function grcExport() {
           + '<button class="myappt-conf" onclick="myapptDoReschedule(\''+a.id+'\')">Submit Reschedule Request</button>'
           + '<div class="myappt-msg" id="myappt-msg-reschedule-'+a.id+'"></div>'
         + '</div>'
+        + '<div class="myappt-inline" id="myappt-inline-edit-'+a.id+'">'
+          + '<div class="myappt-grid2">'
+            + '<div><div class="myappt-inline-lbl">Service Type</div><input class="myappt-inp" id="myappt-esvc-'+a.id+'" type="text" value="'+_myapptEsc(a.service_type||'')+'"></div>'
+            + '<div><div class="myappt-inline-lbl">Full Name</div><input class="myappt-inp" id="myappt-ename-'+a.id+'" type="text" value="'+_myapptEsc(a.full_name||'')+'"></div>'
+            + '<div><div class="myappt-inline-lbl">Email</div><input class="myappt-inp" id="myappt-eemail-'+a.id+'" type="email" value="'+_myapptEsc(a.email||'')+'"></div>'
+            + '<div><div class="myappt-inline-lbl">Company</div><input class="myappt-inp" id="myappt-ecompany-'+a.id+'" type="text" value="'+_myapptEsc(a.company||'')+'"></div>'
+            + '<div><div class="myappt-inline-lbl">Start Date</div><input class="myappt-inp" id="myappt-edate-'+a.id+'" type="date" value="'+(a.date||'')+'"></div>'
+            + '<div><div class="myappt-inline-lbl">End Date (optional)</div><input class="myappt-inp" id="myappt-eenddate-'+a.id+'" type="date" value="'+(a.end_date||'')+'"></div>'
+            + '<div><div class="myappt-inline-lbl">Time</div><input class="myappt-inp" id="myappt-etime-'+a.id+'" type="time" value="'+(a.time||'')+'"></div>'
+            + '<div><div class="myappt-inline-lbl">Duration</div><input class="myappt-inp" id="myappt-edur-'+a.id+'" type="text" value="'+_myapptEsc(a.duration||'')+'" placeholder="e.g. 1 hour"></div>'
+          + '</div>'
+          + '<div class="myappt-inline-lbl">Notes</div>'
+          + '<textarea class="myappt-ta" id="myappt-enotes-'+a.id+'" placeholder="Any additional notes...">'+_myapptEsc(a.notes||'')+'</textarea>'
+          + '<button class="myappt-conf" onclick="myapptDoEdit(\''+a.id+'\')">Save Changes</button>'
+          + '<div class="myappt-msg" id="myappt-msg-edit-'+a.id+'"></div>'
+        + '</div>'
       + '</div>';
     }).join('');
   }
@@ -19784,7 +19805,7 @@ function grcExport() {
   window.myapptToggle = function(id, panel) {
     var target = document.getElementById('myappt-inline-'+panel+'-'+id);
     var wasOpen = target && target.style.display === 'block';
-    ['cancel','reschedule'].forEach(function(p){
+    ['cancel','reschedule','edit'].forEach(function(p){
       var el = document.getElementById('myappt-inline-'+p+'-'+id);
       if (el) el.style.display = 'none';
     });
@@ -19807,6 +19828,46 @@ function grcExport() {
     if (!reason) { msgEl.className='myappt-msg err'; msgEl.textContent='A cancellation reason is required.'; msgEl.style.display=''; return; }
     if (!confirm('Cancel this appointment? This action cannot be undone.')) return;
     _myapptPost('/api/appointments/'+id+'/user-cancel', {reason: reason}, msgEl);
+  };
+
+  window.myapptDoEdit = function(id) {
+    var msgEl = document.getElementById('myappt-msg-edit-'+id);
+    var body = {
+      service_type: (document.getElementById('myappt-esvc-'+id)||{}).value || '',
+      full_name:    (document.getElementById('myappt-ename-'+id)||{}).value || '',
+      email:        (document.getElementById('myappt-eemail-'+id)||{}).value || '',
+      company:      (document.getElementById('myappt-ecompany-'+id)||{}).value || '',
+      date:         (document.getElementById('myappt-edate-'+id)||{}).value || '',
+      end_date:     (document.getElementById('myappt-eenddate-'+id)||{}).value || '',
+      time:         (document.getElementById('myappt-etime-'+id)||{}).value || '',
+      duration:     (document.getElementById('myappt-edur-'+id)||{}).value || '',
+      notes:        (document.getElementById('myappt-enotes-'+id)||{}).value || '',
+    };
+    if (!body.full_name || !body.date || !body.time) {
+      msgEl.className = 'myappt-msg err'; msgEl.textContent = 'Full name, date, and time are required.'; msgEl.style.display = ''; return;
+    }
+    fetch('/api/appointments/'+id+'/user-edit', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+      .then(function(r){ return r.json(); }).then(function(d){
+        msgEl.className = 'myappt-msg ' + (d.ok ? 'ok' : 'err');
+        msgEl.textContent = d.message || d.error || (d.ok ? 'Saved.' : 'Error.');
+        msgEl.style.display = '';
+        if (d.ok) { setTimeout(function(){ loadMyAppts(); }, 1200); }
+      }).catch(function(){ msgEl.className='myappt-msg err'; msgEl.textContent='Network error.'; msgEl.style.display=''; });
+  };
+
+  window.myapptDoDelete = function(id) {
+    if (!confirm('Permanently delete this appointment? This cannot be undone.')) return;
+    fetch('/api/appointments/'+id+'/user-delete', {method:'DELETE'})
+      .then(function(r){ return r.json(); }).then(function(d){
+        if (d.ok) {
+          var card = document.getElementById('myappt-card-'+id);
+          if (card) card.remove();
+          var remaining = document.querySelectorAll('#myappt-list .myappt-card');
+          if (!remaining.length) document.getElementById('myappt-list').innerHTML = '<div class="myappt-empty">No appointments match your search.</div>';
+        } else {
+          alert(d.error || 'Could not delete appointment.');
+        }
+      }).catch(function(){ alert('Network error.'); });
   };
 
   window.myapptDoReschedule = function(id) {
