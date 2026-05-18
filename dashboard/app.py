@@ -13819,15 +13819,18 @@ def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expi
         exp         = expires_at.split(' ')[0] if expires_at else '—'
         idr_fmt     = f'Rp {amount_idr:,}'.replace(',', '.')
 
-        # Recommended top-up amounts (USD) based on plan
-        # Monthly: 500 prompts/day × 31 days, ~20% avg utilisation → ~$10 USD covers typical usage
-        # Annual:  same daily rate × 366 days → $50 USD starting credit, top up quarterly
+        # Recommended top-up amounts (IDR) based on plan
+        # Monthly: 500 prompts/day × 31 days, ~20% avg utilisation → ~Rp 163.000 covers typical usage
+        # Annual:  same daily rate × 366 days → Rp 815.000 starting credit, top up quarterly
+        # (Anthropic console charges in USD — Rp 163.000 ≈ $10 USD, Rp 815.000 ≈ $50 USD)
         if plan_type == 'annual':
-            topup_usd = 50
-            topup_note = 'We recommend topping up in $50 USD increments and monitoring monthly.'
+            topup_idr      = 'Rp 815.000'
+            topup_usd_note = '≈ $50 USD on Anthropic console'
+            topup_note     = 'We recommend topping up in Rp 815.000 increments and monitoring monthly.'
         else:
-            topup_usd  = 10
-            topup_note = 'We recommend topping up $10 USD per active Pro user per month.'
+            topup_idr      = 'Rp 163.000'
+            topup_usd_note = '≈ $10 USD on Anthropic console'
+            topup_note     = 'We recommend topping up Rp 163.000 per active Pro user per month.'
 
         subject = f'[CyberINK] Action required — Top up Anthropic API credits for {username}'
         body = f"""
@@ -13863,7 +13866,7 @@ def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expi
             </tr>
             <tr>
               <td style="padding:9px 12px;font-weight:700;color:#15803d;">Recommended top-up</td>
-              <td style="padding:9px 12px;color:#15803d;font-weight:700;">${topup_usd} USD to Anthropic</td>
+              <td style="padding:9px 12px;color:#15803d;font-weight:700;">{topup_idr} <span style="font-weight:400;font-size:11px;color:#64748b;">({topup_usd_note})</span></td>
             </tr>
           </table>
 
