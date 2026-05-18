@@ -620,7 +620,9 @@ def _load_users() -> dict:
         users = _json.load(f)
     # Default page list for non-admin users
     _DEFAULT_USER_PAGES = [
-        'dashboard', 'chatbot', 'pluginlogs', 'logexplorer', 'inventories', 'network', 'syslog', 'grc',
+        'chatbot', 'gsc', 'filescan', 'agents', 'dashboard', 'threatanalytics',
+        'incidents', 'syslog', 'pluginlogs', 'logexplorer', 'network',
+        'sca', 'dca', 'grc', 'myappts', 'filemanager',
     ]
     # Migrate older entries + always enforce admin account
     changed = False

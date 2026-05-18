@@ -16182,7 +16182,7 @@ function umPagesPreset(preset) {
   _ALL_PAGES.forEach(function(grp) {
     grp.pages.forEach(function(p) {
       var el = document.getElementById('um-pg-' + p.key);
-      if (el) el.checked = pages.indexOf(p.key) !== -1;
+      if (el && !el.disabled) el.checked = pages.indexOf(p.key) !== -1;
     });
   });
 }
@@ -16192,7 +16192,7 @@ function umSavePages() {
   _ALL_PAGES.forEach(function(grp) {
     grp.pages.forEach(function(p) {
       var el = document.getElementById('um-pg-' + p.key);
-      if (el && el.checked) allowed.push(p.key);
+      if (el && el.checked && !el.disabled) allowed.push(p.key);
     });
   });
   var errEl = document.getElementById('um-pages-err');
