@@ -7335,12 +7335,6 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           <textarea id="cr-req-reason" rows="3" placeholder="Describe why you need more credits…" class="cr-input" style="resize:none;"></textarea>
         </div>
 
-        <div class="cr-presets">
-          <button class="cr-preset-btn" onclick="crPreset(500)">+500</button>
-          <button class="cr-preset-btn" onclick="crPreset(1000)">+1,000</button>
-          <button class="cr-preset-btn" onclick="crPreset(3000)">+3,000 (Monthly)</button>
-        </div>
-
         <div id="cr-req-err" style="display:none;" class="cr-msg-err"></div>
         <div id="cr-req-ok"  style="display:none;" class="cr-msg-ok"></div>
         <button onclick="crSubmitRequest()" id="cr-req-btn" class="cr-submit-btn">Submit Request</button>
