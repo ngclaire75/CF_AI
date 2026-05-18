@@ -2112,6 +2112,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-account" onclick="sbNav('account',this)">
       <span class="sb-label">Account Settings</span>
     </button>
+    <button class="sb-item" id="sb-credits" onclick="sbNav('credits',this)">
+      <span class="sb-label">My Credit Balance</span>
+    </button>
     <button class="sb-item" id="sb-filemanager" onclick="sbNav('filemanager',this)">
       <span class="sb-label">My File Manager</span>
     </button>
@@ -4016,9 +4019,9 @@ Export Power BI
       <table class="mdef-tbl" id="um-tbl" style="background:#fff;">
         <thead><tr>
           <th style="width:32px;"><input type="checkbox" id="um-check-all" onchange="umToggleAll(this)" title="Select all"></th>
-          <th>Username</th><th>Email</th><th>Verified</th><th>Role</th><th>Plan</th><th>Pages</th><th>Actions</th>
+          <th>Username</th><th>Email</th><th>Verified</th><th>Role</th><th>Plan</th><th>Pages</th><th>Credits</th><th>Actions</th>
         </tr></thead>
-        <tbody id="um-tbody"><tr><td colspan="8" class="mdef-empty">Loading…</td></tr></tbody>
+        <tbody id="um-tbody"><tr><td colspan="9" class="mdef-empty">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -7227,6 +7230,55 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   </div>
   </div><!-- /page-account -->
 
+  <!-- ══ MY CREDIT BALANCE PAGE ════════════════════════════════════════════ -->
+  <div id="page-credits" class="page-section" style="display:none">
+  <section class="section">
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">My Credit Balance</div>
+        <div class="sec-desc">AI credits are isolated to your account. Each AI Assistant message and security scan consumes 1 credit.</div>
+      </div>
+    </div>
+    <div style="max-width:620px;">
+      <!-- Balance card -->
+      <div class="card" style="padding:28px 24px;margin-bottom:18px;text-align:center;">
+        <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;">AVAILABLE CREDITS</div>
+        <div id="cr-balance" style="font-size:56px;font-weight:800;color:#2563eb;line-height:1;">—</div>
+        <div style="font-size:13px;color:#64748b;margin-top:6px;">credits remaining</div>
+        <div id="cr-today-area" style="display:flex;gap:16px;justify-content:center;margin-top:20px;flex-wrap:wrap;"></div>
+      </div>
+      <!-- Request form -->
+      <div class="card" style="padding:24px;">
+        <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;">Request Extra Credits</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Need more credits? Submit a request — your admin will review and load them to your account.</div>
+        <div style="display:grid;gap:12px;">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Amount requested</label>
+            <input type="number" id="cr-req-amount" min="100" placeholder="e.g. 3000"
+              style="width:100%;padding:9px 12px;border:1px solid #bfdbfe;border-radius:6px;font-size:13px;box-sizing:border-box;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Reason</label>
+            <textarea id="cr-req-reason" rows="3" placeholder="Describe why you need more credits…"
+              style="width:100%;padding:9px 12px;border:1px solid #bfdbfe;border-radius:6px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box;outline:none;"></textarea>
+          </div>
+          <div id="cr-req-err" style="display:none;color:#dc2626;font-size:12px;"></div>
+          <div id="cr-req-ok"  style="display:none;color:#15803d;font-size:12px;font-weight:600;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="crPreset(500)"  style="padding:6px 14px;font-size:12px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1e3a8a;cursor:pointer;">+500</button>
+            <button onclick="crPreset(1000)" style="padding:6px 14px;font-size:12px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1e3a8a;cursor:pointer;">+1,000</button>
+            <button onclick="crPreset(3000)" style="padding:6px 14px;font-size:12px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1e3a8a;cursor:pointer;">+3,000 (Monthly)</button>
+          </div>
+          <button onclick="crSubmitRequest()" id="cr-req-btn"
+            style="padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;width:fit-content;">
+            Submit Request
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+  </div><!-- /page-credits -->
+
   <!-- ══ MY APPOINTMENTS PAGE (non-admin users) ════════════════════════════ -->
   {% if current_user.role != 'admin' %}
   <div id="page-myappts" class="page-section" style="display:none">
@@ -7959,6 +8011,37 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   </div>
 </div>
 
+<!-- ── Load Credits Modal (admin) ────────────────────────────────────────────── -->
+<div id="um-credits-modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)umCloseCreditsModal()">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title">Load AI Credits</div>
+        <div class="modal-sub">Credits are isolated to this user only</div>
+      </div>
+      <button class="modal-close" onclick="umCloseCreditsModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:20px 24px 24px;">
+      <div style="font-size:13px;color:#374151;margin-bottom:14px;">
+        User: <strong id="um-credits-username"></strong><br>
+        Current balance: <strong id="um-credits-current" style="color:#2563eb;"></strong>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button class="pt-btn" onclick="umDoLoadCredits(500)">+500</button>
+        <button class="pt-btn" onclick="umDoLoadCredits(1000)">+1,000</button>
+        <button class="pt-btn pt-btn-primary" onclick="umDoLoadCredits(3000)">+3,000 (Monthly)</button>
+        <button class="pt-btn" onclick="umDoLoadCredits(15000)">+15,000 (Annual)</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <input type="number" id="um-credits-custom" min="1" max="500000" placeholder="Custom amount"
+          style="flex:1;padding:8px 10px;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;">
+        <button class="pt-btn pt-btn-primary" onclick="umDoLoadCredits()">Add</button>
+      </div>
+      <div id="um-credits-err" style="display:none;color:#dc2626;font-size:12px;margin-top:6px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ── Pentest New Engagement Modal ─────────────────────────────────────────── -->
 <div id="pt-modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)ptCloseModal()">
   <div class="modal-box" style="max-width:620px;">
@@ -8233,6 +8316,7 @@ var _PAGE_TITLES = {
   'support':       'Customer Service Centre',
   'apptmgmt':      'Appointment Management Centre',
   'myappts':       'My Appointments',
+  'credits':       'My Credit Balance',
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
@@ -8350,6 +8434,7 @@ function sbNav(section, el) {
   if (section === 'sca')     scaCheck();
   if (section === 'chatbot') updateChatUsage();
   if (section === 'scan')    updateScanUsage();
+  if (section === 'credits') loadCreditsPage();
   if (section === 'dca') dcaLoadScanners();
   if (section !== 'syslog') { var _stb = document.getElementById('sl-scroll-top-btn'); if (_stb) _stb.style.display = 'none'; }
 }
@@ -9185,6 +9270,7 @@ function _applySidebarAccess() {
     'sb-sca':'sca','sb-dca':'dca',
     'sb-filemanager':'filemanager','sb-myappts':'myappts',
     'sb-support':'support',
+    'sb-credits':'credits',
   };
 
   Object.keys(_SB_MAP).forEach(function(id) {
@@ -11401,6 +11487,8 @@ function startConnectScan() {
       } else if (d.limit_reached) {
         cwSetStatus('<span class="cs-error">' + _esc(d.error) + '</span>');
         updateScanUsage();
+      } else if (d.no_credits) {
+        cwSetStatus('<span class="cs-error">No AI credits remaining. <a href="#" onclick="sbNav(\'credits\',document.getElementById(\'sb-credits\'));return false;" style="color:#dc2626;text-decoration:underline;">Request a top-up →</a></span>');
       } else {
         cwSetStatus('<span class="cs-error">Error: ' + _esc(d.error) + '</span>');
       }
@@ -14250,7 +14338,9 @@ function updateChatUsage() {
     var bar = document.getElementById('chat-usage-bar');
     if (!bar) return;
     if (d.admin) { bar.innerHTML = ''; return; }
-    bar.innerHTML = _renderUsageBar(d.prompts.used, d.prompts.limit, 'AI Prompts');
+    var cr = d.credits !== undefined ? d.credits : null;
+    bar.innerHTML = _renderUsageBar(d.prompts.used, d.prompts.limit, 'AI Prompts')
+      + (cr !== null ? '<div style="font-size:11px;color:#64748b;margin-top:4px;">Credits: <strong style="color:'+(cr>100?'#15803d':cr>0?'#d97706':'#dc2626')+';">' + cr.toLocaleString() + '</strong> remaining</div>' : '');
   }).catch(function(){});
 }
 
@@ -14259,8 +14349,99 @@ function updateScanUsage() {
     var bar = document.getElementById('scan-usage-bar');
     if (!bar) return;
     if (d.admin) { bar.innerHTML = ''; return; }
-    bar.innerHTML = _renderUsageBar(d.scans.used, d.scans.limit, 'Scans');
+    var cr = d.credits !== undefined ? d.credits : null;
+    bar.innerHTML = _renderUsageBar(d.scans.used, d.scans.limit, 'Scans')
+      + (cr !== null ? '<div style="font-size:11px;color:#64748b;margin-top:4px;">Credits: <strong style="color:'+(cr>100?'#15803d':cr>0?'#d97706':'#dc2626')+';">' + cr.toLocaleString() + '</strong> remaining</div>' : '');
   }).catch(function(){});
+}
+
+// ── Admin: Load Credits modal ────────────────────────────────────────────────
+var _umCreditsTarget = '';
+function umLoadCredits(username) {
+  _umCreditsTarget = username;
+  var u = (_umUsers || []).find(function(x){ return x.username === username; });
+  document.getElementById('um-credits-username').textContent = username;
+  document.getElementById('um-credits-current').textContent = ((u ? (u.ai_credits||0) : 0)).toLocaleString() + ' credits';
+  document.getElementById('um-credits-custom').value = '';
+  var errEl = document.getElementById('um-credits-err');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+  document.getElementById('um-credits-modal-bg').style.display = 'flex';
+}
+function umCloseCreditsModal() {
+  document.getElementById('um-credits-modal-bg').style.display = 'none';
+}
+function umDoLoadCredits(preset) {
+  var amount = preset || parseInt((document.getElementById('um-credits-custom').value || '0'), 10);
+  var errEl  = document.getElementById('um-credits-err');
+  if (!amount || amount <= 0) {
+    if (errEl) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = ''; }
+    return;
+  }
+  fetch('/api/admin/users/' + encodeURIComponent(_umCreditsTarget) + '/credits', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({amount: amount})
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.error) { if (errEl) { errEl.textContent = d.error; errEl.style.display = ''; } return; }
+    umCloseCreditsModal();
+    loadUserMgmt();
+  }).catch(function() {
+    if (errEl) { errEl.textContent = 'Request failed. Try again.'; errEl.style.display = ''; }
+  });
+}
+
+// ── User: My Credit Balance page ─────────────────────────────────────────────
+function loadCreditsPage() {
+  fetch('/api/usage').then(function(r){ return r.json(); }).then(function(d) {
+    var balEl   = document.getElementById('cr-balance');
+    var todayEl = document.getElementById('cr-today-area');
+    if (!balEl) return;
+    if (d.admin) {
+      balEl.textContent = '∞'; balEl.style.color = '#22c55e';
+      if (todayEl) todayEl.innerHTML = '<div style="font-size:13px;color:#64748b;">Admin accounts have unlimited access.</div>';
+      return;
+    }
+    var cr = d.credits || 0;
+    balEl.textContent  = cr.toLocaleString();
+    balEl.style.color  = cr > 500 ? '#2563eb' : cr > 100 ? '#d97706' : '#dc2626';
+    if (todayEl) {
+      todayEl.innerHTML =
+        '<div style="text-align:center;padding:12px 20px;background:#eff6ff;border-radius:8px;min-width:110px;">'
+        + '<div style="font-size:22px;font-weight:700;color:#1d4ed8;">'+(d.prompts.used||0)+' / '+(d.prompts.limit||0)+'</div>'
+        + '<div style="font-size:11px;color:#64748b;margin-top:2px;">prompts today</div></div>'
+        + '<div style="text-align:center;padding:12px 20px;background:#eff6ff;border-radius:8px;min-width:110px;">'
+        + '<div style="font-size:22px;font-weight:700;color:#1d4ed8;">'+(d.scans.used||0)+' / '+(d.scans.limit||0)+'</div>'
+        + '<div style="font-size:11px;color:#64748b;margin-top:2px;">scans today</div></div>';
+    }
+  }).catch(function(){});
+}
+function crPreset(n) {
+  var el = document.getElementById('cr-req-amount');
+  if (el) el.value = n;
+}
+function crSubmitRequest() {
+  var amount = parseInt((document.getElementById('cr-req-amount').value || '0'), 10);
+  var reason = (document.getElementById('cr-req-reason').value || '').trim();
+  var errEl  = document.getElementById('cr-req-err');
+  var okEl   = document.getElementById('cr-req-ok');
+  var btn    = document.getElementById('cr-req-btn');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+  if (okEl)  { okEl.style.display  = 'none'; }
+  if (!amount || amount <= 0) { if (errEl) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = ''; } return; }
+  if (!reason) { if (errEl) { errEl.textContent = 'Please describe why you need more credits.'; errEl.style.display = ''; } return; }
+  if (btn) btn.disabled = true;
+  fetch('/api/credits/request', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({amount: amount, reason: reason})
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (btn) btn.disabled = false;
+    if (d.error) { if (errEl) { errEl.textContent = d.error; errEl.style.display = ''; } return; }
+    if (okEl) { okEl.textContent = 'Request sent! Your admin has been notified and will load your credits shortly.'; okEl.style.display = ''; }
+    document.getElementById('cr-req-amount').value = '';
+    document.getElementById('cr-req-reason').value = '';
+  }).catch(function() {
+    if (btn) btn.disabled = false;
+    if (errEl) { errEl.textContent = 'Request failed. Try again.'; errEl.style.display = ''; }
+  });
 }
 
 function _chatAppend(role, text, id) {
@@ -14320,15 +14501,16 @@ function chatSend() {
 
   var fullText = '';
 
-  var _chatErrUpgrade = false, _chatErrLimit = false;
+  var _chatErrUpgrade = false, _chatErrLimit = false, _chatErrNoCredits = false;
   fetch('/api/chat', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({message: msg, history: _chatHistory.slice(0, -1)})
   }).then(function(r) {
     if (!r.ok) return r.json().then(function(d){
-      _chatErrUpgrade = !!d.upgrade;
-      _chatErrLimit   = !!d.limit_reached;
+      _chatErrUpgrade   = !!d.upgrade;
+      _chatErrLimit     = !!d.limit_reached;
+      _chatErrNoCredits = !!d.no_credits;
       throw new Error(d.error || 'HTTP ' + r.status);
     });
     var reader = r.body.getReader();
@@ -14372,10 +14554,12 @@ function chatSend() {
     } else if (_chatErrLimit) {
       aiDiv.innerHTML = '<div style="background:#fffbeb;border-radius:6px;padding:12px 14px;color:#92400e;"><strong>Daily limit reached.</strong><br><span style="font-size:12px;">' + _esc(String(e.message||e)) + '</span></div>';
       updateChatUsage();
+    } else if (_chatErrNoCredits) {
+      aiDiv.innerHTML = '<div style="background:#fef2f2;border-radius:6px;padding:12px 14px;color:#991b1b;"><strong>No AI credits remaining.</strong><br><span style="font-size:12px;">' + _esc(String(e.message||e)) + '</span><br><a href="#" onclick="sbNav(\'credits\',document.getElementById(\'sb-credits\'));return false;" style="color:#dc2626;font-size:12px;text-decoration:underline;">Request a top-up →</a></div>';
     } else {
       aiDiv.innerHTML = '<span style="color:#1e3a8a;">Error: ' + _esc(String(e.message||e)) + '</span>';
     }
-    _chatErrUpgrade = false; _chatErrLimit = false;
+    _chatErrUpgrade = false; _chatErrLimit = false; _chatErrNoCredits = false;
   });
 }
 
@@ -15300,6 +15484,9 @@ var _ALL_PAGES = [
   { group: 'Support',                pages: [
     { key: 'support',        label: 'Customer Service Centre' },
   ]},
+  { group: 'Account',                pages: [
+    { key: 'credits',        label: 'My Credit Balance' },
+  ]},
 ];
 
 // Presets
@@ -15317,14 +15504,14 @@ var _umPagesTarget = [];     // usernames currently being edited in the pages mo
 function loadUserMgmt() {
   var tbody = document.getElementById('um-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" class="mdef-empty">Loading…</td></tr>';
   umClearSelection();
   fetch('/api/admin/users')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (d.error) { tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#1e3a8a;">'+_esc(d.error)+'</td></tr>'; return; }
+      if (d.error) { tbody.innerHTML = '<tr><td colspan="9" class="mdef-empty" style="color:#1e3a8a;">'+_esc(d.error)+'</td></tr>'; return; }
       _umUsers = d.users || [];
-      if (!_umUsers.length) { tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty">No users found.</td></tr>'; return; }
+      if (!_umUsers.length) { tbody.innerHTML = '<tr><td colspan="9" class="mdef-empty">No users found.</td></tr>'; return; }
       tbody.innerHTML = _umUsers.map(function(u){
         var isAdmin    = u.role === 'admin';
         var isVerified = u.verified !== false;
@@ -15378,6 +15565,17 @@ function loadUserMgmt() {
           }
           if (!actions) actions = '<span style="font-size:11px;color:#60a5fa;">protected</span>';
         }
+        // Credits cell
+        var creditsCell;
+        if (isAdmin) {
+          creditsCell = '<span style="font-size:11px;color:#60a5fa;">∞</span>';
+        } else {
+          var cr = u.ai_credits || 0;
+          var crColor = cr > 500 ? '#15803d' : cr > 100 ? '#d97706' : '#dc2626';
+          creditsCell = '<span style="font-size:12px;font-weight:700;color:'+crColor+';">'+cr.toLocaleString()+'</span>'
+            + ' <button onclick="umLoadCredits(\''+_esc(u.username)+'\')" style="font-size:10px;padding:2px 7px;border:1px solid #bfdbfe;border-radius:4px;background:#eff6ff;cursor:pointer;margin-left:4px;">Load</button>';
+        }
+
         return '<tr>'
           + '<td style="text-align:center;">'+chk+'</td>'
           + '<td style="font-weight:500;">'+_esc(u.username)+(isDefault?'<span style="font-size:10px;color:#60a5fa;margin-left:6px;">(default)</span>':'')+'</td>'
@@ -15386,6 +15584,7 @@ function loadUserMgmt() {
           + '<td>'+roleBadge+'</td>'
           + '<td style="white-space:nowrap;">'+planCell+'</td>'
           + '<td>'+pagesCell+'</td>'
+          + '<td style="white-space:nowrap;">'+creditsCell+'</td>'
           + '<td style="white-space:nowrap;">'+actions+'</td>'
           + '</tr>';
       }).join('');

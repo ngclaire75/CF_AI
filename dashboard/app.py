@@ -609,7 +609,7 @@ _DEFAULT_ADMIN_PASS = 'admin123'
 _DEFAULT_USER_PAGES = [
     'chatbot', 'gsc', 'filescan', 'agents', 'dashboard', 'threatanalytics',
     'incidents', 'syslog', 'pluginlogs', 'logexplorer', 'network',
-    'sca', 'dca', 'grc', 'myappts', 'filemanager', 'support',
+    'sca', 'dca', 'grc', 'myappts', 'filemanager', 'support', 'credits',
 ]
 
 # ── Daily usage limits (Pro plan) ─────────────────────────────────────────────
@@ -651,6 +651,31 @@ def _get_usage_today(username: str) -> dict:
     today = _datetime.date.today().isoformat()
     return _load_usage().get(username, {}).get(today, {})
 
+# ── Per-user AI credit system ──────────────────────────────────────────────────
+_credits_lock = _threading.Lock()
+
+def _deduct_credit(username: str) -> bool:
+    """Atomically deduct 1 AI credit. Returns True if successful (had credits)."""
+    with _credits_lock:
+        users = _load_users()
+        u = users.get(username)
+        if not u or u.get('role') == 'admin':
+            return True
+        c = u.get('ai_credits', 0)
+        if c <= 0:
+            return False
+        u['ai_credits'] = c - 1
+        _save_users(users)
+        return True
+
+def _add_credits(username: str, amount: int):
+    """Add AI credits to a specific user's balance."""
+    with _credits_lock:
+        users = _load_users()
+        if username in users:
+            users[username]['ai_credits'] = users[username].get('ai_credits', 0) + amount
+            _save_users(users)
+
 def _load_users() -> dict:
     os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
     if not os.path.exists(_USERS_FILE):
@@ -677,6 +702,10 @@ def _load_users() -> dict:
         # Migrate: add plan field — admins default to pro, users to basic
         if 'plan' not in u:
             u['plan'] = 'pro' if u.get('role') == 'admin' else 'basic'
+            changed = True
+        # Migrate: add ai_credits for non-admin users
+        if u.get('role') != 'admin' and 'ai_credits' not in u:
+            u['ai_credits'] = 0
             changed = True
     # Ensure default admin always exists with admin role
     if _DEFAULT_ADMIN not in users:
@@ -1026,8 +1055,9 @@ def admin_list_users():
             'role':          v['role'],
             'email':         v.get('email', ''),
             'verified':      v.get('verified', True),
-            'allowed_pages': v.get('allowed_pages'),  # None for admins = unrestricted
+            'allowed_pages': v.get('allowed_pages'),
             'plan':          v.get('plan', 'basic'),
+            'ai_credits':    v.get('ai_credits', 0),
         }
         for k, v in users.items()
     ]})
@@ -3920,6 +3950,8 @@ def api_connect_scan():
         _ok, _used, _lim = _check_and_use(_cu_s.get('username', ''), 'scans')
         if not _ok:
             return jsonify({'error': f'Daily scan limit reached ({_lim}/day). Resets at midnight UTC.', 'limit_reached': True, 'used': _used, 'limit': _lim}), 429
+        if not _deduct_credit(_cu_s.get('username', '')):
+            return jsonify({'error': 'No AI credits remaining. Request a top-up from your admin.', 'no_credits': True}), 402
 
     def _s(k): return (data.get(k) or '').strip()
 
@@ -7590,6 +7622,8 @@ def api_chat():
         _ok, _used, _lim = _check_and_use(_cu_s.get('username', ''), 'prompts')
         if not _ok:
             return jsonify({'error': f'Daily prompt limit reached ({_lim}/day). Resets at midnight UTC.', 'limit_reached': True, 'used': _used, 'limit': _lim}), 429
+        if not _deduct_credit(_cu_s.get('username', '')):
+            return jsonify({'error': 'No AI credits remaining. Request a top-up from your admin.', 'no_credits': True}), 402
 
     api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
     if not api_key:
@@ -11701,6 +11735,9 @@ def api_payment_notification():
             _ud = _load_usage()
             _ud.setdefault(username, {})[_datetime.date.today().isoformat()] = {}
             _save_usage(_ud)
+        # Auto-allocate per-user AI credits: Monthly → 3,000, Annual → 15,000
+        _credit_grant = 15000 if sub.get('plan_type') == 'annual' else 3000
+        _add_credits(username, _credit_grant)
         user_email = users[username].get('email', '') or sub.get('email', '')
         _send_pro_welcome_email(username, user_email, sub.get('plan_type', 'monthly'), expires_at)
         _threading.Thread(
@@ -11724,14 +11761,66 @@ def api_usage():
     uname = cu.get('username', '')
     if cu.get('role') == 'admin':
         return jsonify({'admin': True, 'prompts': {'used': 0, 'limit': None}, 'scans': {'used': 0, 'limit': None}})
-    users = _load_users()
-    plan  = users.get(uname, {}).get('plan', 'basic')
-    today = _get_usage_today(uname)
+    users   = _load_users()
+    u       = users.get(uname, {})
+    plan    = u.get('plan', 'basic')
+    credits = u.get('ai_credits', 0)
+    today   = _get_usage_today(uname)
     return jsonify({
-        'plan': plan,
+        'plan':    plan,
+        'credits': credits,
         'prompts': {'used': today.get('prompts', 0), 'limit': _DAILY_LIMITS['prompts'] if plan == 'pro' else 0},
         'scans':   {'used': today.get('scans', 0),   'limit': _DAILY_LIMITS['scans']   if plan == 'pro' else 0},
     })
+
+
+@app.route('/api/admin/users/<username>/credits', methods=['POST'])
+@_admin_required
+def admin_load_credits(username):
+    """Admin: add AI credits to a specific user's isolated balance."""
+    data = request.get_json() or {}
+    try:
+        amount = int(data.get('amount', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid amount'}), 400
+    if amount <= 0 or amount > 500000:
+        return jsonify({'error': 'Amount must be between 1 and 500,000'}), 400
+    users = _load_users()
+    if username not in users:
+        return jsonify({'error': 'User not found'}), 404
+    if users[username].get('role') == 'admin':
+        return jsonify({'error': 'Admins have unlimited access — no credits needed'}), 400
+    _add_credits(username, amount)
+    new_balance = _load_users()[username].get('ai_credits', 0)
+    return jsonify({'ok': True, 'ai_credits': new_balance})
+
+
+@app.route('/api/credits/request', methods=['POST'])
+@login_required
+def api_credits_request():
+    """User submits a credit top-up request to admin."""
+    cu = _cu()
+    if cu.get('role') == 'admin':
+        return jsonify({'error': 'Admins have unlimited access'}), 400
+    data   = request.get_json() or {}
+    try:
+        amount = int(data.get('amount', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid amount'}), 400
+    reason = (data.get('reason') or '').strip()
+    if amount <= 0:
+        return jsonify({'error': 'Enter a valid amount'}), 400
+    if not reason:
+        return jsonify({'error': 'Please describe why you need more credits'}), 400
+    uname   = cu.get('username', '')
+    u       = _load_users().get(uname, {})
+    _threading.Thread(
+        target=_send_admin_credit_request_email,
+        args=(uname, u.get('email', ''), u.get('plan', 'basic'),
+              u.get('ai_credits', 0), amount, reason),
+        daemon=True,
+    ).start()
+    return jsonify({'ok': True})
 
 
 @app.route('/api/payment/status', methods=['GET'])
@@ -13785,6 +13874,9 @@ def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_a
           <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#eff6ff;
                         border:1px solid #93c5fd;border-radius:6px;">{pro_rows}</table>
           <p class="ep" style="color:#64748b;font-size:12px;margin-top:4px;line-height:1.6;">
+            After topping up Anthropic, open the CyberINK admin panel → User Management → find
+            <strong>{username}</strong> → click <strong>Load Credits</strong> to allocate their
+            isolated AI credit balance (Monthly: +3,000 credits | Annual: +15,000 credits).<br><br>
             Log in to CyberINK to start using your Pro features. If you have any questions contact us at
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
@@ -13884,6 +13976,84 @@ def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expi
                      padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
                      letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
               Add Credits on Anthropic Console &rarr;
+            </a>
+          </td></tr></table>"""
+
+        for to_email in recipients:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From']    = f'CyberINK <{_SMTP_USER}>'
+            msg['To']      = to_email
+            msg.attach(MIMEText(_email_html(subject, body), 'html'))
+            with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+                srv.login(_SMTP_USER, _SMTP_PASS)
+                srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_admin_credit_request_email(username: str, user_email: str, plan: str,
+                                       current_credits: int, requested: int, reason: str) -> bool:
+    """Notify admin that a user has requested additional AI credits."""
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        recipients = [_SMTP_USER]
+        try:
+            for u in _load_users().values():
+                e = u.get('email', '').strip()
+                if u.get('role') == 'admin' and e and e not in recipients:
+                    recipients.append(e)
+        except Exception:
+            pass
+
+        subject = f'[CyberINK] Credit top-up request from {username}'
+        load_url = f'{_BASE_URL}/'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
+            AI Credit Top-Up Request
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 20px;">
+            A user has requested additional AI credits for their account.
+          </p>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;
+                        border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;width:160px;">User</td>
+              <td style="padding:9px 12px;color:#1d4ed8;font-weight:600;">{username}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Email</td>
+              <td style="padding:9px 12px;color:#374151;">{user_email or '—'}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Plan</td>
+              <td style="padding:9px 12px;color:#374151;">{plan.capitalize()}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Current balance</td>
+              <td style="padding:9px 12px;color:#374151;">{current_credits:,} credits</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#15803d;">Requested</td>
+              <td style="padding:9px 12px;color:#15803d;font-weight:700;">+{requested:,} credits</td>
+            </tr>
+            <tr>
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Reason</td>
+              <td style="padding:9px 12px;color:#374151;">{reason}</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#64748b;font-size:12px;line-height:1.7;margin-bottom:16px;">
+            Log in to the CyberINK admin panel → User Management → find <strong>{username}</strong> → click
+            <strong>Load Credits</strong> to approve this request.
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+            <a href="{load_url}"
+              style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
+                     padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
+                     letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              Open Admin Panel &rarr;
             </a>
           </td></tr></table>"""
 
