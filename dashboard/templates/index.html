@@ -8354,6 +8354,7 @@ function sbNav(section, el) {
   if (section === 'syslog')        initSyslogPage();
   // Stop syslog live timer when navigating away
   if (section !== 'syslog' && _slTimer) { clearInterval(_slTimer); _slTimer = null; }
+  if (section === 'sca') scaCheck();
   if (section === 'dca') dcaLoadScanners();
   if (section !== 'syslog') { var _stb = document.getElementById('sl-scroll-top-btn'); if (_stb) _stb.style.display = 'none'; }
 }

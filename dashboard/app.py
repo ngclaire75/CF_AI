@@ -11820,7 +11820,7 @@ def api_sca_check():
         return jsonify({'installed': False})
 
 
-@app.route('/api/sca/install', methods=['POST'])
+@app.route('/api/sca/install', methods=['GET', 'POST'])
 @login_required
 def api_sca_install():
     import subprocess as _sp
