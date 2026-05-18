@@ -679,7 +679,7 @@ def _is_anthropic_credit_error(exc) -> bool:
         'exceeded your current quota',
     ))
 
-def _maybe_send_low_balance_alert(exc):
+def _maybe_send_low_balance_alert(exc, username: str = ''):
     """Fire a one-per-hour admin email when Anthropic API returns a credit error."""
     import time as _time2
     global _ant_alert_last_sent
@@ -690,9 +690,9 @@ def _maybe_send_low_balance_alert(exc):
         if now - _ant_alert_last_sent < 3600:   # already alerted within last hour
             return
         _ant_alert_last_sent = now
-    _threading.Thread(target=_send_admin_low_balance_alert, args=(str(exc),), daemon=True).start()
+    _threading.Thread(target=_send_admin_low_balance_alert, args=(str(exc), username), daemon=True).start()
 
-def _send_admin_low_balance_alert(error_detail: str = '') -> bool:
+def _send_admin_low_balance_alert(error_detail: str = '', username: str = '') -> bool:
     """Email admin: Anthropic API key is out of credits."""
     if not _SMTP_USER or not _SMTP_PASS:
         return False
@@ -721,6 +721,7 @@ def _send_admin_low_balance_alert(error_detail: str = '') -> bool:
               <td style="padding:9px 12px;font-weight:700;color:#991b1b;width:140px;">Status</td>
               <td style="padding:9px 12px;color:#dc2626;font-weight:700;">Anthropic API credits exhausted</td>
             </tr>
+            {f'<tr style="border-bottom:1px solid #fecaca;"><td style="padding:9px 12px;font-weight:700;color:#991b1b;">Triggered by</td><td style="padding:9px 12px;color:#1d4ed8;font-weight:700;">{username}</td></tr>' if username else ''}
             <tr style="border-bottom:1px solid #fecaca;">
               <td style="padding:9px 12px;font-weight:700;color:#991b1b;">Error</td>
               <td style="padding:9px 12px;color:#374151;font-size:11px;">{error_detail[:300]}</td>
@@ -2493,7 +2494,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         _job_persist(job_id, job)
 
     except Exception as exc:
-        _maybe_send_low_balance_alert(exc)
+        _maybe_send_low_balance_alert(exc, username)
         import traceback as _tb
         tb = _tb.format_exc()[-1200:]
         job['chunks'].append({'k': 'txt', 'd': f'\n[ERROR] {exc}\n{tb}'})
@@ -7814,7 +7815,7 @@ Be concise, accurate, and actionable. Use markdown for structure. For CVEs alway
                 for text in stream.text_stream:
                     yield f"data: {_json.dumps({'text': text})}\n\n"
         except Exception as e:
-            _maybe_send_low_balance_alert(e)
+            _maybe_send_low_balance_alert(e, _cu_s.get('username', ''))
             yield f"data: {_json.dumps({'error': str(e)})}\n\n"
         yield "data: [DONE]\n\n"
 
