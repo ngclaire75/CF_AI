@@ -11807,6 +11807,12 @@ def admin_load_credits(username):
         return jsonify({'error': 'Admins have unlimited access — no credits needed'}), 400
     _add_credits(username, amount)
     new_balance = _load_users()[username].get('ai_credits', 0)
+    user_email  = users[username].get('email', '')
+    _threading.Thread(
+        target=_send_user_credits_added_email,
+        args=(username, user_email, amount, new_balance),
+        daemon=True,
+    ).start()
     return jsonify({'ok': True, 'ai_credits': new_balance})
 
 
@@ -11838,9 +11844,15 @@ def admin_approve_credit_request(req_id):
         if users[username].get('role') == 'admin':
             return jsonify({'error': 'Admins have unlimited access'}), 400
         req['status'] = 'approved'
+        user_email   = users[username].get('email', '')
         _save_credit_requests(reqs)
     _add_credits(username, amount)
     new_balance = _load_users()[username].get('ai_credits', 0)
+    _threading.Thread(
+        target=_send_user_credits_added_email,
+        args=(username, user_email, amount, new_balance),
+        daemon=True,
+    ).start()
     return jsonify({'ok': True, 'username': username, 'added': amount, 'ai_credits': new_balance})
 
 
@@ -11855,8 +11867,16 @@ def admin_reject_credit_request(req_id):
             return jsonify({'error': 'Request not found'}), 404
         if req['status'] != 'pending':
             return jsonify({'error': 'Already processed'}), 400
-        req['status'] = 'rejected'
+        req['status']  = 'rejected'
+        rej_username   = req['username']
+        rej_email      = req.get('user_email', '')
+        rej_requested  = req.get('requested', 0)
         _save_credit_requests(reqs)
+    _threading.Thread(
+        target=_send_user_credits_rejected_email,
+        args=(rej_username, rej_email, rej_requested),
+        daemon=True,
+    ).start()
     return jsonify({'ok': True})
 
 
@@ -14147,6 +14167,94 @@ def _send_admin_credit_request_email(username: str, user_email: str, plan: str,
             with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
                 srv.login(_SMTP_USER, _SMTP_PASS)
                 srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_user_credits_added_email(username: str, user_email: str, amount: int, new_balance: int) -> bool:
+    """Notify user that credits have been added to their account."""
+    if not user_email or not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        subject = '[CyberINK] AI credits added to your account'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
+            Credits Added to Your Account
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 20px;">
+            Your admin has loaded AI credits to your CyberINK account.
+          </p>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;
+                        border:1px solid #bbf7d0;border-radius:6px;background:#f0fdf4;">
+            <tr style="border-bottom:1px solid #bbf7d0;">
+              <td style="padding:9px 12px;font-weight:700;color:#15803d;width:160px;">Credits added</td>
+              <td style="padding:9px 12px;color:#15803d;font-weight:800;font-size:15px;">+{amount:,}</td>
+            </tr>
+            <tr>
+              <td style="padding:9px 12px;font-weight:700;color:#166534;">New balance</td>
+              <td style="padding:9px 12px;color:#166534;font-weight:700;">{new_balance:,} credits</td>
+            </tr>
+          </table>
+          <p class="ep" style="color:#64748b;font-size:12px;line-height:1.7;margin-bottom:16px;">
+            Each AI Assistant message and security scan consumes 1 credit.
+            Log in to your dashboard to view your balance.
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+            <a href="{_BASE_URL}/"
+              style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
+                     padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
+                     letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              View My Credit Balance &rarr;
+            </a>
+          </td></tr></table>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, user_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_user_credits_rejected_email(username: str, user_email: str, requested: int) -> bool:
+    """Notify user that their credit top-up request was not approved."""
+    if not user_email or not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        subject = '[CyberINK] Credit top-up request update'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
+            Credit Request Update
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 20px;">
+            Your request for <strong>+{requested:,} credits</strong> was reviewed by your admin
+            and was not approved at this time.
+          </p>
+          <p class="ep" style="color:#64748b;font-size:12px;line-height:1.7;margin-bottom:16px;">
+            You can submit a new request with more details, or contact your admin directly
+            if you believe this was a mistake.
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+            <a href="{_BASE_URL}/"
+              style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
+                     padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
+                     letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              Go to Dashboard &rarr;
+            </a>
+          </td></tr></table>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['To']      = user_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, user_email, msg.as_string())
         return True
     except Exception:
         return False
