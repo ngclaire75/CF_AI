@@ -11769,8 +11769,8 @@ def api_usage():
     return jsonify({
         'plan':    plan,
         'credits': credits,
-        'prompts': {'used': today.get('prompts', 0), 'limit': _DAILY_LIMITS['prompts'] if plan == 'pro' else 0},
-        'scans':   {'used': today.get('scans', 0),   'limit': _DAILY_LIMITS['scans']   if plan == 'pro' else 0},
+        'prompts': {'used': today.get('prompts', 0), 'limit': _DAILY_LIMITS['prompts'] if plan == 'pro' else None},
+        'scans':   {'used': today.get('scans', 0),   'limit': _DAILY_LIMITS['scans']   if plan == 'pro' else None},
     })
 
 

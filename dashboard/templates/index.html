@@ -14404,13 +14404,23 @@ function loadCreditsPage() {
     balEl.textContent  = cr.toLocaleString();
     balEl.style.color  = cr > 500 ? '#2563eb' : cr > 100 ? '#d97706' : '#dc2626';
     if (todayEl) {
-      todayEl.innerHTML =
-        '<div style="text-align:center;padding:12px 20px;background:#eff6ff;border-radius:8px;min-width:110px;">'
-        + '<div style="font-size:22px;font-weight:700;color:#1d4ed8;">'+(d.prompts.used||0)+' / '+(d.prompts.limit||0)+'</div>'
-        + '<div style="font-size:11px;color:#64748b;margin-top:2px;">prompts today</div></div>'
-        + '<div style="text-align:center;padding:12px 20px;background:#eff6ff;border-radius:8px;min-width:110px;">'
-        + '<div style="font-size:22px;font-weight:700;color:#1d4ed8;">'+(d.scans.used||0)+' / '+(d.scans.limit||0)+'</div>'
-        + '<div style="font-size:11px;color:#64748b;margin-top:2px;">scans today</div></div>';
+      if (d.plan === 'pro') {
+        var pLimit = (d.prompts && d.prompts.limit != null) ? d.prompts.limit : 500;
+        var sLimit = (d.scans   && d.scans.limit   != null) ? d.scans.limit   : 50;
+        todayEl.innerHTML =
+          '<div style="text-align:center;padding:12px 20px;background:#eff6ff;border-radius:8px;min-width:110px;">'
+          + '<div style="font-size:22px;font-weight:700;color:#1d4ed8;">'+(d.prompts.used||0)+' / '+pLimit+'</div>'
+          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">prompts today</div></div>'
+          + '<div style="text-align:center;padding:12px 20px;background:#eff6ff;border-radius:8px;min-width:110px;">'
+          + '<div style="font-size:22px;font-weight:700;color:#1d4ed8;">'+(d.scans.used||0)+' / '+sLimit+'</div>'
+          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">scans today</div></div>';
+      } else {
+        todayEl.innerHTML =
+          '<div style="font-size:13px;color:#64748b;padding:12px 0;">'
+          + 'Daily usage limits apply to Pro subscribers. '
+          + '<a href="#" onclick="sbNav(\'pricing\',document.getElementById(\'sb-pricing\'));return false;" style="color:#2563eb;text-decoration:underline;">Upgrade to Pro →</a>'
+          + '</div>';
+      }
     }
   }).catch(function(){});
 }
