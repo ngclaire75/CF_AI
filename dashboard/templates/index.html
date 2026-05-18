@@ -3980,6 +3980,15 @@ Export Power BI
       <button class="mdef-toolbar-btn" onclick="showInviteUser()" id="um-invite-btn">+ Invite User</button>
     </div>
 
+    <!-- ── Credit Requests inbox ──────────────────────────────────────────── -->
+    <div id="um-credit-requests-wrap" style="padding:0 20px 4px;margin-top:16px;display:none;">
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+        Credit Top-Up Requests
+        <span id="um-cr-badge" style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;"></span>
+      </div>
+      <div id="um-credit-requests-list"></div>
+    </div>
+
     <!-- Invite form (hidden by default) -->
     <div id="um-invite-form" style="display:none;background:#fff;border:1px solid #bfdbfe;border-radius:6px;padding:20px 24px;margin:16px 20px 16px;max-width:420px;">
       <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:#0f172a;">Create new user</div>
@@ -15603,7 +15612,58 @@ var _PAGE_PRESETS = {
 var _umUsers       = [];     // cached from last fetch
 var _umPagesTarget = [];     // usernames currently being edited in the pages modal
 
+function loadCreditRequests() {
+  fetch('/api/admin/credit-requests').then(function(r){ return r.json(); }).then(function(d) {
+    var wrap    = document.getElementById('um-credit-requests-wrap');
+    var listEl  = document.getElementById('um-credit-requests-list');
+    var badge   = document.getElementById('um-cr-badge');
+    if (!wrap || !listEl) return;
+    var pending = (d.requests || []).filter(function(r){ return r.status === 'pending'; });
+    if (pending.length === 0) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    if (badge) badge.textContent = pending.length;
+    listEl.innerHTML = pending.map(function(r) {
+      var ts = r.timestamp ? new Date(r.timestamp + 'Z').toLocaleString() : '';
+      return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">'
+        + '<div style="flex:1;min-width:180px;">'
+        + '<div style="font-size:13px;font-weight:700;color:#0f172a;">' + _esc(r.username) + '</div>'
+        + '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + _esc(r.user_email || '—') + ' &nbsp;·&nbsp; ' + _esc(r.plan) + ' plan</div>'
+        + '<div style="font-size:12px;color:#374151;margin-top:6px;">Requesting <strong style="color:#2563eb;">+' + (r.requested||0).toLocaleString() + ' credits</strong>'
+        + ' &nbsp;(current: ' + (r.current_credits||0).toLocaleString() + ')</div>'
+        + '<div style="font-size:11px;color:#64748b;margin-top:4px;font-style:italic;">"' + _esc(r.reason) + '"</div>'
+        + (ts ? '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + ts + '</div>' : '')
+        + '</div>'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">'
+        + '<button onclick="crApprove(\'' + _esc(r.id) + '\',\'' + _esc(r.username) + '\',' + (r.requested||0) + ')" '
+        + 'style="padding:7px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Approve</button>'
+        + '<button onclick="crReject(\'' + _esc(r.id) + '\')" '
+        + 'style="padding:7px 14px;background:#f1f5f9;color:#374151;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;">Reject</button>'
+        + '</div></div>';
+    }).join('');
+  }).catch(function(){});
+}
+
+function crApprove(reqId, username, amount) {
+  if (!confirm('Approve +' + amount.toLocaleString() + ' credits for ' + username + '?\nCredits will be added only to this account.')) return;
+  fetch('/api/admin/credit-requests/' + encodeURIComponent(reqId) + '/approve', {method:'POST'})
+    .then(function(r){ return r.json(); }).then(function(d) {
+      if (d.error) { alert('Error: ' + d.error); return; }
+      loadCreditRequests();
+      loadUserMgmt();
+    }).catch(function(){ alert('Request failed. Try again.'); });
+}
+
+function crReject(reqId) {
+  if (!confirm('Reject this credit request?')) return;
+  fetch('/api/admin/credit-requests/' + encodeURIComponent(reqId) + '/reject', {method:'POST'})
+    .then(function(r){ return r.json(); }).then(function(d) {
+      if (d.error) { alert('Error: ' + d.error); return; }
+      loadCreditRequests();
+    }).catch(function(){ alert('Request failed. Try again.'); });
+}
+
 function loadUserMgmt() {
+  loadCreditRequests();
   var tbody = document.getElementById('um-tbody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="9" class="mdef-empty">Loading…</td></tr>';

@@ -651,6 +651,21 @@ def _get_usage_today(username: str) -> dict:
     today = _datetime.date.today().isoformat()
     return _load_usage().get(username, {}).get(today, {})
 
+# ── Credit requests queue ─────────────────────────────────────────────────────
+_CREDIT_REQUESTS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'credit_requests.json')
+_credit_req_lock = _threading.Lock()
+
+def _load_credit_requests() -> list:
+    try:
+        with open(_CREDIT_REQUESTS_FILE) as f:
+            return _json.load(f)
+    except Exception:
+        return []
+
+def _save_credit_requests(reqs: list):
+    with open(_CREDIT_REQUESTS_FILE, 'w') as f:
+        _json.dump(reqs, f, indent=2)
+
 # ── Per-user AI credit system ──────────────────────────────────────────────────
 _credits_lock = _threading.Lock()
 
@@ -11795,6 +11810,56 @@ def admin_load_credits(username):
     return jsonify({'ok': True, 'ai_credits': new_balance})
 
 
+@app.route('/api/admin/credit-requests', methods=['GET'])
+@_admin_required
+def admin_list_credit_requests():
+    """Admin: list all pending credit top-up requests."""
+    with _credit_req_lock:
+        reqs = _load_credit_requests()
+    return jsonify({'requests': reqs})
+
+
+@app.route('/api/admin/credit-requests/<req_id>/approve', methods=['POST'])
+@_admin_required
+def admin_approve_credit_request(req_id):
+    """Admin: approve a credit request — loads credits to that specific user only."""
+    with _credit_req_lock:
+        reqs = _load_credit_requests()
+        req  = next((r for r in reqs if r['id'] == req_id), None)
+        if not req:
+            return jsonify({'error': 'Request not found'}), 404
+        if req['status'] != 'pending':
+            return jsonify({'error': 'Already processed'}), 400
+        username = req['username']
+        amount   = req['requested']
+        users    = _load_users()
+        if username not in users:
+            return jsonify({'error': 'User not found'}), 404
+        if users[username].get('role') == 'admin':
+            return jsonify({'error': 'Admins have unlimited access'}), 400
+        req['status'] = 'approved'
+        _save_credit_requests(reqs)
+    _add_credits(username, amount)
+    new_balance = _load_users()[username].get('ai_credits', 0)
+    return jsonify({'ok': True, 'username': username, 'added': amount, 'ai_credits': new_balance})
+
+
+@app.route('/api/admin/credit-requests/<req_id>/reject', methods=['POST'])
+@_admin_required
+def admin_reject_credit_request(req_id):
+    """Admin: reject a credit request without adding credits."""
+    with _credit_req_lock:
+        reqs = _load_credit_requests()
+        req  = next((r for r in reqs if r['id'] == req_id), None)
+        if not req:
+            return jsonify({'error': 'Request not found'}), 404
+        if req['status'] != 'pending':
+            return jsonify({'error': 'Already processed'}), 400
+        req['status'] = 'rejected'
+        _save_credit_requests(reqs)
+    return jsonify({'ok': True})
+
+
 @app.route('/api/credits/request', methods=['POST'])
 @login_required
 def api_credits_request():
@@ -11814,6 +11879,22 @@ def api_credits_request():
         return jsonify({'error': 'Please describe why you need more credits'}), 400
     uname   = cu.get('username', '')
     u       = _load_users().get(uname, {})
+    import uuid as _uuid, datetime as _dt2
+    req_id = str(_uuid.uuid4())[:8]
+    with _credit_req_lock:
+        reqs = _load_credit_requests()
+        reqs.append({
+            'id':              req_id,
+            'username':        uname,
+            'user_email':      u.get('email', ''),
+            'plan':            u.get('plan', 'basic'),
+            'current_credits': u.get('ai_credits', 0),
+            'requested':       amount,
+            'reason':          reason,
+            'timestamp':       _dt2.datetime.utcnow().isoformat(),
+            'status':          'pending',
+        })
+        _save_credit_requests(reqs)
     _threading.Thread(
         target=_send_admin_credit_request_email,
         args=(uname, u.get('email', ''), u.get('plan', 'basic'),
