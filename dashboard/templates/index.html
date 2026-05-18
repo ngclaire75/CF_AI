@@ -7244,19 +7244,29 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .cr-wrap { max-width:680px; margin:0 auto; padding:32px 24px 64px; }
     .cr-hero {
-      background:#fff; border:1px solid #e2e8f0;
-      border-radius:16px; padding:32px 28px 24px;
-      margin-bottom:20px; text-align:center;
+      background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#3b82f6 100%);
+      border-radius:16px; padding:36px 32px 28px; color:#fff;
+      margin-bottom:20px; position:relative; overflow:hidden;
     }
-    .cr-hero-label { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; }
-    .cr-hero-num   { font-size:64px; font-weight:800; line-height:1; letter-spacing:-2px; color:#0f172a; }
-    .cr-hero-sub   { font-size:13px; color:#94a3b8; margin-top:6px; }
-    .cr-bar-wrap   { margin-top:20px; text-align:left; }
+    .cr-hero::before {
+      content:''; position:absolute; top:-40px; right:-40px;
+      width:180px; height:180px; border-radius:50%;
+      background:rgba(255,255,255,.07); pointer-events:none;
+    }
+    .cr-hero::after {
+      content:''; position:absolute; bottom:-60px; left:-20px;
+      width:220px; height:220px; border-radius:50%;
+      background:rgba(255,255,255,.05); pointer-events:none;
+    }
+    .cr-hero-label { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; opacity:.7; margin-bottom:10px; }
+    .cr-hero-num   { font-size:64px; font-weight:800; line-height:1; letter-spacing:-2px; }
+    .cr-hero-sub   { font-size:13px; opacity:.75; margin-top:6px; }
+    .cr-bar-wrap   { margin-top:24px; text-align:left; }
     .cr-bar-row    { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
-    .cr-bar-lbl    { font-size:11px; color:#64748b; font-weight:600; }
-    .cr-bar-val    { font-size:11px; color:#374151; font-weight:700; }
-    .cr-bar-track  { height:6px; background:#f1f5f9; border-radius:3px; overflow:hidden; }
-    .cr-bar-fill   { height:100%; border-radius:3px; background:#2563eb; transition:width .4s; }
+    .cr-bar-lbl    { font-size:11px; opacity:.8; font-weight:600; }
+    .cr-bar-val    { font-size:11px; opacity:.9; font-weight:700; }
+    .cr-bar-track  { height:6px; background:rgba(255,255,255,.2); border-radius:3px; overflow:hidden; }
+    .cr-bar-fill   { height:100%; border-radius:3px; background:rgba(255,255,255,.85); transition:width .4s; }
     .cr-stats-row  { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
     .cr-stat-card  {
       background:#fff; border:1px solid #e2e8f0; border-radius:12px;
