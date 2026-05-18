@@ -7235,35 +7235,25 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .cr-wrap { max-width:680px; margin:0 auto; padding:32px 24px 64px; }
     .cr-hero {
-      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%);
-      border-radius:16px; padding:36px 32px 28px; color:#fff;
-      margin-bottom:20px; position:relative; overflow:hidden;
+      background:#fff; border:1px solid #e2e8f0;
+      border-radius:16px; padding:32px 28px 24px;
+      margin-bottom:20px; text-align:center;
     }
-    .cr-hero::before {
-      content:''; position:absolute; top:-40px; right:-40px;
-      width:180px; height:180px; border-radius:50%;
-      background:rgba(255,255,255,.07); pointer-events:none;
-    }
-    .cr-hero::after {
-      content:''; position:absolute; bottom:-60px; left:-20px;
-      width:220px; height:220px; border-radius:50%;
-      background:rgba(255,255,255,.05); pointer-events:none;
-    }
-    .cr-hero-label { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; opacity:.7; margin-bottom:10px; }
-    .cr-hero-num   { font-size:64px; font-weight:800; line-height:1; letter-spacing:-2px; }
-    .cr-hero-sub   { font-size:13px; opacity:.75; margin-top:6px; }
-    .cr-bar-wrap   { margin-top:24px; }
+    .cr-hero-label { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; }
+    .cr-hero-num   { font-size:64px; font-weight:800; line-height:1; letter-spacing:-2px; color:#0f172a; }
+    .cr-hero-sub   { font-size:13px; color:#94a3b8; margin-top:6px; }
+    .cr-bar-wrap   { margin-top:20px; text-align:left; }
     .cr-bar-row    { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
-    .cr-bar-lbl    { font-size:11px; opacity:.8; font-weight:600; }
-    .cr-bar-val    { font-size:11px; opacity:.9; font-weight:700; }
-    .cr-bar-track  { height:6px; background:rgba(255,255,255,.2); border-radius:3px; overflow:hidden; }
-    .cr-bar-fill   { height:100%; border-radius:3px; background:rgba(255,255,255,.85); transition:width .4s; }
+    .cr-bar-lbl    { font-size:11px; color:#64748b; font-weight:600; }
+    .cr-bar-val    { font-size:11px; color:#374151; font-weight:700; }
+    .cr-bar-track  { height:6px; background:#f1f5f9; border-radius:3px; overflow:hidden; }
+    .cr-bar-fill   { height:100%; border-radius:3px; background:#2563eb; transition:width .4s; }
     .cr-stats-row  { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
     .cr-stat-card  {
       background:#fff; border:1px solid #e2e8f0; border-radius:12px;
       padding:18px 20px; display:flex; align-items:center; gap:14px;
     }
-    .cr-stat-icon  { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+    .cr-stat-icon  { display:none; }
     .cr-stat-num   { font-size:22px; font-weight:800; color:#0f172a; line-height:1; }
     .cr-stat-lbl   { font-size:11px; color:#64748b; margin-top:3px; }
     .cr-stat-max   { font-size:11px; color:#94a3b8; margin-top:1px; }
@@ -14474,7 +14464,6 @@ function loadCreditsPage() {
       if (barArea) barArea.innerHTML = '';
       if (todayEl) todayEl.innerHTML =
         '<div class="cr-stat-card" style="grid-column:1/-1;">'
-        + '<div class="cr-stat-icon" style="background:#dcfce7;">💎</div>'
         + '<div><div class="cr-stat-num" style="color:#15803d;">Unlimited</div>'
         + '<div class="cr-stat-lbl">Admin — unrestricted access to all AI features</div></div></div>';
       return;
@@ -14508,7 +14497,6 @@ function loadCreditsPage() {
         var sColor = sPct >= 90 ? '#dc2626' : sPct >= 60 ? '#d97706' : '#2563eb';
         todayEl.innerHTML =
           '<div class="cr-stat-card">'
-          + '<div class="cr-stat-icon" style="background:#eff6ff;">💬</div>'
           + '<div style="flex:1;min-width:0;">'
           + '<div class="cr-stat-num" style="color:'+pColor+';">'+pUsed+' <span style="font-size:14px;font-weight:500;color:#94a3b8;">/ '+pLimit+'</span></div>'
           + '<div class="cr-stat-lbl">AI prompts today</div>'
@@ -14516,7 +14504,6 @@ function loadCreditsPage() {
           + '<div style="height:100%;width:'+pPct+'%;background:'+pColor+';border-radius:2px;transition:width .4s;"></div></div>'
           + '</div></div>'
           + '<div class="cr-stat-card">'
-          + '<div class="cr-stat-icon" style="background:#f0fdf4;">🔍</div>'
           + '<div style="flex:1;min-width:0;">'
           + '<div class="cr-stat-num" style="color:'+sColor+';">'+sUsed+' <span style="font-size:14px;font-weight:500;color:#94a3b8;">/ '+sLimit+'</span></div>'
           + '<div class="cr-stat-lbl">Security scans today</div>'
@@ -14524,14 +14511,7 @@ function loadCreditsPage() {
           + '<div style="height:100%;width:'+sPct+'%;background:'+sColor+';border-radius:2px;transition:width .4s;"></div></div>'
           + '</div></div>';
       } else {
-        todayEl.innerHTML =
-          '<div class="cr-stat-card" style="grid-column:1/-1;">'
-          + '<div class="cr-stat-icon" style="background:#fef9c3;">⚡</div>'
-          + '<div><div class="cr-stat-num" style="font-size:14px;color:#0f172a;">Upgrade to Pro</div>'
-          + '<div class="cr-stat-lbl">Daily usage tracking and AI credits are available on Pro plan.</div>'
-          + '<a href="#" onclick="sbNav(\'pricing\',document.getElementById(\'sb-pricing\'));return false;" '
-          + 'style="display:inline-block;margin-top:8px;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">View pricing →</a>'
-          + '</div></div>';
+        todayEl.innerHTML = '';
       }
     }
   }).catch(function(){});
