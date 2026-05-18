@@ -1073,7 +1073,7 @@ def admin_set_user_pages(username):
         return jsonify({'error': 'User not found'}), 404
     data  = request.get_json(silent=True) or {}
     pages = data.get('allowed_pages')
-    if pages is not None and not isinstance(pages, list):
+    if not isinstance(pages, list):
         return jsonify({'error': 'allowed_pages must be a list'}), 400
     users[username]['allowed_pages'] = pages
     _save_users(users)
@@ -3586,7 +3586,8 @@ def index():
     else:
         users = _load_users()
         u = users.get(user['username'], {})
-        ctx['user_allowed_pages'] = u.get('allowed_pages') or _DEFAULT_USER_PAGES[:]
+        ap = u.get('allowed_pages')
+        ctx['user_allowed_pages'] = ap if isinstance(ap, list) else _DEFAULT_USER_PAGES[:]
         ctx['user_plan'] = u.get('plan', 'basic')
         # Always read fresh profile fields from users.json so template reflects saved changes
         user = dict(user)

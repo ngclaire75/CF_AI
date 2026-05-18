@@ -9195,7 +9195,7 @@ function _applySidebarAccess() {
     if (!el) return;
     // Public pages are always visible — never hidden by the whitelist
     if (_PUBLIC_PAGES.indexOf(section) !== -1) return;
-    var allowed = USER_ALLOWED_PAGES === null || USER_ALLOWED_PAGES.indexOf(section) !== -1;
+    var allowed = USER_ALLOWED_PAGES !== null && USER_ALLOWED_PAGES.indexOf(section) !== -1;
     el.style.display = allowed ? '' : 'none';
   });
 
