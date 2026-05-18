@@ -7232,6 +7232,76 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
   <!-- ══ MY CREDIT BALANCE PAGE ════════════════════════════════════════════ -->
   <div id="page-credits" class="page-section" style="display:none">
+  <style>
+    .cr-wrap { max-width:680px; margin:0 auto; padding:32px 24px 64px; }
+    .cr-hero {
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%);
+      border-radius:16px; padding:36px 32px 28px; color:#fff;
+      margin-bottom:20px; position:relative; overflow:hidden;
+    }
+    .cr-hero::before {
+      content:''; position:absolute; top:-40px; right:-40px;
+      width:180px; height:180px; border-radius:50%;
+      background:rgba(255,255,255,.07); pointer-events:none;
+    }
+    .cr-hero::after {
+      content:''; position:absolute; bottom:-60px; left:-20px;
+      width:220px; height:220px; border-radius:50%;
+      background:rgba(255,255,255,.05); pointer-events:none;
+    }
+    .cr-hero-label { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; opacity:.7; margin-bottom:10px; }
+    .cr-hero-num   { font-size:64px; font-weight:800; line-height:1; letter-spacing:-2px; }
+    .cr-hero-sub   { font-size:13px; opacity:.75; margin-top:6px; }
+    .cr-bar-wrap   { margin-top:24px; }
+    .cr-bar-row    { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+    .cr-bar-lbl    { font-size:11px; opacity:.8; font-weight:600; }
+    .cr-bar-val    { font-size:11px; opacity:.9; font-weight:700; }
+    .cr-bar-track  { height:6px; background:rgba(255,255,255,.2); border-radius:3px; overflow:hidden; }
+    .cr-bar-fill   { height:100%; border-radius:3px; background:rgba(255,255,255,.85); transition:width .4s; }
+    .cr-stats-row  { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
+    .cr-stat-card  {
+      background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+      padding:18px 20px; display:flex; align-items:center; gap:14px;
+    }
+    .cr-stat-icon  { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+    .cr-stat-num   { font-size:22px; font-weight:800; color:#0f172a; line-height:1; }
+    .cr-stat-lbl   { font-size:11px; color:#64748b; margin-top:3px; }
+    .cr-stat-max   { font-size:11px; color:#94a3b8; margin-top:1px; }
+    .cr-form-card  {
+      background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:28px 28px 24px;
+    }
+    .cr-form-title { font-size:15px; font-weight:700; color:#0f172a; margin-bottom:4px; }
+    .cr-form-sub   { font-size:12px; color:#94a3b8; margin-bottom:22px; line-height:1.6; }
+    .cr-field      { margin-bottom:14px; }
+    .cr-field label { font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:5px; }
+    .cr-input {
+      width:100%; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:8px;
+      font-size:13px; color:#0f172a; box-sizing:border-box; outline:none;
+      transition:border-color .15s; font-family:inherit;
+    }
+    .cr-input:focus { border-color:#2563eb; }
+    .cr-presets    { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+    .cr-preset-btn {
+      padding:7px 16px; font-size:12px; font-weight:600;
+      border:1.5px solid #bfdbfe; border-radius:20px;
+      background:#eff6ff; color:#1d4ed8; cursor:pointer;
+      transition:all .15s;
+    }
+    .cr-preset-btn:hover { background:#dbeafe; border-color:#93c5fd; }
+    .cr-submit-btn {
+      width:100%; padding:12px; background:linear-gradient(135deg,#2563eb,#1d4ed8);
+      color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700;
+      cursor:pointer; letter-spacing:.02em; transition:opacity .15s;
+    }
+    .cr-submit-btn:hover { opacity:.9; }
+    .cr-submit-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .cr-msg-ok  { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; border-radius:8px; padding:10px 14px; font-size:12px; font-weight:600; margin-bottom:12px; }
+    .cr-msg-err { background:#fef2f2; border:1px solid #fecaca; color:#dc2626; border-radius:8px; padding:10px 14px; font-size:12px; margin-bottom:12px; }
+    @media(max-width:520px){
+      .cr-stats-row { grid-template-columns:1fr; }
+      .cr-hero-num  { font-size:48px; }
+    }
+  </style>
   <section class="section">
     <div class="sec-head">
       <div>
@@ -7239,42 +7309,44 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <div class="sec-desc">AI credits are isolated to your account. Each AI Assistant message and security scan consumes 1 credit.</div>
       </div>
     </div>
-    <div style="max-width:620px;">
-      <!-- Balance card -->
-      <div class="card" style="padding:28px 24px;margin-bottom:18px;text-align:center;">
-        <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;">AVAILABLE CREDITS</div>
-        <div id="cr-balance" style="font-size:56px;font-weight:800;color:#2563eb;line-height:1;">—</div>
-        <div style="font-size:13px;color:#64748b;margin-top:6px;">credits remaining</div>
-        <div id="cr-today-area" style="display:flex;gap:16px;justify-content:center;margin-top:20px;flex-wrap:wrap;"></div>
+    <div class="cr-wrap">
+
+      <!-- Hero balance card -->
+      <div class="cr-hero">
+        <div class="cr-hero-label">Available Credits</div>
+        <div id="cr-balance" class="cr-hero-num">—</div>
+        <div class="cr-hero-sub">credits remaining in your account</div>
+        <div id="cr-bar-area"></div>
       </div>
+
+      <!-- Today's usage stat cards -->
+      <div id="cr-today-area" class="cr-stats-row"></div>
+
       <!-- Request form -->
-      <div class="card" style="padding:24px;">
-        <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;">Request Extra Credits</div>
-        <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Need more credits? Submit a request — your admin will review and load them to your account.</div>
-        <div style="display:grid;gap:12px;">
-          <div>
-            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Amount requested</label>
-            <input type="number" id="cr-req-amount" min="100" placeholder="e.g. 3000"
-              style="width:100%;padding:9px 12px;border:1px solid #bfdbfe;border-radius:6px;font-size:13px;box-sizing:border-box;outline:none;">
-          </div>
-          <div>
-            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Reason</label>
-            <textarea id="cr-req-reason" rows="3" placeholder="Describe why you need more credits…"
-              style="width:100%;padding:9px 12px;border:1px solid #bfdbfe;border-radius:6px;font-size:13px;resize:none;font-family:inherit;box-sizing:border-box;outline:none;"></textarea>
-          </div>
-          <div id="cr-req-err" style="display:none;color:#dc2626;font-size:12px;"></div>
-          <div id="cr-req-ok"  style="display:none;color:#15803d;font-size:12px;font-weight:600;"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button onclick="crPreset(500)"  style="padding:6px 14px;font-size:12px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1e3a8a;cursor:pointer;">+500</button>
-            <button onclick="crPreset(1000)" style="padding:6px 14px;font-size:12px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1e3a8a;cursor:pointer;">+1,000</button>
-            <button onclick="crPreset(3000)" style="padding:6px 14px;font-size:12px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1e3a8a;cursor:pointer;">+3,000 (Monthly)</button>
-          </div>
-          <button onclick="crSubmitRequest()" id="cr-req-btn"
-            style="padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;width:fit-content;">
-            Submit Request
-          </button>
+      <div class="cr-form-card">
+        <div class="cr-form-title">Request Extra Credits</div>
+        <div class="cr-form-sub">Need more credits? Submit a request — your admin will review and load them to your account.</div>
+
+        <div class="cr-field">
+          <label>Amount requested</label>
+          <input type="number" id="cr-req-amount" min="100" placeholder="e.g. 3000" class="cr-input">
         </div>
+        <div class="cr-field">
+          <label>Reason</label>
+          <textarea id="cr-req-reason" rows="3" placeholder="Describe why you need more credits…" class="cr-input" style="resize:none;"></textarea>
+        </div>
+
+        <div class="cr-presets">
+          <button class="cr-preset-btn" onclick="crPreset(500)">+500</button>
+          <button class="cr-preset-btn" onclick="crPreset(1000)">+1,000</button>
+          <button class="cr-preset-btn" onclick="crPreset(3000)">+3,000 (Monthly)</button>
+        </div>
+
+        <div id="cr-req-err" style="display:none;" class="cr-msg-err"></div>
+        <div id="cr-req-ok"  style="display:none;" class="cr-msg-ok"></div>
+        <button onclick="crSubmitRequest()" id="cr-req-btn" class="cr-submit-btn">Submit Request</button>
       </div>
+
     </div>
   </section>
   </div><!-- /page-credits -->
@@ -14393,33 +14465,73 @@ function umDoLoadCredits(preset) {
 function loadCreditsPage() {
   fetch('/api/usage').then(function(r){ return r.json(); }).then(function(d) {
     var balEl   = document.getElementById('cr-balance');
+    var barArea = document.getElementById('cr-bar-area');
     var todayEl = document.getElementById('cr-today-area');
     if (!balEl) return;
+
     if (d.admin) {
-      balEl.textContent = '∞'; balEl.style.color = '#22c55e';
-      if (todayEl) todayEl.innerHTML = '<div style="font-size:13px;color:#64748b;">Admin accounts have unlimited access.</div>';
+      balEl.textContent = '∞';
+      if (barArea) barArea.innerHTML = '';
+      if (todayEl) todayEl.innerHTML =
+        '<div class="cr-stat-card" style="grid-column:1/-1;">'
+        + '<div class="cr-stat-icon" style="background:#dcfce7;">💎</div>'
+        + '<div><div class="cr-stat-num" style="color:#15803d;">Unlimited</div>'
+        + '<div class="cr-stat-lbl">Admin — unrestricted access to all AI features</div></div></div>';
       return;
     }
-    var cr = d.credits || 0;
-    balEl.textContent  = cr.toLocaleString();
-    balEl.style.color  = cr > 500 ? '#2563eb' : cr > 100 ? '#d97706' : '#dc2626';
+
+    var cr     = d.credits || 0;
+    var isPro  = d.plan === 'pro';
+    var pUsed  = (d.prompts && d.prompts.used)  || 0;
+    var sUsed  = (d.scans   && d.scans.used)    || 0;
+    var pLimit = isPro ? ((d.prompts && d.prompts.limit != null) ? d.prompts.limit : 500) : null;
+    var sLimit = isPro ? ((d.scans   && d.scans.limit   != null) ? d.scans.limit   : 50)  : null;
+
+    balEl.textContent = cr.toLocaleString();
+
+    // Credit bar (% of some reference cap for visual)
+    if (barArea && isPro) {
+      var refCap  = Math.max(cr + pUsed + sUsed, 100);
+      var pct     = Math.min(100, Math.round(cr / refCap * 100));
+      barArea.innerHTML =
+        '<div class="cr-bar-wrap">'
+        + '<div class="cr-bar-row"><span class="cr-bar-lbl">Credit balance</span><span class="cr-bar-val">' + cr.toLocaleString() + ' remaining</span></div>'
+        + '<div class="cr-bar-track"><div class="cr-bar-fill" style="width:'+pct+'%;"></div></div>'
+        + '</div>';
+    } else if (barArea) { barArea.innerHTML = ''; }
+
     if (todayEl) {
-      if (d.plan === 'pro') {
-        var pLimit = (d.prompts && d.prompts.limit != null) ? d.prompts.limit : 500;
-        var sLimit = (d.scans   && d.scans.limit   != null) ? d.scans.limit   : 50;
+      if (isPro) {
+        var pPct = pLimit ? Math.min(100, Math.round(pUsed / pLimit * 100)) : 0;
+        var sPct = sLimit ? Math.min(100, Math.round(sUsed / sLimit * 100)) : 0;
+        var pColor = pPct >= 90 ? '#dc2626' : pPct >= 60 ? '#d97706' : '#2563eb';
+        var sColor = sPct >= 90 ? '#dc2626' : sPct >= 60 ? '#d97706' : '#2563eb';
         todayEl.innerHTML =
-          '<div style="text-align:center;padding:12px 20px;background:#eff6ff;border-radius:8px;min-width:110px;">'
-          + '<div style="font-size:22px;font-weight:700;color:#1d4ed8;">'+(d.prompts.used||0)+' / '+pLimit+'</div>'
-          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">prompts today</div></div>'
-          + '<div style="text-align:center;padding:12px 20px;background:#eff6ff;border-radius:8px;min-width:110px;">'
-          + '<div style="font-size:22px;font-weight:700;color:#1d4ed8;">'+(d.scans.used||0)+' / '+sLimit+'</div>'
-          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">scans today</div></div>';
+          '<div class="cr-stat-card">'
+          + '<div class="cr-stat-icon" style="background:#eff6ff;">💬</div>'
+          + '<div style="flex:1;min-width:0;">'
+          + '<div class="cr-stat-num" style="color:'+pColor+';">'+pUsed+' <span style="font-size:14px;font-weight:500;color:#94a3b8;">/ '+pLimit+'</span></div>'
+          + '<div class="cr-stat-lbl">AI prompts today</div>'
+          + '<div style="height:4px;background:#e2e8f0;border-radius:2px;margin-top:8px;overflow:hidden;">'
+          + '<div style="height:100%;width:'+pPct+'%;background:'+pColor+';border-radius:2px;transition:width .4s;"></div></div>'
+          + '</div></div>'
+          + '<div class="cr-stat-card">'
+          + '<div class="cr-stat-icon" style="background:#f0fdf4;">🔍</div>'
+          + '<div style="flex:1;min-width:0;">'
+          + '<div class="cr-stat-num" style="color:'+sColor+';">'+sUsed+' <span style="font-size:14px;font-weight:500;color:#94a3b8;">/ '+sLimit+'</span></div>'
+          + '<div class="cr-stat-lbl">Security scans today</div>'
+          + '<div style="height:4px;background:#e2e8f0;border-radius:2px;margin-top:8px;overflow:hidden;">'
+          + '<div style="height:100%;width:'+sPct+'%;background:'+sColor+';border-radius:2px;transition:width .4s;"></div></div>'
+          + '</div></div>';
       } else {
         todayEl.innerHTML =
-          '<div style="font-size:13px;color:#64748b;padding:12px 0;">'
-          + 'Daily usage limits apply to Pro subscribers. '
-          + '<a href="#" onclick="sbNav(\'pricing\',document.getElementById(\'sb-pricing\'));return false;" style="color:#2563eb;text-decoration:underline;">Upgrade to Pro →</a>'
-          + '</div>';
+          '<div class="cr-stat-card" style="grid-column:1/-1;">'
+          + '<div class="cr-stat-icon" style="background:#fef9c3;">⚡</div>'
+          + '<div><div class="cr-stat-num" style="font-size:14px;color:#0f172a;">Upgrade to Pro</div>'
+          + '<div class="cr-stat-lbl">Daily usage tracking and AI credits are available on Pro plan.</div>'
+          + '<a href="#" onclick="sbNav(\'pricing\',document.getElementById(\'sb-pricing\'));return false;" '
+          + 'style="display:inline-block;margin-top:8px;font-size:12px;color:#2563eb;font-weight:600;text-decoration:none;">View pricing →</a>'
+          + '</div></div>';
       }
     }
   }).catch(function(){});
