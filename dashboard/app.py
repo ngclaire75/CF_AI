@@ -11764,6 +11764,7 @@ def _semgrep_bin():
     candidates = [
         '/root/.local/bin/semgrep',
         '/root/.local/share/pipx/venvs/semgrep/bin/semgrep',
+        '/opt/pipx/venvs/semgrep/bin/semgrep',
         '/home/' + (os.environ.get('SUDO_USER') or 'root') + '/.local/bin/semgrep',
         '/usr/local/bin/semgrep',
         '/usr/bin/semgrep',
