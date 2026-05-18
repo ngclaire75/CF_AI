@@ -17819,6 +17819,78 @@ function _grcRiskScatterChart(risks) {
       }
     }
   });
+
+  // ── Grid cell hover tooltip ───────────────────────────────────────────────
+  var _mtt = document.getElementById('grc-matrix-tt');
+  if (!_mtt) {
+    _mtt = document.createElement('div');
+    _mtt.id = 'grc-matrix-tt';
+    _mtt.style.cssText = [
+      'position:fixed;pointer-events:none;display:none;z-index:9999;',
+      'background:#fff;border:1px solid #bfdbfe;border-radius:8px;',
+      'box-shadow:0 4px 16px rgba(37,99,235,.12);padding:10px 14px;',
+      'max-width:260px;font-family:inherit;'
+    ].join('');
+    document.body.appendChild(_mtt);
+  }
+
+  var _zoneLabel = function(s) {
+    if (s >= 16) return { label: 'Critical', color: '#ef4444' };
+    if (s >= 10) return { label: 'High',     color: '#f97316' };
+    if (s >= 5)  return { label: 'Medium',   color: '#eab308' };
+    return               { label: 'Low',     color: '#3b82f6' };
+  };
+
+  var _lastCell = '';
+  ctx.addEventListener('mousemove', function(e) {
+    var chart = _grcScatterChart;
+    if (!chart || !chart.chartArea) { _mtt.style.display = 'none'; return; }
+    var ca   = chart.chartArea;
+    var rect = ctx.getBoundingClientRect();
+    var mx   = e.clientX - rect.left;
+    var my   = e.clientY - rect.top;
+    if (mx < ca.left || mx > ca.right || my < ca.top || my > ca.bottom) {
+      _mtt.style.display = 'none'; _lastCell = ''; return;
+    }
+    var cellW = (ca.right  - ca.left) / 5;
+    var cellH = (ca.bottom - ca.top)  / 5;
+    var L = Math.min(5, Math.max(1, Math.ceil((mx - ca.left) / cellW)));
+    var I = Math.min(5, Math.max(1, 6 - Math.ceil((my - ca.top) / cellH)));
+    var cellKey = L + '_' + I;
+    if (cellKey === _lastCell) {
+      _mtt.style.left = (e.clientX + 14) + 'px';
+      _mtt.style.top  = (e.clientY - 10) + 'px';
+      return;
+    }
+    _lastCell = cellKey;
+    var score  = L * I;
+    var zone   = _zoneLabel(score);
+    var items  = _grcAllRisks.filter(function(r) { return r.likelihood === L && r.impact === I; });
+    var rows   = items.length
+      ? items.map(function(r) {
+          var tx = (r.treatment || 'none').charAt(0).toUpperCase() + (r.treatment||'none').slice(1);
+          return '<div style="padding:5px 0;border-bottom:1px solid #eff6ff;">'
+            + '<div style="font-size:12px;font-weight:600;color:#0f172a;">'+_ge(r.title)+'</div>'
+            + '<div style="font-size:11px;color:#64748b;margin-top:2px;">'
+            + (r.owner ? 'Owner: '+_ge(r.owner)+' &nbsp;·&nbsp; ' : '')
+            + 'Treatment: '+tx+'</div></div>';
+        }).join('')
+      : '<div style="font-size:12px;color:#94a3b8;padding:4px 0;">No risks in this cell.</div>';
+    _mtt.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">'
+        + '<span style="font-size:11px;font-weight:700;color:#1e3a8a;">L '+L+' × I '+I+' = Score '+score+'</span>'
+        + '<span style="font-size:10px;font-weight:700;color:'+zone.color+';background:'+zone.color+'18;'
+          + 'border-radius:4px;padding:2px 7px;">'+zone.label+'</span>'
+      + '</div>'
+      + rows;
+    _mtt.style.display = 'block';
+    _mtt.style.left = (e.clientX + 14) + 'px';
+    _mtt.style.top  = (e.clientY - 10) + 'px';
+  });
+
+  ctx.addEventListener('mouseleave', function() {
+    _mtt.style.display = 'none'; _lastCell = '';
+  });
 }
 
 function _grcRiskMiniCharts(risks) {
