@@ -17865,7 +17865,7 @@ function _grcRiskScatterChart(risks) {
     _lastCell = cellKey;
     var score  = L * I;
     var zone   = _zoneLabel(score);
-    var items  = _grcAllRisks.filter(function(r) { return r.likelihood === L && r.impact === I; });
+    var items  = _grcAllRisks.filter(function(r) { return parseInt(r.likelihood) === L && parseInt(r.impact) === I; });
     var rows   = items.length
       ? items.map(function(r) {
           var tx = (r.treatment || 'none').charAt(0).toUpperCase() + (r.treatment||'none').slice(1);
