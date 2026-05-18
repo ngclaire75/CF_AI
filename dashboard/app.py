@@ -11753,11 +11753,31 @@ def api_payment_notification():
         # Auto-allocate per-user AI credits: Monthly → 3,000, Annual → 15,000
         _credit_grant = 15000 if sub.get('plan_type') == 'annual' else 3000
         _add_credits(username, _credit_grant)
-        user_email = users[username].get('email', '') or sub.get('email', '')
-        _send_pro_welcome_email(username, user_email, sub.get('plan_type', 'monthly'), expires_at)
+        new_balance = _load_users()[username].get('ai_credits', 0)
+        user_email  = users[username].get('email', '') or sub.get('email', '')
+        plan_type   = sub.get('plan_type', 'monthly')
+        # Save payment event to credit requests queue for admin dashboard inbox
+        import uuid as _uuid2, datetime as _dt3
+        with _credit_req_lock:
+            _pmt_reqs = _load_credit_requests()
+            _pmt_reqs.append({
+                'id':              str(_uuid2.uuid4())[:8],
+                'type':            'pro_payment',
+                'username':        username,
+                'user_email':      user_email,
+                'plan':            'pro',
+                'plan_type':       plan_type,
+                'auto_loaded':     _credit_grant,
+                'new_balance':     new_balance,
+                'amount_idr':      int(float(gross_amount or 0)),
+                'timestamp':       _dt3.datetime.utcnow().isoformat(),
+                'status':          'auto_approved',
+            })
+            _save_credit_requests(_pmt_reqs)
+        _send_pro_welcome_email(username, user_email, plan_type, expires_at, _credit_grant, new_balance)
         _threading.Thread(
             target=_send_admin_topup_email,
-            args=(username, sub.get('plan_type', 'monthly'), int(float(gross_amount or 0)), expires_at),
+            args=(username, plan_type, int(float(gross_amount or 0)), expires_at, _credit_grant),
             daemon=True,
         ).start()
     elif new_status in ('cancelled', 'failed', 'expired') and sub.get('status') == 'active':
@@ -13910,7 +13930,8 @@ def _send_role_change_email(username: str, email: str, new_role: str, changed_by
         return False
 
 
-def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_at: str) -> bool:
+def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_at: str,
+                            credits_added: int = 0, new_balance: int = 0) -> bool:
     if not _SMTP_USER or not _SMTP_PASS or not email:
         return False
     try:
@@ -13956,17 +13977,19 @@ def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_a
             Your account is now upgraded and all Pro features are immediately available.</p>
           <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
             <tr style="border-bottom:1px solid #bfdbfe;">
-              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Account</td>
+              <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:130px;">Account</td>
               <td style="padding:7px 0;color:#2563eb;">{username}</td>
             </tr>
             <tr style="border-bottom:1px solid #bfdbfe;">
               <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Plan</td>
               <td style="padding:7px 0;color:#2563eb;font-weight:700;">Pro — {pt}</td>
             </tr>
-            <tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
               <td style="padding:7px 0;font-weight:700;color:#1e3a8a;">Expires</td>
               <td style="padding:7px 0;color:#2563eb;">{exp}</td>
             </tr>
+            {f'<tr style="border-bottom:1px solid #bbf7d0;background:#f0fdf4;"><td style="padding:7px 0 7px 8px;font-weight:700;color:#15803d;">AI Credits Added</td><td style="padding:7px 0;color:#15803d;font-weight:800;">+{credits_added:,} credits</td></tr>' if credits_added else ''}
+            {f'<tr style="background:#f0fdf4;"><td style="padding:7px 0 7px 8px;font-weight:700;color:#166534;">New Balance</td><td style="padding:7px 0;color:#166534;font-weight:700;">{new_balance:,} credits</td></tr>' if credits_added else ''}
           </table>
           <p style="font-size:13px;font-weight:700;color:#1e3a8a;margin:0 0 6px;">Basic Features (included)</p>
           <table style="width:100%;border-collapse:collapse;margin-bottom:16px;background:#f8faff;
@@ -13975,9 +13998,9 @@ def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_a
           <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#eff6ff;
                         border:1px solid #93c5fd;border-radius:6px;">{pro_rows}</table>
           <p class="ep" style="color:#64748b;font-size:12px;margin-top:4px;line-height:1.6;">
-            After topping up Anthropic, open the CyberINK admin panel → User Management → find
-            <strong>{username}</strong> → click <strong>Load Credits</strong> to allocate their
-            isolated AI credit balance (Monthly: +3,000 credits | Annual: +15,000 credits).<br><br>
+            Each AI Assistant message and security scan consumes 1 credit from your balance.
+            You can view your balance and request additional credits anytime from
+            <strong>Accounts → My Credit Balance</strong> in the dashboard.<br><br>
             Log in to CyberINK to start using your Pro features. If you have any questions contact us at
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
@@ -13993,7 +14016,8 @@ def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_a
         return False
 
 
-def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expires_at: str) -> bool:
+def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expires_at: str,
+                            credits_auto_loaded: int = 0) -> bool:
     """Notify admin to top up Anthropic API credits after a Pro subscription payment."""
     if not _SMTP_USER or not _SMTP_PASS:
         return False
@@ -14057,10 +14081,12 @@ def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expi
               <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">AI limits</td>
               <td style="padding:9px 12px;color:#374151;">500 prompts/day &nbsp;·&nbsp; 50 scans/day</td>
             </tr>
-            <tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
               <td style="padding:9px 12px;font-weight:700;color:#15803d;">Recommended top-up</td>
               <td style="padding:9px 12px;color:#15803d;font-weight:700;">{topup_idr} <span style="font-weight:400;font-size:11px;color:#64748b;">({topup_usd_note})</span></td>
             </tr>
+            {f'<tr style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;"><td style="padding:9px 12px;font-weight:700;color:#15803d;">Credits auto-loaded</td><td style="padding:9px 12px;color:#15803d;font-weight:800;">+{credits_auto_loaded:,} credits</td></tr>' if credits_auto_loaded else ''}
+            {f'<tr style="background:#f0fdf4;"><td style="padding:9px 12px;font-weight:700;color:#166534;">Dashboard action</td><td style="padding:9px 12px;color:#166534;font-size:12px;">Credits were auto-loaded. Open User Management to load more if needed.</td></tr>' if credits_auto_loaded else ''}
           </table>
 
           <p class="ep" style="color:#64748b;font-size:12px;line-height:1.7;margin-bottom:16px;">
@@ -14071,14 +14097,25 @@ def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expi
               console.anthropic.com/settings/usage</a>.
           </p>
 
-          <table cellpadding="0" cellspacing="0" border="0"><tr><td>
-            <a href="https://console.anthropic.com/settings/billing"
-              style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
-                     padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
-                     letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-              Add Credits on Anthropic Console &rarr;
-            </a>
-          </td></tr></table>"""
+          <table cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="padding-right:12px;">
+              <a href="https://console.anthropic.com/settings/billing"
+                style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
+                       padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
+                       letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+                Add Credits on Anthropic Console &rarr;
+              </a>
+            </td>
+            <td>
+              <a href="{_BASE_URL}/"
+                style="display:inline-block;background:#f1f5f9;color:#1e3a8a;text-decoration:none;
+                       padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
+                       letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+                       border:1px solid #bfdbfe;">
+                Open User Management &rarr;
+              </a>
+            </td>
+          </tr></table>"""
 
         for to_email in recipients:
             msg = MIMEMultipart('alternative')

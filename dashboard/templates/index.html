@@ -15620,28 +15620,64 @@ function loadCreditRequests() {
     var listEl  = document.getElementById('um-credit-requests-list');
     var badge   = document.getElementById('um-cr-badge');
     if (!wrap || !listEl) return;
-    var pending = (d.requests || []).filter(function(r){ return r.status === 'pending'; });
-    if (pending.length === 0) { wrap.style.display = 'none'; return; }
+    var all      = d.requests || [];
+    var pending  = all.filter(function(r){ return r.status === 'pending'; });
+    var payments = all.filter(function(r){ return r.type === 'pro_payment' && r.status === 'auto_approved'; })
+                      .sort(function(a,b){ return (b.timestamp||'').localeCompare(a.timestamp||''); })
+                      .slice(0, 5); // show latest 5
+    if (pending.length === 0 && payments.length === 0) { wrap.style.display = 'none'; return; }
     wrap.style.display = '';
-    if (badge) badge.textContent = pending.length;
-    listEl.innerHTML = pending.map(function(r) {
-      var ts = r.timestamp ? new Date(r.timestamp + 'Z').toLocaleString() : '';
-      return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">'
-        + '<div style="flex:1;min-width:180px;">'
-        + '<div style="font-size:13px;font-weight:700;color:#0f172a;">' + _esc(r.username) + '</div>'
-        + '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + _esc(r.user_email || '—') + ' &nbsp;·&nbsp; ' + _esc(r.plan) + ' plan</div>'
-        + '<div style="font-size:12px;color:#374151;margin-top:6px;">Requesting <strong style="color:#2563eb;">+' + (r.requested||0).toLocaleString() + ' credits</strong>'
-        + ' &nbsp;(current: ' + (r.current_credits||0).toLocaleString() + ')</div>'
-        + '<div style="font-size:11px;color:#64748b;margin-top:4px;font-style:italic;">"' + _esc(r.reason) + '"</div>'
-        + (ts ? '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + ts + '</div>' : '')
-        + '</div>'
-        + '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">'
-        + '<button onclick="crApprove(\'' + _esc(r.id) + '\',\'' + _esc(r.username) + '\',' + (r.requested||0) + ')" '
-        + 'style="padding:7px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Approve</button>'
-        + '<button onclick="crReject(\'' + _esc(r.id) + '\')" '
-        + 'style="padding:7px 14px;background:#f1f5f9;color:#374151;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;">Reject</button>'
-        + '</div></div>';
-    }).join('');
+    if (badge) badge.textContent = pending.length || '';
+
+    var html = '';
+
+    // Pro payment notifications (informational, auto-approved)
+    if (payments.length) {
+      html += '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Recent Pro Payments</div>';
+      html += payments.map(function(r) {
+        var ts = r.timestamp ? new Date(r.timestamp + 'Z').toLocaleString() : '';
+        var pt = r.plan_type === 'annual' ? 'Annual' : 'Monthly';
+        return '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">'
+          + '<div style="flex:1;min-width:180px;">'
+          + '<div style="display:flex;align-items:center;gap:8px;">'
+          + '<span style="font-size:13px;font-weight:700;color:#0f172a;">' + _esc(r.username) + '</span>'
+          + '<span style="background:#dcfce7;color:#15803d;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">Pro ' + pt + '</span>'
+          + '</div>'
+          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + _esc(r.user_email || '—') + '</div>'
+          + '<div style="font-size:12px;color:#15803d;font-weight:600;margin-top:6px;">Auto-loaded: +' + (r.auto_loaded||0).toLocaleString() + ' credits &nbsp;·&nbsp; Balance: ' + (r.new_balance||0).toLocaleString() + '</div>'
+          + (ts ? '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + ts + '</div>' : '')
+          + '</div>'
+          + '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">'
+          + '<button onclick="umLoadCredits(\'' + _esc(r.username) + '\')" '
+          + 'style="padding:7px 14px;background:#fff;color:#2563eb;border:1.5px solid #2563eb;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Load More</button>'
+          + '</div></div>';
+      }).join('');
+    }
+
+    // Pending credit top-up requests
+    if (pending.length) {
+      html += '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;' + (payments.length ? 'margin-top:16px;' : '') + '">Pending Credit Requests</div>';
+      html += pending.map(function(r) {
+        var ts = r.timestamp ? new Date(r.timestamp + 'Z').toLocaleString() : '';
+        return '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">'
+          + '<div style="flex:1;min-width:180px;">'
+          + '<div style="font-size:13px;font-weight:700;color:#0f172a;">' + _esc(r.username) + '</div>'
+          + '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + _esc(r.user_email || '—') + ' &nbsp;·&nbsp; ' + _esc(r.plan) + ' plan</div>'
+          + '<div style="font-size:12px;color:#374151;margin-top:6px;">Requesting <strong style="color:#2563eb;">+' + (r.requested||0).toLocaleString() + ' credits</strong>'
+          + ' &nbsp;(current: ' + (r.current_credits||0).toLocaleString() + ')</div>'
+          + '<div style="font-size:11px;color:#64748b;margin-top:4px;font-style:italic;">"' + _esc(r.reason) + '"</div>'
+          + (ts ? '<div style="font-size:10px;color:#94a3b8;margin-top:4px;">' + ts + '</div>' : '')
+          + '</div>'
+          + '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">'
+          + '<button onclick="crApprove(\'' + _esc(r.id) + '\',\'' + _esc(r.username) + '\',' + (r.requested||0) + ')" '
+          + 'style="padding:7px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Approve</button>'
+          + '<button onclick="crReject(\'' + _esc(r.id) + '\')" '
+          + 'style="padding:7px 14px;background:#f1f5f9;color:#374151;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;">Reject</button>'
+          + '</div></div>';
+      }).join('');
+    }
+
+    listEl.innerHTML = html;
   }).catch(function(){});
 }
 
