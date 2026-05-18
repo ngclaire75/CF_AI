@@ -11703,6 +11703,11 @@ def api_payment_notification():
             _save_usage(_ud)
         user_email = users[username].get('email', '') or sub.get('email', '')
         _send_pro_welcome_email(username, user_email, sub.get('plan_type', 'monthly'), expires_at)
+        _threading.Thread(
+            target=_send_admin_topup_email,
+            args=(username, sub.get('plan_type', 'monthly'), int(float(gross_amount or 0)), expires_at),
+            daemon=True,
+        ).start()
     elif new_status in ('cancelled', 'failed', 'expired') and sub.get('status') == 'active':
         if username in users:
             users[username]['plan'] = 'basic'
@@ -13790,6 +13795,104 @@ def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_a
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
             srv.login(_SMTP_USER, _SMTP_PASS)
             srv.sendmail(_SMTP_USER, email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
+def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expires_at: str) -> bool:
+    """Notify admin to top up Anthropic API credits after a Pro subscription payment."""
+    if not _SMTP_USER or not _SMTP_PASS:
+        return False
+    try:
+        # Collect admin email recipients
+        recipients = [_SMTP_USER]
+        try:
+            for u in _load_users().values():
+                e = u.get('email', '').strip()
+                if u.get('role') == 'admin' and e and e not in recipients:
+                    recipients.append(e)
+        except Exception:
+            pass
+
+        pt          = 'Annual' if plan_type == 'annual' else 'Monthly'
+        exp         = expires_at.split(' ')[0] if expires_at else '—'
+        idr_fmt     = f'Rp {amount_idr:,}'.replace(',', '.')
+
+        # Recommended top-up amounts (USD) based on plan
+        # Monthly: 500 prompts/day × 31 days, ~20% avg utilisation → ~$10 USD covers typical usage
+        # Annual:  same daily rate × 366 days → $50 USD starting credit, top up quarterly
+        if plan_type == 'annual':
+            topup_usd = 50
+            topup_note = 'We recommend topping up in $50 USD increments and monitoring monthly.'
+        else:
+            topup_usd  = 10
+            topup_note = 'We recommend topping up $10 USD per active Pro user per month.'
+
+        subject = f'[CyberINK] Action required — Top up Anthropic API credits for {username}'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
+            New Pro Subscription — Anthropic Credit Top-Up Required
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 20px;">
+            A user has just subscribed to CyberINK Pro. Please top up the shared Anthropic API
+            credit balance so their AI Assistant and AI Agents remain available.
+          </p>
+
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;
+                        border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;">
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;width:160px;">Account</td>
+              <td style="padding:9px 12px;color:#1d4ed8;font-weight:600;">{username}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Plan</td>
+              <td style="padding:9px 12px;color:#374151;">CyberINK Pro — {pt}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Amount paid</td>
+              <td style="padding:9px 12px;color:#374151;">{idr_fmt}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Expires</td>
+              <td style="padding:9px 12px;color:#374151;">{exp}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #bfdbfe;">
+              <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">AI limits</td>
+              <td style="padding:9px 12px;color:#374151;">500 prompts/day &nbsp;·&nbsp; 50 scans/day</td>
+            </tr>
+            <tr>
+              <td style="padding:9px 12px;font-weight:700;color:#15803d;">Recommended top-up</td>
+              <td style="padding:9px 12px;color:#15803d;font-weight:700;">${topup_usd} USD to Anthropic</td>
+            </tr>
+          </table>
+
+          <p class="ep" style="color:#64748b;font-size:12px;line-height:1.7;margin-bottom:16px;">
+            {topup_note}<br>
+            Anthropic credits are shared across all API calls (AI Assistant + AI Agents)
+            for all Pro users. Monitor actual usage at
+            <a href="https://console.anthropic.com/settings/usage" style="color:#2563eb;">
+              console.anthropic.com/settings/usage</a>.
+          </p>
+
+          <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+            <a href="https://console.anthropic.com/settings/billing"
+              style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
+                     padding:11px 28px;border-radius:8px;font-size:13px;font-weight:700;
+                     letter-spacing:.2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              Add Credits on Anthropic Console &rarr;
+            </a>
+          </td></tr></table>"""
+
+        for to_email in recipients:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From']    = f'CyberINK <{_SMTP_USER}>'
+            msg['To']      = to_email
+            msg.attach(MIMEText(_email_html(subject, body), 'html'))
+            with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+                srv.login(_SMTP_USER, _SMTP_PASS)
+                srv.sendmail(_SMTP_USER, to_email, msg.as_string())
         return True
     except Exception:
         return False
