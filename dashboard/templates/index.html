@@ -8236,17 +8236,8 @@ var _PRO_PAGES = ['scan', 'targets', 'history', 'priority'];
 
 // Pages always accessible to every logged-in user regardless of plan or whitelist
 // (all non-admin, non-pro pages — basic users can reach everything shown in their sidebar)
-var _PUBLIC_PAGES = [
-  'pricing', 'policy', 'privacy',
-  'dashboard',
-  'agents', 'chatbot', 'gsc', 'filescan',
-  'threatanalytics',
-  'incidents', 'syslog', 'pluginlogs', 'logexplorer', 'network',
-  'sca', 'dca', 'grc',
-  'account', 'support', 'myappts', 'filemanager',
-  'securescore', 'signals', 'eventtimeline', 'mitre',
-  'recommendations', 'remediation', 'weaknesses', 'inventories', 'observability'
-];
+// Only pages that are always visible regardless of the admin whitelist
+var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'account'];
 
 var _currentPage = 'dashboard';
 
@@ -9187,6 +9178,7 @@ function _applySidebarAccess() {
     'sb-scan':'scan','sb-history':'history','sb-grc':'grc',
     'sb-sca':'sca','sb-dca':'dca',
     'sb-filemanager':'filemanager','sb-myappts':'myappts',
+    'sb-support':'support',
   };
 
   Object.keys(_SB_MAP).forEach(function(id) {
@@ -15247,6 +15239,9 @@ var _ALL_PAGES = [
   ]},
   { group: 'Files',                  pages: [
     { key: 'filemanager',    label: 'My File Manager' },
+  ]},
+  { group: 'Support',                pages: [
+    { key: 'support',        label: 'Customer Service Centre' },
   ]},
 ];
 

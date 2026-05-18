@@ -609,7 +609,7 @@ _DEFAULT_ADMIN_PASS = 'admin123'
 _DEFAULT_USER_PAGES = [
     'chatbot', 'gsc', 'filescan', 'agents', 'dashboard', 'threatanalytics',
     'incidents', 'syslog', 'pluginlogs', 'logexplorer', 'network',
-    'sca', 'dca', 'grc', 'myappts', 'filemanager',
+    'sca', 'dca', 'grc', 'myappts', 'filemanager', 'support',
 ]
 
 def _load_users() -> dict:
