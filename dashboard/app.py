@@ -626,6 +626,124 @@ def graphql_endpoint():
 
     return jsonify({'errors': [{'message': 'Query not supported — use REST API for full access'}]})
 
+
+# ── LLM Provider API ─────────────────────────────────────────────────────────
+
+_LLM_PROVIDER_CATALOG = [
+    {'id': 'anthropic',  'name': 'Anthropic (Claude)',   'models': ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'], 'key_env': 'ANTHROPIC_API_KEY'},
+    {'id': 'openai',     'name': 'OpenAI (GPT)',          'models': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo', 'o1', 'o3-mini'], 'key_env': 'OPENAI_API_KEY'},
+    {'id': 'google',     'name': 'Google AI (Gemini)',    'models': ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-pro'], 'key_env': 'GOOGLE_API_KEY'},
+    {'id': 'deepseek',   'name': 'DeepSeek',              'models': ['deepseek-chat', 'deepseek-reasoner'], 'key_env': 'DEEPSEEK_API_KEY'},
+    {'id': 'ollama',     'name': 'Ollama (Local)',        'models': ['llama3', 'llama3.1', 'mistral', 'qwen2.5', 'deepseek-r1', 'phi3'], 'key_env': ''},
+    {'id': 'openrouter', 'name': 'OpenRouter',            'models': ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-flash-1.5', 'meta-llama/llama-3.1-70b-instruct'], 'key_env': 'OPENROUTER_API_KEY'},
+    {'id': 'deepinfra',  'name': 'DeepInfra',             'models': ['meta-llama/Meta-Llama-3.1-70B-Instruct', 'Qwen/Qwen2.5-72B-Instruct', 'microsoft/WizardLM-2-8x22B'], 'key_env': 'DEEPINFRA_API_KEY'},
+    {'id': 'bedrock',    'name': 'AWS Bedrock',           'models': ['anthropic.claude-3-5-sonnet-20241022-v2:0', 'anthropic.claude-3-haiku-20240307-v1:0', 'amazon.titan-text-premier-v1:0'], 'key_env': 'AWS_ACCESS_KEY_ID'},
+    {'id': 'qwen',       'name': 'Alibaba Qwen',          'models': ['qwen-max', 'qwen-plus', 'qwen-turbo', 'qwen2.5-72b-instruct'], 'key_env': 'DASHSCOPE_API_KEY'},
+    {'id': 'kimi',       'name': 'Moonshot (Kimi)',       'models': ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'], 'key_env': 'MOONSHOT_API_KEY'},
+    {'id': 'glm',        'name': 'Zhipu AI (GLM)',        'models': ['glm-4', 'glm-4-flash', 'glm-4-plus'], 'key_env': 'ZHIPUAI_API_KEY'},
+    {'id': 'custom',     'name': 'Custom (OpenAI-compat)','models': [], 'key_env': 'CUSTOM_LLM_API_KEY'},
+]
+
+
+@app.route('/api/llm-providers', methods=['GET'])
+@_require_auth_or_token
+def api_llm_providers():
+    """
+    List all supported LLM providers and their configured status.
+    Returns each provider with available models and whether an API key is set.
+    """
+    result = []
+    for p in _LLM_PROVIDER_CATALOG:
+        key_env  = p.get('key_env', '')
+        has_key  = bool(os.environ.get(key_env, '').strip()) if key_env else (p['id'] == 'ollama')
+        cur_model = os.environ.get(f"{p['id'].upper()}_MODEL", p['models'][0] if p['models'] else '')
+        result.append({
+            'id':         p['id'],
+            'name':       p['name'],
+            'models':     p['models'],
+            'configured': has_key,
+            'active_model': cur_model,
+        })
+    return jsonify({'providers': result, 'default': os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')})
+
+
+@app.route('/api/llm-providers/<provider_id>/set-model', methods=['POST'])
+@_require_admin_or_token
+def api_set_llm_model(provider_id):
+    """
+    Set the active model for an LLM provider (stored in .env at runtime).
+    Admin only. POST JSON: {"model": "gpt-4o"}
+    """
+    valid_ids = {p['id'] for p in _LLM_PROVIDER_CATALOG}
+    if provider_id not in valid_ids:
+        return jsonify({'error': f'Unknown provider: {provider_id}'}), 400
+
+    data  = request.get_json(silent=True) or {}
+    model = (data.get('model') or '').strip()
+    if not model:
+        return jsonify({'error': 'model is required'}), 400
+
+    env_key = f"{provider_id.upper()}_MODEL"
+    os.environ[env_key] = model
+    return jsonify({'ok': True, 'provider': provider_id, 'model': model,
+                    'note': 'Active for new scans only. To persist, add to .env file.'})
+
+
+# ── PostgreSQL / Persistent Storage API ──────────────────────────────────────
+
+@app.route('/api/scan-history', methods=['GET'])
+@_require_auth_or_token
+def api_scan_history():
+    """
+    Retrieve scan history from persistent storage (PostgreSQL or JSON fallback).
+    Query params: target (partial match), limit (default 20)
+    """
+    from tools.pg_store import pg_get_scan_history
+    target = (request.args.get('target') or '').strip()
+    limit  = min(int(request.args.get('limit') or '20'), 100)
+    username = _cu_username() if session.get('user', {}).get('role') != 'admin' else ''
+    result = pg_get_scan_history(target=target, username=username, limit=limit)
+    return jsonify(json.loads(result))
+
+
+@app.route('/api/findings', methods=['GET'])
+@_require_auth_or_token
+def api_findings():
+    """
+    Retrieve security findings from persistent storage.
+    Query params: target, severity (critical|high|medium|low|info), category, limit
+    """
+    from tools.pg_store import pg_get_findings
+    target   = (request.args.get('target') or '').strip()
+    severity = (request.args.get('severity') or '').strip()
+    category = (request.args.get('category') or '').strip()
+    limit    = min(int(request.args.get('limit') or '20'), 200)
+    result = pg_get_findings(target=target, severity=severity, category=category, limit=limit)
+    return jsonify(json.loads(result))
+
+
+@app.route('/api/pg-status', methods=['GET'])
+@_require_admin_or_token
+def api_pg_status():
+    """Check PostgreSQL connection status and storage statistics. Admin only."""
+    from tools.pg_store import pg_status
+    result = pg_status()
+    return jsonify(json.loads(result))
+
+
+@app.route('/api/kg-summary', methods=['GET'])
+@_require_auth_or_token
+def api_kg_summary():
+    """
+    Get knowledge graph summary for a target.
+    Query param: target (optional)
+    """
+    from tools.knowledge_graph import kg_summary
+    target = (request.args.get('target') or '').strip()
+    result = kg_summary(target=target)
+    return jsonify(json.loads(result))
+
+
 _IMAGES_DIR = os.path.join(os.path.dirname(__file__), '..', 'images')
 
 @app.route('/images/<path:filename>')
@@ -4247,6 +4365,8 @@ def api_connect_scan():
 
     Request JSON:
       { "target": "example.com", "agent_type": "apit", "model": "",
+        "llm_provider": "anthropic|openai|google|deepseek|ollama|openrouter|...",
+        "llm_model": "claude-sonnet-4-6|gpt-4o|gemini-1.5-pro|...",
         "site_type": "wordpress|cpanel|ssh|sftp|mysql|none",
         "wp_user": "", "wp_pass": "", "wp_app_pass": "",
         "cpanel_user": "", "cpanel_pass": "",
@@ -4274,9 +4394,17 @@ def api_connect_scan():
 
     def _s(k): return (data.get(k) or '').strip()
 
-    agent_type = _s('agent_type') or 'apit'
-    model      = _s('model')
-    site_type  = _s('site_type') or 'none'
+    agent_type   = _s('agent_type') or 'apit'
+    model        = _s('model')
+    llm_provider = _s('llm_provider')   # e.g. "openai", "anthropic", "google"
+    llm_model    = _s('llm_model')      # override model for chosen provider
+    # Resolve effective model: explicit model > llm_model > provider default > env default
+    if not model and llm_model:
+        model = llm_model
+    elif not model and llm_provider:
+        _prov_env = f"{llm_provider.upper()}_MODEL"
+        model = os.environ.get(_prov_env, '')
+    site_type    = _s('site_type') or 'none'
 
     creds = {
         'wp_user':       _s('wp_user'),

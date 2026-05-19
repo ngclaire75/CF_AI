@@ -25,10 +25,34 @@ from tools.memory_store import (
     memory_save, memory_recall, memory_list,
     memory_delete, memory_update,
 )
+from tools.knowledge_graph import (
+    kg_add_entity, kg_add_relationship, kg_search,
+    kg_get_neighbors, kg_attack_path, kg_summary,
+)
+from tools.pg_store import (
+    pg_save_scan, pg_get_scan_history, pg_save_finding,
+    pg_get_findings, pg_status,
+)
 
 _TOOLS       = [nuclei_scan, generic_linux_command, read_file, write_file]
 _JS_TOOLS    = [hunt_js_secrets, nuclei_scan, generic_linux_command, read_file, write_file]
 _MODEL       = os.environ.get('ANTHROPIC_MODEL', os.environ.get('CAI_MODEL', 'claude-sonnet-4-6'))
+
+# Multi-LLM provider map: provider_name -> default model ID
+_LLM_PROVIDERS = {
+    'anthropic':  os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
+    'openai':     os.environ.get('OPENAI_MODEL', 'gpt-4o'),
+    'google':     os.environ.get('GOOGLE_MODEL', 'gemini-1.5-pro'),
+    'deepseek':   os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat'),
+    'ollama':     os.environ.get('OLLAMA_MODEL', 'llama3'),
+    'openrouter': os.environ.get('OPENROUTER_MODEL', 'openai/gpt-4o'),
+    'deepinfra':  os.environ.get('DEEPINFRA_MODEL', 'meta-llama/Meta-Llama-3.1-70B-Instruct'),
+    'bedrock':    os.environ.get('BEDROCK_MODEL', 'anthropic.claude-3-5-sonnet-20241022-v2:0'),
+    'qwen':       os.environ.get('QWEN_MODEL', 'qwen-max'),
+    'kimi':       os.environ.get('KIMI_MODEL', 'moonshot-v1-8k'),
+    'glm':        os.environ.get('GLM_MODEL', 'glm-4'),
+    'custom':     os.environ.get('CUSTOM_LLM_MODEL', ''),
+}
 
 # External search + web intelligence tools
 _SEARCH_TOOLS = [
@@ -40,6 +64,12 @@ _SEARCH_TOOLS = [
 
 # Memory tools (smart long-term storage)
 _MEMORY_TOOLS = [memory_save, memory_recall, memory_list, memory_delete, memory_update]
+
+# Knowledge graph tools (Neo4j/Graphiti — falls back to JSON when Neo4j not configured)
+_KG_TOOLS = [kg_add_entity, kg_add_relationship, kg_search, kg_get_neighbors, kg_attack_path, kg_summary]
+
+# PostgreSQL persistent storage tools (falls back to JSON when PG not configured)
+_PG_TOOLS = [pg_save_scan, pg_get_scan_history, pg_save_finding, pg_get_findings, pg_status]
 
 # CMS / framework scanner tools — used by INFO, CONF, and INPV agents
 _CMS_TOOLS = [
@@ -57,6 +87,7 @@ except Exception:
     _MCP_TOOLS = []
 
 # APIT gets MCP tools first (prioritised over shell tools)
+# _KG_TOOLS and _MEMORY_TOOLS are injected by _agent() — don't add here or they'll duplicate
 _APIT_TOOLS  = _MCP_TOOLS + _CMS_TOOLS + _SEARCH_TOOLS
 _VT_KEY      = os.environ.get('VIRUSTOTAL_API_KEY', '')
 _SHODAN_KEY  = os.environ.get('SHODAN_API_KEY', '')
@@ -306,6 +337,23 @@ WEB INTELLIGENCE TOOLS — for page analysis and site mapping:
   scrape_page(url="<url>", extract="all")               — full page analysis (forms, scripts, links, secrets)
   crawl_site(base_url="<url>", max_pages=15)            — site structure mapping
   fetch_robots_and_sitemap(target="<url>")               — robots.txt + sitemap paths (passive recon)
+
+PERSISTENT STORAGE — save findings and scans to PostgreSQL (or JSON fallback):
+  pg_save_finding(target, severity, title, description, evidence, remediation, cvss)
+  pg_get_findings(target="<domain>", severity="critical|high")— retrieve past findings
+  pg_get_scan_history(target="<domain>")                      — prior scan history
+  pg_status()                                                  — check backend status
+  USE at END of engagement: pg_save_finding() for every confirmed vulnerability.
+
+KNOWLEDGE GRAPH — track entities, relationships, and attack paths across sessions:
+  kg_add_entity(name="<domain|ip|CVE>", entity_type="domain|ip|vulnerability|technology|endpoint|finding")
+  kg_add_relationship(from_entity="<src>", relationship="HAS_VULN|RUNS|EXPOSES|LEADS_TO", to_entity="<dst>")
+  kg_search(query="<keyword>", target="<domain>")        — find entities from prior engagements
+  kg_get_neighbors(entity_name="<name>")                  — see what connects to an entity
+  kg_attack_path(start_entity="<src>", end_entity="<dst>")— trace attack chains
+  kg_summary(target="<domain>")                           — overview of all mapped entities
+  USE at END of engagement: add all discovered domains, vulns, services, and findings.
+  USE at START: kg_search(target="<domain>") to recall the attack surface map.
 """
 
 
@@ -315,7 +363,7 @@ def _agent(category: str, desc: str, instructions: str, max_turns: int = 25,
         name=name or f'WSTG-{category}',
         description=desc,
         instructions=RULES + instructions,
-        tools=(extra_tools or []) + _MEMORY_TOOLS + _TOOLS,
+        tools=(extra_tools or []) + _MEMORY_TOOLS + _KG_TOOLS + _PG_TOOLS + _TOOLS,
         model=_MODEL,
         max_turns=max_turns,
     )
