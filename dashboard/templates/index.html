@@ -1774,16 +1774,16 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
 /* ── SCANNING PAGES — shared table + status styles ── */
 .scroll-panel { overflow-x:auto; width:100%; }
-.scroll-panel table, table#hist, table#targets-table {
+.scroll-panel table, table#hist {
   width:100%; border-collapse:collapse; font-size:12px; }
-.scroll-panel table th, table#hist th, table#targets-table th {
+.scroll-panel table th, table#hist th {
   background:var(--c10); color:var(--c1); font-size:10px; font-weight:700;
   text-transform:uppercase; letter-spacing:.4px; padding:8px 12px; text-align:left;
   border-bottom:1px solid var(--c8); white-space:nowrap; }
-.scroll-panel table td, table#hist td, table#targets-table td {
+.scroll-panel table td, table#hist td {
   padding:8px 12px; border-bottom:1px solid var(--c9); color:var(--c0); vertical-align:middle; }
-.scroll-panel table tr:last-child td, table#hist tr:last-child td, table#targets-table tr:last-child td { border-bottom:none; }
-.scroll-panel table tbody tr:hover td, table#hist tbody tr:hover td, table#targets-table tbody tr:hover td { background:var(--c10); }
+.scroll-panel table tr:last-child td, table#hist tr:last-child td { border-bottom:none; }
+.scroll-panel table tbody tr:hover td, table#hist tbody tr:hover td { background:var(--c10); }
 
 /* status chips */
 .st-ok  { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;
@@ -2186,9 +2186,6 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <div class="sb-nav-label">Scanning</div>
     <button class="sb-item" id="sb-scan" onclick="sbNav('scan',this)">
       <span class="sb-label">Security Scanner</span>
-    </button>
-    <button class="sb-item" id="sb-targets" onclick="sbNav('targets',this)">
-      <span class="sb-label">Scan Results</span>
     </button>
     <button class="sb-item" id="sb-history" onclick="sbNav('history',this)">
       <span class="sb-label">Scan Analytics</span>
@@ -3944,75 +3941,6 @@ Export Power BI
     </div>
   </div>
   </div><!-- /page-dca -->
-
-  <!-- ══ SCAN RESULTS PAGE ══════════════════════════════════════════════════ -->
-  <div id="page-targets" class="page-section" style="display:none">
-  <!-- Target Overview -->
-  <section class="section">
-    <div class="sec-head">
-      <div>
-        <div class="sec-title">Security Assessment by Target</div>
-        <div class="sec-desc">Most recent scan result per target. Click Report to view the full findings with graphs.</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div class="domain-filter-wrap">
-          <input type="text" id="targetDomainFilter" placeholder="Filter by domain..." oninput="filterTargets(this.value)">
-          <button onclick="clearTargetFilter()" id="targetFilterClear" style="display:none;" title="Clear filter">&#215;</button>
-        </div>
-        <span class="sec-count">{{ targets|length }} target(s)</span>
-      </div>
-    </div>
-    <div class="card">
-      {% if targets %}
-      <div class="scroll-panel">
-        <table id="targets-table">
-          <thead>
-            <tr>
-              <th>Target</th>
-              <th>Risk Level</th>
-              <th>Scan Type</th>
-              <th style="width:110px;">Action Items</th>
-              <th style="width:90px;">Duration</th>
-              <th style="width:76px;">Tools Run</th>
-              <th>Last Scanned (UTC)</th>
-              <th>Status</th>
-              <th style="width:100px;"></th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for t in targets %}
-            <tr data-target="{{ t.target|lower }}">
-              <td class="td-target" title="{{ t.target }}">{{ t.target }}</td>
-              <td><span class="badge badge-{{ t.risk }}">{{ t.risk }}</span></td>
-              <td>{{ t.agent_label }}</td>
-              <td class="td-light">{{ t.recs|length }} item(s)</td>
-              <td class="td-dim">{{ t.latency_s }}s</td>
-              <td class="td-light">{{ t.tool_count }}</td>
-              <td class="td-dim">{{ t.display_date }}</td>
-              <td>
-                {% if t.status == 'ok' %}<span class="st-ok">OK</span>
-                {% elif t.status == 'interrupted' %}<span class="st-int">Stopped</span>
-                {% else %}<span class="st-err">Error</span>{% endif %}
-              </td>
-              <td style="white-space:nowrap;">
-                <button class="btn btn-sm" data-id="{{ t.id }}" onclick="openModal(+this.dataset.id)" style="margin-right:4px;">Report</button>
-                <button class="btn btn-sm" onclick="openInsightsModal('{{ t.target|e }}')" style="background:#0f172a;color:#fff;border-color:#0f172a;">Insights</button>
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="empty">
-        <strong>No targets scanned yet.</strong>
-        Run: <code>agent info https://target.com</code> to begin.
-      </div>
-      {% endif %}
-    </div>
-  </section>
-
-  </div><!-- /page-targets -->
 
   <!-- ══ SCAN HISTORY PAGE ══════════════════════════════════════════════════ -->
   <div id="page-history" class="page-section" style="display:none">
@@ -8535,7 +8463,6 @@ var _PAGE_TITLES = {
   'scan':          'Connect & Scan with Agent',
   'vulns':         'Vulnerability Overview',
   'priority':      'Priority Actions',
-  'targets':       'Scan Results',
   'history':       'Security Analytics',
   'pluginlogs':    'Plugin Activity Logs',
   'weaknesses':    'Weaknesses',
@@ -8564,7 +8491,7 @@ var _PAGE_TITLES = {
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
-var _PRO_PAGES = ['scan', 'targets', 'history', 'priority'];
+var _PRO_PAGES = ['scan', 'history', 'priority'];
 
 // Pages always accessible to every logged-in user regardless of plan or whitelist
 // (all non-admin, non-pro pages — basic users can reach everything shown in their sidebar)
@@ -9507,7 +9434,7 @@ function _applySidebarAccess() {
     'sb-dashboard':'dashboard','sb-securescore':'securescore','sb-threatanalytics':'threatanalytics',
     'sb-incidents':'incidents','sb-signals':'signals','sb-eventtimeline':'eventtimeline','sb-mitre':'mitre',
     'sb-priority':'priority','sb-recommendations':'recommendations','sb-remediation':'remediation',
-    'sb-weaknesses':'weaknesses','sb-inventories':'inventories','sb-targets':'targets',
+    'sb-weaknesses':'weaknesses','sb-inventories':'inventories',
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
     'sb-syslog':'syslog','sb-agents':'agents',
     'sb-scan':'scan','sb-history':'history','sb-grc':'grc',
@@ -15990,7 +15917,6 @@ var _ALL_PAGES = [
   ]},
   { group: 'Scanning',               pages: [
     { key: 'scan',           label: 'Security Scanner' },
-    { key: 'targets',        label: 'Scan Results' },
     { key: 'history',        label: 'Scan Analytics' },
     { key: 'sca',            label: 'Static Code Analysis' },
     { key: 'dca',            label: 'Dynamic Code Analysis' },
@@ -16015,7 +15941,7 @@ var _ALL_PAGES = [
 // Presets
 var _PAGE_PRESETS = {
   default:  ['chatbot','gsc','filescan','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','myappts','filemanager'],
-  analyst:  ['dashboard','chatbot','gsc','filescan','threatanalytics','incidents','priority','syslog','targets','logexplorer','pluginlogs','network','history','grc'],
+  analyst:  ['dashboard','chatbot','gsc','filescan','threatanalytics','incidents','priority','syslog','logexplorer','pluginlogs','network','history','grc'],
   readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
   all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
   none:     [],
