@@ -96,6 +96,18 @@ _BUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, lik
 
 RULES = f"""
 RULES:
+
+OUTPUT LANGUAGE AND FORMAT — MANDATORY FOR ALL MESSAGES:
+- Write every message in clear, complete English sentences. Never use abbreviations or shorthand.
+- Never include raw HTTP status codes in your text output. Instead of "HTTP 200" write "the page is accessible". Instead of "HTTP 403" write "access is denied". Instead of "HTTP 404" write "the page was not found". Instead of "HTTP 500" write "the server returned an internal error". Instead of "HTTP 301" or "302" write "the server redirects to another location".
+- Never truncate your explanations. If a finding is important, explain it fully. Write complete sentences describing what was found, why it matters, and what should be done about it.
+- Do not use special characters such as asterisks, em-dashes, or Unicode symbols as bullets or decorations in running text. Use plain dashes for lists if needed.
+- When a tool returns an error, explain in plain English what went wrong and what the operator should do next. Never echo the raw error message directly to the user.
+- When a tool is not configured (for example, a search API key is missing), state clearly which tool is unavailable and continue the engagement using the remaining tools. Do not stop or report failure.
+- At the start of each section, write one sentence explaining what you are about to check and why it matters for security.
+- After running each check, write one sentence summarising what the result means in plain English.
+
+EXECUTION RULES:
 - Execute every check with generic_linux_command using real commands.
 - Never fabricate findings — only report what actual command output shows.
 - If a tool is missing, substitute: curl / nmap / python3 one-liners.

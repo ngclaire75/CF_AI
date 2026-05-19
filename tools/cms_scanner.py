@@ -9,6 +9,7 @@ import json
 import subprocess
 import urllib.parse
 from sdk.agents import function_tool
+from tools._http_explain import http_label
 
 _UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 _TO = 12
@@ -60,15 +61,26 @@ def _base(target: str) -> str:
     return target.rstrip('/')
 
 
+def _clean(text: str) -> str:
+    """Remove control characters from text."""
+    import re as _re
+    return _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text).strip()
+
+
 def _check_paths(base: str, paths: list[str]) -> list[dict]:
-    """Probe a list of paths and return findings with status + snippet."""
+    """Probe a list of paths and return findings with human-readable status + preview."""
     findings = []
     for path in paths:
         url = base + path
         st, hdrs, body = _fetch(url)
         if st in (200, 301, 302, 403):
-            snippet = body[:300].replace('\n', ' ').strip() if body else ''
-            findings.append({'path': path, 'status': st, 'snippet': snippet[:200]})
+            preview = _clean(body[:500].replace('\n', ' ')) if body else ''
+            findings.append({
+                'path':    path,
+                'url':     url,
+                'status':  http_label(st),
+                'preview': preview[:300],
+            })
     return findings
 
 
@@ -103,7 +115,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
             findings.append({
                 'check': 'version_leak',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'version': ver.group(1) if ver else 'unknown',
                 'risk': 'medium',
                 'detail': 'WordPress version exposed — allows targeted CVE lookup',
@@ -119,7 +131,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
             findings.append({
                 'check': 'rest_user_enum',
                 'path': '/wp-json/wp/v2/users',
-                'status': st,
+                'status': http_label(st),
                 'usernames': usernames[:10],
                 'risk': 'high',
                 'detail': f'REST API exposes {len(usernames)} usernames — enables targeted credential attacks',
@@ -138,7 +150,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
                 findings.append({
                     'check': 'author_enum',
                     'path': f'/?author={i}',
-                    'status': st,
+                    'status': http_label(st),
                     'username': m.group(1),
                     'risk': 'high',
                     'detail': f'Author ID {i} maps to username "{m.group(1)}"',
@@ -154,7 +166,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
         findings.append({
             'check': 'xmlrpc_enabled',
             'path': '/xmlrpc.php',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'xmlrpc.php enabled — allows brute-force amplification (multicall) and SSRF',
             'remediation': 'Disable via nginx: location = /xmlrpc.php { deny all; } or use Wordfence'
@@ -168,7 +180,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
             findings.append({
                 'check': 'wp_config_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'critical',
                 'detail': 'wp-config.php or backup exposed — contains DB credentials',
                 'remediation': 'Move wp-config.php above web root; deny access in nginx/Apache'
@@ -181,7 +193,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
             findings.append({
                 'check': 'debug_log_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': 'WordPress debug log is publicly accessible — leaks paths and errors',
                 'remediation': 'Set WP_DEBUG_LOG to false or move log outside web root'
@@ -194,7 +206,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
             findings.append({
                 'check': 'directory_listing',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': f'Directory listing enabled on {path}',
                 'remediation': 'Add "Options -Indexes" in .htaccess or nginx autoindex off'
@@ -206,7 +218,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
         findings.append({
             'check': 'wp_cron_exposed',
             'path': '/wp-cron.php',
-            'status': st,
+            'status': http_label(st),
             'risk': 'low',
             'detail': 'wp-cron.php publicly accessible — can be used for DoS amplification',
             'remediation': 'Disable via wp-config.php: define("DISABLE_WP_CRON", true); use real cron job'
@@ -218,7 +230,7 @@ def scan_wordpress(target: str, credentials: str = '') -> str:
         findings.append({
             'check': 'login_exposed',
             'path': '/wp-login.php',
-            'status': st,
+            'status': http_label(st),
             'risk': 'info',
             'detail': 'WordPress login page is publicly accessible — brute force target',
             'remediation': 'Add IP restriction or CAPTCHA; consider moving login URL with WPS Hide Login'
@@ -299,7 +311,7 @@ def scan_joomla(target: str) -> str:
             findings.append({
                 'check': 'version_disclosure',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'version': ver.group(1) if ver else 'exposed',
                 'risk': 'medium',
                 'detail': 'Joomla version exposed via metadata file',
@@ -313,7 +325,7 @@ def scan_joomla(target: str) -> str:
         findings.append({
             'check': 'admin_panel_exposed',
             'path': '/administrator/',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'Joomla administrator login panel publicly accessible',
             'remediation': 'Restrict /administrator/ by IP or add 2FA plugin'
@@ -327,7 +339,7 @@ def scan_joomla(target: str) -> str:
             findings.append({
                 'check': 'config_backup_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'critical',
                 'detail': 'Joomla configuration backup file exposed — may contain DB credentials',
                 'remediation': 'Remove backup files and restrict access to configuration.php'
@@ -354,7 +366,7 @@ def scan_joomla(target: str) -> str:
                 findings.append({
                     'check': 'rest_api_exposed',
                     'path': path,
-                    'status': st,
+                    'status': http_label(st),
                     'risk': 'critical',
                     'detail': 'Joomla REST API unauthenticated access — CVE-2023-23752 style info leak',
                     'snippet': body[:300],
@@ -369,7 +381,7 @@ def scan_joomla(target: str) -> str:
         findings.append({
             'check': 'registration_open',
             'path': '/index.php?option=com_users&view=registration',
-            'status': st,
+            'status': http_label(st),
             'risk': 'medium',
             'detail': 'User self-registration is open — potential spam/privilege escalation',
             'remediation': 'Disable registration in Joomla Global Configuration if not needed'
@@ -388,7 +400,7 @@ def scan_joomla(target: str) -> str:
             findings.append({
                 'check': 'sensitive_path',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': detail,
                 'remediation': f'Block {path} in web server config'
@@ -437,7 +449,7 @@ def scan_drupal(target: str) -> str:
             findings.append({
                 'check': 'version_leak',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'version': ver.group(1) if ver else 'exposed',
                 'risk': 'medium',
                 'detail': f'Drupal metadata file exposed — version disclosed via {path}',
@@ -452,7 +464,7 @@ def scan_drupal(target: str) -> str:
             'check': 'drupalgeddon2_rce',
             'cve': 'CVE-2018-7600',
             'path': drpg_url,
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'CRITICAL: Drupalgeddon2 RCE confirmed — unauthenticated remote code execution',
             'remediation': 'Upgrade to Drupal 7.58+ or Drupal 8.5.1+ IMMEDIATELY'
@@ -461,7 +473,7 @@ def scan_drupal(target: str) -> str:
         findings.append({
             'check': 'drupalgeddon2_probe',
             'cve': 'CVE-2018-7600',
-            'status': st,
+            'status': http_label(st),
             'risk': 'info',
             'detail': 'Drupalgeddon2 probe path reached — could not confirm RCE (may be patched)',
             'remediation': 'Verify Drupal version is 7.58+ or 8.5.1+'
@@ -473,7 +485,7 @@ def scan_drupal(target: str) -> str:
         findings.append({
             'check': 'update_php_exposed',
             'path': '/update.php',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'update.php is publicly accessible — can trigger database updates',
             'remediation': 'Restrict access to update.php by IP or require admin authentication'
@@ -485,7 +497,7 @@ def scan_drupal(target: str) -> str:
         findings.append({
             'check': 'install_php_exposed',
             'path': '/install.php',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'install.php is accessible — Drupal re-installation may be possible',
             'remediation': 'Block install.php in web server config after installation'
@@ -500,7 +512,7 @@ def scan_drupal(target: str) -> str:
             findings.append({
                 'check': 'user_enum',
                 'path': '/user/1',
-                'status': st,
+                'status': http_label(st),
                 'username': m.group(1),
                 'risk': 'high',
                 'detail': f'Admin username exposed via /user/1 redirect: "{m.group(1)}"',
@@ -513,7 +525,7 @@ def scan_drupal(target: str) -> str:
         findings.append({
             'check': 'admin_accessible',
             'path': '/admin/',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'Drupal admin panel is accessible',
             'remediation': 'Ensure admin panel requires authentication; restrict by IP if possible'
@@ -529,7 +541,7 @@ def scan_drupal(target: str) -> str:
                 findings.append({
                     'check': 'rest_api_exposed',
                     'path': path,
-                    'status': st,
+                    'status': http_label(st),
                     'risk': 'medium',
                     'detail': 'Drupal JSON API accessible — may expose content/user data unauthenticated',
                     'remediation': 'Configure JSON API access control; disable if not needed'
@@ -544,7 +556,7 @@ def scan_drupal(target: str) -> str:
         findings.append({
             'check': 'settings_php_exposed',
             'path': '/sites/default/settings.php',
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'settings.php accessible — contains database credentials',
             'remediation': 'Set file permissions to 444; deny access in web server config'
@@ -598,7 +610,7 @@ def scan_laravel(target: str) -> str:
             findings.append({
                 'check': 'env_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'keys_found': keys_found,
                 'risk': 'critical',
                 'detail': f'.env file exposed — contains {len(keys_found)} sensitive keys: {", ".join(keys_found)}',
@@ -611,7 +623,7 @@ def scan_laravel(target: str) -> str:
                               'APP_DEBUG' in body or 'laravel' in body.lower()):
         findings.append({
             'check': 'debug_mode_enabled',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'Laravel debug mode (APP_DEBUG=true) is active — stack traces and env vars leaked on errors',
             'remediation': 'Set APP_DEBUG=false and APP_ENV=production in .env'
@@ -633,7 +645,7 @@ def scan_laravel(target: str) -> str:
                     'check': 'cve_2021_3129_rce',
                     'cve': 'CVE-2021-3129',
                     'path': '/_ignition/execute-solution',
-                    'status': st,
+                    'status': http_label(st),
                     'risk': 'critical',
                     'detail': 'CRITICAL: Ignition RCE endpoint responds — CVE-2021-3129 may be exploitable',
                     'remediation': 'Upgrade to Laravel 8.4.3+; disable debug mode in production'
@@ -647,7 +659,7 @@ def scan_laravel(target: str) -> str:
         findings.append({
             'check': 'telescope_exposed',
             'path': '/telescope',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'Laravel Telescope debug panel is publicly accessible — exposes all requests, queries, and jobs',
             'remediation': 'Restrict Telescope to local environment or authenticated admins only'
@@ -659,7 +671,7 @@ def scan_laravel(target: str) -> str:
         findings.append({
             'check': 'horizon_exposed',
             'path': '/horizon',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'Laravel Horizon queue dashboard is publicly accessible',
             'remediation': 'Restrict Horizon to authenticated admin users via HorizonServiceProvider::gate()'
@@ -674,7 +686,7 @@ def scan_laravel(target: str) -> str:
             findings.append({
                 'check': 'log_file_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': 'Laravel log file is publicly accessible — leaks stack traces, paths, and user data',
                 'remediation': 'Ensure storage/ is not served by web server; document root should be public/'
@@ -687,7 +699,7 @@ def scan_laravel(target: str) -> str:
         findings.append({
             'check': 'git_config_exposed',
             'path': '/.git/config',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': '.git/config exposed — full source code may be downloadable via git dumping',
             'remediation': 'Block .git/ access in nginx; never deploy with .git directory in web root'
@@ -700,7 +712,7 @@ def scan_laravel(target: str) -> str:
             'check': 'phpunit_rce',
             'cve': 'CVE-2017-9841',
             'path': '/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php',
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'CRITICAL: PHPUnit eval-stdin.php accessible — CVE-2017-9841 RCE via POST',
             'remediation': 'Remove vendor/ from web root; document root must be public/ only'
@@ -714,7 +726,7 @@ def scan_laravel(target: str) -> str:
             findings.append({
                 'check': 'api_user_exposed',
                 'path': '/api/user',
-                'status': st,
+                'status': http_label(st),
                 'risk': 'high',
                 'detail': 'Laravel /api/user returns user data without authentication',
                 'remediation': 'Add auth:sanctum or auth:api middleware to protect /api/user route'
@@ -764,7 +776,7 @@ def scan_django_flask(target: str) -> str:
             findings.append({
                 'check': 'django_admin_exposed',
                 'path': admin_path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'high',
                 'detail': 'Django admin panel is publicly accessible',
                 'remediation': 'Change /admin/ URL in urls.py; restrict by IP; enforce 2FA'
@@ -777,7 +789,7 @@ def scan_django_flask(target: str) -> str:
         if 'django' in body.lower() and ('settings' in body.lower() or 'traceback' in body.lower()):
             findings.append({
                 'check': 'django_debug_mode',
-                'status': st,
+                'status': http_label(st),
                 'risk': 'high',
                 'detail': 'Django DEBUG=True — full tracebacks with local variables exposed',
                 'remediation': 'Set DEBUG=False in production settings; configure ALLOWED_HOSTS'
@@ -785,7 +797,7 @@ def scan_django_flask(target: str) -> str:
         elif 'werkzeug' in body.lower() or 'debugger' in body.lower():
             findings.append({
                 'check': 'flask_debug_mode',
-                'status': st,
+                'status': http_label(st),
                 'risk': 'critical',
                 'detail': 'Flask Werkzeug interactive debugger is active — allows arbitrary Python code execution',
                 'remediation': 'Set app.run(debug=False) or FLASK_DEBUG=0 in production IMMEDIATELY'
@@ -798,7 +810,7 @@ def scan_django_flask(target: str) -> str:
         findings.append({
             'check': 'werkzeug_console_exposed',
             'path': '/console',
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'Werkzeug /console endpoint exposed — interactive Python shell',
             'remediation': 'Disable debug mode immediately; never expose Werkzeug debugger in production'
@@ -811,7 +823,7 @@ def scan_django_flask(target: str) -> str:
         findings.append({
             'check': 'ssti_url_path',
             'path': '/' + '{{7*7}}',
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'SSTI confirmed in URL path — template injection returns 49 for {{7*7}}',
             'remediation': 'Never render user input directly in templates; use Jinja2 sandbox; validate all inputs'
@@ -825,7 +837,7 @@ def scan_django_flask(target: str) -> str:
                 findings.append({
                     'check': 'drf_browsable_api',
                     'path': path,
-                    'status': st,
+                    'status': http_label(st),
                     'risk': 'medium',
                     'detail': 'Django REST Framework browsable API is enabled in production',
                     'remediation': 'Set DEFAULT_RENDERER_CLASSES to JSONRenderer only in production settings'
@@ -837,7 +849,7 @@ def scan_django_flask(target: str) -> str:
                     findings.append({
                         'check': 'api_endpoint_exposed',
                         'path': path,
-                        'status': st,
+                        'status': http_label(st),
                         'risk': 'info',
                         'detail': 'API endpoint returns JSON without authentication',
                         'remediation': 'Verify this endpoint requires appropriate authentication'
@@ -853,7 +865,7 @@ def scan_django_flask(target: str) -> str:
         findings.append({
             'check': 'metrics_exposed',
             'path': '/metrics',
-            'status': st,
+            'status': http_label(st),
             'risk': 'medium',
             'detail': 'Prometheus /metrics endpoint is publicly accessible — leaks internal performance data',
             'remediation': 'Restrict /metrics to internal network or monitoring system IPs only'
@@ -866,7 +878,7 @@ def scan_django_flask(target: str) -> str:
             findings.append({
                 'check': 'directory_listing',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': f'Directory listing enabled on {path}',
                 'remediation': 'Disable autoindex; serve static/media files via nginx with proper restrictions'
@@ -882,7 +894,7 @@ def scan_django_flask(target: str) -> str:
             if m:
                 findings.append({
                     'check': 'secret_key_in_page',
-                    'status': st,
+                    'status': http_label(st),
                     'risk': 'critical',
                     'detail': 'SECRET_KEY found in page source — allows session forgery and CSRF bypass',
                     'remediation': 'Remove SECRET_KEY from all templates; load only from environment variables'
@@ -937,7 +949,7 @@ def scan_nodejs(target: str) -> str:
                 findings.append({
                     'check': 'package_json_exposed',
                     'path': path,
-                    'status': st,
+                    'status': http_label(st),
                     'app_name': name,
                     'app_version': version,
                     'dependencies_sample': deps,
@@ -949,7 +961,7 @@ def scan_nodejs(target: str) -> str:
                 findings.append({
                     'check': 'package_file_exposed',
                     'path': path,
-                    'status': st,
+                    'status': http_label(st),
                     'risk': 'medium',
                     'detail': f'{path} is publicly accessible',
                     'remediation': f'Block {path} in web server config'
@@ -965,7 +977,7 @@ def scan_nodejs(target: str) -> str:
             findings.append({
                 'check': 'graphql_introspection',
                 'path': gql_path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': 'GraphQL introspection is enabled — exposes full API schema to attackers',
                 'remediation': 'Disable introspection in production; set introspection: false in Apollo/GraphQL config'
@@ -976,7 +988,7 @@ def scan_nodejs(target: str) -> str:
             findings.append({
                 'check': 'graphql_endpoint',
                 'path': gql_path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'info',
                 'detail': 'GraphQL endpoint detected — audit for introspection and field-level auth',
                 'remediation': 'Disable introspection; implement field-level authorization; rate-limit queries'
@@ -989,7 +1001,7 @@ def scan_nodejs(target: str) -> str:
         findings.append({
             'check': 'node_modules_exposed',
             'path': '/node_modules/',
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'node_modules/ directory is publicly accessible — source code and secrets exposed',
             'remediation': 'Serve only the build output; block /node_modules/ in nginx config'
@@ -1003,7 +1015,7 @@ def scan_nodejs(target: str) -> str:
             findings.append({
                 'check': 'debug_endpoint',
                 'path': debug_path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'high',
                 'detail': f'Debug endpoint {debug_path} is publicly accessible — may expose env/memory info',
                 'remediation': 'Remove debug routes in production; gate with NODE_ENV check'
@@ -1021,7 +1033,7 @@ def scan_nodejs(target: str) -> str:
                 findings.append({
                     'check': 'jwt_none_alg',
                     'path': '/api/user',
-                    'status': st,
+                    'status': http_label(st),
                     'risk': 'critical',
                     'detail': 'CRITICAL: JWT none-algorithm accepted — authentication bypass possible',
                     'remediation': 'Explicitly validate JWT algorithm; reject tokens with alg=none; use RS256 or HS256 with strong secret'
@@ -1036,7 +1048,7 @@ def scan_nodejs(target: str) -> str:
         findings.append({
             'check': 'prototype_pollution',
             'path': '/api/?__proto__[test]=cfai_probe',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'Possible prototype pollution — __proto__ reflected in response',
             'remediation': 'Sanitize query parameters; use Object.create(null) for user data; apply lodash patch'
@@ -1127,7 +1139,7 @@ def scan_java_spring(target: str) -> str:
             findings.append({
                 'check': 'actuator_endpoint',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': risk,
                 'detail': f'Spring Actuator {path} accessible — {detail}',
                 'snippet': snippet[:300],
@@ -1141,7 +1153,7 @@ def scan_java_spring(target: str) -> str:
             findings.append({
                 'check': 'h2_console_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'critical',
                 'detail': 'H2 database console exposed — allows SQL execution and Java code RCE via INIT parameter',
                 'remediation': 'Set spring.h2.console.enabled=false in production; never expose H2 console'
@@ -1155,7 +1167,7 @@ def scan_java_spring(target: str) -> str:
             findings.append({
                 'check': 'spring_admin_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'high',
                 'detail': 'Spring Boot Admin panel may be accessible',
                 'remediation': 'Add Spring Security authentication to admin panel; restrict by IP'
@@ -1172,7 +1184,7 @@ def scan_java_spring(target: str) -> str:
             findings.append({
                 'check': 'swagger_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': 'Swagger/OpenAPI documentation publicly accessible — full API schema exposed',
                 'remediation': 'Disable Swagger in production or require authentication; set springdoc.api-docs.enabled=false'
@@ -1186,7 +1198,7 @@ def scan_java_spring(target: str) -> str:
         findings.append({
             'check': 'spel_injection',
             'path': '/?name=${7*7}',
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'SpEL injection confirmed — ${7*7} evaluates to 49 in response',
             'remediation': 'Use SimpleEvaluationContext instead of StandardEvaluationContext; sanitize all user inputs before SpEL evaluation'
@@ -1197,7 +1209,7 @@ def scan_java_spring(target: str) -> str:
     if st in (404, 500) and ('whitelabel' in body.lower() or 'spring' in body.lower()):
         findings.append({
             'check': 'whitelabel_error',
-            'status': st,
+            'status': http_label(st),
             'risk': 'low',
             'detail': 'Spring Boot Whitelabel error page exposed — confirms Spring Boot and leaks basic app info',
             'remediation': 'Implement custom error pages; set server.error.whitelabel.enabled=false'
@@ -1255,7 +1267,7 @@ def scan_dotnet(target: str) -> str:
             findings.append({
                 'check': 'elmah_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'high',
                 'detail': 'ELMAH error log viewer is publicly accessible — full stack traces, URLs, and data exposed',
                 'remediation': 'Add <location path="elmah.axd"><system.web><authorization><deny users="*"/></authorization></system.web></location> in web.config'
@@ -1268,7 +1280,7 @@ def scan_dotnet(target: str) -> str:
         findings.append({
             'check': 'trace_axd_exposed',
             'path': '/trace.axd',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'trace.axd request tracing is enabled — reveals all recent HTTP requests including cookies/tokens',
             'remediation': 'Set <trace enabled="false"> in web.config system.web section'
@@ -1287,7 +1299,7 @@ def scan_dotnet(target: str) -> str:
             findings.append({
                 'check': 'web_config_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'sensitive_sections': sensitive,
                 'risk': 'critical',
                 'detail': f'web.config exposed — contains: {", ".join(sensitive)}',
@@ -1327,7 +1339,7 @@ def scan_dotnet(target: str) -> str:
         findings.append({
             'check': 'iis_short_filename',
             'path': '/a~1/a.aspx',
-            'status': st,
+            'status': http_label(st),
             'risk': 'medium',
             'detail': 'IIS 8.3 short filename enumeration possible — attackers can discover hidden files/dirs',
             'remediation': 'Disable 8.3 filename generation: fsutil 8dot3name set 0; apply IIS patch MS10-070'
@@ -1357,7 +1369,7 @@ def scan_dotnet(target: str) -> str:
         findings.append({
             'check': 'scriptresource_axd',
             'path': '/ScriptResource.axd',
-            'status': st,
+            'status': http_label(st),
             'version': ver.group(1) if ver else 'unknown',
             'risk': 'low',
             'detail': 'ScriptResource.axd accessible — confirms ASP.NET WebForms',
@@ -1417,7 +1429,7 @@ def scan_rails(target: str) -> str:
         findings.append({
             'check': 'rails_info_properties',
             'path': '/rails/info/properties',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': '/rails/info/properties exposed — reveals Rails version, Ruby version, middleware stack, routes',
             'remediation': 'Set config.consider_all_requests_local = false in production; restrict by IP'
@@ -1429,7 +1441,7 @@ def scan_rails(target: str) -> str:
         findings.append({
             'check': 'rails_routes_exposed',
             'path': '/rails/info/routes',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'All Rails routes exposed — enables targeted attack surface mapping',
             'remediation': 'Disable debug mode in production; restrict /rails/ endpoints'
@@ -1442,7 +1454,7 @@ def scan_rails(target: str) -> str:
         findings.append({
             'check': 'cve_2019_5418_traversal',
             'cve': 'CVE-2019-5418',
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'CRITICAL: Rails path traversal via Accept header — file read confirmed (CVE-2019-5418)',
             'remediation': 'Upgrade Rails to 5.2.2.1, 5.1.6.2, 5.0.7.2, 4.2.11.1, or 6.0+ IMMEDIATELY'
@@ -1454,7 +1466,7 @@ def scan_rails(target: str) -> str:
                               ('exception' in body.lower() or 'backtrace' in body.lower())):
         findings.append({
             'check': 'debug_error_page',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': 'Rails debug error page is enabled — full backtraces and source code snippets exposed',
             'remediation': 'Set config.consider_all_requests_local = false in config/environments/production.rb'
@@ -1468,7 +1480,7 @@ def scan_rails(target: str) -> str:
             findings.append({
                 'check': 'devise_panel',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': f'Devise authentication panel detected at {path}',
                 'remediation': 'Add 2FA; rate-limit sign-in; audit Devise configuration for lockout policy'
@@ -1482,7 +1494,7 @@ def scan_rails(target: str) -> str:
             findings.append({
                 'check': 'assets_listing',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'medium',
                 'detail': 'Asset directory listing enabled — may expose source maps with original JS/CSS',
                 'remediation': 'Disable directory listing; set config.assets.compile = false in production'
@@ -1495,7 +1507,7 @@ def scan_rails(target: str) -> str:
             findings.append({
                 'check': 'database_yml_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'critical',
                 'detail': f'{path} exposed — contains database configuration and credentials',
                 'remediation': 'Block config/ directory in web server; use env vars for credentials'
@@ -1509,7 +1521,7 @@ def scan_rails(target: str) -> str:
             findings.append({
                 'check': 'gemfile_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'gems_sample': gems,
                 'risk': 'medium',
                 'detail': f'{path} exposed — reveals full dependency list for CVE targeting',
@@ -1560,7 +1572,7 @@ def scan_generic_php(target: str) -> str:
             findings.append({
                 'check': 'phpinfo_exposed',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'php_version': ver.group(1) if ver else 'unknown',
                 'risk': 'critical',
                 'detail': f'phpinfo() page exposed at {path} — reveals PHP version, config, modules, and server paths',
@@ -1578,7 +1590,7 @@ def scan_generic_php(target: str) -> str:
                 'check': 'db_admin_exposed',
                 'path': path,
                 'tool': name,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'critical',
                 'detail': f'{name} is publicly accessible — brute-force / SQLi / direct DB access',
                 'remediation': f'Move {path} to non-guessable URL or restrict by IP; add HTTP auth'
@@ -1595,7 +1607,7 @@ def scan_generic_php(target: str) -> str:
             findings.append({
                 'check': 'php_backup_file',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'contains_credentials': has_creds,
                 'risk': 'critical' if has_creds else 'high',
                 'detail': f'PHP backup/config file exposed at {path}' + (' — credentials detected' if has_creds else ''),
@@ -1609,7 +1621,7 @@ def scan_generic_php(target: str) -> str:
         findings.append({
             'check': 'lfi_confirmed',
             'path': '/?file=../../etc/passwd',
-            'status': st,
+            'status': http_label(st),
             'risk': 'critical',
             'detail': 'CRITICAL: Local File Inclusion confirmed — /etc/passwd readable via ?file= parameter',
             'remediation': 'Sanitize all file path inputs; use basename(); set open_basedir in php.ini; never include user-controlled paths'
@@ -1618,7 +1630,7 @@ def scan_generic_php(target: str) -> str:
         findings.append({
             'check': 'lfi_error_disclosure',
             'path': '/?file=../../etc/passwd',
-            'status': st,
+            'status': http_label(st),
             'risk': 'medium',
             'detail': 'PHP error messages exposed — LFI attempt reveals server paths in error output',
             'remediation': 'Set display_errors=Off and log_errors=On in php.ini'
@@ -1636,7 +1648,7 @@ def scan_generic_php(target: str) -> str:
                 findings.append({
                     'check': 'sqli_error_signature',
                     'path': param + probe,
-                    'status': st,
+                    'status': http_label(st),
                     'risk': 'critical',
                     'detail': f'SQL injection error signature in response for {param}{probe}',
                     'remediation': 'Use PDO prepared statements for ALL queries; set display_errors=Off'
@@ -1652,7 +1664,7 @@ def scan_generic_php(target: str) -> str:
             findings.append({
                 'check': 'upload_endpoint',
                 'path': path,
-                'status': st,
+                'status': http_label(st),
                 'risk': 'high',
                 'detail': f'File upload endpoint at {path} — audit for unrestricted upload (webshell RCE)',
                 'remediation': 'Whitelist file types; store uploads outside web root; scan uploads for malware; use random filenames'
@@ -1668,7 +1680,7 @@ def scan_generic_php(target: str) -> str:
                 findings.append({
                     'check': 'composer_json_exposed',
                     'path': path,
-                    'status': st,
+                    'status': http_label(st),
                     'dependencies': deps,
                     'risk': 'medium',
                     'detail': f'{path} exposed — reveals PHP package list for CVE targeting',
@@ -1683,7 +1695,7 @@ def scan_generic_php(target: str) -> str:
         findings.append({
             'check': 'git_config_exposed',
             'path': '/.git/config',
-            'status': st,
+            'status': http_label(st),
             'risk': 'high',
             'detail': '.git directory exposed — full source code downloadable via git-dumper',
             'remediation': 'Block /.git/ in nginx; never deploy with .git in web root'

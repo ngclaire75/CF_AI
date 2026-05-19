@@ -9,6 +9,7 @@ import re
 import subprocess
 import urllib.parse
 from sdk.agents import function_tool
+from tools._http_explain import http_label, network_error_msg
 
 _UA  = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 _TO  = 20
@@ -96,7 +97,7 @@ def scrape_page(url: str, extract: str = 'all') -> str:
         if len(body2) > len(body):
             body = body2
 
-    result: dict = {'url': url, 'status': status, 'content_type': headers.get('content-type', '')}
+    result: dict = {'url': url, 'status': http_label(status), 'content_type': headers.get('content-type', '')}
 
     if extract in ('all', 'meta'):
         # Title
