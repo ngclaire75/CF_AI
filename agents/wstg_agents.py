@@ -9,10 +9,24 @@ from sdk.agents import Agent
 from tools.generic_linux_command import generic_linux_command, read_file, write_file
 from tools.js_secret_hunter import hunt_js_secrets
 from tools.nuclei_scan import nuclei_scan
+from tools.site_profiler import profile_target
+from tools.cms_scanner import (
+    scan_wordpress, scan_joomla, scan_drupal,
+    scan_laravel, scan_django_flask, scan_nodejs,
+    scan_java_spring, scan_dotnet, scan_rails, scan_generic_php,
+)
 
 _TOOLS       = [nuclei_scan, generic_linux_command, read_file, write_file]
 _JS_TOOLS    = [hunt_js_secrets, nuclei_scan, generic_linux_command, read_file, write_file]
 _MODEL       = os.environ.get('ANTHROPIC_MODEL', os.environ.get('CAI_MODEL', 'claude-sonnet-4-6'))
+
+# CMS / framework scanner tools — used by INFO, CONF, and INPV agents
+_CMS_TOOLS = [
+    profile_target,
+    scan_wordpress, scan_joomla, scan_drupal,
+    scan_laravel, scan_django_flask, scan_nodejs,
+    scan_java_spring, scan_dotnet, scan_rails, scan_generic_php,
+]
 
 # MCP tools for WordPress/API scanning — loaded lazily so missing package doesn't break other agents
 try:
@@ -22,7 +36,7 @@ except Exception:
     _MCP_TOOLS = []
 
 # APIT gets MCP tools first (prioritised over shell tools)
-_APIT_TOOLS  = _MCP_TOOLS + _TOOLS
+_APIT_TOOLS  = _MCP_TOOLS + _CMS_TOOLS
 _VT_KEY      = os.environ.get('VIRUSTOTAL_API_KEY', '')
 _SHODAN_KEY  = os.environ.get('SHODAN_API_KEY', '')
 
@@ -289,6 +303,71 @@ _SHARED = {
 
 INFO_AGENT = _agent('INFO', 'Recon Scout — Passive & Active Reconnaissance', f"""
 You are the WSTG-INFO agent. Target: {{domain}}
+
+══════════════════════════════════════════════════════════
+STEP 0 — SITE PROFILING (ALWAYS FIRST, BEFORE ANYTHING ELSE)
+══════════════════════════════════════════════════════════
+Before any passive or active recon, call:
+  profile_target(target="https://{{domain}}")
+
+This returns a structured profile with:
+  - cms: detected CMS (wordpress / joomla / drupal / none)
+  - framework: backend framework (laravel / django / flask / express / spring / dotnet / rails / none)
+  - server: web server (nginx / apache / iis / cloudflare / etc.)
+  - technologies: detected JS frameworks, CDNs, analytics tools
+  - admin_paths: known admin panel URLs to check
+  - api_endpoints: REST/GraphQL endpoints detected
+  - tools_to_run: EXACT list of scan tools you MUST call
+  - tools_to_skip: tools irrelevant to this stack (DO NOT call these)
+  - notes: fingerprinting evidence
+
+ADAPTIVE DISPATCH RULES — Based on profile_target() output:
+
+  If cms == "wordpress":
+    → Call scan_wordpress(target="https://{{domain}}")
+    → Use wp_api_call, wp_security_scan tools
+    → Check WPScan API for CVEs on detected version/plugins
+
+  If cms == "joomla":
+    → Call scan_joomla(target="https://{{domain}}")
+    → Focus CONF checks on /administrator/ and configuration.php
+
+  If cms == "drupal":
+    → Call scan_drupal(target="https://{{domain}}")
+    → Check for Drupalgeddon CVEs immediately
+
+  If framework == "laravel":
+    → Call scan_laravel(target="https://{{domain}}")
+    → Look for .env, debug mode, Ignition RCE, Telescope/Horizon
+
+  If framework in ("django", "flask"):
+    → Call scan_django_flask(target="https://{{domain}}")
+    → Look for debug console, /admin/, DRF browsable API
+
+  If framework == "express" or technologies contain "node.js":
+    → Call scan_nodejs(target="https://{{domain}}")
+    → Look for package.json, GraphQL introspection, JWT none-alg
+
+  If framework == "spring":
+    → Call scan_java_spring(target="https://{{domain}}")
+    → Check all /actuator/ endpoints first — critical risk
+
+  If framework == "dotnet":
+    → Call scan_dotnet(target="https://{{domain}}")
+    → Check elmah.axd, trace.axd, web.config backup
+
+  If framework == "rails":
+    → Call scan_rails(target="https://{{domain}}")
+    → Check /rails/info/properties, CVE-2019-5418
+
+  If cms == "none" and framework == "none" (generic PHP or unknown):
+    → Call scan_generic_php(target="https://{{domain}}")
+    → Check phpinfo, phpMyAdmin, backup .php files
+
+  ALWAYS skip tools in "tools_to_skip" list — running irrelevant tools wastes
+  turns and dilutes the report with false negatives.
+
+  ALWAYS run tools in "tools_to_run" list — these are mandatory for this stack.
 
 ══════════════════════════════════════════════════════════
 NUCLEI TECHNOLOGY FINGERPRINTING — run at the same time as STEP 1
@@ -601,10 +680,11 @@ Severity guide (do NOT over-score):
 
 After completing all checks, produce the final report:
 - **EXECUTIVE SUMMARY**: total findings count, highest severity, most critical issue in one sentence
+- **STACK DETECTED**: CMS, framework, server, and technologies identified by profile_target()
 - Detailed report blocks (per RULES) for each confirmed Medium/High/Critical finding
 - Table rows for Info/Low informational findings
 - **REMEDIATION PRIORITY**: top 3 fixes ordered by risk
-""", max_turns=40)
+""", max_turns=40, extra_tools=_CMS_TOOLS + [hunt_js_secrets])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -655,11 +735,39 @@ Call this tool immediately, before any other check:
   python3 -c "import subprocess,json; raw=subprocess.run(['curl','-L','-4','-sk','--max-time','20','--connect-timeout','8','-A','curl/7.88','https://crt.sh/?q=%25.{{domain}}&output=json'],capture_output=True,text=True,timeout=25).stdout; d=json.loads(raw) if raw.strip().startswith('[') else []; subs=sorted(set(v.replace('*.','') for e in d for v in e.get('name_value','').split() if '{{domain}}' in v)); [print(s) for s in subs[:30]] or print('(no crt.sh results)')"
   amass enum -passive -d {{domain}} 2>/dev/null | head -20 || true
 
+══════════════════════════════════════════════════════════
+ADAPTIVE CMS/FRAMEWORK CHECKS — run AFTER profile_target()
+══════════════════════════════════════════════════════════
+Call profile_target(target="https://{{domain}}") first.
+Then dispatch to the relevant scanner based on the profile:
+
+  wordpress  → scan_wordpress(target="https://{{domain}}")
+               Focus CONF on: wp-config.php backup, debug.log, xmlrpc.php,
+               wp-login.php brute surface, /wp-content/ directory listing
+  joomla     → scan_joomla(target="https://{{domain}}")
+               Focus CONF on: configuration.php backup, /logs/, /tmp/ listing
+  drupal     → scan_drupal(target="https://{{domain}}")
+               Focus CONF on: settings.php, update.php, install.php exposure
+  laravel    → scan_laravel(target="https://{{domain}}")
+               Focus CONF on: .env file, Telescope, Horizon, storage/logs/
+  django     → scan_django_flask(target="https://{{domain}}")
+               Focus CONF on: /admin/ exposure, DEBUG=True error pages
+  spring     → scan_java_spring(target="https://{{domain}}")
+               Focus CONF on: ALL /actuator/ endpoints, H2 console, Swagger
+  dotnet     → scan_dotnet(target="https://{{domain}}")
+               Focus CONF on: elmah.axd, trace.axd, web.config backups
+  rails      → scan_rails(target="https://{{domain}}")
+               Focus CONF on: database.yml, /rails/info/properties
+  nodejs     → scan_nodejs(target="https://{{domain}}")
+               Focus CONF on: package.json, /node_modules/, debug endpoints
+  generic    → scan_generic_php(target="https://{{domain}}")
+               Focus CONF on: phpinfo.php, phpMyAdmin, .git/config, composer.json
+
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
 - Table rows for Info/Low findings
 - EXECUTIVE SUMMARY line at the top
-""")
+""", extra_tools=_CMS_TOOLS)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1014,11 +1122,29 @@ os.unlink(fname)
 [INPV-PATH] Path Traversal (File-Focused)
   python3 -c "import subprocess,urllib.parse; ua='{_BUA}'; targets=['root:x:0:0','root:!:0:0','bin:x:1']; traversals=['../../../etc/passwd','../../etc/passwd','..%2f..%2f..%2fetc%2fpasswd','..%252f..%252f..%252fetc%252fpasswd','....//....//....//etc/passwd','/etc/passwd','%2fetc%2fpasswd']; params=['file','path','page','include','template','doc','document','dir','folder','load','read','view']; run=lambda u: subprocess.run(['curl','-L','-4','-sk','--max-time','8','-A',ua,'-c','/tmp/cf_cookies.txt','-b','/tmp/cf_cookies.txt',u],capture_output=True,text=True,timeout=12).stdout; [print('PATH TRAVERSAL:',pr,'->',t[:50]) for pr in params for t in traversals for u in ['https://{{domain}}/?'+pr+'='+t] for body in [run(u)] if any(x in body for x in targets)]"
 
+══════════════════════════════════════════════════════════
+ADAPTIVE INJECTION CHECKS — stack-specific attack surface
+══════════════════════════════════════════════════════════
+Call profile_target(target="https://{{domain}}") first.
+Then dispatch to the stack-specific scanner for additional attack surface:
+
+  wordpress  → scan_wordpress  — check xmlrpc.php (multicall SQLi), plugin REST endpoints
+  joomla     → scan_joomla     — check com_users, com_content SQLi surfaces
+  drupal     → scan_drupal     — check Drupalgeddon2 RCE (CVE-2018-7600 form API injection)
+  laravel    → scan_laravel    — check CVE-2021-3129 Ignition RCE, .env for credentials
+  django     → scan_django_flask — check SSTI in template rendering, DRF endpoints
+  flask      → scan_django_flask — check Werkzeug /console, SSTI probes
+  express    → scan_nodejs     — check GraphQL introspection, JWT none-alg, prototype pollution
+  spring     → scan_java_spring — check SpEL injection, /actuator/env credential leak
+  dotnet     → scan_dotnet     — check ViewState MAC, ELMAH error log injection signatures
+  rails      → scan_rails      — check CVE-2019-5418 Accept-header path traversal
+  generic    → scan_generic_php — check LFI via ?file=, SQLi error signatures, upload bypass
+
 After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
 - Table rows for Info/Low findings
 - EXECUTIVE SUMMARY line at the top
-""")
+""", extra_tools=_CMS_TOOLS)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1537,7 +1663,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Table rows for Info/Low findings
 - EXECUTIVE SUMMARY line at the top
 """,
-    extra_tools=_MCP_TOOLS)
+    extra_tools=_APIT_TOOLS)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
