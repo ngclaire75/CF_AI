@@ -15,10 +15,31 @@ from tools.cms_scanner import (
     scan_laravel, scan_django_flask, scan_nodejs,
     scan_java_spring, scan_dotnet, scan_rails, scan_generic_php,
 )
+from tools.external_search import (
+    search_tavily, search_perplexity, search_duckduckgo,
+    search_google, search_sploitus, search_searxng,
+    search_traversaal, search_greynoise,
+)
+from tools.web_scraper import scrape_page, crawl_site, fetch_robots_and_sitemap
+from tools.memory_store import (
+    memory_save, memory_recall, memory_list,
+    memory_delete, memory_update,
+)
 
 _TOOLS       = [nuclei_scan, generic_linux_command, read_file, write_file]
 _JS_TOOLS    = [hunt_js_secrets, nuclei_scan, generic_linux_command, read_file, write_file]
 _MODEL       = os.environ.get('ANTHROPIC_MODEL', os.environ.get('CAI_MODEL', 'claude-sonnet-4-6'))
+
+# External search + web intelligence tools
+_SEARCH_TOOLS = [
+    search_tavily, search_perplexity, search_duckduckgo,
+    search_google, search_sploitus, search_searxng,
+    search_traversaal, search_greynoise,
+    scrape_page, crawl_site, fetch_robots_and_sitemap,
+]
+
+# Memory tools (smart long-term storage)
+_MEMORY_TOOLS = [memory_save, memory_recall, memory_list, memory_delete, memory_update]
 
 # CMS / framework scanner tools — used by INFO, CONF, and INPV agents
 _CMS_TOOLS = [
@@ -36,7 +57,7 @@ except Exception:
     _MCP_TOOLS = []
 
 # APIT gets MCP tools first (prioritised over shell tools)
-_APIT_TOOLS  = _MCP_TOOLS + _CMS_TOOLS
+_APIT_TOOLS  = _MCP_TOOLS + _CMS_TOOLS + _SEARCH_TOOLS
 _VT_KEY      = os.environ.get('VIRUSTOTAL_API_KEY', '')
 _SHODAN_KEY  = os.environ.get('SHODAN_API_KEY', '')
 
@@ -265,6 +286,26 @@ PASSIVE RECON (always works regardless of firewalls):
 IMPORTANT: These are the ONLY data sources used — no model training, no self-learning.
   Always substitute <domain>, <ip>, <version>, <slug> with real values before calling.
   Cite API findings explicitly: "WPScan: CVE-2024-XXXXX found in plugin X v1.2"
+
+SMART MEMORY SYSTEM — use at start and end of every engagement:
+  START: memory_recall(target="<domain>") — check for prior findings on this target
+  END:   memory_save(content=<summary>, memory_type="finding"|"approach", target="<domain>")
+         Save confirmed vulnerabilities, successful bypass techniques, and credentials found.
+         This persists across sessions so future engagements start with context.
+
+EXTERNAL SEARCH TOOLS — use for CVE research, exploit lookup, threat intelligence:
+  search_tavily(query="CVE-2024-XXXX exploit")          — AI-powered web search (best for current CVEs)
+  search_sploitus(query="CVE-2024-XXXX")                — exploit DB search (ExploitDB + GitHub PoCs)
+  search_duckduckgo(query="<software> vulnerability")   — general web search (no key required)
+  search_perplexity(query="<question>")                  — web-grounded AI answers
+  search_google(query="site:exploit-db.com <CVE>")      — Google CSE (requires GOOGLE_CSE_API_KEY)
+  search_greynoise(ip_or_query="<ip>")                  — IP reputation / threat intelligence
+  search_searxng(query="<query>", categories="it")       — self-hosted metasearch
+
+WEB INTELLIGENCE TOOLS — for page analysis and site mapping:
+  scrape_page(url="<url>", extract="all")               — full page analysis (forms, scripts, links, secrets)
+  crawl_site(base_url="<url>", max_pages=15)            — site structure mapping
+  fetch_robots_and_sitemap(target="<url>")               — robots.txt + sitemap paths (passive recon)
 """
 
 
@@ -274,7 +315,7 @@ def _agent(category: str, desc: str, instructions: str, max_turns: int = 25,
         name=name or f'WSTG-{category}',
         description=desc,
         instructions=RULES + instructions,
-        tools=(extra_tools or []) + _TOOLS,
+        tools=(extra_tools or []) + _MEMORY_TOOLS + _TOOLS,
         model=_MODEL,
         max_turns=max_turns,
     )
@@ -684,7 +725,7 @@ After completing all checks, produce the final report:
 - Detailed report blocks (per RULES) for each confirmed Medium/High/Critical finding
 - Table rows for Info/Low informational findings
 - **REMEDIATION PRIORITY**: top 3 fixes ordered by risk
-""", max_turns=40, extra_tools=_CMS_TOOLS + [hunt_js_secrets])
+""", max_turns=40, extra_tools=_CMS_TOOLS + _SEARCH_TOOLS + [hunt_js_secrets])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -767,7 +808,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
 - Table rows for Info/Low findings
 - EXECUTIVE SUMMARY line at the top
-""", extra_tools=_CMS_TOOLS)
+""", extra_tools=_CMS_TOOLS + _SEARCH_TOOLS)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1144,7 +1185,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Detailed report blocks for confirmed Medium/High/Critical findings
 - Table rows for Info/Low findings
 - EXECUTIVE SUMMARY line at the top
-""", extra_tools=_CMS_TOOLS)
+""", extra_tools=_CMS_TOOLS + _SEARCH_TOOLS)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1663,7 +1704,7 @@ After all checks, produce the final report using the OUTPUT FORMAT from RULES:
 - Table rows for Info/Low findings
 - EXECUTIVE SUMMARY line at the top
 """,
-    extra_tools=_APIT_TOOLS)
+    extra_tools=_APIT_TOOLS)  # _APIT_TOOLS already includes _SEARCH_TOOLS
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -430,6 +430,202 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE']   = os.environ.get('CFAI_HTTPS', '').lower() in ('1', 'true', 'yes')
 
+# ── API Token Authentication (Bearer token for programmatic access) ──────────
+# Tokens stored in data/api_tokens.json — never in source code.
+_API_TOKENS_FILE = Path(__file__).parent.parent / 'data' / 'api_tokens.json'
+
+def _load_api_tokens() -> dict:
+    """Load {token: {user, role, created, label}} map."""
+    if not _API_TOKENS_FILE.exists():
+        return {}
+    try:
+        return _json.loads(_API_TOKENS_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        return {}
+
+def _save_api_tokens(tokens: dict) -> None:
+    _API_TOKENS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _API_TOKENS_FILE.write_text(_json.dumps(tokens, indent=2), encoding='utf-8')
+
+def _validate_bearer_token(token: str) -> dict | None:
+    """Return token metadata if valid, None otherwise."""
+    if not token:
+        return None
+    tokens = _load_api_tokens()
+    return tokens.get(token)
+
+def _require_auth_or_token(f):
+    """Decorator: allow session auth OR Bearer token auth."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # 1. Session auth (existing)
+        if 'user' in session:
+            return f(*args, **kwargs)
+        # 2. Bearer token auth
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:].strip()
+            meta  = _validate_bearer_token(token)
+            if meta:
+                # Inject user into request context
+                request._api_token_user = meta
+                return f(*args, **kwargs)
+        return jsonify({'error': 'Authentication required — provide session cookie or Authorization: Bearer <token>'}), 401
+    decorated.__name__ = f.__name__
+    return decorated
+
+def _require_admin_or_token(f):
+    """Decorator: allow admin session OR admin Bearer token."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user' in session and session['user'].get('role') == 'admin':
+            return f(*args, **kwargs)
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:].strip()
+            meta  = _validate_bearer_token(token)
+            if meta and meta.get('role') == 'admin':
+                request._api_token_user = meta
+                return f(*args, **kwargs)
+        return jsonify({'error': 'Admin access required'}), 403
+    decorated.__name__ = f.__name__
+    return decorated
+
+# ── API token management endpoints ───────────────────────────────────────────
+
+@app.route('/api/tokens', methods=['GET'])
+def list_api_tokens():
+    """List all API tokens for current admin user."""
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Admin only'}), 403
+    tokens = _load_api_tokens()
+    # Return metadata only — never return the raw token values
+    safe = [{'token_prefix': t[:8] + '...', 'label': v.get('label', ''),
+             'user': v.get('user', ''), 'role': v.get('role', ''),
+             'created': v.get('created', '')} for t, v in tokens.items()]
+    return jsonify({'tokens': safe})
+
+@app.route('/api/tokens/generate', methods=['POST'])
+def generate_api_token():
+    """Generate a new API token. Admin only."""
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Admin only'}), 403
+    data  = request.get_json(silent=True) or {}
+    label = (data.get('label') or 'API Token').strip()[:60]
+    role  = data.get('role', 'user')
+    if role not in ('admin', 'user'):
+        role = 'user'
+    import secrets as _secrets
+    token = 'cfai_' + _secrets.token_hex(24)
+    tokens = _load_api_tokens()
+    tokens[token] = {
+        'label':   label,
+        'user':    session['user'].get('username', 'admin'),
+        'role':    role,
+        'created': _datetime.datetime.utcnow().isoformat() + 'Z',
+    }
+    _save_api_tokens(tokens)
+    return jsonify({'ok': True, 'token': token, 'label': label,
+                    'note': 'Store this token securely — it will not be shown again.'})
+
+@app.route('/api/tokens/<token_prefix>/revoke', methods=['POST'])
+def revoke_api_token(token_prefix):
+    """Revoke an API token by its prefix. Admin only."""
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Admin only'}), 403
+    tokens = _load_api_tokens()
+    to_remove = [t for t in tokens if t.startswith(token_prefix)]
+    if not to_remove:
+        return jsonify({'error': 'Token not found'}), 404
+    for t in to_remove:
+        del tokens[t]
+    _save_api_tokens(tokens)
+    return jsonify({'ok': True, 'revoked': len(to_remove)})
+
+# ── GraphQL endpoint ──────────────────────────────────────────────────────────
+# Lightweight GraphQL schema for programmatic access to scans and findings.
+
+_GRAPHQL_SCHEMA = """
+type Query {
+  scans(limit: Int, target: String): [Scan]
+  scan(id: Int!): Scan
+  findings(scan_id: Int, severity: String, limit: Int): [Finding]
+  agents: [AgentInfo]
+}
+type Scan {
+  id: Int
+  target: String
+  agent: String
+  created_at: String
+  summary: String
+  risk_score: Int
+}
+type Finding {
+  id: Int
+  scan_id: Int
+  title: String
+  severity: String
+  description: String
+  wstg_id: String
+}
+type AgentInfo {
+  name: String
+  description: String
+  tools: [String]
+}
+"""
+
+@app.route('/graphql', methods=['GET', 'POST'])
+def graphql_endpoint():
+    """
+    GraphQL API endpoint for programmatic access.
+    Supports Bearer token authentication.
+    GET: returns schema introspection info
+    POST: execute GraphQL query (limited — use REST API for full functionality)
+    """
+    # Auth check
+    auth_ok = 'user' in session
+    if not auth_ok:
+        auth_h = request.headers.get('Authorization', '')
+        if auth_h.startswith('Bearer '):
+            auth_ok = _validate_bearer_token(auth_h[7:].strip()) is not None
+    if not auth_ok:
+        return jsonify({'errors': [{'message': 'Authentication required'}]}), 401
+
+    if request.method == 'GET':
+        return jsonify({'schema': _GRAPHQL_SCHEMA, 'endpoint': '/graphql',
+                        'auth': 'Bearer token or session cookie',
+                        'note': 'POST {query: "{ scans(limit:5) { id target agent } }"}'})
+
+    data  = request.get_json(silent=True) or {}
+    query = data.get('query', '').strip()
+
+    # Simple query parsing — no full GraphQL engine dependency
+    if '{ scans' in query or '{scans' in query:
+        limit_m = re.search(r'limit\s*:\s*(\d+)', query)
+        limit   = int(limit_m.group(1)) if limit_m else 10
+        try:
+            scans_raw = db.get_recent_scans(limit=limit)
+            scans = [{'id': s.get('id'), 'target': s.get('target', ''),
+                      'agent': s.get('agent', ''), 'created_at': str(s.get('created_at', '')),
+                      'summary': s.get('summary', '')[:200], 'risk_score': s.get('risk_score', 0)}
+                     for s in scans_raw]
+            return jsonify({'data': {'scans': scans}})
+        except Exception as e:
+            return jsonify({'errors': [{'message': str(e)}]})
+
+    if '{ agents' in query or '{agents' in query:
+        try:
+            from agents.registry import get_all_agents as _get_all
+            agents_list = [{'name': a.name, 'description': a.description,
+                            'tools': [t.__name__ for t in (a.tools or []) if hasattr(t, '__name__')]}
+                           for a in _get_all().values()]
+            return jsonify({'data': {'agents': agents_list}})
+        except Exception as e:
+            return jsonify({'errors': [{'message': str(e)}]})
+
+    return jsonify({'errors': [{'message': 'Query not supported — use REST API for full access'}]})
+
 _IMAGES_DIR = os.path.join(os.path.dirname(__file__), '..', 'images')
 
 @app.route('/images/<path:filename>')
