@@ -3,12 +3,14 @@ CF_AI — Knowledge Graph Integration (Graphiti-style, Neo4j backend).
 Stores entities, relationships, and semantic context across security engagements.
 Enables tracking attack paths, asset relationships, and vulnerability chains.
 
-Neo4j connection: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD env vars.
-Falls back to in-memory JSON store when Neo4j is not available.
+Neo4j Aura cloud: set NEO4J_CLIENT_ID + NEO4J_CLIENT_SECRET — URI is auto-discovered.
+Direct connection:  set NEO4J_URI + NEO4J_USER + NEO4J_PASSWORD.
+JSON fallback:      used automatically when Neo4j is not configured or unavailable.
 """
 from __future__ import annotations
 import json
 import os
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -17,6 +19,8 @@ from sdk.agents import function_tool
 # ── Fallback JSON store (when Neo4j unavailable) ──────────────────────────────
 _KG_DIR = Path(__file__).parent.parent / 'data' / 'knowledge_graph'
 _KG_DIR.mkdir(parents=True, exist_ok=True)
+
+_AURA_CACHE: dict = {}   # cache: {'uri': ..., 'user': ..., 'pw': ..., 'expires': int}
 
 
 def _kg_path(filename: str) -> Path:
@@ -37,11 +41,90 @@ def _save_json(filename: str, data) -> None:
     _kg_path(filename).write_text(json.dumps(data, indent=2), encoding='utf-8')
 
 
+# ── Neo4j Aura OAuth auto-discovery ──────────────────────────────────────────
+def _curl_json(url: str, method: str = 'GET', data: str = '',
+               headers: list[str] | None = None) -> dict | None:
+    flags = ['-s', '-4', '-L', '--connect-timeout', '8', '--max-time', '15',
+             '-w', '\n__STATUS__%{http_code}']
+    if method == 'POST':
+        flags += ['-X', 'POST', '--data', data or '']
+    for h in (headers or []):
+        flags += ['-H', h]
+    flags.append(url)
+    try:
+        r = subprocess.run(['curl'] + flags, capture_output=True, text=True, timeout=20)
+        body, _, st_str = r.stdout.rpartition('\n__STATUS__')
+        if int(st_str.strip() or '0') not in (200, 201):
+            return None
+        return json.loads(body.strip())
+    except Exception:
+        return None
+
+
+def _aura_resolve_connection() -> tuple[str, str, str]:
+    """
+    Use NEO4J_CLIENT_ID + NEO4J_CLIENT_SECRET to get an OAuth token from
+    the Neo4j Aura API, then discover the first instance's connection URI.
+    Returns (uri, user, password) or ('', '', '') on failure.
+    Caches the result for 45 minutes to avoid repeated API calls.
+    """
+    global _AURA_CACHE
+    client_id     = os.environ.get('NEO4J_CLIENT_ID', '').strip()
+    client_secret = os.environ.get('NEO4J_CLIENT_SECRET', '').strip()
+    if not client_id or not client_secret:
+        return '', '', ''
+
+    now = int(time.time())
+    if _AURA_CACHE.get('expires', 0) > now:
+        return _AURA_CACHE['uri'], _AURA_CACHE['user'], _AURA_CACHE['pw']
+
+    # Step 1: get OAuth bearer token
+    token_data = _curl_json(
+        'https://api.neo4j.io/oauth/token',
+        method='POST',
+        data=f'grant_type=client_credentials&client_id={client_id}&client_secret={client_secret}',
+        headers=['Content-Type: application/x-www-form-urlencoded'],
+    )
+    if not token_data or not token_data.get('access_token'):
+        return '', '', ''
+
+    bearer = token_data['access_token']
+
+    # Step 2: list Aura instances
+    instances = _curl_json(
+        'https://api.neo4j.io/v1/instances',
+        headers=[f'Authorization: Bearer {bearer}', 'Content-Type: application/json'],
+    )
+    if not instances:
+        return '', '', ''
+
+    # Pick first running instance
+    for inst in (instances.get('data') or []):
+        if inst.get('status') in ('running', 'ready'):
+            uri      = inst.get('connection_url', '')
+            username = inst.get('username', 'neo4j')
+            # Password is not returned by API — must be in NEO4J_PASSWORD env var
+            pw = os.environ.get('NEO4J_PASSWORD', '').strip()
+            if uri:
+                _AURA_CACHE = {'uri': uri, 'user': username, 'pw': pw, 'expires': now + 2700}
+                # Write discovered URI back to env so other code can see it
+                os.environ['NEO4J_URI']  = uri
+                os.environ['NEO4J_USER'] = username
+                return uri, username, pw
+
+    return '', '', ''
+
+
 # ── Neo4j driver (optional) ───────────────────────────────────────────────────
 def _get_neo4j_driver():
     uri  = os.environ.get('NEO4J_URI', '').strip()
     user = os.environ.get('NEO4J_USER', 'neo4j').strip()
     pw   = os.environ.get('NEO4J_PASSWORD', '').strip()
+
+    # If URI not set, try Aura auto-discovery
+    if not uri:
+        uri, user, pw = _aura_resolve_connection()
+
     if not uri or not pw:
         return None
     try:

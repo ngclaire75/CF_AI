@@ -632,7 +632,7 @@ def graphql_endpoint():
 _LLM_PROVIDER_CATALOG = [
     {'id': 'anthropic',  'name': 'Anthropic (Claude)',   'models': ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'], 'key_env': 'ANTHROPIC_API_KEY'},
     {'id': 'openai',     'name': 'OpenAI (GPT)',          'models': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo', 'o1', 'o3-mini'], 'key_env': 'OPENAI_API_KEY'},
-    {'id': 'google',     'name': 'Google AI (Gemini)',    'models': ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-pro'], 'key_env': 'GOOGLE_API_KEY'},
+    {'id': 'google',     'name': 'Google AI (Gemini)',    'models': ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-pro'], 'key_env': 'GOOGLE_GEMINI_KEY'},
     {'id': 'deepseek',   'name': 'DeepSeek',              'models': ['deepseek-chat', 'deepseek-reasoner'], 'key_env': 'DEEPSEEK_API_KEY'},
     {'id': 'ollama',     'name': 'Ollama (Local)',        'models': ['llama3', 'llama3.1', 'mistral', 'qwen2.5', 'deepseek-r1', 'phi3'], 'key_env': ''},
     {'id': 'openrouter', 'name': 'OpenRouter',            'models': ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-flash-1.5', 'meta-llama/llama-3.1-70b-instruct'], 'key_env': 'OPENROUTER_API_KEY'},
@@ -654,14 +654,22 @@ def api_llm_providers():
     """
     result = []
     for p in _LLM_PROVIDER_CATALOG:
-        key_env  = p.get('key_env', '')
-        has_key  = bool(os.environ.get(key_env, '').strip()) if key_env else (p['id'] == 'ollama')
-        cur_model = os.environ.get(f"{p['id'].upper()}_MODEL", p['models'][0] if p['models'] else '')
+        key_env = p.get('key_env', '')
+        if p['id'] == 'ollama':
+            has_key = True  # Ollama runs locally, no key required
+        elif p['id'] == 'google':
+            # Accept either GOOGLE_GEMINI_KEY (dedicated) or GOOGLE_API_KEY (shared)
+            has_key = bool(os.environ.get('GOOGLE_GEMINI_KEY', '').strip()
+                          or os.environ.get('GOOGLE_API_KEY', '').strip())
+        else:
+            has_key = bool(os.environ.get(key_env, '').strip()) if key_env else False
+        model_env = f"{p['id'].upper()}_MODEL"
+        cur_model = os.environ.get(model_env, p['models'][0] if p['models'] else '')
         result.append({
-            'id':         p['id'],
-            'name':       p['name'],
-            'models':     p['models'],
-            'configured': has_key,
+            'id':           p['id'],
+            'name':         p['name'],
+            'models':       p['models'],
+            'configured':   has_key,
             'active_model': cur_model,
         })
     return jsonify({'providers': result, 'default': os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')})

@@ -40,17 +40,17 @@ _MODEL       = os.environ.get('ANTHROPIC_MODEL', os.environ.get('CAI_MODEL', 'cl
 
 # Multi-LLM provider map: provider_name -> default model ID
 _LLM_PROVIDERS = {
-    'anthropic':  os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
-    'openai':     os.environ.get('OPENAI_MODEL', 'gpt-4o'),
-    'google':     os.environ.get('GOOGLE_MODEL', 'gemini-1.5-pro'),
-    'deepseek':   os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat'),
-    'ollama':     os.environ.get('OLLAMA_MODEL', 'llama3'),
+    'anthropic':  os.environ.get('ANTHROPIC_MODEL',  'claude-sonnet-4-6'),
+    'openai':     os.environ.get('OPENAI_MODEL',     'gpt-4o'),
+    'google':     os.environ.get('GOOGLE_MODEL',     'gemini-2.0-flash'),
+    'deepseek':   os.environ.get('DEEPSEEK_MODEL',   'deepseek-chat'),
+    'ollama':     os.environ.get('OLLAMA_MODEL',     'llama3'),
     'openrouter': os.environ.get('OPENROUTER_MODEL', 'openai/gpt-4o'),
-    'deepinfra':  os.environ.get('DEEPINFRA_MODEL', 'meta-llama/Meta-Llama-3.1-70B-Instruct'),
-    'bedrock':    os.environ.get('BEDROCK_MODEL', 'anthropic.claude-3-5-sonnet-20241022-v2:0'),
-    'qwen':       os.environ.get('QWEN_MODEL', 'qwen-max'),
-    'kimi':       os.environ.get('KIMI_MODEL', 'moonshot-v1-8k'),
-    'glm':        os.environ.get('GLM_MODEL', 'glm-4'),
+    'deepinfra':  os.environ.get('DEEPINFRA_MODEL',  'meta-llama/Meta-Llama-3.1-70B-Instruct'),
+    'bedrock':    os.environ.get('BEDROCK_MODEL',    'anthropic.claude-3-5-sonnet-20241022-v2:0'),
+    'qwen':       os.environ.get('QWEN_MODEL',       'qwen-max'),
+    'kimi':       os.environ.get('KIMI_MODEL',       'moonshot-v1-8k'),
+    'glm':        os.environ.get('GLM_MODEL',        'glm-4'),
     'custom':     os.environ.get('CUSTOM_LLM_MODEL', ''),
 }
 
