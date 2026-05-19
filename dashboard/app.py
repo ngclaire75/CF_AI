@@ -945,8 +945,11 @@ _DEFAULT_ADMIN_PASS = 'admin123'
 _DEFAULT_USER_PAGES = [
     'chatbot', 'gsc', 'filescan', 'agents', 'dashboard', 'threatanalytics',
     'incidents', 'syslog', 'pluginlogs', 'logexplorer', 'network',
-    'sca', 'dca', 'grc', 'myappts', 'filemanager', 'support', 'credits',
+    'sca', 'dca', 'grc', 'myappts', 'filemanager', 'support', 'credits', 'scan',
 ]
+
+# Pages that Pro plan users must always be able to access regardless of stored allowed_pages
+_PRO_GUARANTEED_PAGES = ['agents', 'scan', 'filemanager', 'support', 'myappts']
 
 # ── Daily usage limits (Pro plan) ─────────────────────────────────────────────
 _USAGE_FILE   = os.path.join(os.path.dirname(__file__), '..', 'data', 'usage.json')
@@ -4131,8 +4134,14 @@ def index():
         users = _load_users()
         u = users.get(user['username'], {})
         ap = u.get('allowed_pages')
-        ctx['user_allowed_pages'] = ap if isinstance(ap, list) else _DEFAULT_USER_PAGES[:]
-        ctx['user_plan'] = u.get('plan', 'basic')
+        plan = u.get('plan', 'basic')
+        pages = ap if isinstance(ap, list) else _DEFAULT_USER_PAGES[:]
+        if plan == 'pro':
+            for _pg in _PRO_GUARANTEED_PAGES:
+                if _pg not in pages:
+                    pages.append(_pg)
+        ctx['user_allowed_pages'] = pages
+        ctx['user_plan'] = plan
         # Always read fresh profile fields from users.json so template reflects saved changes
         user = dict(user)
         user['country']       = u.get('country', user.get('country', ''))
