@@ -13484,6 +13484,21 @@ def complete_appointment(appt_id):
     return jsonify({'ok': True, 'message': f'Appointment marked as completed. Notification sent to {appt["email"]}.'})
 
 
+@app.route('/api/appointments/<appt_id>/delete', methods=['POST'])
+def delete_appointment(appt_id):
+    if 'user' not in session or session['user'].get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    appts = _load_appointments()
+    if appt_id not in appts:
+        return jsonify({'error': 'Appointment not found'}), 404
+    appt = appts[appt_id]
+    if appt['status'] != 'completed':
+        return jsonify({'error': 'Only completed appointments can be deleted'}), 400
+    del appts[appt_id]
+    _save_appointments(appts)
+    return jsonify({'ok': True, 'message': 'Appointment deleted.'})
+
+
 @app.route('/api/appointments/<appt_id>/reschedule', methods=['POST'])
 def reschedule_appointment(appt_id):
     if 'user' not in session or session['user'].get('role') != 'admin':

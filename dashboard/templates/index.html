@@ -20026,6 +20026,8 @@ function grcExport() {
         actions += '<button class="amgr-btn amgr-btn-complete" onclick="amgrDoComplete(\''+a.id+'\')">Mark Complete</button>';
         actions += '<button class="amgr-btn amgr-btn-reschedule" onclick="amgrToggle(\''+a.id+'\',\'reschedule\')">Reschedule</button>';
         actions += '<button class="amgr-btn amgr-btn-cancel" onclick="amgrToggle(\''+a.id+'\',\'cancel\')">Cancel</button>';
+      } else if (a.status === 'completed') {
+        actions += '<button class="amgr-btn" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca!important;" onclick="amgrDoDelete(\''+a.id+'\')">Delete</button>';
       }
       actions += '<button class="amgr-btn amgr-btn-note" onclick="amgrToggle(\''+a.id+'\',\'note\')">Notes</button>';
       actions += '<button class="amgr-btn" style="background:#eff6ff;border-color:#bfdbfe;" onclick="amgrToggle(\''+a.id+'\',\'cost\')">Set Cost</button>';
@@ -20129,6 +20131,12 @@ function grcExport() {
     var fake = document.createElement('div'); fake.className = 'amgr-msg';
     fake.style.display = 'none';
     _amgrPost('/api/appointments/'+id+'/complete', {}, fake);
+  };
+  window.amgrDoDelete = function(id) {
+    if (!confirm('Delete this completed appointment? This cannot be undone.')) return;
+    var fake = document.createElement('div'); fake.className = 'amgr-msg';
+    fake.style.display = 'none';
+    _amgrPost('/api/appointments/'+id+'/delete', {}, fake);
   };
   window.amgrDoReschedule = function(id) {
     var date   = (document.getElementById('amgr-rdate-'+id)||{}).value || '';
