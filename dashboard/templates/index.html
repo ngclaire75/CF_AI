@@ -12351,46 +12351,30 @@ function openInsightsModal(target) {
       html += '</div>';
     }
 
-    // Vulnerability trend chart
+    // Vulnerability risk timeline (CSS-only, no chart)
     var tr = d.trend || [];
-    var trHasData = tr.some(function(x){ return (x.HIGH||0)+(x.MEDIUM||0)+(x.LOW||0)+(x.INFO||0) > 0; });
-    if (tr.length > 1) {
-      html += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Vulnerability Trend</div>';
-      if (trHasData) {
-        html += '<div style="position:relative;height:140px;width:100%;"><canvas id="ins-trend-chart"></canvas></div>';
-      } else {
-        html += '<p style="color:#60a5fa;font-size:12px;margin:0;">No elevated findings detected across these scans.</p>';
-      }
-      html += '</div>';
+    if (tr.length > 0) {
+      var _riskColor = {HIGH:'#1e3a8a', MEDIUM:'#2563eb', LOW:'#60a5fa', INFO:'#bfdbfe'};
+      var _riskText  = {HIGH:'#fff',    MEDIUM:'#fff',    LOW:'#fff',    INFO:'#1e3a8a'};
+      html += '<div style="margin-bottom:14px;">';
+      html += '<div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Vulnerability Trend (' + tr.length + ' scan' + (tr.length===1?'':'s') + ')</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+      tr.forEach(function(x) {
+        var risk = (x.HIGH||0) > 0 ? 'HIGH' : (x.MEDIUM||0) > 0 ? 'MEDIUM' : (x.LOW||0) > 0 ? 'LOW' : 'INFO';
+        var date = (x.date||'').substring(0,10);
+        html += '<div style="background:' + (_riskColor[risk]||'#bfdbfe') + ';color:' + (_riskText[risk]||'#1e3a8a') + ';border-radius:6px;padding:7px 12px;font-size:11px;font-weight:600;min-width:90px;text-align:center;">'
+          + '<div>' + esc(date) + '</div>'
+          + '<div style="font-size:10px;margin-top:2px;opacity:.85;">' + risk + '</div>'
+          + '</div>';
+      });
+      html += '</div></div>';
     }
 
-    if (!nw.length && !rv.length && !hasObs && !hasSsl && !hasShd && tr.length <= 1) {
+    if (!nw.length && !rv.length && !hasObs && !hasSsl && !hasShd && tr.length === 0) {
       html += '<p style="color:#60a5fa;font-size:13px;">Run at least 2 scans on this target to see trend data and comparison. External scores will load in the background.</p>';
     }
 
     document.getElementById('ins-body').innerHTML = html;
-
-    // Render trend chart if data available
-    if (tr.length > 1 && trHasData) {
-      var ctx = document.getElementById('ins-trend-chart');
-      if (ctx) new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: tr.map(function(x){ return (x.date||'').substring(0,10); }),
-          datasets: [
-            {label:'Critical/High', data:tr.map(function(x){return (x.HIGH||0)+(x.CRITICAL||0);}), backgroundColor:'#1e3a8a'},
-            {label:'Medium',        data:tr.map(function(x){return x.MEDIUM||0;}), backgroundColor:'#2563eb'},
-            {label:'Low',           data:tr.map(function(x){return x.LOW||0;}),    backgroundColor:'#60a5fa'},
-            {label:'Info',          data:tr.map(function(x){return x.INFO||0;}),   backgroundColor:'#bfdbfe'},
-          ]
-        },
-        options: {
-          responsive:true, maintainAspectRatio:false,
-          plugins:{legend:{position:'bottom', labels:{font:{size:10}}}},
-          scales:{x:{stacked:true, ticks:{font:{size:10}}}, y:{stacked:true, beginAtZero:true, ticks:{precision:0}}}
-        }
-      });
-    }
   })
   .catch(function(){ document.getElementById('ins-body').innerHTML = '<p style="color:#172554;padding:20px;">Failed to load analytics.</p>'; });
 }
