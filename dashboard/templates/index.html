@@ -11325,7 +11325,8 @@ function openDetailsModal(id) {
     })
     .catch(function(e){
       document.getElementById('mbody').innerHTML =
-        '<p style="color:#172554;padding:20px;">Failed to load: '+esc(String(e))+'</p>';
+        '<p style="color:#172554;padding:20px;">Failed to load: '+esc(String(e))+'</p>'+
+        '<pre style="color:#94a3b8;font-size:10px;padding:0 20px;white-space:pre-wrap;">'+esc(e && e.stack ? e.stack : '')+'</pre>';
     });
 }
 
@@ -11565,7 +11566,8 @@ function openModal(id) {
     })
     .catch(function(e){
       document.getElementById('mbody').innerHTML =
-        '<p style="color:#172554;padding:20px;">Failed to load: '+esc(String(e))+'</p>';
+        '<p style="color:#172554;padding:20px;">Failed to load: '+esc(String(e))+'</p>'+
+        '<pre style="color:#94a3b8;font-size:10px;padding:0 20px;white-space:pre-wrap;">'+esc(e && e.stack ? e.stack : '')+'</pre>';
     });
 }
 
@@ -15689,8 +15691,8 @@ function loadSecureScore() {
         var goodHits = 0, badHits = 0;
         scans.forEach(function(s) {
           var o = s.output || '';
-          if (cat.good.test(o)) goodHits++;
-          if (cat.bad.test(o)) badHits++;
+          if (cat.good && cat.good.test(o)) goodHits++;
+          if (cat.bad  && cat.bad.test(o))  badHits++;
         });
         // No evidence found for this category — return null (no data)
         if (goodHits + badHits === 0) return { name: cat.name, score: null };
