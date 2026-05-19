@@ -2811,8 +2811,21 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         elapsed  = _time.time() - t0
         output   = '\n\n'.join(parts)
         was_aborted = job.get('aborted', False)
-        db_status   = 'interrupted' if was_aborted else 'ok'
 
+        # Don't save if the only output is API errors (rate limit, invalid key, etc.)
+        _nonempty_lines = [l for l in output.splitlines() if l.strip()]
+        _api_err_only   = bool(_nonempty_lines) and all(
+            l.strip().startswith('[API error:') for l in _nonempty_lines
+        )
+        if _api_err_only:
+            err_msg = _nonempty_lines[0].strip()
+            job['chunks'].append({'k': 'txt', 'd': f'\n[Scan not saved — {err_msg}]\n'})
+            job.update({'status': 'error', 'error': err_msg,
+                        'elapsed': round(elapsed, 2), 'tool_count': tools[0]})
+            _job_persist(job_id, job)
+            return
+
+        db_status   = 'interrupted' if was_aborted else 'ok'
         scan_id = db.save_scan(
             target=domain, agent_type=agent_type,
             model=model_used, status=db_status,
