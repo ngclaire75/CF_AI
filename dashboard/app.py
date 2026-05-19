@@ -433,6 +433,11 @@ _IMAGES_DIR = os.path.join(os.path.dirname(__file__), '..', 'images')
 def serve_images(filename):
     return send_from_directory(_IMAGES_DIR, filename)
 
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(_IMAGES_DIR, 'CyberINK_Logo.jpeg',
+                               mimetype='image/jpeg')
+
 # ── SMTP / email config ───────────────────────────────────────────────────────
 _SMTP_USER = os.environ.get('SMTP_USER', '')
 _SMTP_PASS = os.environ.get('SMTP_PASS', '')
