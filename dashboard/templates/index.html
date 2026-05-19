@@ -12294,15 +12294,19 @@ function openInsightsModal(target) {
       if (!g || g === 'pending' || g === 'N/A') return 'na';
       return g.replace('+','')[0] || 'na';
     }
+    function isValidGrade(g) { return g && /^[A-F][+-]?$/i.test(g); }
+    var hasObs = obs.grade !== undefined;
+    var hasSsl = isValidGrade(ssl.grade);
+    var hasShd = isValidGrade(shd.grade);
     html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center;">';
     html += '<span style="font-size:12px;color:#3b82f6;font-weight:600;">EXTERNAL SCORES</span>';
-    if (obs.grade !== undefined)
+    if (hasObs)
       html += '<span class="score-pill ' + gradeClass(obs.grade) + '">Mozilla Observatory: ' + (obs.grade||'?') + (obs.score !== undefined ? ' ('+obs.score+'/100)' : '') + '</span>';
-    if (ssl.grade)
+    if (hasSsl)
       html += '<span class="score-pill ' + gradeClass(ssl.grade) + '">SSL Labs: ' + ssl.grade + '</span>';
-    if (shd.grade)
+    if (hasShd)
       html += '<span class="score-pill ' + gradeClass(shd.grade) + '">Security Headers: ' + shd.grade + '</span>';
-    if (!obs.grade && !ssl.grade && !shd.grade)
+    if (!hasObs && !hasSsl && !hasShd)
       html += '<span style="color:#60a5fa;font-size:12px;">Scores loading in background — refresh in 30s</span>';
     html += '</div>';
 
@@ -12316,8 +12320,15 @@ function openInsightsModal(target) {
       html += '<div><span style="font-size:11px;color:#3b82f6;display:block;margin-bottom:3px;">TREND</span><span class="mttr-badge" style="'+(d.risk_trend==='improving'?'background:linear-gradient(135deg,#dbeafe,#eff6ff);color:#1e3a8a;border-color:#93c5fd':d.risk_trend==='degrading'?'background:linear-gradient(135deg,#172554,#1e3a8a);color:#93c5fd;border-color:#172554':'')+'">'+d.risk_trend+'</span></div>';
     html += '</div>';
 
+    // Filter out agent preamble text that got captured as a finding
+    var _preambleRe = /^(i'?ll|i will|starting with|beginning|let me|proceeding|i am going)/i;
+    function _isRealFinding(f) {
+      var t = f.title || f.id || '';
+      return t.length > 5 && t.length < 200 && !_preambleRe.test(t.trim());
+    }
+
     // New findings since last scan
-    var nw = d.new_since_last || [];
+    var nw = (d.new_since_last || []).filter(_isRealFinding);
     if (nw.length) {
       html += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:#172554;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">New Since Last Scan (' + nw.length + ')</div>';
       nw.forEach(function(f) {
@@ -12329,7 +12340,7 @@ function openInsightsModal(target) {
     }
 
     // Resolved since last scan
-    var rv = d.resolved_since_last || [];
+    var rv = (d.resolved_since_last || []).filter(_isRealFinding);
     if (rv.length) {
       html += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Resolved Since Last Scan (' + rv.length + ')</div>';
       rv.forEach(function(f) {
@@ -12347,7 +12358,7 @@ function openInsightsModal(target) {
       html += '<canvas id="ins-trend-chart" height="120"></canvas></div>';
     }
 
-    if (!nw.length && !rv.length && !obs.grade && !ssl.grade && !shd.grade && tr.length <= 1) {
+    if (!nw.length && !rv.length && !hasObs && !hasSsl && !hasShd && tr.length <= 1) {
       html += '<p style="color:#60a5fa;font-size:13px;">Run at least 2 scans on this target to see trend data. External scores will load in the background.</p>';
     }
 

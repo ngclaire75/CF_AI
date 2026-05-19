@@ -2925,9 +2925,10 @@ _NEGATION = re.compile(
     r'will try|will now|testing for|checking for|checked for|tested for|'
     r'tests? for|scan(?:ned|ning)? for|asses(?:sed|sing)|look(?:ed|ing)? for|'
     r'search(?:ed|ing)? for|investigat(?:ed|ing)|enumerat(?:ed|ing)|'
-    r'i will|let me|next i |next,|explore potential|no result|no data|'
+    r'i will|i\'ll|let me|next i |next,|explore potential|no result|no data|'
     r'no output|empty response|no vuln|not vuln|not found|not detect|'
-    r'not appear|not present|no indication|no sign(?:s\b|ificant))\b',
+    r'not appear|not present|no indication|no sign(?:s\b|ificant)|'
+    r'starting with|beginning with|proceed(?:ing)? (?:with|to)|commence)\b',
     re.I,
 )
 

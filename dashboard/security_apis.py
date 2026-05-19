@@ -1,6 +1,7 @@
 """Free third-party security API integrations — no API key required."""
 from __future__ import annotations
 
+import re
 import time
 import urllib.request as _req
 import urllib.parse as _up
@@ -146,7 +147,9 @@ def securityheaders_check(domain: str) -> dict:
         except _uerr.HTTPError as e:
             grade = e.headers.get('X-Grade', '') if e.headers else ''
 
-        result: dict = {'grade': grade} if grade else {}
+        # Only accept valid letter grades — reject error messages from the API
+        valid_grade = bool(grade and re.match(r'^[A-F][+-]?$', grade, re.I))
+        result: dict = {'grade': grade.upper()} if valid_grade else {}
         if result:
             _shd_cache[domain] = (time.time(), result)
         return result
