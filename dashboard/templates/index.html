@@ -8446,7 +8446,12 @@ var USER_ROLE          = "{{ current_user.role }}";
 var USER_NAME          = "{{ current_user.username }}";
 var USER_PLAN          = "{{ user_plan }}";
 var MIDTRANS_CLIENT_KEY = "{{ midtrans_client_key }}";
-var _cfai_data = JSON.parse(document.getElementById('cfai-init-data').textContent);
+var _cfai_data;
+try {
+  _cfai_data = JSON.parse(document.getElementById('cfai-init-data').textContent);
+} catch(e) {
+  _cfai_data = {midtrans_configured:false, user_allowed_pages:null, stats:{}, severity_summary_total:{}, targets:[], scans:[]};
+}
 var MIDTRANS_CONFIGURED = _cfai_data.midtrans_configured;
 // null = admin (unrestricted); array = explicit page whitelist for this user
 var USER_ALLOWED_PAGES = _cfai_data.user_allowed_pages;
@@ -10711,7 +10716,7 @@ var _agentDesc = {
 };
 function agentSummary(agentType, sev, findingsCount) {
   sev = sev || {critical:0, high:0, medium:0, low:0, info:0};
-  var desc = _agentDesc[(agentType||'').toLowerCase()] || 'The agent performed an automated security assessment of the target.';
+  var desc = (_agentDesc && _agentDesc[(agentType||'').toLowerCase()]) || 'The agent performed an automated security assessment of the target.';
   var parts = [];
   if (sev.critical) parts.push(sev.critical+' critical');
   if (sev.high)     parts.push(sev.high+' high');
@@ -11217,7 +11222,7 @@ function openDetailsModal(id) {
 
       var found    = threats.filter(function(t){ return t.status==='FOUND'; });
       var checked  = threats.filter(function(t){ return t.status==='CHECKED'; });
-      var agentDesc = _agentDesc[(s.agent_type||'').toLowerCase()] || 'The agent performed an automated security assessment of the target.';
+      var agentDesc = (_agentDesc && _agentDesc[(s.agent_type||'').toLowerCase()]) || 'The agent performed an automated security assessment of the target.';
 
       /* ── Meta ── */
       var html = '<div class="meta-grid">'+
