@@ -2750,8 +2750,8 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             model_used = getattr(agent, 'model', model) or ''
 
             # Any agent + credentials → Claude model for reliable execution.
-            # WordPress site type or WP creds → also inject MCP tools for all agents.
-            # APIT → always gets MCP tools regardless of site type.
+            # WordPress site type or WP creds → inject MCP tools for all agents.
+            # MCP tools are only activated for confirmed WordPress sites or explicit WP credentials.
             _wp_creds  = (creds.get('wp_user') or creds.get('wp_pass') or creds.get('wp_app_pass'))
             _has_creds = bool(
                 _wp_creds
@@ -2760,7 +2760,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 or creds.get('ftp_user')    or creds.get('ftp_pass')
                 or creds.get('db_host')     or creds.get('db_name')
             )
-            _needs_mcp = (site_type == 'wordpress') or bool(_wp_creds) or (agent_type == 'apit')
+            _needs_mcp = (site_type == 'wordpress') or bool(_wp_creds)
 
             if _needs_mcp:
                 from tools.wordpress_mcp import wp_api_call, wp_security_scan

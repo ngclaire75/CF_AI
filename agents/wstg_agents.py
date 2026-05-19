@@ -86,7 +86,8 @@ try:
 except Exception:
     _MCP_TOOLS = []
 
-# APIT gets MCP tools first (prioritised over shell tools)
+# APIT base tools — MCP WordPress tools included here so they're available if site IS WordPress
+# (app.py only activates them / adds the STEP 0 instruction block for confirmed WordPress targets)
 # _KG_TOOLS and _MEMORY_TOOLS are injected by _agent() — don't add here or they'll duplicate
 _APIT_TOOLS  = _MCP_TOOLS + _CMS_TOOLS + _SEARCH_TOOLS
 _VT_KEY      = os.environ.get('VIRUSTOTAL_API_KEY', '')
@@ -1391,22 +1392,29 @@ _MCP_INSTR = (
 
 APIT_AGENT = _agent('APIT', 'API Security Tester — REST, GraphQL & WordPress API Audits', f"""
 You are the WSTG-APIT agent. Target: {{domain}}
-{_MCP_INSTR}
 CRITICAL: Every curl MUST have -L -4 -A "{_BUA}" — without -L, Cloudflare returns 301s.
 
+STEP 0 — DETECT SITE TYPE FIRST (required before any further steps)
+Call profile_target(target="https://{{domain}}") and read the result.
+- If cms == "wordpress": run [APIT-WP] AND use wp_security_scan / wp_api_call tools.
+- If cms == "joomla" or "drupal": skip [APIT-WP], focus on [APIT-01] through [APIT-10].
+- If cms == "none" or framework detected: skip [APIT-WP], focus on REST/GraphQL checks.
+Do NOT run WordPress tools on non-WordPress sites.
+
 ══════════════════════════════════════════════════════════
-NUCLEI FIRST — WordPress CVEs + API/GraphQL vulnerability templates
+NUCLEI — run after profile_target, with tags matching detected stack
 ══════════════════════════════════════════════════════════
-Call this tool before API reconnaissance (it discovers issues faster than manual probing):
+Call this tool after profile detection (faster than manual probing):
   nuclei_scan(
     target="https://{{domain}}",
     templates="cves,vulnerabilities,technologies",
-    tags="wordpress,wp,api,graphql,rest,jwt,oauth",
+    tags="api,graphql,rest,jwt,oauth",
     severity="medium,high,critical"
   )
+  # If profile_target detected WordPress, also run:
+  # nuclei_scan(target="https://{{domain}}", tags="wordpress,wp", severity="medium,high,critical")
 - Report ALL findings verbatim — |High|/|Critical| markers feed the dashboard.
-- Nuclei's WordPress templates cover plugin/theme CVEs (e.g. WooCommerce, Elementor,
-  Yoast, Contact Form 7), REST API exposure, JWT misconfigurations, and GraphQL issues.
+- Nuclei covers REST API exposure, JWT misconfigurations, GraphQL issues, and CMS CVEs.
 
 [APIT-01] API Reconnaissance
   api_found=0; for ep in /api /api/v1 /api/v2 /api/v3 /v1 /v2 /rest /swagger.json /openapi.json /api-docs /swagger-ui.html /redoc /.well-known /api/health /api/status /api/ping /api/me /api/docs; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" "https://{{domain}}$ep" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt --max-time 8 2>/dev/null); if [ "$code" != "404" ] && [ "$code" != "000" ] && [ "$code" != "" ]; then echo "API-ENDPOINT: $code https://{{domain}}$ep"; api_found=1; fi; done; if [ $api_found -eq 0 ]; then echo "API-RECON: no active API endpoints found on {{domain}} (all returned 404/000 — site may not expose a REST API)"; fi
@@ -1471,10 +1479,10 @@ for ep in eps:
   gql_found=0; for ep in /graphql /api/graphql /gql /graph /graphql/v1; do code=$(curl -L -4 -so /dev/null -w "%{{http_code}}" -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__typename}}"}}' --max-time 8 2>/dev/null); if [ "$code" != "404" ] && [ "$code" != "000" ] && [ "$code" != "" ]; then echo "GraphQL: $code https://{{domain}}$ep"; gql_found=1; curl -L -4 -s -X POST "https://{{domain}}$ep" -H "Content-Type: application/json" -A "{_BUA}" -c /tmp/cf_cookies.txt -b /tmp/cf_cookies.txt -d '{{"query":"{{__schema{{types{{name}}}}}}"}}' --max-time 10 2>/dev/null | python3 -m json.tool 2>/dev/null | head -20 || true; fi; done; [ $gql_found -eq 0 ] && echo "GRAPHQL: no GraphQL endpoints detected on {{domain}}" || true
   command -v graphql-cop &>/dev/null && graphql-cop -t "https://{{domain}}/graphql" 2>/dev/null | head -30 || true
 
-[APIT-WP] WordPress / Site Activity Log — auto-discover credentials and fetch real logs
-This section runs for EVERY site. It automatically discovers credentials through
-four phases: exposed file scan → username enumeration → credential testing →
-authenticated log retrieval. No manual credential setup required.
+[APIT-WP] WordPress Security — ONLY run if profile_target detected cms == "wordpress"
+Skip this section entirely for non-WordPress sites (React apps, plain APIs, Joomla, etc.).
+When WordPress IS detected, this section auto-discovers credentials through four phases:
+exposed file scan → username enumeration → credential testing → authenticated log retrieval.
 
 ══════════════════════════════════════════════════════════
 PHASE 1 — USERNAME & CREDENTIAL DISCOVERY (automatic, no env vars needed)
