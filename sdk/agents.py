@@ -2,6 +2,8 @@
 
 Routing:
   model starts with "claude-"  →  Anthropic API  (real MCP tool calling)
+  model starts with "gemini-"  →  Google Gemini  (OpenAI-compatible endpoint)
+  model in _GROQ_MODELS        →  Groq           (OpenAI-compatible endpoint)
   all other models             →  OpenAI API     (GPT-4o, o1, etc.)
 """
 from __future__ import annotations
@@ -16,6 +18,17 @@ from typing import Callable, Optional
 log = logging.getLogger('cfai.sdk')
 
 DEFAULT_MODEL = os.environ.get('CAI_MODEL', 'gpt-4o')
+
+_GROQ_MODELS = {
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'llama3-70b-8192',
+    'llama3-8b-8192',
+    'mixtral-8x7b-32768',
+    'gemma2-9b-it',
+    'gemma-7b-it',
+    'whisper-large-v3',
+}
 
 
 # ── function_tool decorator ───────────────────────────────────────────────────
@@ -179,6 +192,20 @@ class Runner:
             try:
                 if agent.model.startswith('claude-'):
                     result = cls._run_anthropic(agent, message, on_text, on_tool, on_result, turns)
+                elif agent.model.startswith('gemini-'):
+                    result = cls._run_openai(
+                        agent, message, on_text, on_tool, on_result, turns,
+                        base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
+                        api_key=os.environ.get('GOOGLE_GEMINI_KEY', '') or os.environ.get('GOOGLE_API_KEY', ''),
+                        api_key_name='GOOGLE_GEMINI_KEY',
+                    )
+                elif agent.model in _GROQ_MODELS:
+                    result = cls._run_openai(
+                        agent, message, on_text, on_tool, on_result, turns,
+                        base_url='https://api.groq.com/openai/v1',
+                        api_key=os.environ.get('GROQ_API_KEY', ''),
+                        api_key_name='GROQ_API_KEY',
+                    )
                 else:
                     result = cls._run_openai(agent, message, on_text, on_tool, on_result, turns)
                 s.set_attribute('output.value', str(result)[:2000])
@@ -335,11 +362,13 @@ class Runner:
         return final
 
 
-    # ── OpenAI (GPT-4o / o1) backend ─────────────────────────────────────────
+    # ── OpenAI-compatible backend (OpenAI / Groq / Gemini) ───────────────────
 
     @classmethod
     def _run_openai(cls, agent: Agent, message: str,
-                    on_text, on_tool, on_result, max_turns) -> str:
+                    on_text, on_tool, on_result, max_turns,
+                    base_url: str = None, api_key: str = None,
+                    api_key_name: str = 'OPENAI_API_KEY') -> str:
 
         def _emit(msg: str):
             if on_text:
@@ -353,12 +382,15 @@ class Runner:
             _emit('openai package not installed — run: pip3 install openai')
             return ''
 
-        key = os.environ.get('OPENAI_API_KEY', '')
+        key = api_key or os.environ.get('OPENAI_API_KEY', '')
         if not key:
-            _emit('OPENAI_API_KEY not set — add it to .env and restart')
+            _emit(f'{api_key_name} not set — add it to .env and restart')
             return ''
 
-        client   = OpenAI(api_key=key)
+        client_kwargs = {'api_key': key}
+        if base_url:
+            client_kwargs['base_url'] = base_url
+        client   = OpenAI(**client_kwargs)
         messages = [
             {'role': 'system', 'content': agent.instructions},
             {'role': 'user',   'content': message},
