@@ -11085,10 +11085,11 @@ function normSev(s) {
 }
 
 function inferSev(block) {
+  var _negRe = _NEG_RE || /\b(no\b|not\b|failed|unsuccessful|did not|does not|not found)\b/i;
   var lines = block.split('\n');
   for (var i = 0; i < lines.length; i++) {
     var l = lines[i].toLowerCase();
-    if (_NEG_RE.test(l)) continue;
+    if (_negRe.test(l)) continue;
     if (l.includes('critical')) return 'CRITICAL';
     if (l.includes('high'))     return 'HIGH';
     if (l.includes('medium'))   return 'MEDIUM';
@@ -11111,12 +11112,14 @@ function getSection(block, name) {
 
 /* Analyse which of the 30 threats appear in the scan output */
 function analyzeThreatCoverage(output) {
+  var _negRe  = _NEG_RE || /\b(no\b|not\b|failed|unsuccessful|did not|does not|not found)\b/i;
+  var catalog = THREAT_CATALOG || [];
   var lines  = output.toLowerCase().split('\n');
-  var posText = lines.filter(function(l){ return !_NEG_RE.test(l); }).join(' ');
-  var negText = lines.filter(function(l){ return  _NEG_RE.test(l); }).join(' ');
+  var posText = lines.filter(function(l){ return !_negRe.test(l); }).join(' ');
+  var negText = lines.filter(function(l){ return  _negRe.test(l); }).join(' ');
   var allText = output.toLowerCase();
 
-  return THREAT_CATALOG.map(function(t) {
+  return catalog.map(function(t) {
     var found   = t.patterns.some(function(p){ return posText.includes(p); });
     var checked = !found && t.patterns.some(function(p){ return negText.includes(p) || allText.includes(p); });
     return Object.assign({}, t, { status: found ? 'FOUND' : checked ? 'CHECKED' : 'NOT_TESTED' });
