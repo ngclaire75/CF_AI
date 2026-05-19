@@ -12353,31 +12353,42 @@ function openInsightsModal(target) {
 
     // Vulnerability trend chart
     var tr = d.trend || [];
+    var trHasData = tr.some(function(x){ return (x.HIGH||0)+(x.MEDIUM||0)+(x.LOW||0)+(x.INFO||0) > 0; });
     if (tr.length > 1) {
       html += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Vulnerability Trend</div>';
-      html += '<canvas id="ins-trend-chart" height="120"></canvas></div>';
+      if (trHasData) {
+        html += '<div style="position:relative;height:140px;width:100%;"><canvas id="ins-trend-chart"></canvas></div>';
+      } else {
+        html += '<p style="color:#60a5fa;font-size:12px;margin:0;">No elevated findings detected across these scans.</p>';
+      }
+      html += '</div>';
     }
 
     if (!nw.length && !rv.length && !hasObs && !hasSsl && !hasShd && tr.length <= 1) {
-      html += '<p style="color:#60a5fa;font-size:13px;">Run at least 2 scans on this target to see trend data. External scores will load in the background.</p>';
+      html += '<p style="color:#60a5fa;font-size:13px;">Run at least 2 scans on this target to see trend data and comparison. External scores will load in the background.</p>';
     }
 
     document.getElementById('ins-body').innerHTML = html;
 
     // Render trend chart if data available
-    if (tr.length > 1) {
+    if (tr.length > 1 && trHasData) {
       var ctx = document.getElementById('ins-trend-chart');
       if (ctx) new Chart(ctx, {
         type: 'bar',
         data: {
           labels: tr.map(function(x){ return (x.date||'').substring(0,10); }),
           datasets: [
-            {label:'High',   data:tr.map(function(x){return x.HIGH;}),   backgroundColor:'#1e3a8a'},
-            {label:'Medium', data:tr.map(function(x){return x.MEDIUM;}), backgroundColor:'#2563eb'},
-            {label:'Low',    data:tr.map(function(x){return x.LOW;}),    backgroundColor:'#60a5fa'},
+            {label:'Critical/High', data:tr.map(function(x){return (x.HIGH||0)+(x.CRITICAL||0);}), backgroundColor:'#1e3a8a'},
+            {label:'Medium',        data:tr.map(function(x){return x.MEDIUM||0;}), backgroundColor:'#2563eb'},
+            {label:'Low',           data:tr.map(function(x){return x.LOW||0;}),    backgroundColor:'#60a5fa'},
+            {label:'Info',          data:tr.map(function(x){return x.INFO||0;}),   backgroundColor:'#bfdbfe'},
           ]
         },
-        options: { responsive:true, plugins:{legend:{position:'bottom'}}, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}} }
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{position:'bottom', labels:{font:{size:10}}}},
+          scales:{x:{stacked:true, ticks:{font:{size:10}}}, y:{stacked:true, beginAtZero:true, ticks:{precision:0}}}
+        }
       });
     }
   })
