@@ -1904,6 +1904,16 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   display:block; white-space:pre-wrap; word-break:break-word; }
 .live-output::-webkit-scrollbar { width:4px; }
 .live-output::-webkit-scrollbar-thumb { background:var(--c2); }
+/* Terminal line severity colouring */
+.ll-crit   { color:#fca5a5; font-weight:700; }
+.ll-high   { color:#fdba74; font-weight:700; }
+.ll-med    { color:#fde68a; font-weight:600; }
+.ll-low    { color:#86efac; font-weight:500; }
+.ll-info   { color:#93c5fd; }
+.ll-sep    { color:#334155; letter-spacing:.5px; }
+.ll-hdr    { color:#e2e8f0; font-weight:700; letter-spacing:.3px; }
+.ll-bullet { color:#bfdbfe; padding-left:4px; }
+.ll-code   { color:#67e8f9; font-size:10.5px; }
 
 /* ── SCANNER WORKSPACE ──────────────────────────────────────────────────── */
 .swp-wrap { display:flex; height:560px; border:1px solid var(--c8); border-radius:12px;
@@ -11879,6 +11889,21 @@ function _swResetPanels() {
   cwSwitchTab('terminal', document.querySelector('.swp-tab[data-tab="terminal"]'));
 }
 
+// ── Colour-code a single agent output line ────────────────────────────────
+function _cwFormatLine(text) {
+  var t = esc(text);
+  if (/\[CRITICAL\]/i.test(text))                          return '<span class="ll-crit">'   + t + '</span>';
+  if (/\[HIGH\]/i.test(text))                              return '<span class="ll-high">'   + t + '</span>';
+  if (/\[MEDIUM\]/i.test(text))                            return '<span class="ll-med">'    + t + '</span>';
+  if (/\[LOW\]/i.test(text))                               return '<span class="ll-low">'    + t + '</span>';
+  if (/\[INFO\]/i.test(text))                              return '<span class="ll-info">'   + t + '</span>';
+  if (/^[═─]{4,}/.test(text))                             return '<span class="ll-sep">'    + t + '</span>';
+  if (/^[•]/.test(text))                                   return '<span class="ll-bullet">' + t + '</span>';
+  if (/^\s+(curl|python3|nmap|nuclei|wget|http)\b/.test(text)) return '<span class="ll-code">' + t + '</span>';
+  if (/^[A-Z][A-Z \t]{4,}:?\s*$/.test(text.trim()))      return '<span class="ll-hdr">'    + t + '</span>';
+  return t;
+}
+
 // ── Render an array of chunks into the output div ─────────────────────────
 function _cwRenderChunks(chunks, out) {
   var _lastToolKey = null;
@@ -11894,7 +11919,7 @@ function _cwRenderChunks(chunks, out) {
 
     } else if (c.k === 'txt') {
       var line = document.createElement('div');
-      line.className = 'live-line-txt'; line.textContent = c.d;
+      line.className = 'live-line-txt'; line.innerHTML = _cwFormatLine(c.d);
       out.appendChild(line);
       // Route longer text blocks to left messages panel
       var txt = (c.d || '').trim();
@@ -12031,7 +12056,7 @@ function cwConnectWs(jobId) {
 
     if (msg.k === 'txt') {
       var line = document.createElement('div');
-      line.className = 'live-line-txt'; line.textContent = msg.d;
+      line.className = 'live-line-txt'; line.innerHTML = _cwFormatLine(msg.d);
       out.appendChild(line); out.scrollTop = out.scrollHeight;
       var txt = (msg.d||'').trim();
       if (txt.length > 0) { _swAddMsg(txt); }
