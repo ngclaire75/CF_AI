@@ -118,8 +118,10 @@ def _aura_resolve_connection() -> tuple[str, str, str]:
 # ── Neo4j driver (optional) ───────────────────────────────────────────────────
 def _get_neo4j_driver():
     uri  = os.environ.get('NEO4J_URI', '').strip()
-    user = os.environ.get('NEO4J_USER', 'neo4j').strip()
+    # Accept NEO4J_USERNAME (Aura default) or NEO4J_USER
+    user = (os.environ.get('NEO4J_USERNAME') or os.environ.get('NEO4J_USER') or 'neo4j').strip()
     pw   = os.environ.get('NEO4J_PASSWORD', '').strip()
+    db   = os.environ.get('NEO4J_DATABASE', 'neo4j').strip()
 
     # If URI not set, try Aura auto-discovery
     if not uri:
@@ -136,12 +138,16 @@ def _get_neo4j_driver():
         return None
 
 
+def _neo4j_database() -> str:
+    return os.environ.get('NEO4J_DATABASE', 'neo4j').strip()
+
+
 def _neo4j_run(query: str, params: dict = None):
     driver = _get_neo4j_driver()
     if not driver:
         return None
     try:
-        with driver.session() as s:
+        with driver.session(database=_neo4j_database()) as s:
             result = s.run(query, params or {})
             return [dict(r) for r in result]
     except Exception:
