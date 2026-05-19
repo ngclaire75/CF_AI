@@ -2799,7 +2799,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
   <!-- ── Threat Intelligence Section ─────────────────────────────────────── -->
   <section class="section" id="ti-section" style="margin-top:0;padding-top:0;">
-    <div class="sec-head" style="background:#fff;border:1px solid #bfdbfe;padding:12px 16px;margin-bottom:0;">
+    <div class="sec-head" style="background:#fff;padding:12px 16px;margin-bottom:0;">
       <div>
         <div class="sec-title" style="font-size:14px;">Threat Analytics — CVE Enrichment</div>
         <div class="sec-desc">CVEs found in scan outputs enriched with NIST NVD · CISA KEV · EPSS · Exploit-DB</div>
@@ -2814,7 +2814,7 @@ Export Power BI
     </div>
 
     <!-- KPI row -->
-    <div id="ti-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:#fff;border:1px solid #bfdbfe;border-top:none;">
+    <div id="ti-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:#fff;">
       <div style="padding:12px 16px;border-right:1px solid #bfdbfe;">
         <div style="font-size:10px;color:#3b82f6;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">CVEs Found</div>
         <div id="ti-total-cves" style="font-size:22px;font-weight:700;color:#0f172a;font-family:'Segoe UI',sans-serif;">—</div>
@@ -2834,7 +2834,7 @@ Export Power BI
     </div>
 
     <!-- CVE table -->
-    <div id="ti-table-wrap" style="background:#fff;border:1px solid #bfdbfe;border-top:none;overflow-x:auto;">
+    <div id="ti-table-wrap" style="background:#fff;overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
           <tr style="background:#eff6ff;">
@@ -2852,7 +2852,7 @@ Export Power BI
         </tbody>
       </table>
     </div>
-    <div id="ti-loading" style="display:none;padding:16px 12px;background:#fff;border:1px solid #bfdbfe;border-top:none;font-size:12px;color:#3b82f6;">
+    <div id="ti-loading" style="display:none;padding:16px 12px;background:#fff;font-size:12px;color:#3b82f6;">
       <span class="ink-spin-ring" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px;"></span>
       Fetching CVE data from NIST NVD, CISA KEV, EPSS…
     </div>
