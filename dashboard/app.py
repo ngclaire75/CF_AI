@@ -426,6 +426,9 @@ def _wp_xmlrpc_verify(site_url: str, username: str, password: str) -> bool:
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = os.environ.get('CFAI_SECRET_KEY', 'cfai-dev-secret-change-in-prod-2026')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE']   = os.environ.get('CFAI_HTTPS', '').lower() in ('1', 'true', 'yes')
 
 _IMAGES_DIR = os.path.join(os.path.dirname(__file__), '..', 'images')
 
