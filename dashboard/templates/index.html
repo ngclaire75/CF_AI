@@ -1914,6 +1914,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .ll-hdr    { color:#e2e8f0; font-weight:700; letter-spacing:.3px; }
 .ll-bullet { color:#bfdbfe; padding-left:4px; }
 .ll-code   { color:#67e8f9; font-size:10.5px; }
+.ll-apierr { display:block; background:linear-gradient(90deg,#1e3a5f 0%,#1e3a5f44 100%);
+             border-left:3px solid #3b82f6; color:#93c5fd; padding:5px 10px;
+             border-radius:0 4px 4px 0; margin:3px 0; font-weight:600; }
 
 /* ── SCANNER WORKSPACE ──────────────────────────────────────────────────── */
 .swp-wrap { display:flex; height:560px; border:1px solid var(--c8); border-radius:12px;
@@ -11904,6 +11907,8 @@ function _swResetPanels() {
 // ── Colour-code a single agent output line ────────────────────────────────
 function _cwFormatLine(text) {
   var t = esc(text);
+  if (/^\[(Out of tokens|Invalid API key|Token limit|Model not found|Access denied|API error)\]/i.test(text))
+                                                           return '<span class="ll-apierr">' + t + '</span>';
   if (/\[CRITICAL\]/i.test(text))                          return '<span class="ll-crit">'   + t + '</span>';
   if (/\[HIGH\]/i.test(text))                              return '<span class="ll-high">'   + t + '</span>';
   if (/\[MEDIUM\]/i.test(text))                            return '<span class="ll-med">'    + t + '</span>';

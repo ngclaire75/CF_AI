@@ -19,6 +19,23 @@ log = logging.getLogger('cfai.sdk')
 
 DEFAULT_MODEL = os.environ.get('CAI_MODEL', 'gpt-4o')
 
+
+def _friendly_api_error(exc: Exception) -> str:
+    """Convert a raw API exception into a short human-readable error line."""
+    msg = str(exc)
+    lo  = msg.lower()
+    if '429' in msg or 'quota' in lo or 'rate_limit' in lo or 'rate limit' in lo or 'resource_exhausted' in lo:
+        return '[Out of tokens] Rate limit reached — wait a moment then retry, or switch to a different model.'
+    if '401' in msg or 'invalid_api_key' in lo or 'invalid api key' in lo:
+        return '[Invalid API key] Check your .env file and restart the server.'
+    if '413' in msg or 'too large' in lo or 'tokens per minute' in lo:
+        return '[Token limit] Request too large for this model — try a lighter agent or switch models.'
+    if '404' in msg or 'not found' in lo or 'not supported' in lo:
+        return '[Model not found] This model is not available on your API key — choose a different model.'
+    if '403' in msg or 'permission' in lo or 'forbidden' in lo:
+        return '[Access denied] Your API key does not have permission to use this model.'
+    return f'[API error] {msg[:200]}'
+
 _GROQ_MODELS = {
     'llama-3.3-70b-versatile',
     'llama-3.1-8b-instant',
@@ -297,7 +314,7 @@ class Runner:
                     return '[Agent aborted by operator]'
                 continue
             except Exception as exc:
-                _emit(f'[API error: {exc}]')
+                _emit(_friendly_api_error(exc))
                 return ''
 
             # Collect text and tool-use blocks from response
@@ -437,7 +454,7 @@ class Runner:
                     return '[Agent aborted by operator]'
                 continue
             except Exception as exc:
-                _emit(f'[API error: {exc}]')
+                _emit(_friendly_api_error(exc))
                 return ''
 
             choice = resp.choices[0]

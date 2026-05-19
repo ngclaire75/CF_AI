@@ -2814,8 +2814,10 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
 
         # Don't save if the only output is API errors (rate limit, invalid key, etc.)
         _nonempty_lines = [l for l in output.splitlines() if l.strip()]
+        _API_ERR_PREFIXES = ('[API error]', '[Out of tokens]', '[Invalid API key]',
+                             '[Token limit]', '[Model not found]', '[Access denied]')
         _api_err_only   = bool(_nonempty_lines) and all(
-            l.strip().startswith('[API error:') for l in _nonempty_lines
+            any(l.strip().startswith(p) for p in _API_ERR_PREFIXES) for l in _nonempty_lines
         )
         if _api_err_only:
             err_msg = _nonempty_lines[0].strip()
