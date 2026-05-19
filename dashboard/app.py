@@ -2882,13 +2882,16 @@ _API_KEY = os.environ.get('CFAI_API_KEY', '')
 # ── Risk classification ────────────────────────────────────────────────────────
 
 _HIGH_KW = [
-    'critical', 'high severity', 'exploit', 'vulnerable', 'vulnerability',
-    'remote code execution', 'rce', 'sql injection', 'sqli', 'xss',
-    'cross-site scripting', 'authentication bypass', 'privilege escalation',
+    'critical', 'high severity', 'high risk',
+    'exploit', 'exploitable', 'successfully exploited',
+    'remote code execution', 'rce',
+    'sql injection', 'sqli', 'xss', 'cross-site scripting',
+    'authentication bypass', 'privilege escalation',
     'unauthorized access', 'exposed credentials', 'leaked secret',
+    'credentials leaked', 'credentials exposed',
     'path traversal', 'directory traversal', 'file inclusion',
-    'command injection', 'deserialization', 'idor', 'insecure direct object',
-    'broken access control', 'account takeover',
+    'command injection', 'deserialization',
+    'idor', 'insecure direct object', 'broken access control', 'account takeover',
 ]
 _MED_KW = [
     'medium', 'moderate', 'information disclosure', 'outdated version',
@@ -2919,15 +2922,26 @@ _REC_HEADERS = (
 _NEGATION = re.compile(
     r'\b(no\b|not\b|failed|unsuccessful|did not|does not|returned no|'
     r'found no|no evidence|could not|unable to|attempting|will attempt|'
-    r'will try|will now|testing for|checking for|i will|let me|'
-    r'next i |next,|explore potential|no result|no data|no output|'
-    r'empty response|no vuln|not vuln|not found|not detect|not appear)\b',
+    r'will try|will now|testing for|checking for|checked for|tested for|'
+    r'tests? for|scan(?:ned|ning)? for|asses(?:sed|sing)|look(?:ed|ing)? for|'
+    r'search(?:ed|ing)? for|investigat(?:ed|ing)|enumerat(?:ed|ing)|'
+    r'i will|let me|next i |next,|explore potential|no result|no data|'
+    r'no output|empty response|no vuln|not vuln|not found|not detect|'
+    r'not appear|not present|no indication|no sign(?:s\b|ificant))\b',
     re.I,
 )
 
 
 def risk_level(text: str) -> str:
-    """Derive risk only from lines that confirm a finding, skipping attempt/failure lines."""
+    """Derive risk from explicit markers first, then keywords on non-negated lines."""
+    # Explicit severity markers emitted by agents take absolute priority
+    if re.search(r'\[(CRITICAL|HIGH)\]', text, re.I):
+        return 'HIGH'
+    if re.search(r'\[MEDIUM\]', text, re.I):
+        return 'MEDIUM'
+    if re.search(r'\[LOW\]', text, re.I):
+        return 'LOW'
+    # Keyword fallback — skip lines that describe testing, not confirmed findings
     lines = text.splitlines()
     for kw_list, label in ((_HIGH_KW, 'HIGH'), (_MED_KW, 'MEDIUM'), (_LOW_KW, 'LOW')):
         for line in lines:
@@ -4250,14 +4264,16 @@ def api_scans_recent():
 
 
 _RISK_HIGH_RE = re.compile(
-    r'REFLECTED\s+XSS:|SQL\s+ERROR:|CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:'
+    r'\[(CRITICAL|HIGH)\]'
+    r'|REFLECTED\s+XSS:|SQL\s+ERROR:|CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:'
     r'|SSTI\s+HIT|SSRF\s+HIT:|CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:'
     r'|APP_PASS_CREATED|EXPOSED_FILE\s*\|.*\b20[0-9]\b'
     r'|WP-LOG[^|\n]*\|\s*HIGH|\|\s*(High|Critical)\s*\|', re.I)
 _RISK_MED_RE = re.compile(
-    r'OPEN\s+REDIRECT:|HTML\s+INJECTION:|WP-USER-CONFIRMED|WP-USER\s*\|'
+    r'\[MEDIUM\]'
+    r'|OPEN\s+REDIRECT:|HTML\s+INJECTION:|WP-USER-CONFIRMED|WP-USER\s*\|'
     r'|WP-LOG[^|\n]*\|\s*MEDIUM|\|\s*Medium\s*\|', re.I)
-_RISK_LOW_RE = re.compile(r'\|\s*(Low|Info)\s*\||\d+/tcp\s+open', re.I)
+_RISK_LOW_RE = re.compile(r'\[LOW\]|\|\s*(Low|Info)\s*\||\d+/tcp\s+open', re.I)
 
 def _scan_risk(out: str) -> str:
     if _RISK_HIGH_RE.search(out): return 'HIGH'
