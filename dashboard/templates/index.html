@@ -10710,6 +10710,7 @@ var _agentDesc = {
   'analyst': 'The agent performed a security analysis of the provided information and produced a detailed findings report.',
 };
 function agentSummary(agentType, sev, findingsCount) {
+  sev = sev || {critical:0, high:0, medium:0, low:0, info:0};
   var desc = _agentDesc[(agentType||'').toLowerCase()] || 'The agent performed an automated security assessment of the target.';
   var parts = [];
   if (sev.critical) parts.push(sev.critical+' critical');
@@ -10779,6 +10780,7 @@ function parseFindings(text) {
 /* ── Build severity chart ── */
 var _chartInst = null;
 function buildChart(sev) {
+  sev = sev || {critical:0, high:0, medium:0, low:0, info:0};
   var labels=[], data=[], colors=[];
   [['critical','Critical','#172554'],['high','High','#1e3a8a'],['medium','Medium','#2563eb'],
    ['low','Low','#60a5fa'],['info','Info','#bfdbfe']].forEach(function(r){
@@ -10800,6 +10802,7 @@ function buildChart(sev) {
 
 /* ── Build severity stat bars ── */
 function buildSevBars(sev) {
+  sev = sev || {critical:0, high:0, medium:0, low:0, info:0};
   var total = Object.values(sev).reduce(function(a,b){return a+b;},0) || 1;
   return [['critical','Critical','#172554'],['high','High','#1e3a8a'],['medium','Medium','#2563eb'],
           ['low','Low','#60a5fa'],['info','Info','#bfdbfe']].map(function(r){
@@ -14159,6 +14162,9 @@ function loadRecommendations() {
 
 function _scanSeverity(output) {
   var o = output || '';
+  if (/\[(CRITICAL|HIGH)\]/i.test(o)) return 'HIGH';
+  if (/\[MEDIUM\]/i.test(o)) return 'MEDIUM';
+  if (/\[LOW\]/i.test(o)) return 'LOW';
   if (/CODE\s+INJECTION\s+CONFIRMED:|CMD\s+INJECTION:|SSTI\s+HIT|SSRF\s+HIT:|CREDS_FOUND|SQL\s+ERROR:/i.test(o)) return 'HIGH';
   if (/REFLECTED\s+XSS:|FOUND_DB_USER:|APP_PASS_CREATED|WP-LOG[^|\n]*\|\s*HIGH|\|\s*High\s*\|/i.test(o)) return 'HIGH';
   if (/OPEN\s+REDIRECT:|HTML\s+INJECTION:|WP-LOG[^|\n]*\|\s*MEDIUM|\|\s*Medium\s*\|/i.test(o)) return 'MEDIUM';
