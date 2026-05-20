@@ -8763,7 +8763,7 @@ function loadDefDashboard() {
     _mvdRenderEvents(recent);
     _entRenderAnalytics(summary, incData);
     _hideLoadingOverlay();
-  });
+  }).catch(function(e){ console.error('Dashboard render error:', e); });
 }
 
 function _mvdCalcScore(scans) {
@@ -15315,7 +15315,8 @@ function _taRender(d, grid) {
   grid.innerHTML = kpiHtml + chartRowHtml + cards.join('');
 
   // ── Draw the 4 charts ─────────────────────────────────────────────────────
-  _taDrawCharts(d);
+  // Defer one tick so the browser lays out the injected canvas elements before Chart.js reads their dimensions
+  setTimeout(function() { _taDrawCharts(d); }, 0);
 
   // Re-init paginated tables (they rendered already with page 1)
   Object.keys(_taPg).forEach(function(k) { _taPg[k].renderFn(_taPg[k]); });
