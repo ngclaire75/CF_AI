@@ -222,7 +222,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 /* ── MODALS ── */
 .modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,.55);
   display: none; align-items: center; justify-content: center;
-  z-index: 9000; padding: 20px; }
+  z-index: 100000; padding: 20px; }
 .modal-bg.open { display: flex; }
 .modal-box { background: var(--c11); border-radius: var(--radius);
   border: 1px solid var(--c8); width: 100%; max-width: 780px;
@@ -5705,7 +5705,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .grc2-btn-del:hover{background:#1d4ed8;border-color:#1d4ed8;}
     .grc2-btn-ghost{background:transparent;border:1px solid #e2e8f0;color:#374151;}
     .grc2-btn-ghost:hover{background:#f8faff;border-color:#dbeafe;}
-    .grc2-modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9000;align-items:center;justify-content:center;}
+    .grc2-modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100000;align-items:center;justify-content:center;}
     .grc2-modal-bg.open{display:flex;}
     .grc2-modal{background:#fff;border-radius:10px;width:600px;max-width:96vw;max-height:92vh;overflow-y:auto;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.18);scrollbar-width:none;}
     .grc2-modal::-webkit-scrollbar{display:none;}
@@ -9225,12 +9225,14 @@ function _entRenderAnalytics(scans, incData) {
   // ── Radar ─────────────────────────────────────────────────────────────────
   var rData={ssl:80,http:70,auth:75,cms:60,dns:85,ports:65};
   if(scans.length){
-    rData.ssl=Math.min(100,100-scans.filter(function(s){return /ssl.*error|ssl.*expired|ssl.*b\b/i.test(s.output||'');}).length/scans.length*100);
-    rData.http=Math.min(100,100-scans.filter(function(s){return /missing.*header|no.*csp|no.*hsts/i.test(s.output||'');}).length/scans.length*100);
-    rData.auth=Math.min(100,100-scans.filter(function(s){return /weak.*password|brute.force|default.*cred/i.test(s.output||'');}).length/scans.length*100);
-    rData.cms=Math.min(100,100-scans.filter(function(s){return /outdated|vulnerable.*plugin|cve-/i.test(s.output||'');}).length/scans.length*100);
-    rData.dns=Math.min(100,100-scans.filter(function(s){return /dns.*error|no.*spf|no.*dmarc/i.test(s.output||'');}).length/scans.length*100);
-    rData.ports=Math.min(100,100-scans.filter(function(s){return /open.*port|port.*\d{4,}/i.test(s.output||'');}).length/scans.length*100);
+    var _rTotal=scans.length;
+    var _rHighPct=highRisk/_rTotal, _rMedPct=medium/_rTotal;
+    rData.ssl  =Math.round(Math.min(100,Math.max(20,100-_rHighPct*55-_rMedPct*20)));
+    rData.http =Math.round(Math.min(100,Math.max(20,100-_rHighPct*45-_rMedPct*30)));
+    rData.auth =Math.round(Math.min(100,Math.max(20,100-_rHighPct*65-_rMedPct*15)));
+    rData.cms  =Math.round(Math.min(100,Math.max(20,100-_rHighPct*40-_rMedPct*25)));
+    rData.dns  =Math.round(Math.min(100,Math.max(20,100-_rHighPct*35-_rMedPct*20)));
+    rData.ports=Math.round(Math.min(100,Math.max(20,100-_rHighPct*50-_rMedPct*10)));
   }
   var rc=document.getElementById('ent-attack-radar');
   if(rc){
@@ -9400,6 +9402,7 @@ function _utcToLocal(utcStr) {
 }
 
 function loadHistoryPage() {
+  _hideLoadingOverlay();
   // Convert UTC timestamps to local device timezone
   document.querySelectorAll('.utc-ts').forEach(function(el) {
     var utc = el.getAttribute('data-utc');
@@ -12291,8 +12294,9 @@ function loadUnifiedOverview() {
           }).join('') + '</tbody></table>'
         : '<em style="color:#60a5fa;font-size:13px;">No high-severity detections yet. Run scans to populate.</em>';
       }
+      _hideLoadingOverlay();
     })
-    .catch(function(){});
+    .catch(function(){ _hideLoadingOverlay(); });
 }
 
 function _obsStatChip(label, val, bg, color) {
@@ -12357,8 +12361,9 @@ function loadMitreCoverage() {
           });
         }
       }
+      _hideLoadingOverlay();
     })
-    .catch(function(){});
+    .catch(function(){ _hideLoadingOverlay(); });
 }
 
 function showMitreTactic(tname, el) {
@@ -12447,8 +12452,9 @@ function loadIncidents(status, el) {
       se('inc-stat-total', s.total || 0);
       se('inc-cnt-open',   s.open  || '');
       renderIncidents(_incAll);
+      _hideLoadingOverlay();
     })
-    .catch(function(){ });
+    .catch(function(){ _hideLoadingOverlay(); });
 }
 
 function filterIncidentsTable() {
@@ -12630,8 +12636,9 @@ function loadSignals() {
       document.getElementById('sig-cnt-info').textContent = c.INFO     || 0;
       renderSignalsTimeline();
       renderSignalsTable();
+      _hideLoadingOverlay();
     })
-    .catch(function(){ });
+    .catch(function(){ _hideLoadingOverlay(); });
 }
 
 function renderSignalsTimeline() {
@@ -13811,10 +13818,12 @@ function loadWeaknesses() {
       var set = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
       set('wk-total', t); set('wk-critical', crit); set('wk-exploitable', expl); set('wk-kev-count', kev);
       _wkRenderTable(_wkData);
+      _hideLoadingOverlay();
     })
     .catch(function(e) {
       if (loadEl) loadEl.style.display = 'none';
       if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#1e3a8a;">Error: ' + _esc(String(e)) + '</td></tr>';
+      _hideLoadingOverlay();
     });
 }
 
@@ -13982,8 +13991,9 @@ function loadRecommendations() {
         return ((r[b.risk]||0) - (r[a.risk]||0)) || (b.targets.length - a.targets.length);
       }).slice(0, 100);
       _recRender(_recAllData);
+      _hideLoadingOverlay();
     })
-    .catch(function(e){ tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#1e3a8a;">Error: ' + _esc(String(e)) + '</td></tr>'; });
+    .catch(function(e){ tbody.innerHTML = '<tr><td colspan="5" class="mdef-empty" style="color:#1e3a8a;">Error: ' + _esc(String(e)) + '</td></tr>'; _hideLoadingOverlay(); });
 }
 
 function _scanSeverity(output) {
@@ -14059,6 +14069,7 @@ function loadRemediationPage() {
       var stCls = r.status === 'resolved' ? 'color:#1e3a8a;' : r.status === 'investigating' ? 'color:#2563eb;' : 'color:#1e3a8a;';
       return '<tr><td>' + _esc(r.title) + '</td><td style="color:#3b82f6;">' + _esc(r.component) + '</td><td style="' + stCls + 'font-weight:600;">' + (statusLabel[r.status] || r.status) + '</td><td>' + _sevBars(r.severity) + '</td><td style="color:#3b82f6;">' + r.date + '</td></tr>';
     }).join('');
+    _hideLoadingOverlay();
   });
 }
 
@@ -14514,6 +14525,7 @@ function loadInventories() {
     });
     _invData.plugins = Object.values(merged);
     _invRender();
+    _hideLoadingOverlay();
   });
 }
 
@@ -15054,8 +15066,9 @@ function loadEventTimeline() {
           '<div class="etl-body"><div class="etl-title">' + _esc(ev.target) + '<span class="etl-sev" style="background:' + (dotCols[ev.severity] || '#605e5c') + '22;color:' + (dotCols[ev.severity] || '#605e5c') + ';">' + ev.severity + '</span></div><div style="color:#3b82f6;">' + _esc(ev.text) + '</div></div>' +
           '</div>';
       }).join('');
+      _hideLoadingOverlay();
     })
-    .catch(function(e){ list.innerHTML = '<div class="mdef-empty" style="color:#1e3a8a;">Error: ' + _esc(String(e)) + '</div>'; });
+    .catch(function(e){ list.innerHTML = '<div class="mdef-empty" style="color:#1e3a8a;">Error: ' + _esc(String(e)) + '</div>'; _hideLoadingOverlay(); });
 }
 
 /* ═══════════════════════════════════════════════════════
