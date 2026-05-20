@@ -61,6 +61,9 @@ _SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '').strip()
 
 # ── GeoIP lookup cache (uses ip-api.com, free, no key, 45 req/min) ─────────
 _geoip_cache: dict = {}
+# ── Dashboard summary cache — per-user, 60s TTL ──────────────────────────────
+import time as _time_mod
+_summary_cache: dict = {}  # keyed by username, value: {'data': [...], 'ts': float}
 
 def _geoip_detail(ip: str) -> dict:
     """Return {country, country_code, lat, lon} for an IP. Cached."""
@@ -2837,6 +2840,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
             latency_s=round(elapsed, 2),
             tool_count=tools[0], output=output,
             username=username,
+            risk=_scan_risk(output),
         )
         final_status = 'interrupted' if was_aborted else 'done'
         if was_aborted:
@@ -2845,6 +2849,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         job.update({'status': final_status, 'elapsed': round(elapsed, 2),
                     'tool_count': tools[0], 'scan_id': scan_id})
         _parse_and_save_plugins(scan_id, domain, output, username=username)
+        _summary_cache.pop(username, None)  # invalidate dashboard cache for this user
         _job_persist(job_id, job)
 
     except Exception as exc:
@@ -2854,6 +2859,7 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         job['chunks'].append({'k': 'txt', 'd': f'\n[ERROR] {exc}\n{tb}'})
         # Save partial output — variables are always defined because they were pre-initialised
         try:
+            _err_out = '\n\n'.join(parts) or f'[ERROR] {exc}'
             scan_id = db.save_scan(
                 target=domain or target or '',
                 agent_type=agent_type,
@@ -2861,8 +2867,9 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
                 status='error',
                 latency_s=round(_time.time() - t0, 2),
                 tool_count=tools[0],
-                output='\n\n'.join(parts) or f'[ERROR] {exc}',
+                output=_err_out,
                 username=username,
+                risk=_scan_risk(_err_out),
             )
             job['chunks'].append({'k': 'saved', 'id': scan_id})
             job.update({'status': 'error', 'error': str(exc), 'trace': tb, 'scan_id': scan_id})
@@ -4078,7 +4085,7 @@ def _norm_target(raw: str) -> str:
     return t.split('/')[0].split('?')[0].rstrip('.').lower()
 
 
-def enrich(scan: dict) -> dict:
+def enrich(scan: dict, track_age: bool = False) -> dict:
     scan = dict(scan)
     scan['target']       = _norm_target(scan.get('target', ''))
     out  = scan.get('output', '') or ''
@@ -4088,11 +4095,12 @@ def enrich(scan: dict) -> dict:
     remediations         = match_remediations(out, target=scan['target'])
     username             = scan.get('username', '')
 
-    # ── Age escalation — persist findings history and boost long-open items ────
+    # ── Age escalation — only on explicit write path to avoid N×M DB ops on reads ──
     for rem in remediations:
         try:
-            db.update_finding_history(scan['target'], rem['id'], username)
-            age_days = db.get_finding_age_days(scan['target'], rem['id'], username)
+            if track_age:
+                db.update_finding_history(scan['target'], rem['id'], username)
+            age_days = db.get_finding_age_days(scan['target'], rem['id'], username) if track_age else 0
             if age_days >= 90:
                 rem['priority_score'] = rem.get('priority_score', 0) + 30
                 rem['age_label'] = f'Open {age_days}d — escalated'
@@ -4291,12 +4299,22 @@ def _scan_risk(out: str) -> str:
     if _RISK_LOW_RE.search(out):  return 'LOW'
     return 'INFO'
 
+
 @app.route('/api/scans/summary')
 def api_scans_summary():
     """Lightweight scan list — pre-computed risk, no output text. For dashboard charts/KPIs."""
+    username = _cu_filter()
+    now = _time_mod.time()
+    cached = _summary_cache.get(username)
+    if cached and now - cached['ts'] < 60:
+        return jsonify(cached['data'])
+
     limit = min(int(request.args.get('limit', 500)), 2000)
-    rows  = db.get_recent_scans(limit, username=_cu_filter())
-    return jsonify([{
+    rows  = db.get_scans_meta(limit, username=username)
+
+    # Rows with stored risk use it directly; rows without (pre-migration) fall back to INFO.
+    # On next scan save the risk will be stored, so stale INFO rows self-heal over time.
+    result = [{
         'id':         r['id'],
         'target':     r['target'],
         'agent_type': r['agent_type'],
@@ -4304,8 +4322,11 @@ def api_scans_summary():
         'status':     r['status'],
         'latency_s':  r['latency_s'],
         'tool_count': r['tool_count'],
-        'risk':       _scan_risk(r.get('output') or ''),
-    } for r in rows])
+        'risk':       r.get('risk') or 'INFO',
+    } for r in rows]
+
+    _summary_cache[username] = {'data': result, 'ts': now}
+    return jsonify(result)
 
 
 @app.route('/api/scan/<int:scan_id>/cve')
@@ -4373,6 +4394,7 @@ def api_save_scan():
     if missing:
         return jsonify({'error': f'Missing fields: {", ".join(missing)}'}), 400
 
+    _out = str(data['output'])[:60000]
     db.save_scan(
         target     = str(data['target'])[:500],
         agent_type = str(data['agent_type'])[:50],
@@ -4380,8 +4402,9 @@ def api_save_scan():
         status     = str(data.get('status', 'ok'))[:20],
         latency_s  = float(data.get('latency_s', 0)),
         tool_count = int(data.get('tool_count', 0)),
-        output     = str(data['output'])[:60000],
+        output     = _out,
         username   = _cu_username(),
+        risk       = _scan_risk(_out),
     )
     return jsonify({'saved': True}), 201
 

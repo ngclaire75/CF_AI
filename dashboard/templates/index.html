@@ -8729,9 +8729,17 @@ function _hideLoadingOverlay() {
 
 function loadDefDashboard() {
   var days = parseInt((document.getElementById('def-days')||{}).value||'30');
+  // Show loading pulse in chart containers while fetching
+  ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
+    document.querySelectorAll('.'+cls).forEach(function(el){
+      el.style.opacity='0.35';
+    });
+  });
+  var _kpiIds=['mvd-kpi-scanned','mvd-kpi-critical','mvd-kpi-incidents'];
+  _kpiIds.forEach(function(id){var el=document.getElementById(id);if(el)el.textContent='…';});
   // Two parallel fetches:
-  // 1. summary: all scans with pre-computed risk (no output text) — for KPIs/charts
-  // 2. recent (limit 50 with output) — only for recommendations & event labels
+  // 1. summary: stored risk, no output text — fast for charts/KPIs
+  // 2. recent (limit 50 with output) — for recommendations & event labels
   Promise.all([
     fetch('/api/stats').then(function(r){return r.json();}).catch(function(){return {};}),
     fetch('/api/incidents').then(function(r){return r.json();}).catch(function(){return {incidents:[],stats:{}};}),
@@ -8739,7 +8747,10 @@ function loadDefDashboard() {
     fetch('/api/scans/recent?limit=50').then(function(r){return r.json();}).catch(function(){return [];}),
   ]).then(function(res) {
     var stats=res[0], incData=res[1], summary=res[2], recent=res[3];
-    // KPIs, charts, gauge: use summary (no regex needed — risk already computed)
+    ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
+      document.querySelectorAll('.'+cls).forEach(function(el){ el.style.opacity=''; });
+    });
+    // KPIs, charts, gauge: use summary (stored risk, no output text)
     _mvdRenderKPIs(stats, incData.stats||{}, summary);
     _mvdRenderThreatHeader(summary);
     _mvdRenderGauge(summary);
@@ -9094,6 +9105,7 @@ function _uniqArr(arr) {
 function _entSetEl(id, val) { var e=document.getElementById(id); if(e) e.textContent=val; }
 
 function _entRenderAnalytics(scans, incData) {
+  if (typeof Chart === 'undefined') return;
   var incidents = (incData && incData.incidents) ? incData.incidents : [];
   var incStats  = (incData && incData.stats)     ? incData.stats     : {};
   var now       = Date.now();
@@ -9149,9 +9161,10 @@ function _entRenderAnalytics(scans, incData) {
   }
 
   // ── Severity donut ────────────────────────────────────────────────────────
-  var sVals=[highRisk,Math.max(0,highRisk),medium,low,scans.filter(function(s){return !s.risk||s.risk==='INFO';}).length];
-  if(sVals.every(function(v){return v===0;})) sVals=[1,2,3,2,1];
-  var sLabels=['Critical','High','Medium','Low','Info'],sColors=['#172554','#1e3a8a','#2563eb','#60a5fa','#bfdbfe'];
+  var infoCount=scans.filter(function(s){return !s.risk||s.risk==='INFO';}).length;
+  var sVals=[highRisk,medium,low,infoCount];
+  if(sVals.every(function(v){return v===0;})) sVals=[1,2,3,4];
+  var sLabels=['High','Medium','Low','Info'],sColors=['#1e3a8a','#2563eb','#60a5fa','#bfdbfe'];
   var dc=document.getElementById('ent-sev-donut');
   if(dc){
     if(_entCharts.donut){try{_entCharts.donut.destroy();}catch(e){}}

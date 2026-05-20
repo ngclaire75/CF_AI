@@ -38,6 +38,12 @@ def init_db():
             con.commit()
         except Exception:
             pass
+        # Migrate — add pre-computed risk column so summary API doesn't need to load output
+        try:
+            con.execute('ALTER TABLE scans ADD COLUMN risk TEXT DEFAULT ""')
+            con.commit()
+        except Exception:
+            pass
         con.execute('''
             CREATE TABLE IF NOT EXISTS incidents (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -546,16 +552,34 @@ def get_engagement_scans(eid):
 
 
 def save_scan(*, target, agent_type, model='', status='ok',
-              latency_s=0.0, tool_count=0, output='', username='') -> int:
+              latency_s=0.0, tool_count=0, output='', username='', risk='') -> int:
     with _connect() as con:
         cur = con.execute(
-            'INSERT INTO scans (target, agent_type, model, status, latency_s, tool_count, output, username) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO scans '
+            '(target, agent_type, model, status, latency_s, tool_count, output, username, risk) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             (target, agent_type, model, status,
-             round(float(latency_s), 2), int(tool_count), str(output)[:60000], username)
+             round(float(latency_s), 2), int(tool_count), str(output)[:60000], username, risk)
         )
         con.commit()
         return cur.lastrowid
+
+
+def get_scans_meta(limit: int = 500, username=None) -> list:
+    """Scan metadata without output field — fast, for dashboard charts/KPIs."""
+    cols = 'id, target, agent_type, created_at, status, latency_s, tool_count, risk'
+    with _connect() as con:
+        if username:
+            rows = con.execute(
+                f'SELECT {cols} FROM scans WHERE username=? ORDER BY created_at DESC LIMIT ?',
+                (username, limit)
+            ).fetchall()
+        else:
+            rows = con.execute(
+                f"SELECT {cols} FROM scans WHERE username != 'demo' ORDER BY created_at DESC LIMIT ?",
+                (limit,)
+            ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def get_scans(limit=500, username=None):
