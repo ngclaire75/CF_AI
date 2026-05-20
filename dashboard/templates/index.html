@@ -15961,9 +15961,9 @@ function loadUserMgmt() {
   fetch('/api/admin/users')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (d.error) { tbody.innerHTML = '<tr><td colspan="9" class="mdef-empty" style="color:#1e3a8a;">'+_esc(d.error)+'</td></tr>'; _hideLoadingOverlay(); return; }
+      if (d.error) { tbody.innerHTML = '<tr><td colspan="9" class="mdef-empty" style="color:#1e3a8a;">'+_esc(d.error)+'</td></tr>'; return; }
       _umUsers = d.users || [];
-      if (!_umUsers.length) { tbody.innerHTML = '<tr><td colspan="9" class="mdef-empty">No users found.</td></tr>'; _hideLoadingOverlay(); return; }
+      if (!_umUsers.length) { tbody.innerHTML = '<tr><td colspan="9" class="mdef-empty">No users found.</td></tr>'; return; }
       tbody.innerHTML = _umUsers.map(function(u){
         var isAdmin    = u.role === 'admin';
         var isVerified = u.verified !== false;
@@ -16041,9 +16041,8 @@ function loadUserMgmt() {
           + '</tr>';
       }).join('');
       _hideLoadingOverlay();
-      delete _pagesLoaded['usermgmt']; // always re-show spinner on next visit (data changes frequently)
     })
-    .catch(function(){ tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#1e3a8a;">Failed to load users.</td></tr>'; _hideLoadingOverlay(); delete _pagesLoaded['usermgmt']; });
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#1e3a8a;">Failed to load users.</td></tr>'; _hideLoadingOverlay(); });
 }
 
 function umSetPlan(username, newPlan) {
