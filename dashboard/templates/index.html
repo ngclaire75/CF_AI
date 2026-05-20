@@ -8718,6 +8718,7 @@ if (typeof Chart !== 'undefined') {
   Chart.defaults.plugins.tooltip.padding = 10;
   Chart.defaults.scale.grid.color = '#eaf0fb';
   Chart.defaults.scale.ticks.color = '#7a96bb';
+  Chart.defaults.animation.duration = 300;
 }
 
 var _mvdCharts = {};
@@ -8728,42 +8729,44 @@ function _hideLoadingOverlay() {
 }
 
 function loadDefDashboard() {
-  var days = parseInt((document.getElementById('def-days')||{}).value||'30');
-  // Show loading pulse in chart containers while fetching
   ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
-    document.querySelectorAll('.'+cls).forEach(function(el){
-      el.style.opacity='0.35';
-    });
+    document.querySelectorAll('.'+cls).forEach(function(el){ el.style.opacity='0.35'; });
   });
   var _kpiIds=['mvd-kpi-scanned','mvd-kpi-critical','mvd-kpi-incidents'];
   _kpiIds.forEach(function(id){var el=document.getElementById(id);if(el)el.textContent='…';});
-  // Two parallel fetches:
-  // 1. summary: stored risk, no output text — fast for charts/KPIs
-  // 2. recent (limit 50 with output) — for recommendations & event labels
-  Promise.all([
-    fetch('/api/stats').then(function(r){return r.json();}).catch(function(){return {};}),
-    fetch('/api/incidents').then(function(r){return r.json();}).catch(function(){return {incidents:[],stats:{}};}),
-    fetch('/api/scans/summary?limit=500').then(function(r){return r.json();}).catch(function(){return [];}),
-    fetch('/api/scans/recent?limit=50').then(function(r){return r.json();}).catch(function(){return [];}),
-  ]).then(function(res) {
-    var stats=res[0], incData=res[1], summary=res[2], recent=res[3];
+
+  // Fire all 4 fetches simultaneously — render in two waves as data arrives
+  var statsP   = fetch('/api/stats').then(function(r){return r.json();}).catch(function(){return {};});
+  var incP     = fetch('/api/incidents').then(function(r){return r.json();}).catch(function(){return {incidents:[],stats:{}};});
+  var summaryP = fetch('/api/scans/summary?limit=500').then(function(r){return r.json();}).catch(function(){return [];});
+  var recentP  = fetch('/api/scans/recent?limit=50').then(function(r){return r.json();}).catch(function(){return [];});
+
+  // Wave 1 — summary only (cached, fast): gauge, score ring, donut, sparklines
+  summaryP.then(function(summary) {
     ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
       document.querySelectorAll('.'+cls).forEach(function(el){ el.style.opacity=''; });
     });
-    // KPIs, charts, gauge: use summary (stored risk, no output text)
-    _mvdRenderKPIs(stats, incData.stats||{}, summary);
     _mvdRenderThreatHeader(summary);
     _mvdRenderGauge(summary);
     _mvdRenderSecScore(summary);
     _mvdRenderDonut(summary);
     _mvdRenderSparklines(summary);
+  }).catch(function(e){ console.error('Dashboard wave-1 error:', e); });
+
+  // Wave 2 — needs stats + incidents + summary: KPIs, remediation, enterprise analytics
+  Promise.all([statsP, incP, summaryP]).then(function(res) {
+    var stats=res[0], incData=res[1], summary=res[2];
+    _mvdRenderKPIs(stats, incData.stats||{}, summary);
     _mvdRenderRemediation(incData.incidents||[], summary);
-    // Recommendations & events: use recent (need output text, but only top 50)
-    _mvdRenderRecommendations(recent);
-    _mvdRenderEvents(recent);
     _entRenderAnalytics(summary, incData);
     _hideLoadingOverlay();
-  }).catch(function(e){ console.error('Dashboard render error:', e); });
+  }).catch(function(e){ console.error('Dashboard wave-2 error:', e); });
+
+  // Wave 3 — needs recent output text: recommendations, events (slowest fetch, runs last)
+  recentP.then(function(recent) {
+    _mvdRenderRecommendations(recent);
+    _mvdRenderEvents(recent);
+  }).catch(function(e){ console.error('Dashboard wave-3 error:', e); });
 }
 
 function _mvdCalcScore(scans) {

@@ -63,7 +63,8 @@ _SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '').strip()
 _geoip_cache: dict = {}
 # ── Dashboard summary cache — per-user, 60s TTL ──────────────────────────────
 import time as _time_mod
-_summary_cache: dict = {}  # keyed by username, value: {'data': [...], 'ts': float}
+_summary_cache: dict = {}   # keyed by username, value: {'data': [...], 'ts': float}
+_pci_cache:     dict = {}   # keyed by username, value: {'data': dict, 'ts': float}
 
 def _geoip_detail(ip: str) -> dict:
     """Return {country, country_code, lat, lon} for an IP. Cached."""
@@ -2849,7 +2850,8 @@ def _run_background_scan(job_id: str, target: str, agent_type: str,
         job.update({'status': final_status, 'elapsed': round(elapsed, 2),
                     'tool_count': tools[0], 'scan_id': scan_id})
         _parse_and_save_plugins(scan_id, domain, output, username=username)
-        _summary_cache.pop(username, None)  # invalidate dashboard cache for this user
+        _summary_cache.pop(username, None)
+        _pci_cache.pop(username, None)
         _job_persist(job_id, job)
 
     except Exception as exc:
@@ -10614,8 +10616,15 @@ function cfai_filescan_handler( $request ) {{
 @app.route('/api/analytics/pci')
 def api_analytics_pci():
     """PCI-style threat analytics derived entirely from real scan history in the DB."""
+    username = _cu_filter()
+    now = _time_mod.time()
+    cached = _pci_cache.get(username)
+    if cached and now - cached['ts'] < 120:
+        return jsonify(cached['data'])
     try:
-        return _api_analytics_pci_inner()
+        data = _api_analytics_pci_inner()
+        _pci_cache[username] = {'data': data, 'ts': now}
+        return jsonify(data)
     except Exception as _e:
         import traceback as _tb
         return jsonify({'error': str(_e), 'detail': _tb.format_exc()[-600:],
@@ -10778,7 +10787,7 @@ def _api_analytics_pci_inner():
         'system_fail_pct':  round(max(0, uniq-passed-manual) / max(1, uniq) * 100),
     }
 
-    return jsonify({
+    return {
         'mitigation_severity': panel1,
         'trends':              {'labels': labels, 'vulnerabilities': v_series, 'compliance': c_series},
         'compliance_keyword':  panel3,
@@ -10791,7 +10800,7 @@ def _api_analytics_pci_inner():
             'total_targets': uniq,
             'last_updated':  now.strftime('%Y-%m-%d %H:%M UTC'),
         },
-    })
+    }
 
 
 @app.route('/api/logs/analyze', methods=['POST'])
