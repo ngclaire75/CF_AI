@@ -54,6 +54,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -80,22 +81,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_CDN_SCRIPT_SOURCES = (
-    "cdn.jsdelivr.net "
-    "cdnjs.cloudflare.com "
-    "unpkg.com "
-    "app.midtrans.com"
-)
-_CDN_STYLE_SOURCES = "unpkg.com cdn.jsdelivr.net cdnjs.cloudflare.com"
-
 _CSP = (
-    f"default-src 'self'; "
-    f"script-src 'self' 'unsafe-inline' 'unsafe-eval' {_CDN_SCRIPT_SOURCES}; "
-    f"style-src 'self' 'unsafe-inline' {_CDN_STYLE_SOURCES}; "
-    f"img-src 'self' data: https:; "
-    f"font-src 'self' data: https:; "
-    f"connect-src 'self' wss: https:; "
-    f"frame-ancestors 'none';"
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' app.midtrans.com; "
+    "style-src 'self' 'unsafe-inline' fonts.googleapis.com; "
+    "font-src 'self' data: fonts.gstatic.com; "
+    "img-src 'self' data: https:; "
+    "connect-src 'self' wss: https:; "
+    "frame-ancestors 'none';"
 )
 
 @app.middleware("http")
@@ -107,7 +100,9 @@ async def _security_headers(request: Request, call_next):
     return response
 
 _TMPL_DIR = Path(__file__).parent / "templates"
+_STATIC_DIR = Path(__file__).parent / "static"
 templates = Jinja2Templates(directory=str(_TMPL_DIR))
+app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 # ── In-memory stores ──────────────────────────────────────────────────────────
 _scan_jobs: Dict[str, Dict[str, Any]] = {}

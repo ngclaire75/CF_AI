@@ -64,6 +64,11 @@ screenshots/
 *.jpg
 *.jpeg
 
+# Allow vendored static assets
+!dashboard/static/**/*.png
+!dashboard/static/**/*.jpg
+!dashboard/static/**/*.jpeg
+
 # Sensitive files — keep .env.example in repo (it's the template)
 .env
 secrets.json
