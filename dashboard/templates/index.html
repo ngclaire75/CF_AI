@@ -16808,7 +16808,6 @@ function umOpenPagesModal(usernames) {
   if (!usernames || !usernames.length) return;
   _umPagesTarget = usernames;
 
-  // Show modal immediately — any error below must not block the modal from appearing
   var modal = document.getElementById('um-pages-modal-bg');
   if (!modal) return;
   modal.style.display = 'flex';
@@ -16816,7 +16815,8 @@ function umOpenPagesModal(usernames) {
   var title  = document.getElementById('um-pages-title');
   var sub    = document.getElementById('um-pages-sub');
   var errEl  = document.getElementById('um-pages-err');
-  var grid   = document.getElementById('um-pages-grid');
+  // Try getElementById first; fall back to querySelector from modal
+  var grid   = document.getElementById('um-pages-grid') || modal.querySelector('[id="um-pages-grid"]');
 
   if (errEl) errEl.style.display = 'none';
   if (title) title.textContent = usernames.length === 1
@@ -16825,46 +16825,55 @@ function umOpenPagesModal(usernames) {
   if (sub) sub.textContent = usernames.length === 1
     ? 'Check the pages this user is allowed to visit.'
     : 'Changes will be applied to all selected users. Mixed selections are shown unchecked.';
-  if (!grid) return;
-  grid.innerHTML = '';
 
-  var firstUser = _umUsers.find(function(u){ return u.username === usernames[0]; });
-  var initPages = (firstUser && Array.isArray(firstUser.allowed_pages))
-                    ? firstUser.allowed_pages.slice()
-                    : _PAGE_PRESETS.default.slice();
-  if (usernames.length > 1) initPages = [];
-
-  var hasBasicUser = usernames.some(function(un) {
-    var u = _umUsers.find(function(x){ return x.username === un; });
-    return !u || (u.plan || 'basic') === 'basic';
-  });
-
-  // Build entire grid HTML as one string, then assign once
-  var gridHtml = '<div style="grid-column:1/-1;color:#dc2626;font-weight:700;font-size:13px;padding:4px 0;">DEBUG: ' + _ALL_PAGES.length + ' groups, initPages=' + initPages.length + '</div>';
-  _ALL_PAGES.forEach(function(grp) {
-    gridHtml += '<div style="margin-bottom:14px;">';
-    gridHtml += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#3b82f6;margin-bottom:6px;border-bottom:1px solid #f3f4f6;padding-bottom:4px;">' + _esc(grp.group) + '</div>';
-    (grp.pages || []).forEach(function(p) {
-      var chk    = initPages.indexOf(p.key) !== -1;
-      var isPro  = _PRO_PAGES.indexOf(p.key) !== -1;
-      var locked = isPro && hasBasicUser;
-      var proTag = isPro ? ' <span style="font-size:9px;font-weight:700;color:#fff;background:#2563eb;border:1px solid #1d4ed8;border-radius:3px;padding:0 4px;">PRO</span>' : '';
-      gridHtml += '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:' + (locked ? '#9ca3af' : '#0f172a') + ';margin-bottom:5px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';"'
-        + (locked ? ' title="Upgrade user to Pro plan to enable this page"' : '') + '>'
-        + '<input type="checkbox" id="um-pg-' + p.key + '" value="' + p.key + '"'
-        + (chk && !locked ? ' checked' : '')
-        + (locked ? ' disabled' : '')
-        + ' style="cursor:' + (locked ? 'not-allowed' : 'pointer') + ';">'
-        + _esc(p.label) + proTag + '</label>';
-    });
-    gridHtml += '</div>';
-  });
-
-  if (hasBasicUser) {
-    gridHtml += '<div style="grid-column:1/-1;margin-top:4px;padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af;">Pro-plan pages (marked PRO) are locked for Basic users. Upgrade the user\'s plan to Pro first.</div>';
+  if (!grid) {
+    if (title) title.textContent += ' ⚠ grid element missing';
+    return;
   }
 
-  grid.innerHTML = gridHtml;
+  try {
+    var firstUser = _umUsers.find(function(u){ return u.username === usernames[0]; });
+    var initPages = (firstUser && Array.isArray(firstUser.allowed_pages))
+                      ? firstUser.allowed_pages.slice()
+                      : (_PAGE_PRESETS && _PAGE_PRESETS.default ? _PAGE_PRESETS.default.slice() : []);
+    if (usernames.length > 1) initPages = [];
+
+    var hasBasicUser = usernames.some(function(un) {
+      var u = _umUsers.find(function(x){ return x.username === un; });
+      return !u || (u.plan || 'basic') === 'basic';
+    });
+
+    var allPages = (typeof _ALL_PAGES !== 'undefined' && Array.isArray(_ALL_PAGES)) ? _ALL_PAGES : [];
+    var proPages = (typeof _PRO_PAGES !== 'undefined' && Array.isArray(_PRO_PAGES)) ? _PRO_PAGES : [];
+
+    var gridHtml = '';
+    allPages.forEach(function(grp) {
+      gridHtml += '<div style="margin-bottom:14px;">';
+      gridHtml += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#3b82f6;margin-bottom:6px;border-bottom:1px solid #f3f4f6;padding-bottom:4px;">' + _esc(grp.group) + '</div>';
+      (grp.pages || []).forEach(function(p) {
+        var chk    = initPages.indexOf(p.key) !== -1;
+        var isPro  = proPages.indexOf(p.key) !== -1;
+        var locked = isPro && hasBasicUser;
+        var proTag = isPro ? ' <span style="font-size:9px;font-weight:700;color:#fff;background:#2563eb;border:1px solid #1d4ed8;border-radius:3px;padding:0 4px;">PRO</span>' : '';
+        gridHtml += '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:' + (locked ? '#9ca3af' : '#0f172a') + ';margin-bottom:5px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';"'
+          + (locked ? ' title="Upgrade user to Pro plan to enable this page"' : '') + '>'
+          + '<input type="checkbox" id="um-pg-' + p.key + '" value="' + p.key + '"'
+          + (chk && !locked ? ' checked' : '')
+          + (locked ? ' disabled' : '')
+          + ' style="cursor:' + (locked ? 'not-allowed' : 'pointer') + ';">'
+          + _esc(p.label) + proTag + '</label>';
+      });
+      gridHtml += '</div>';
+    });
+
+    if (hasBasicUser) {
+      gridHtml += '<div style="grid-column:1/-1;margin-top:4px;padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af;">Pro-plan pages (marked PRO) are locked for Basic users. Upgrade the user\'s plan to Pro first.</div>';
+    }
+
+    grid.innerHTML = gridHtml;
+  } catch(e) {
+    grid.innerHTML = '<div style="color:#dc2626;font-size:13px;padding:8px;">Error building page list: ' + (e && e.message ? e.message : String(e)) + '</div>';
+  }
 }
 
 function umClosePagesModal() {
