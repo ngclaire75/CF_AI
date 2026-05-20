@@ -268,12 +268,18 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 .tab-btn.active { color: var(--c4); border-bottom-color: var(--c4); }
 
 /* ── LOADING OVERLAY ── */
-#ink-loading-overlay { position: fixed; inset: 0; background: var(--c0);
+#ink-loading-overlay { position: fixed; inset: 0;
+  background: rgba(15,23,42,0.72);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 99999; }
-.ink-spin-ring { width: 40px; height: 40px;
-  border: 3px solid var(--c2); border-top-color: var(--c5);
-  border-radius: 50%; animation: spin .8s linear infinite; }
-.ink-spin-label { margin-top: 14px; font-size: 13px; color: var(--c7); font-weight: 600; }
+.ink-spin-card { background: rgba(23,37,84,0.92); border: 1px solid rgba(37,99,235,0.3);
+  border-radius: 16px; padding: 36px 52px;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+.ink-spin-ring { width: 48px; height: 48px;
+  border: 3px solid rgba(37,99,235,0.25); border-top-color: #3b82f6;
+  border-radius: 50%; animation: spin .75s linear infinite; }
+.ink-spin-label { margin-top: 18px; font-size: 13px; color: #93c5fd; font-weight: 600; letter-spacing: 0.3px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── LIVE STATS BAR ── */
@@ -1915,8 +1921,10 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
 <!-- Loading overlay -->
 <div id="ink-loading-overlay" style="display:none">
-  <div class="ink-spin-ring"></div>
-  <div class="ink-spin-label">Loading CyberINK…</div>
+  <div class="ink-spin-card">
+    <div class="ink-spin-ring"></div>
+    <div class="ink-spin-label" id="ink-spin-label">Loading CyberINK…</div>
+  </div>
 </div>
 
 <!-- ══ CUSTOMIZE DRAWER ══════════════════════════════════════════════════════ -->
@@ -8360,7 +8368,18 @@ function sbNav(section, el) {
   document.querySelectorAll('.page-section').forEach(function(p){ p.style.display='none'; p.classList.remove('active'); });
   // Show target page
   var pg = document.getElementById('page-' + section);
-  if (pg) { pg.style.display='block'; pg.classList.add('active'); }
+  if (pg) {
+    pg.style.display='block'; pg.classList.add('active');
+    // Resize any Chart.js instances on this page so returning after navigating away gives correct dimensions
+    if (typeof Chart !== 'undefined') {
+      pg.querySelectorAll('canvas').forEach(function(c) {
+        var ch = Chart.getChart(c);
+        if (ch) { try { ch.resize(); } catch(e){} }
+      });
+    }
+  }
+  // Always close any leftover overlay — spinner pages will re-show it synchronously in their load function
+  _hideLoadingOverlay();
   // Update sidebar active state
   document.querySelectorAll('.sb-item').forEach(function(b){ b.classList.remove('active'); });
   if (el) el.classList.add('active');
@@ -8716,8 +8735,12 @@ if (typeof Chart !== 'undefined') {
   Chart.defaults.plugins.tooltip.borderColor = '#d4dff0';
   Chart.defaults.plugins.tooltip.borderWidth = 1;
   Chart.defaults.plugins.tooltip.padding = 10;
-  Chart.defaults.scale.grid.color = '#eaf0fb';
-  Chart.defaults.scale.ticks.color = '#7a96bb';
+  try {
+    // Chart.js 4 uses `scales` (plural); fall back gracefully if the path differs
+    var _scaleDefaults = Chart.defaults.scale || {};
+    if (_scaleDefaults.grid)  _scaleDefaults.grid.color  = '#eaf0fb';
+    if (_scaleDefaults.ticks) _scaleDefaults.ticks.color = '#7a96bb';
+  } catch(e) {}
   Chart.defaults.animation.duration = 300;
 }
 
@@ -8727,8 +8750,15 @@ function _hideLoadingOverlay() {
   var el = document.getElementById('ink-loading-overlay');
   if (el) el.style.display = 'none';
 }
+function _showLoadingOverlay(msg) {
+  var lb = document.getElementById('ink-spin-label');
+  if (lb) lb.textContent = msg || 'Loading…';
+  var el = document.getElementById('ink-loading-overlay');
+  if (el) el.style.display = 'flex';
+}
 
 function loadDefDashboard() {
+  _showLoadingOverlay('Loading dashboard…');
   ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
     document.querySelectorAll('.'+cls).forEach(function(el){ el.style.opacity='0.35'; });
   });
@@ -8743,6 +8773,7 @@ function loadDefDashboard() {
 
   // Wave 1 — summary only (cached, fast): gauge, score ring, donut, sparklines
   summaryP.then(function(summary) {
+    if (_currentPage !== 'dashboard') return; // navigated away before fetch completed
     ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
       document.querySelectorAll('.'+cls).forEach(function(el){ el.style.opacity=''; });
     });
@@ -8755,15 +8786,17 @@ function loadDefDashboard() {
 
   // Wave 2 — needs stats + incidents + summary: KPIs, remediation, enterprise analytics
   Promise.all([statsP, incP, summaryP]).then(function(res) {
+    if (_currentPage !== 'dashboard') return;
     var stats=res[0], incData=res[1], summary=res[2];
     _mvdRenderKPIs(stats, incData.stats||{}, summary);
     _mvdRenderRemediation(incData.incidents||[], summary);
     _entRenderAnalytics(summary, incData);
     _hideLoadingOverlay();
-  }).catch(function(e){ console.error('Dashboard wave-2 error:', e); });
+  }).catch(function(e){ console.error('Dashboard wave-2 error:', e); _hideLoadingOverlay(); });
 
   // Wave 3 — needs recent output text: recommendations, events (slowest fetch, runs last)
   recentP.then(function(recent) {
+    if (_currentPage !== 'dashboard') return;
     _mvdRenderRecommendations(recent);
     _mvdRenderEvents(recent);
   }).catch(function(e){ console.error('Dashboard wave-3 error:', e); });
@@ -9250,9 +9283,7 @@ function _entRenderAnalytics(scans, incData) {
   }
 }
 
-// Hide overlay immediately once DOM is ready, then load data asynchronously
 document.addEventListener('DOMContentLoaded', function(){
-  _hideLoadingOverlay();
   _dashInitPanels();
   // Show the dashboard page first so Chart.js canvases have real dimensions
   var _initPg = document.getElementById('page-dashboard');
@@ -15075,6 +15106,7 @@ function _pciPgCard(title, key, data, perPage, renderBodyFn, footerTs) {
 function loadThreatAnalytics() {
   var grid = document.getElementById('ta-pci-grid');
   if (!grid) return;
+  _showLoadingOverlay('Loading threat analytics…');
   grid.innerHTML = '<div class="pci-card" style="grid-column:1/-1"><div class="pci-card-body pci-empty">Loading from scan database…</div></div>';
   _taPg = {};
   [_taChart,_taChart2,_taChart3,_taChart4,_taChart5].forEach(function(c){try{if(c)c.destroy();}catch(e){}});
@@ -15083,6 +15115,8 @@ function loadThreatAnalytics() {
   fetch('/api/analytics/pci')
     .then(function(r){ return r.json(); })
     .then(function(d) {
+      _hideLoadingOverlay();
+      if (_currentPage !== 'threatanalytics') return;
       if (d.error) {
         grid.innerHTML = '<div class="pci-card" style="grid-column:1/-1"><div class="pci-card-body pci-empty" style="color:#1e3a8a;">Error: ' + _esc(d.error) + (d.detail ? '<br><pre style="font-size:10px;white-space:pre-wrap;margin-top:8px;">' + _esc(d.detail) + '</pre>' : '') + '</div></div>';
         return;
@@ -15090,6 +15124,7 @@ function loadThreatAnalytics() {
       _taData = d; _taRender(d, grid);
     })
     .catch(function(e) {
+      _hideLoadingOverlay();
       grid.innerHTML = '<div class="pci-card" style="grid-column:1/-1"><div class="pci-card-body pci-empty" style="color:#1e3a8a;">Error loading data: ' + _esc(String(e)) + '</div></div>';
     });
 }
