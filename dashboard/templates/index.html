@@ -16840,7 +16840,7 @@ function umOpenPagesModal(usernames) {
   });
 
   // Build entire grid HTML as one string, then assign once
-  var gridHtml = '';
+  var gridHtml = '<div style="grid-column:1/-1;color:#dc2626;font-weight:700;font-size:13px;padding:4px 0;">DEBUG: ' + _ALL_PAGES.length + ' groups, initPages=' + initPages.length + '</div>';
   _ALL_PAGES.forEach(function(grp) {
     gridHtml += '<div style="margin-bottom:14px;">';
     gridHtml += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#3b82f6;margin-bottom:6px;border-bottom:1px solid #f3f4f6;padding-bottom:4px;">' + _esc(grp.group) + '</div>';
