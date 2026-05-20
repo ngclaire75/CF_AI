@@ -8326,6 +8326,7 @@ var _PRO_PAGES = ['scan', 'history', 'priority'];
 var _PUBLIC_PAGES = ['pricing', 'policy', 'privacy', 'account', 'credits'];
 
 var _currentPage = 'dashboard';
+var _pagesLoaded = {}; // tracks which sections have been visited at least once
 
 // Admin-only pages — blocked for everyone except admins
 var _ADMIN_PAGES = ['usermgmt', 'invoices', 'apptmgmt'];
@@ -8374,8 +8375,16 @@ function sbNav(section, el) {
       });
     }
   }
-  // Always close any leftover overlay — spinner pages will re-show it synchronously in their load function
-  _hideLoadingOverlay();
+  // Show spinner on first visit to a section; re-visits skip it (data already rendered)
+  if (!_pagesLoaded[section]) {
+    _pagesLoaded[section] = true;
+    _showLoadingOverlay('Loading…');
+    // Safety net: always hide after 2.5s in case the page has no explicit hide call
+    clearTimeout(window._navSpinTimer);
+    window._navSpinTimer = setTimeout(_hideLoadingOverlay, 2500);
+  } else {
+    _hideLoadingOverlay(); // close any leftover overlay from previous page
+  }
   // Update sidebar active state
   document.querySelectorAll('.sb-item').forEach(function(b){ b.classList.remove('active'); });
   if (el) el.classList.add('active');
@@ -8743,6 +8752,7 @@ if (typeof Chart !== 'undefined') {
 var _mvdCharts = {};
 
 function _hideLoadingOverlay() {
+  clearTimeout(window._navSpinTimer);
   var el = document.getElementById('ink-loading-overlay');
   if (el) el.style.display = 'none';
 }
@@ -8759,6 +8769,7 @@ function _showLoadingOverlay(msg) {
 }
 
 function loadDefDashboard() {
+  _pagesLoaded['dashboard'] = true; // mark visited so sbNav won't double-show
   _showLoadingOverlay('Loading dashboard…');
   ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
     document.querySelectorAll('.'+cls).forEach(function(el){ el.style.opacity='0.35'; });
@@ -15107,6 +15118,7 @@ function _pciPgCard(title, key, data, perPage, renderBodyFn, footerTs) {
 function loadThreatAnalytics() {
   var grid = document.getElementById('ta-pci-grid');
   if (!grid) return;
+  _pagesLoaded['threatanalytics'] = true; // mark visited so sbNav won't double-show
   _showLoadingOverlay('Loading threat analytics…');
   grid.innerHTML = '<div class="pci-card" style="grid-column:1/-1"><div class="pci-card-body pci-empty">Loading from scan database…</div></div>';
   _taPg = {};
