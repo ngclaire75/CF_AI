@@ -15986,7 +15986,7 @@ function loadUserMgmt() {
         } else {
           var ap = u.allowed_pages;
           var count = ap === null || ap === undefined ? '—' : ap.length + ' pages';
-          pagesCell = '<button class="um-pages-btn" data-u="'+_esc(u.username)+'" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#eff6ff;cursor:pointer;">'
+          pagesCell = '<button data-u="'+_esc(u.username)+'" onclick="umOpenPagesModal([this.dataset.u])" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#eff6ff;cursor:pointer;">'
             + count + ' — Edit</button>';
         }
 
@@ -16028,14 +16028,9 @@ function loadUserMgmt() {
           + '<td style="white-space:nowrap;">'+actions+'</td>'
           + '</tr>';
       }).join('');
-      tbody.onclick = function(e) {
-        var btn = e.target.closest ? e.target.closest('.um-pages-btn') : null;
-        if (!btn) return;
-        var username = btn.getAttribute('data-u');
-        if (username) umOpenPagesModal([username]);
-      };
+      _hideLoadingOverlay();
     })
-    .catch(function(){ tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#1e3a8a;">Failed to load users.</td></tr>'; });
+    .catch(function(){ tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#1e3a8a;">Failed to load users.</td></tr>'; _hideLoadingOverlay(); });
 }
 
 function umSetPlan(username, newPlan) {
