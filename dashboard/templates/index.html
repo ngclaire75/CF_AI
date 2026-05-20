@@ -271,16 +271,14 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 #ink-loading-overlay { position: fixed; inset: 0;
   background: rgba(15,23,42,0.72);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 99999; }
-.ink-spin-card { background: rgba(23,37,84,0.92); border: 1px solid rgba(37,99,235,0.3);
-  border-radius: 16px; padding: 36px 52px;
-  display: flex; flex-direction: column; align-items: center;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+  display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 99999;
+  animation: _overlayIn 0.2s ease 0.15s both; }
 .ink-spin-ring { width: 48px; height: 48px;
   border: 3px solid rgba(37,99,235,0.25); border-top-color: #3b82f6;
   border-radius: 50%; animation: spin .75s linear infinite; }
 .ink-spin-label { margin-top: 18px; font-size: 13px; color: #93c5fd; font-weight: 600; letter-spacing: 0.3px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes _overlayIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* ── LIVE STATS BAR ── */
 #live-stats-bar { display: none; gap: 20px; padding: 0 20px;
@@ -1921,10 +1919,8 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
 <!-- Loading overlay -->
 <div id="ink-loading-overlay" style="display:none">
-  <div class="ink-spin-card">
-    <div class="ink-spin-ring"></div>
-    <div class="ink-spin-label" id="ink-spin-label">Loading CyberINK…</div>
-  </div>
+  <div class="ink-spin-ring"></div>
+  <div class="ink-spin-label" id="ink-spin-label">Loading CyberINK…</div>
 </div>
 
 <!-- ══ CUSTOMIZE DRAWER ══════════════════════════════════════════════════════ -->
@@ -8754,7 +8750,12 @@ function _showLoadingOverlay(msg) {
   var lb = document.getElementById('ink-spin-label');
   if (lb) lb.textContent = msg || 'Loading…';
   var el = document.getElementById('ink-loading-overlay');
-  if (el) el.style.display = 'flex';
+  if (!el) return;
+  // Reset animation so the fade-in delay triggers fresh on every show
+  el.style.animation = 'none';
+  el.offsetHeight; // force reflow
+  el.style.animation = '';
+  el.style.display = 'flex';
 }
 
 function loadDefDashboard() {
