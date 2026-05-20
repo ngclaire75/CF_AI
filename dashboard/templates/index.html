@@ -20,7 +20,7 @@ if(window.Chart) return;
 console.warn('Chart.js CDN failed — using stub');
 window.Chart=function(){this.data={};this.options={};this.destroy=function(){};this.update=function(){};};
 window.Chart.register=function(){};
-window.Chart.defaults={font:{size:12},color:'#1e3a8a',plugins:{legend:{labels:{color:'#1e3a8a'}},tooltip:{backgroundColor:'#fff',titleColor:'#0b1426',bodyColor:'#1e3a8a',borderColor:'#e1dfdd',borderWidth:1,padding:10}},scales:{},elements:{}};
+window.Chart.defaults={font:{size:12},color:'#1e3a8a',animation:{duration:300},plugins:{legend:{labels:{color:'#1e3a8a'}},tooltip:{backgroundColor:'#fff',titleColor:'#0b1426',bodyColor:'#1e3a8a',borderColor:'#e1dfdd',borderWidth:1,padding:10}},scales:{},elements:{}};
 })();
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -8746,7 +8746,7 @@ if (typeof Chart !== 'undefined') {
     if (_scaleDefaults.grid)  _scaleDefaults.grid.color  = '#eaf0fb';
     if (_scaleDefaults.ticks) _scaleDefaults.ticks.color = '#7a96bb';
   } catch(e) {}
-  Chart.defaults.animation.duration = 300;
+  if (Chart.defaults.animation) Chart.defaults.animation.duration = 300;
 }
 
 var _mvdCharts = {};

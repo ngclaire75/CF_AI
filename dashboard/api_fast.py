@@ -80,6 +80,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_CDN_SCRIPT_SOURCES = (
+    "cdn.jsdelivr.net "
+    "cdnjs.cloudflare.com "
+    "unpkg.com "
+    "app.midtrans.com"
+)
+_CDN_STYLE_SOURCES = "unpkg.com cdn.jsdelivr.net cdnjs.cloudflare.com"
+
+_CSP = (
+    f"default-src 'self'; "
+    f"script-src 'self' 'unsafe-inline' 'unsafe-eval' {_CDN_SCRIPT_SOURCES}; "
+    f"style-src 'self' 'unsafe-inline' {_CDN_STYLE_SOURCES}; "
+    f"img-src 'self' data: https:; "
+    f"font-src 'self' data: https:; "
+    f"connect-src 'self' wss: https:; "
+    f"frame-ancestors 'none';"
+)
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = _CSP
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
 _TMPL_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(_TMPL_DIR))
 
