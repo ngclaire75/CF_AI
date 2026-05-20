@@ -1,0 +1,18 @@
+[Unit]
+Description=CF_AI FastAPI WebSocket server (port 8890)
+After=network.target cfai-dashboard.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/CF_AI
+EnvironmentFile=/opt/CF_AI/.env
+Environment=CFAI_DASHBOARD_PORT=8890
+ExecStart=/usr/bin/python3 -m uvicorn dashboard.api_fast:app --host 127.0.0.1 --port 8890 --no-access-log
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
