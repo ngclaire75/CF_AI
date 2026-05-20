@@ -12,186 +12,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap-grid.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <!-- Chart.js loads first as the reliable fallback renderer -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <!-- Recharts + React: when available, the shim below overrides window.Chart with Recharts -->
-  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/recharts.min.js"></script>
   <script>
-/* ── RECHARTS CHART SHIM — replaces Chart.js 4.x with React 18 + Recharts ── */
+/* ── Chart.js stub — loaded only when CDN fails ── */
 (function(){
-'use strict';
-var R=window.Recharts, _R=window.React, _RD=window.ReactDOM;
-if(!R||!_R||!_RD){
-  // Recharts/React CDN didn't load — keep Chart.js if it loaded, else minimal stub
-  if(!window.Chart){
-    console.warn('No chart library loaded — using stub');
-    window.Chart=function(){this.data={};this.options={};this.destroy=function(){};this.update=function(){};};
-    window.Chart.register=function(){};
-    window.Chart.defaults={font:{size:12,family:'Inter,system-ui,sans-serif'},color:'#1e3a8a',
-      plugins:{legend:{labels:{color:'#1e3a8a'}},tooltip:{backgroundColor:'#fff',titleColor:'#0b1426',
-      bodyColor:'#1e3a8a',borderColor:'#e1dfdd',borderWidth:1,padding:10}},scales:{},elements:{}};
-  } else {
-    console.log('Recharts not available — using Chart.js as renderer');
-  }
-  return;
-}
-var h=_R.createElement;
-
-function _fmt(v){if(v>=1e6)return(v/1e6).toFixed(1)+'M';if(v>=1e3)return(v/1e3).toFixed(1)+'k';return v;}
-
-function _dk(i){return '_d'+i;}  // safe dataKey: _d0, _d1, _d2 ...
-function _toData(labels,datasets){
-  return(labels||[]).map(function(name,i){
-    var pt={name:name};
-    (datasets||[]).forEach(function(ds,di){pt[_dk(di)]=ds.data?+(ds.data[i]||0):0;});
-    return pt;
-  });
-}
-
-function _mkLine(cfg,ht){
-  var ds=cfg.data.datasets||[],labs=cfg.data.labels||[],data=_toData(labs,ds),opts=cfg.options||{};
-  var isArea=ds.some(function(d){return d.fill;});
-  var CT=isArea?R.AreaChart:R.LineChart,ST=isArea?R.Area:R.Line;
-  var yOpts=(opts.scales&&opts.scales.y)||{};
-  return h(R.ResponsiveContainer,{width:'100%',height:ht},
-    h(CT,{data:data,margin:{top:4,right:4,left:-16,bottom:4}},
-      h(R.CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
-      h(R.XAxis,{dataKey:'name',tick:{fontSize:9,fill:'#94a3b8'},axisLine:false,tickLine:false}),
-      h(R.YAxis,{tick:{fontSize:9,fill:'#94a3b8'},axisLine:false,tickLine:false,tickFormatter:_fmt,
-        domain:yOpts.min!=null?[yOpts.min,'auto']:['auto','auto']}),
-      h(R.Tooltip,{contentStyle:{fontSize:11,borderRadius:4}}),
-      ds.map(function(d,i){
-        return h(ST,{key:'ds'+i,type:'monotone',dataKey:_dk(i),name:d.label||('Series '+(i+1)),
-          stroke:d.borderColor||'#2563eb',
-          fill:d.fill?(typeof d.backgroundColor==='string'?d.backgroundColor:'rgba(37,99,235,.15)'):'none',
-          dot:false,strokeWidth:d.borderWidth||1.5,fillOpacity:0.7,
-          strokeDasharray:d.borderDash?d.borderDash.join(' '):undefined});
-      })
-    )
-  );
-}
-
-function _mkBar(cfg,ht){
-  var ds=cfg.data.datasets||[],labs=cfg.data.labels||[],data=_toData(labs,ds),opts=cfg.options||{};
-  var isH=opts.indexAxis==='y',isStack=ds.some(function(d){return d.stack;});
-  var stk=isStack?{stackId:'s'}:{};
-  return h(R.ResponsiveContainer,{width:'100%',height:ht},
-    h(R.BarChart,{data:data,layout:isH?'vertical':'horizontal',margin:{top:4,right:4,left:isH?60:-16,bottom:4}},
-      h(R.CartesianGrid,{strokeDasharray:'3 3',stroke:'#f1f5f9',horizontal:!isH,vertical:isH}),
-      isH
-        ?h(R.XAxis,{type:'number',tick:{fontSize:9,fill:'#94a3b8'},axisLine:false,tickLine:false})
-        :h(R.XAxis,{dataKey:'name',tick:{fontSize:9,fill:'#94a3b8'},axisLine:false,tickLine:false}),
-      isH
-        ?h(R.YAxis,{type:'category',dataKey:'name',tick:{fontSize:9,fill:'#94a3b8'},axisLine:false,tickLine:false,width:54})
-        :h(R.YAxis,{tick:{fontSize:9,fill:'#94a3b8'},axisLine:false,tickLine:false,tickFormatter:_fmt}),
-      h(R.Tooltip,{contentStyle:{fontSize:11,borderRadius:4}}),
-      ds.map(function(d,i){
-        var fillCol=Array.isArray(d.backgroundColor)
-          ?undefined
-          :(d.backgroundColor||['#172554','#1e3a8a','#2563eb','#60a5fa','#93c5fd','#bfdbfe'][i%6]);
-        var bars=h(R.Bar,Object.assign({key:'ds'+i,dataKey:_dk(i),name:d.label||('Series '+(i+1)),
-          fill:fillCol||'#2563eb',
-          radius:d.borderRadius?[2,2,0,0]:[2,2,0,0],maxBarSize:36},stk),
-          Array.isArray(d.backgroundColor)?d.backgroundColor.map(function(c,ci){
-            return h(R.Cell,{key:'cl'+ci,fill:c});
-          }):null);
-        return bars;
-      })
-    )
-  );
-}
-
-function _mkPie(cfg,ht,isDoughnut){
-  var dataset=(cfg.data.datasets||[])[0]||{},labs=cfg.data.labels||[];
-  var bg=dataset.backgroundColor,vals=dataset.data||[];
-  var data=labs.length?labs.map(function(n,i){return{name:n,value:+(vals[i]||0),
-    fill:Array.isArray(bg)?bg[i]:(bg||'#2563eb')};})
-    :vals.map(function(v,i){return{name:i+'',value:+v,
-      fill:Array.isArray(bg)?bg[i]:(bg||['#2563eb','#e8e6e3'][i%2])};});
-  var opts=cfg.options||{},cutoutPct=parseFloat(opts.cutout)||0;
-  var outerR=Math.min(ht*0.42,80),innerR=isDoughnut?outerR*(cutoutPct/100||0.6):0;
-  var pluginOpts=opts.plugins||{};
-  var showLeg=pluginOpts.legend&&pluginOpts.legend.display!==false&&labs.length>0;
-  /* half-donut detection: Chart.js circumference:180 */
-  var isHalf=opts.circumference===180||opts.circumference===Math.PI;
-  var sa=isHalf?180:90,ea=isHalf?0:-270;
-  return h(R.ResponsiveContainer,{width:'100%',height:ht},
-    h(R.PieChart,{margin:{top:4,right:4,bottom:4,left:4}},
-      h(R.Pie,{data:data,innerRadius:innerR,outerRadius:outerR,dataKey:'value',nameKey:'name',
-        startAngle:sa,endAngle:ea,paddingAngle:isDoughnut&&!isHalf?2:0,strokeWidth:0},
-        data.map(function(e,i){return h(R.Cell,{key:'c'+i,fill:e.fill,stroke:'transparent'});})),
-      showLeg?h(R.Legend,{iconSize:10,wrapperStyle:{fontSize:'11px'}}):null,
-      (pluginOpts.tooltip&&pluginOpts.tooltip.enabled===false)?null:h(R.Tooltip,{contentStyle:{fontSize:11,borderRadius:4}})
-    )
-  );
-}
-
-function _mkRadar(cfg,ht){
-  var ds=cfg.data.datasets||[],labs=cfg.data.labels||[];
-  var data=labs.map(function(n,i){var pt={subject:n};ds.forEach(function(d,di){pt[_dk(di)]=+(d.data?d.data[i]:0)||0;});return pt;});
-  var c=['#2563eb','#bfdbfe','#60a5fa'];
-  return h(R.ResponsiveContainer,{width:'100%',height:ht},
-    h(R.RadarChart,{data:data,margin:{top:10,right:14,bottom:10,left:14}},
-      h(R.PolarGrid,{stroke:'#e2e8f0'}),
-      h(R.PolarAngleAxis,{dataKey:'subject',tick:{fontSize:8,fill:'#1e3a8a'}}),
-      h(R.PolarRadiusAxis,{angle:90,domain:[0,100],tick:false,axisLine:false}),
-      ds.map(function(d,i){return h(R.Radar,{key:'ds'+i,name:d.label||('Series '+(i+1)),dataKey:_dk(i),
-        stroke:d.borderColor||c[i%3],fill:d.borderColor||c[i%3],fillOpacity:0.15,dot:false});}),
-      h(R.Tooltip,{contentStyle:{fontSize:11}})
-    )
-  );
-}
-
-function _build(cfg,ht){
-  var t=cfg.type||'line';
-  if(t==='line'||t==='area')return _mkLine(cfg,ht);
-  if(t==='bar')return _mkBar(cfg,ht);
-  if(t==='doughnut')return _mkPie(cfg,ht,true);
-  if(t==='pie')return _mkPie(cfg,ht,false);
-  if(t==='radar')return _mkRadar(cfg,ht);
-  return _mkLine(cfg,ht);
-}
-
-window.Chart=function(canvasOrCtx,config){
-  var canvas=(canvasOrCtx&&canvasOrCtx.canvas)?canvasOrCtx.canvas:canvasOrCtx;
-  var parent=canvas?canvas.parentElement:null;
-  var self=this;
-  this.data=config?config.data:{};
-  this.options=config?config.options:{};
-  this.destroy=function(){};
-  this.update=function(){};
-  if(!parent||!config)return;
-  var ht=parseInt(canvas.getAttribute('height'))||parent.offsetHeight||200;
-  if(ht<40)ht=200;
-  var wrap=document.createElement('div');
-  wrap.style.cssText='width:100%;height:'+ht+'px;position:relative;overflow:hidden;';
-  canvas.style.display='none';
-  parent.insertBefore(wrap,canvas);
-  var root=_RD.createRoot(wrap);
-  try{root.render(_build(config,ht));}catch(e){console.warn('cfaiChart render:',e);}
-  this._root=root;this._wrap=wrap;this._canvas=canvas;
-  this.destroy=function(){
-    try{self._root.unmount();}catch(e){}
-    if(self._canvas)self._canvas.style.display='';
-    if(self._wrap&&self._wrap.parentElement)self._wrap.parentElement.removeChild(self._wrap);
-  };
-  this.update=function(){
-    try{self._root.render(_build(config,ht));}catch(e){}
-  };
-};
+if(window.Chart) return;
+console.warn('Chart.js CDN failed — using stub');
+window.Chart=function(){this.data={};this.options={};this.destroy=function(){};this.update=function(){};};
 window.Chart.register=function(){};
-window.Chart.defaults={
-  font:{size:12,family:"'Inter',system-ui,sans-serif"},
-  color:'#1e3a8a',borderColor:'#d4dff0',
-  plugins:{
-    legend:{labels:{color:'#1e3a8a',boxWidth:10}},
-    tooltip:{backgroundColor:'#fff',titleColor:'#0b1426',bodyColor:'#1e3a8a',
-             borderColor:'#e1dfdd',borderWidth:1,padding:10}
-  },
-  scales:{},elements:{}
-};
+window.Chart.defaults={font:{size:12},color:'#1e3a8a',plugins:{legend:{labels:{color:'#1e3a8a'}},tooltip:{backgroundColor:'#fff',titleColor:'#0b1426',bodyColor:'#1e3a8a',borderColor:'#e1dfdd',borderWidth:1,padding:10}},scales:{},elements:{}};
 })();
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -16076,7 +15905,7 @@ function loadUserMgmt() {
         } else {
           var ap = u.allowed_pages;
           var count = ap === null || ap === undefined ? '—' : ap.length + ' pages';
-          pagesCell = '<button onclick="umOpenPagesModal([\''+_esc(u.username)+'\'])" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#eff6ff;cursor:pointer;">'
+          pagesCell = '<button class="um-pages-btn" data-u="'+_esc(u.username)+'" style="font-size:11px;padding:3px 10px;border:1px solid #c8c6c4;border-radius:4px;background:#eff6ff;cursor:pointer;">'
             + count + ' — Edit</button>';
         }
 
@@ -16118,6 +15947,12 @@ function loadUserMgmt() {
           + '<td style="white-space:nowrap;">'+actions+'</td>'
           + '</tr>';
       }).join('');
+      tbody.onclick = function(e) {
+        var btn = e.target.closest ? e.target.closest('.um-pages-btn') : null;
+        if (!btn) return;
+        var username = btn.getAttribute('data-u');
+        if (username) umOpenPagesModal([username]);
+      };
     })
     .catch(function(){ tbody.innerHTML = '<tr><td colspan="8" class="mdef-empty" style="color:#1e3a8a;">Failed to load users.</td></tr>'; });
 }
@@ -16134,6 +15969,7 @@ function umSetPlan(username, newPlan) {
 
 var _pageLang = {};
 function setPageLang(pageId, lang) {
+  _pageLang = _pageLang || {};
   var pg = document.getElementById('page-' + pageId);
   if (!pg) return;
   _pageLang[pageId] = lang;
@@ -16632,6 +16468,7 @@ function slPopulateSourceSnippets(tab) {
 }
 
 function initPricingPage() {
+  _pageLang = _pageLang || {};
   var basicCard  = document.getElementById('pricing-card-basic');
   var proCard    = document.getElementById('pricing-card-pro');
   var basicBadge = document.getElementById('pricing-basic-badge');
@@ -16749,6 +16586,7 @@ function paymentSubscribe() {
 }
 
 function paymentCancelSelf() {
+  _pageLang = _pageLang || {};
   var isEn = _pageLang['pricing'] === 'en';
   if (!confirm(isEn ? 'Cancel your Pro subscription? Your plan will revert to Basic.' : 'Batalkan langganan Pro? Akun Anda akan kembali ke Basic.')) return;
   fetch('/api/payment/cancel', {method:'POST'})
@@ -16760,6 +16598,7 @@ function paymentCancelSelf() {
 }
 
 function pricingToggleBilling(isAnnual) {
+  _pageLang = _pageLang || {};
   var mPrices = document.querySelectorAll('.pricing-price-monthly');
   var aPrices = document.querySelectorAll('.pricing-price-annual');
   var mLbl    = document.getElementById('ptoggle-monthly-lbl');
