@@ -269,7 +269,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
   background: rgba(15,23,42,0.72);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 99999;
-  animation: _overlayIn 0.2s ease 0.15s both; }
+  animation: _overlayIn 0.12s ease 0s both; }
 .ink-spin-ring { width: 48px; height: 48px;
   border: 3px solid rgba(37,99,235,0.25); border-top-color: #3b82f6;
   border-radius: 50%; animation: spin .75s linear infinite; }
@@ -8353,29 +8353,35 @@ function sbNav(section, el) {
     if (banner) { banner.style.display = 'block'; }
     return;
   }
-  // Hide all pages
+  // Hide all pages — page stays hidden until _hideLoadingOverlay reveals it via _pendingPage
   document.querySelectorAll('.page-section').forEach(function(p){ p.style.display='none'; p.classList.remove('active'); });
-  // Show target page
   var pg = document.getElementById('page-' + section);
-  if (pg) {
-    pg.style.display='block'; pg.classList.add('active');
-    // Resize any Chart.js instances on this page so returning after navigating away gives correct dimensions
-    if (typeof Chart !== 'undefined') {
-      pg.querySelectorAll('canvas').forEach(function(c) {
-        var ch = Chart.getChart(c);
-        if (ch) { try { ch.resize(); } catch(e){} }
-      });
-    }
-  }
-  // Show spinner on first visit to a section; re-visits skip it (data already rendered)
-  if (!_pagesLoaded[section]) {
+  // Static/instant sections need no spinner — reveal immediately
+  var _instantPages = ['network','agents','policy','privacy','support'];
+  if (_instantPages.indexOf(section) !== -1) {
+    window._pendingPage = null;
+    _hideLoadingOverlay();
+    if (pg) { pg.style.display='block'; pg.classList.add('active'); }
+  } else if (!_pagesLoaded[section]) {
+    // First visit — show spinner BEFORE page; load function will call _hideLoadingOverlay to reveal
     _pagesLoaded[section] = true;
+    window._pendingPage = pg;
     _showLoadingOverlay('Loading…');
-    // Safety net: always hide after 2.5s in case the page has no explicit hide call
     clearTimeout(window._navSpinTimer);
     window._navSpinTimer = setTimeout(_hideLoadingOverlay, 2500);
   } else {
-    _hideLoadingOverlay(); // close any leftover overlay from previous page
+    // Re-visit — close any leftover overlay and show page immediately
+    window._pendingPage = null;
+    _hideLoadingOverlay();
+    if (pg) {
+      pg.style.display = 'block'; pg.classList.add('active');
+      if (typeof Chart !== 'undefined') {
+        pg.querySelectorAll('canvas').forEach(function(c) {
+          var ch = Chart.getChart(c);
+          if (ch) { try { ch.resize(); } catch(e){} }
+        });
+      }
+    }
   }
   // Update sidebar active state
   document.querySelectorAll('.sb-item').forEach(function(b){ b.classList.remove('active'); });
@@ -8747,6 +8753,18 @@ function _hideLoadingOverlay() {
   clearTimeout(window._navSpinTimer);
   var el = document.getElementById('ink-loading-overlay');
   if (el) el.style.display = 'none';
+  if (window._pendingPage) {
+    var pg = window._pendingPage;
+    window._pendingPage = null;
+    pg.style.display = 'block';
+    pg.classList.add('active');
+    if (typeof Chart !== 'undefined') {
+      pg.querySelectorAll('canvas').forEach(function(c) {
+        var ch = Chart.getChart(c);
+        if (ch) { try { ch.resize(); } catch(e){} }
+      });
+    }
+  }
 }
 function _showLoadingOverlay(msg) {
   var lb = document.getElementById('ink-spin-label');
@@ -12935,6 +12953,7 @@ function _clearMysqlCreds() {
 function _checkMysqlSavedIndicator() {
   var ind = document.getElementById('le-mysql-saved-indicator');
   if (ind) ind.style.display = _getMysqlCreds() ? 'inline' : 'none';
+  _hideLoadingOverlay();
 }
 function _getCpanelCreds() {
   try {
@@ -14635,23 +14654,25 @@ function _renderUsageBar(used, limit, label) {
 function updateChatUsage() {
   fetch('/api/usage').then(function(r){ return r.json(); }).then(function(d) {
     var bar = document.getElementById('chat-usage-bar');
-    if (!bar) return;
-    if (d.admin) { bar.innerHTML = ''; return; }
+    if (!bar) { _hideLoadingOverlay(); return; }
+    if (d.admin) { bar.innerHTML = ''; _hideLoadingOverlay(); return; }
     var cr = d.credits !== undefined ? d.credits : null;
     bar.innerHTML = _renderUsageBar(d.prompts.used, d.prompts.limit, 'AI Prompts')
       + (cr !== null ? '<div style="font-size:11px;color:#64748b;margin-top:4px;">Credits: <strong style="color:'+(cr>100?'#15803d':cr>0?'#d97706':'#dc2626')+';">' + cr.toLocaleString() + '</strong> remaining</div>' : '');
-  }).catch(function(){});
+    _hideLoadingOverlay();
+  }).catch(function(){ _hideLoadingOverlay(); });
 }
 
 function updateScanUsage() {
   fetch('/api/usage').then(function(r){ return r.json(); }).then(function(d) {
     var bar = document.getElementById('scan-usage-bar');
-    if (!bar) return;
-    if (d.admin) { bar.innerHTML = ''; return; }
+    if (!bar) { _hideLoadingOverlay(); return; }
+    if (d.admin) { bar.innerHTML = ''; _hideLoadingOverlay(); return; }
     var cr = d.credits !== undefined ? d.credits : null;
     bar.innerHTML = _renderUsageBar(d.scans.used, d.scans.limit, 'Scans')
       + (cr !== null ? '<div style="font-size:11px;color:#64748b;margin-top:4px;">Credits: <strong style="color:'+(cr>100?'#15803d':cr>0?'#d97706':'#dc2626')+';">' + cr.toLocaleString() + '</strong> remaining</div>' : '');
-  }).catch(function(){});
+    _hideLoadingOverlay();
+  }).catch(function(){ _hideLoadingOverlay(); });
 }
 
 // ── Admin: Load Credits modal ────────────────────────────────────────────────
@@ -14694,7 +14715,7 @@ function loadCreditsPage() {
     var balEl   = document.getElementById('cr-balance');
     var barArea = document.getElementById('cr-bar-area');
     var todayEl = document.getElementById('cr-today-area');
-    if (!balEl) return;
+    if (!balEl) { _hideLoadingOverlay(); return; }
 
     if (d.admin) {
       balEl.textContent = '∞';
@@ -14703,7 +14724,7 @@ function loadCreditsPage() {
         '<div class="cr-stat-card" style="grid-column:1/-1;">'
         + '<div><div class="cr-stat-num" style="color:#15803d;">Unlimited</div>'
         + '<div class="cr-stat-lbl">Admin — unrestricted access to all AI features</div></div></div>';
-      return;
+      _hideLoadingOverlay(); return;
     }
 
     var cr     = d.credits || 0;
@@ -14751,7 +14772,8 @@ function loadCreditsPage() {
         todayEl.innerHTML = '';
       }
     }
-  }).catch(function(){});
+    _hideLoadingOverlay();
+  }).catch(function(){ _hideLoadingOverlay(); });
 }
 function crPreset(n) {
   var el = document.getElementById('cr-req-amount');
@@ -16190,6 +16212,7 @@ function initSyslogPage() {
     slLoadToken();
   }
 
+  _hideLoadingOverlay();
   slRefresh();
   _slLive = true;
   clearInterval(_slTimer);
@@ -16603,6 +16626,7 @@ function initPricingPage() {
   if (adminNote) adminNote.style.display = USER_ROLE === 'admin' ? 'block' : 'none';
   var tog = document.getElementById('ptoggle-input');
   if (tog) { tog.checked = false; pricingToggleBilling(false); }
+  _hideLoadingOverlay();
 }
 
 function paymentSubscribe() {
@@ -18188,6 +18212,7 @@ function grcInit() {
   grcLoadStats();
   grcLoadControls();
   if (USER_ROLE === 'admin') _grcLoadUserList();
+  _hideLoadingOverlay();
 }
 
 var _grcUserList = [];
@@ -20878,7 +20903,8 @@ function grcExport() {
       if (banner) banner.style.display = d.installed ? 'none' : 'flex';
       var badge = document.querySelector('.sca-semgrep-badge');
       if (badge && d.installed && d.version) badge.textContent = 'semgrep ' + d.version;
-    }).catch(function(){});
+      _hideLoadingOverlay();
+    }).catch(function(){ _hideLoadingOverlay(); });
   };
 
   window.scaInstall = function() {
@@ -21034,7 +21060,8 @@ function dcaLoadScanners() {
       var ver = _vm ? ' <span style="font-weight:400;opacity:.8">'+_vm+'</span>' : '';
       c.innerHTML = labels[s]+ver;
     });
-  }).catch(function(){});
+    _hideLoadingOverlay();
+  }).catch(function(){ _hideLoadingOverlay(); });
 }
 
 function dcaRunScan() {
