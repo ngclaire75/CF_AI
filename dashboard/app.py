@@ -873,7 +873,7 @@ def _email_html(subject: str, body: str) -> str:
     <tr>
       <td style="background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);padding:24px 32px;">
         <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-.5px;
-                    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">CyberINK</div>
+                    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">Intel Web Security</div>
         <div style="font-size:10px;color:#93c5fd;letter-spacing:.8px;text-transform:uppercase;
                     margin-top:4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">Security Intelligence</div>
       </td>
@@ -888,7 +888,7 @@ def _email_html(subject: str, body: str) -> str:
       <td class="efoot" style="background-color:#f8faff;border-top:1px solid #bfdbfe;padding:14px 32px;">
         <p class="efp" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
                                color:#64748b;font-size:11px;margin:0;line-height:1.6;">
-          &copy; {year} CyberINK Security Intelligence &mdash; Automated message, do not reply.
+          &copy; {year} Intel Web Security Security Intelligence &mdash; Automated message, do not reply.
         </p>
       </td>
     </tr>
@@ -904,13 +904,13 @@ def _send_verification_email(to_email: str, token: str) -> bool:
         return False
     try:
         verify_url = f'{_BASE_URL}/verify/{token}'
-        subject = 'Verify your CyberINK account'
+        subject = 'Verify your Intel Web Security account'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 12px;">
             Verify your email address
           </p>
           <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 28px;">
-            Thanks for signing up to CyberINK. Click the button below to verify your
+            Thanks for signing up to Intel Web Security. Click the button below to verify your
             email address and activate your account.<br><br>
             This link expires in <strong>24&nbsp;hours</strong>.
           </p>
@@ -923,14 +923,14 @@ def _send_verification_email(to_email: str, token: str) -> bool:
             </a>
           </td></tr></table>
           <p class="ep" style="color:#64748b;font-size:11px;margin-top:28px;line-height:1.7;">
-            If you didn't create a CyberINK account, you can safely ignore this email.<br>
+            If you didn't create a Intel Web Security account, you can safely ignore this email.<br>
             Or copy this link into your browser:<br>
             <a href="{verify_url}" class="elink"
               style="color:#2563eb;word-break:break-all;font-size:11px;">{verify_url}</a>
           </p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
         msg['To']      = to_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -1048,7 +1048,7 @@ def _send_admin_low_balance_alert(error_detail: str = '', username: str = '') ->
                     recipients.append(e)
         except Exception:
             pass
-        subject = '[CyberINK] URGENT — Anthropic API credit balance too low'
+        subject = '[Intel Web Security] URGENT — Anthropic API credit balance too low'
         body = f"""
           <p class="eh1" style="color:#dc2626;font-size:16px;font-weight:700;margin:0 0 8px;">
             Anthropic API Credit Balance Too Low
@@ -1092,7 +1092,7 @@ def _send_admin_low_balance_alert(error_detail: str = '', username: str = '') ->
         for to_email in recipients:
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
-            msg['From']    = f'CyberINK <{_SMTP_USER}>'
+            msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
             msg['To']      = to_email
             msg.attach(MIMEText(_email_html(subject, body), 'html'))
             with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -1207,19 +1207,19 @@ def _send_policy_update_email(to_email: str, version: str) -> None:
         return
     try:
         updated = _datetime.datetime.now().strftime('%d %B %Y')
-        subject = 'CyberINK Privacy Policy Updated'
+        subject = 'Intel Web Security Privacy Policy Updated'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 12px;">
             Privacy Policy Updated
           </p>
           <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 16px;">
-            The CyberINK Privacy Policy has been updated on <strong>{updated}</strong>
+            The Intel Web Security Privacy Policy has been updated on <strong>{updated}</strong>
             (platform version <code style="background:#eff6ff;padding:2px 6px;border-radius:4px;
             font-size:12px;color:#1d4ed8;border:1px solid #bfdbfe;">v{version}</code>).
           </p>
           <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 24px;">
             We recommend reviewing the updated policy to understand how your data is handled.
-            You can view the full Privacy Policy by logging in to the CyberINK platform and
+            You can view the full Privacy Policy by logging in to the Intel Web Security platform and
             navigating to <strong>Pricing &rarr; Privacy Policy</strong>.
           </p>
           <table cellpadding="0" cellspacing="0" border="0"><tr><td>
@@ -1231,13 +1231,13 @@ def _send_policy_update_email(to_email: str, version: str) -> None:
             </a>
           </td></tr></table>
           <p class="ep" style="color:#64748b;font-size:11px;margin-top:28px;line-height:1.7;">
-            This notification was sent because your account has administrator access to CyberINK.<br>
+            This notification was sent because your account has administrator access to Intel Web Security.<br>
             If you have questions, contact <a href="mailto:ngclaire75@gmail.com" class="elink"
               style="color:#2563eb;">ngclaire75@gmail.com</a>.
           </p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
         msg['To']      = to_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -1714,7 +1714,7 @@ def _send_contact_email(category: str, title: str, full_name: str,
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        subject = f'[CyberINK Support] {category} - {full_name}'
+        subject = f'[Intel Web Security Support] {category} - {full_name}'
         safe_msg = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 16px;">
@@ -1754,7 +1754,7 @@ def _send_contact_email(category: str, title: str, full_name: str,
           </p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Support <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Support <{_SMTP_USER}>'
         msg['To']      = _SUPPORT_EMAIL
         msg['Reply-To'] = from_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
@@ -1774,13 +1774,13 @@ def _send_contact_ack_email(category: str, title: str, full_name: str,
         import datetime as _dt
         submitted_at = _dt.datetime.utcnow().strftime('%d %B %Y, %H:%M UTC')
         safe_msg = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
-        subject = f'CyberINK — We received your message: {category}'
+        subject = f'Intel Web Security — We received your message: {category}'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
             Message Received
           </p>
           <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Hello {full_name}, thank you for reaching out to CyberINK Security. We have successfully received your message and it has been forwarded to our Data Protection Officer (DPO). You can expect a reply within <strong style="color:#1e3a8a;">3 business days</strong>.
+            Hello {full_name}, thank you for reaching out to Intel Web Security Security. We have successfully received your message and it has been forwarded to our Data Protection Officer (DPO). You can expect a reply within <strong style="color:#1e3a8a;">3 business days</strong>.
           </p>
 
           <div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Your Submission</div>
@@ -1819,7 +1819,7 @@ def _send_contact_ack_email(category: str, title: str, full_name: str,
           </p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = to_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -1864,13 +1864,13 @@ def _send_temp_password_email(to_email: str, username: str, temp_pass: str) -> b
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        subject = 'CyberINK — Your Temporary Password'
+        subject = 'Intel Web Security — Your Temporary Password'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 12px;">
             Temporary Password Request
           </p>
           <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 20px;">
-            A temporary password has been generated for your CyberINK account
+            A temporary password has been generated for your Intel Web Security account
             <strong style="color:#1e3a8a;">{username}</strong>.
             Use it to fill in the <strong>Current Password</strong> field on the
             Account Settings page, then set a new password immediately.
@@ -1886,7 +1886,7 @@ def _send_temp_password_email(to_email: str, username: str, temp_pass: str) -> b
             Steps to regain access:
           </p>
           <ol style="font-size:13px;color:#475569;line-height:1.8;margin:0 0 20px;padding-left:20px;">
-            <li>Go to <strong>Account Settings</strong> in the CyberINK sidebar.</li>
+            <li>Go to <strong>Account Settings</strong> in the Intel Web Security sidebar.</li>
             <li>Under <strong>Change Password</strong>, enter the temporary password above in the <strong>Current Password</strong> field.</li>
             <li>Enter and confirm your new password, then click <strong>Update Password</strong>.</li>
           </ol>
@@ -1897,7 +1897,7 @@ def _send_temp_password_email(to_email: str, username: str, temp_pass: str) -> b
           </p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
         msg['To']      = to_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -6662,7 +6662,7 @@ def api_events_ingest_scan():
 @app.route('/grafana-proxy/<path:path>')
 @login_required
 def grafana_proxy(path):
-    """Proxy all Grafana traffic through CyberINK so it works behind ngrok."""
+    """Proxy all Grafana traffic through Intel Web Security so it works behind ngrok."""
     import requests as _req, base64 as _b64
     from flask import Response, stream_with_context
 
@@ -13274,7 +13274,7 @@ def _create_gcal_appointment(service_type: str, date_str: str, end_date_str: str
         end_iso     = end_naive.strftime('%Y-%m-%dT%H:%M:%S')
 
         svc_descs = {
-            'Dashboard Feature Training':   'Personalised walkthrough of CyberINK Security Intelligence platform features.',
+            'Dashboard Feature Training':   'Personalised walkthrough of Intel Web Security Security Intelligence platform features.',
             'On-Site Cyber Security Audit': 'Comprehensive on-premises security assessment.',
             'Website Security Analysis':    'In-depth vulnerability assessment and security analysis of web properties.',
             'Manual Report Writing':        'Collaborative session to produce a customised security report with findings, risk ratings, and remediation recommendations.',
@@ -13352,7 +13352,7 @@ def _send_appointment_admin_email(service_type: str, date_str: str, end_date_str
         return False
     try:
         appt_dt    = _format_appt_datetime(date_str, end_date_str, time_str, duration_str, timezone)
-        subject    = f'[CyberINK Appointment] {service_type} — {full_name}'
+        subject    = f'[Intel Web Security Appointment] {service_type} — {full_name}'
         safe_notes = notes.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
 
         company_row = (f'<tr style="border-bottom:1px solid #bfdbfe;"><td style="padding:7px 0;'
@@ -13408,7 +13408,7 @@ def _send_appointment_admin_email(service_type: str, date_str: str, end_date_str
 
         msg = MIMEMultipart('alternative')
         msg['Subject']  = subject
-        msg['From']     = f'CyberINK Appointments <{_SMTP_USER}>'
+        msg['From']     = f'Intel Web Security Appointments <{_SMTP_USER}>'
         msg['To']       = _SUPPORT_EMAIL
         msg['Reply-To'] = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
@@ -13427,7 +13427,7 @@ def _send_appointment_user_email(service_type: str, date_str: str, end_date_str:
         return False
     try:
         appt_dt = _format_appt_datetime(date_str, end_date_str, time_str, duration_str, timezone)
-        subject = f'CyberINK — Appointment Request Received: {service_type}'
+        subject = f'Intel Web Security — Appointment Request Received: {service_type}'
 
         if meet_link:
             meet_block = (f'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;'
@@ -13480,7 +13480,7 @@ def _send_appointment_user_email(service_type: str, date_str: str, end_date_str:
 
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -13585,7 +13585,7 @@ def _send_appointment_approved_email(service_type: str, date_str: str, end_date_
         return False
     try:
         appt_dt = _format_appt_datetime(date_str, end_date_str, time_str, duration_str, timezone)
-        subject = f'CyberINK — Appointment Confirmed: {service_type}'
+        subject = f'Intel Web Security — Appointment Confirmed: {service_type}'
         if meet_link:
             meet_block = (
                 f'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;'
@@ -13634,7 +13634,7 @@ def _send_appointment_approved_email(service_type: str, date_str: str, end_date_
             To cancel or reschedule contact us at <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -13650,7 +13650,7 @@ def _send_appointment_cancelled_email(service_type: str, appt_dt: str,
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        subject = f'CyberINK — Appointment Cancelled: {service_type}'
+        subject = f'Intel Web Security — Appointment Cancelled: {service_type}'
         reason_block = ''
         if reason:
             safe_r = reason.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('\n','<br>')
@@ -13676,7 +13676,7 @@ def _send_appointment_cancelled_email(service_type: str, appt_dt: str,
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -13692,7 +13692,7 @@ def _send_appointment_reschedule_email(service_type: str, old_dt: str, new_dt: s
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        subject = f'CyberINK — Appointment Rescheduled: {service_type}'
+        subject = f'Intel Web Security — Appointment Rescheduled: {service_type}'
         msg_block = ''
         if message:
             safe_m = message.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('\n','<br>')
@@ -13722,7 +13722,7 @@ def _send_appointment_reschedule_email(service_type: str, old_dt: str, new_dt: s
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -13738,11 +13738,11 @@ def _send_appointment_completed_email(service_type: str, appt_dt: str,
     if not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        subject = f'CyberINK — Appointment Completed: {service_type}'
+        subject = f'Intel Web Security — Appointment Completed: {service_type}'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Appointment Completed</p>
           <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Hello {full_name}, your appointment has been marked as completed. Thank you for choosing CyberINK Security.</p>
+            Hello {full_name}, your appointment has been marked as completed. Thank you for choosing Intel Web Security Security.</p>
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
             <tr style="border-bottom:1px solid #bfdbfe;">
               <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:110px;">Service</td>
@@ -13757,7 +13757,7 @@ def _send_appointment_completed_email(service_type: str, appt_dt: str,
             contact <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14047,7 +14047,7 @@ def _send_appt_edit_admin_email(appt: dict, changed: dict, actor: str) -> None:
             )
         else:
             changes_html = '<p style="font-size:12px;color:#64748b;margin-top:12px;">No field values changed.</p>'
-        subject = f'CyberINK — Appointment Edited by {actor}'
+        subject = f'Intel Web Security — Appointment Edited by {actor}'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Appointment Edited by User</p>
           <p class="ep" style="color:#475569;font-size:13px;margin:0 0 20px;line-height:1.6;">
@@ -14080,10 +14080,10 @@ def _send_appt_edit_admin_email(appt: dict, changed: dict, actor: str) -> None:
           </table>
           {changes_html}
           <p class="ep" style="color:#475569;font-size:12px;line-height:1.6;">
-            Log in to CyberINK and open <strong>Appointment Management</strong> to review this appointment.</p>"""
+            Log in to Intel Web Security and open <strong>Appointment Management</strong> to review this appointment.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = _SMTP_USER
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14118,10 +14118,10 @@ def _send_user_cancel_email(service_type: str, appt_dt: str, full_name: str,
         To book a new appointment visit the Customer Service Centre or contact
         <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
     try:
-        subject = f'CyberINK — Appointment Cancelled: {service_type}'
+        subject = f'Intel Web Security — Appointment Cancelled: {service_type}'
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14159,10 +14159,10 @@ def _send_user_reschedule_request_email(service_type: str, old_dt: str, new_dt: 
         You will receive a separate confirmation once the team approves your new schedule.
         Questions? Contact <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
     try:
-        subject = f'CyberINK — Reschedule Request: {service_type}'
+        subject = f'Intel Web Security — Reschedule Request: {service_type}'
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14177,11 +14177,11 @@ def _send_subscription_cancelled_email(username: str, email: str, plan_type: str
         return False
     try:
         pt = 'Annual' if plan_type == 'annual' else 'Monthly'
-        subject = 'CyberINK — Your Pro Subscription Has Been Cancelled'
+        subject = 'Intel Web Security — Your Pro Subscription Has Been Cancelled'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Subscription Cancelled</p>
           <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Hello <strong>{username}</strong>, your CyberINK Pro ({pt}) subscription has been successfully cancelled.
+            Hello <strong>{username}</strong>, your Intel Web Security Pro ({pt}) subscription has been successfully cancelled.
             Your account will revert to the Basic plan immediately.</p>
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
             <tr style="border-bottom:1px solid #bfdbfe;">
@@ -14198,7 +14198,7 @@ def _send_subscription_cancelled_email(username: str, email: str, plan_type: str
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14216,11 +14216,11 @@ def _send_subscription_expiry_reminder_email(username: str, email: str,
     try:
         pt   = 'Annual' if plan_type == 'annual' else 'Monthly'
         exp  = expires_at.split(' ')[0] if expires_at else '—'
-        subject = f'CyberINK — Your Pro Subscription Expires Soon'
+        subject = f'Intel Web Security — Your Pro Subscription Expires Soon'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Subscription Expiring Soon</p>
           <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Hello <strong>{username}</strong>, your CyberINK Pro ({pt}) subscription is expiring soon.
+            Hello <strong>{username}</strong>, your Intel Web Security Pro ({pt}) subscription is expiring soon.
             Renew now to avoid losing access to Pro features.</p>
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
             <tr style="border-bottom:1px solid #bfdbfe;">
@@ -14236,12 +14236,12 @@ def _send_subscription_expiry_reminder_email(username: str, email: str,
             </tr>
           </table>
           <p class="ep" style="color:#475569;font-size:12px;margin-top:20px;line-height:1.6;">
-            To renew, log in to CyberINK and visit the <strong>Pricing</strong> page.
+            To renew, log in to Intel Web Security and visit the <strong>Pricing</strong> page.
             If you need assistance contact us at
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14260,11 +14260,11 @@ def _send_account_change_email(username: str, email: str, change_type: str) -> b
         now_str = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
         labels  = {'username': 'Username', 'email': 'Email Address', 'password': 'Password'}
         label   = labels.get(change_type, change_type.capitalize())
-        subject = f'CyberINK — Your {label} Has Been Updated'
+        subject = f'Intel Web Security — Your {label} Has Been Updated'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Account Change Notification</p>
           <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Hello <strong>{username}</strong>, your CyberINK account <strong>{label}</strong> was just updated successfully.</p>
+            Hello <strong>{username}</strong>, your Intel Web Security account <strong>{label}</strong> was just updated successfully.</p>
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
             <tr style="border-bottom:1px solid #bfdbfe;">
               <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:130px;">Change Type</td>
@@ -14280,7 +14280,7 @@ def _send_account_change_email(username: str, email: str, change_type: str) -> b
             so we can secure your account.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14322,18 +14322,18 @@ def _send_grc_notification_email(username: str, email: str, action: str,
             action_bg    = '#eff6ff'
 
         if actor == 'admin':
-            subject   = f'CyberINK — Risk Management {action_label}: {title}'
+            subject   = f'Intel Web Security — Risk Management {action_label}: {title}'
             intro = (f'Hello <strong>{username}</strong>, your administrator has made a change '
                      f'to your <strong>Risk Management &amp; Audit Control</strong> workspace.')
-            note  = ('Log in to CyberINK and open the <strong>Risk Management &amp; Audit Control</strong> '
+            note  = ('Log in to Intel Web Security and open the <strong>Risk Management &amp; Audit Control</strong> '
                      'page to review. If this was unexpected, contact your administrator at '
                      f'<a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.')
         else:
-            subject   = f'CyberINK — User {actor} {action_label} a {tab} Record'
+            subject   = f'Intel Web Security — User {actor} {action_label} a {tab} Record'
             intro = (f'Hello <strong>Admin</strong>, user account <strong>{actor}</strong> has '
                      f'{action_lc} a record in the '
                      f'<strong>Risk Management &amp; Audit Control</strong> section.')
-            note  = ('Log in to CyberINK and open the <strong>Risk Management &amp; Audit Control</strong> '
+            note  = ('Log in to Intel Web Security and open the <strong>Risk Management &amp; Audit Control</strong> '
                      'page to review the change.')
 
         body = f"""
@@ -14368,7 +14368,7 @@ def _send_grc_notification_email(username: str, email: str, action: str,
           <p class="ep" style="color:#475569;font-size:12px;line-height:1.6;">{note}</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14413,17 +14413,17 @@ def _send_role_change_email(username: str, email: str, new_role: str, changed_by
     try:
         import datetime as _dt
         role_label   = 'Administrator' if new_role == 'admin' else 'Standard User'
-        role_desc    = ('You now have full administrative access to CyberINK, including user management, '
+        role_desc    = ('You now have full administrative access to Intel Web Security, including user management, '
                         'subscription management, appointment management, and all system settings.'
                         if new_role == 'admin' else
                         'Your account has been set to standard user access. '
                         'Administrative controls are no longer available to your account.')
         now_str      = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
-        subject      = f'CyberINK — Your Account Role Has Been Updated'
+        subject      = f'Intel Web Security — Your Account Role Has Been Updated'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Account Role Change</p>
           <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Hello <strong>{username}</strong>, your CyberINK account role has been updated by an administrator.</p>
+            Hello <strong>{username}</strong>, your Intel Web Security account role has been updated by an administrator.</p>
           <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
             <tr style="border-bottom:1px solid #bfdbfe;">
               <td style="padding:7px 0;font-weight:700;color:#1e3a8a;width:130px;">Account</td>
@@ -14448,7 +14448,7 @@ def _send_role_change_email(username: str, email: str, new_role: str, changed_by
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14466,7 +14466,7 @@ def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_a
     try:
         pt  = 'Annual' if plan_type == 'annual' else 'Monthly'
         exp = expires_at.split(' ')[0] if expires_at else '—'
-        subject = 'Welcome to CyberINK Pro — Your Subscription is Active'
+        subject = 'Welcome to Intel Web Security Pro — Your Subscription is Active'
         features_basic = [
             'Security Dashboard &amp; KPI Overview',
             'AI Chatbot Assistant',
@@ -14502,7 +14502,7 @@ def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_a
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">Your Pro Subscription is Active</p>
           <p class="ep" style="color:#3b82f6;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Hello <strong>{username}</strong>, thank you for subscribing to CyberINK Pro.
+            Hello <strong>{username}</strong>, thank you for subscribing to Intel Web Security Pro.
             Your account is now upgraded and all Pro features are immediately available.</p>
           <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
             <tr style="border-bottom:1px solid #bfdbfe;">
@@ -14530,11 +14530,11 @@ def _send_pro_welcome_email(username: str, email: str, plan_type: str, expires_a
             Each AI Assistant message and security scan consumes 1 credit from your balance.
             You can view your balance and request additional credits anytime from
             <strong>Accounts → My Credit Balance</strong> in the dashboard.<br><br>
-            Log in to CyberINK to start using your Pro features. If you have any questions contact us at
+            Log in to Intel Web Security to start using your Pro features. If you have any questions contact us at
             <a href="mailto:{_SUPPORT_EMAIL}" style="color:#2563eb;">{_SUPPORT_EMAIL}</a>.</p>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK Security <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security Security <{_SMTP_USER}>'
         msg['To']      = email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14578,13 +14578,13 @@ def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expi
             topup_usd_note = '≈ $10 USD on Anthropic console'
             topup_note     = 'We recommend topping up Rp 163.000 per active Pro user per month.'
 
-        subject = f'[CyberINK] Action required — Top up Anthropic API credits for {username}'
+        subject = f'[Intel Web Security] Action required — Top up Anthropic API credits for {username}'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
             New Pro Subscription — Anthropic Credit Top-Up Required
           </p>
           <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 20px;">
-            A user has just subscribed to CyberINK Pro. Please top up the shared Anthropic API
+            A user has just subscribed to Intel Web Security Pro. Please top up the shared Anthropic API
             credit balance so their AI Assistant and AI Agents remain available.
           </p>
 
@@ -14596,7 +14596,7 @@ def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expi
             </tr>
             <tr style="border-bottom:1px solid #bfdbfe;">
               <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Plan</td>
-              <td style="padding:9px 12px;color:#374151;">CyberINK Pro — {pt}</td>
+              <td style="padding:9px 12px;color:#374151;">Intel Web Security Pro — {pt}</td>
             </tr>
             <tr style="border-bottom:1px solid #bfdbfe;">
               <td style="padding:9px 12px;font-weight:700;color:#1e3a8a;">Amount paid</td>
@@ -14649,7 +14649,7 @@ def _send_admin_topup_email(username: str, plan_type: str, amount_idr: int, expi
         for to_email in recipients:
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
-            msg['From']    = f'CyberINK <{_SMTP_USER}>'
+            msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
             msg['To']      = to_email
             msg.attach(MIMEText(_email_html(subject, body), 'html'))
             with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14675,7 +14675,7 @@ def _send_admin_credit_request_email(username: str, user_email: str, plan: str,
         except Exception:
             pass
 
-        subject = f'[CyberINK] Credit top-up request from {username}'
+        subject = f'[Intel Web Security] Credit top-up request from {username}'
         load_url = f'{_BASE_URL}/'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
@@ -14712,7 +14712,7 @@ def _send_admin_credit_request_email(username: str, user_email: str, plan: str,
             </tr>
           </table>
           <p class="ep" style="color:#64748b;font-size:12px;line-height:1.7;margin-bottom:16px;">
-            Log in to the CyberINK admin panel → User Management → find <strong>{username}</strong> → click
+            Log in to the Intel Web Security admin panel → User Management → find <strong>{username}</strong> → click
             <strong>Load Credits</strong> to approve this request.
           </p>
           <table cellpadding="0" cellspacing="0" border="0"><tr><td>
@@ -14727,7 +14727,7 @@ def _send_admin_credit_request_email(username: str, user_email: str, plan: str,
         for to_email in recipients:
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
-            msg['From']    = f'CyberINK <{_SMTP_USER}>'
+            msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
             msg['To']      = to_email
             msg.attach(MIMEText(_email_html(subject, body), 'html'))
             with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14743,13 +14743,13 @@ def _send_user_credits_added_email(username: str, user_email: str, amount: int, 
     if not user_email or not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        subject = '[CyberINK] AI credits added to your account'
+        subject = '[Intel Web Security] AI credits added to your account'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
             Credits Added to Your Account
           </p>
           <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 20px;">
-            Your admin has loaded AI credits to your CyberINK account.
+            Your admin has loaded AI credits to your Intel Web Security account.
           </p>
           <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;
                         border:1px solid #bbf7d0;border-radius:6px;background:#f0fdf4;">
@@ -14776,7 +14776,7 @@ def _send_user_credits_added_email(username: str, user_email: str, amount: int, 
           </td></tr></table>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
@@ -14792,7 +14792,7 @@ def _send_user_credits_rejected_email(username: str, user_email: str, requested:
     if not user_email or not _SMTP_USER or not _SMTP_PASS:
         return False
     try:
-        subject = '[CyberINK] Credit top-up request update'
+        subject = '[Intel Web Security] Credit top-up request update'
         body = f"""
           <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 8px;">
             Credit Request Update
@@ -14815,7 +14815,7 @@ def _send_user_credits_rejected_email(username: str, user_email: str, requested:
           </td></tr></table>"""
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'CyberINK <{_SMTP_USER}>'
+        msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
         msg['To']      = user_email
         msg.attach(MIMEText(_email_html(subject, body), 'html'))
         with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
