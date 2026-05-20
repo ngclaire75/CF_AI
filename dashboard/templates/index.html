@@ -9238,6 +9238,9 @@ function _entRenderAnalytics(scans, incData) {
 document.addEventListener('DOMContentLoaded', function(){
   _hideLoadingOverlay();
   _dashInitPanels();
+  // Show the dashboard page first so Chart.js canvases have real dimensions
+  var _initPg = document.getElementById('page-dashboard');
+  if (_initPg) { _initPg.style.display = 'block'; _initPg.classList.add('active'); }
   loadDefDashboard();
   // Initialise vsev bar widths from data-pct attributes (avoids Jinja2 in inline CSS)
   document.querySelectorAll('.vsev-bar-fill[data-pct]').forEach(function(el){
