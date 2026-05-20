@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CyberINK Security Dashboard</title>
-  <link rel="icon" href="/favicon.ico" type="image/jpeg">
-  <link rel="shortcut icon" href="/favicon.ico" type="image/jpeg">
-  <link rel="apple-touch-icon" href="/images/CyberINK_Logo.jpeg">
+  <title>Intel Web Security Security Dashboard</title>
+  <link rel="icon" href="/static/Intel.jpeg" type="image/jpeg">
+  <link rel="shortcut icon" href="/static/Intel.jpeg" type="image/jpeg">
+  <link rel="apple-touch-icon" href="/static/Intel.jpeg">
   <link rel="stylesheet" href="/static/vendor/bootstrap-grid.min.css">
   <link rel="stylesheet" href="/static/vendor/leaflet.css">
   <script src="/static/vendor/chart.umd.min.js"></script>
@@ -1917,7 +1917,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 <!-- Loading overlay -->
 <div id="ink-loading-overlay" style="display:none">
   <div class="ink-spin-ring"></div>
-  <div class="ink-spin-label" id="ink-spin-label">Loading CyberINK…</div>
+  <div class="ink-spin-label" id="ink-spin-label">Loading Intel Web Security…</div>
 </div>
 
 <!-- ══ CUSTOMIZE DRAWER ══════════════════════════════════════════════════════ -->
@@ -1950,7 +1950,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
   <!-- Brand -->
   <div class="sb-brand">
-    <div class="sb-brand-text">CyberINK<span class="sb-brand-tag">Security Intelligence</span></div>
+    <div class="sb-brand-text">Intel Web Security<span class="sb-brand-tag">Security Intelligence</span></div>
   </div>
 
   <!-- Search -->
@@ -2092,7 +2092,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   <!-- Sidebar footer -->
   <div class="sb-footer">
     <div class="sb-footer-row">
-      <span>CyberINK v2.1</span>
+      <span>Intel Web Security v2.1</span>
     </div>
     <div style="margin-top:4px;font-size:10px;color:#93c5fd;">Updated: <strong id="ts">—</strong></div>
   </div>
@@ -2147,7 +2147,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <div style="background:linear-gradient(135deg,#172554,#2563eb);padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;">
       <div>
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;">Platform Version</div>
-        <div style="font-size:10px;color:#93c5fd;font-weight:500;text-transform:uppercase;letter-spacing:.5px;">CyberINK Security Intelligence</div>
+        <div style="font-size:10px;color:#93c5fd;font-weight:500;text-transform:uppercase;letter-spacing:.5px;">Intel Web Security Security Intelligence</div>
       </div>
       <button onclick="versionModalHide()" style="background:none;border:none;color:#93c5fd;font-size:18px;cursor:pointer;line-height:1;padding:0 2px;flex-shrink:0;">&times;</button>
     </div>
@@ -2215,7 +2215,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   </div>
 
   <!-- Page title -->
-  <div class="mvd-page-title">CyberINK Security Vulnerability Management Dashboard</div>
+  <div class="mvd-page-title">Intel Web Security Security Vulnerability Management Dashboard</div>
 
   <!-- ── ROW 1: 3-column grid ── -->
   <div class="mvd-grid" id="mvd-grid">
@@ -2290,7 +2290,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
     <!-- Panel 3: Secure Score -->
     <div class="mvd-card" style="border-left:1px solid #bfdbfe;border-right:1px solid #bfdbfe;">
-      <div class="mvd-card-section-title">CyberINK Security Score for Sites</div>
+      <div class="mvd-card-section-title">Intel Web Security Security Score for Sites</div>
       <div class="mvd-score-h">Your score for sites: <span id="mvd-sec-pct">—</span>%</div>
       <p class="mvd-card-p">This score reflects the collective security configuration across SSL/TLS, HTTP Headers, Authentication, and CMS Security. It is potentially impacted by active exceptions.</p>
       <div class="mvd-pts-row" id="mvd-pts-text">— / 100 points achieved</div>
@@ -2704,7 +2704,7 @@ Export Power BI
     <!-- Chat messages area -->
     <div id="chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:16px;min-height:0;max-height:calc(100vh - 260px);">
       <div id="chat-welcome" style="background:#eff6ff;border-radius:6px;padding:16px 18px;font-size:13px;color:#172554;line-height:1.6;">
-        <strong>Welcome to CyberINK AI.</strong><br>
+        <strong>Welcome to Intel Web Security AI.</strong><br>
         You can ask me to:<br>
         &bull; Evaluate a CVE (e.g. <em>Explain CVE-2024-1234</em>)<br>
         &bull; Interpret scan findings (e.g. <em>What does HIGH risk mean?</em>)<br>
@@ -4213,7 +4213,7 @@ Export Power BI
         <!-- Splunk HEC -->
         <div class="sl-config-card">
           <div class="sl-config-title">Splunk HTTP Event Collector (HEC)</div>
-          <div class="sl-config-sub">Forward Splunk events to CyberINK using the standard HEC protocol. No Splunk plugin required.</div>
+          <div class="sl-config-sub">Forward Splunk events to Intel Web Security using the standard HEC protocol. No Splunk plugin required.</div>
 
           <div class="sl-config-field">
             <span class="sl-config-label">HEC Endpoint URL</span>
@@ -4233,7 +4233,7 @@ Export Power BI
           </div>
 
           <div class="sl-step"><div class="sl-step-num">1</div><div class="sl-step-body">In Splunk, navigate to <strong>Settings &rarr; Data Inputs &rarr; HTTP Event Collector</strong> and add a new token. Set the <strong>Default Index</strong> to your preferred index.</div></div>
-          <div class="sl-step"><div class="sl-step-num">2</div><div class="sl-step-body">Add a <strong>forwarding output</strong> in <code>outputs.conf</code> pointing to this CyberINK endpoint, or use the <code>curl</code> snippet below to test manually.</div></div>
+          <div class="sl-step"><div class="sl-step-num">2</div><div class="sl-step-body">Add a <strong>forwarding output</strong> in <code>outputs.conf</code> pointing to this Intel Web Security endpoint, or use the <code>curl</code> snippet below to test manually.</div></div>
           <div class="sl-step"><div class="sl-step-num">3</div><div class="sl-step-body">Configure Splunk Universal Forwarder or Heavy Forwarder to send to this HEC endpoint using your token.</div></div>
 
           <div style="margin-top:14px;font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Test with curl</div>
@@ -4246,7 +4246,7 @@ Export Power BI
         <!-- Windows Event Log Agent -->
         <div class="sl-config-card">
           <div class="sl-config-title">Windows Event Log Forwarder</div>
-          <div class="sl-config-sub">Run this PowerShell agent on any Windows host to continuously forward Security, System, and Application event logs into CyberINK.</div>
+          <div class="sl-config-sub">Run this PowerShell agent on any Windows host to continuously forward Security, System, and Application event logs into Intel Web Security.</div>
 
           <div class="sl-config-field">
             <span class="sl-config-label">Agent Ingest URL</span>
@@ -4287,7 +4287,7 @@ Export Power BI
       <div style="padding:20px 24px 16px;border-bottom:1px solid #bfdbfe;display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div style="font-size:16px;font-weight:700;color:#0f172a;">Add Log Source</div>
-          <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Connect a new host or system to forward logs into CyberINK</div>
+          <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Connect a new host or system to forward logs into Intel Web Security</div>
         </div>
         <button onclick="slCloseAddSource()" style="background:none;border:none;font-size:20px;color:#60a5fa;cursor:pointer;line-height:1;">&times;</button>
       </div>
@@ -4301,7 +4301,7 @@ Export Power BI
       <div style="padding:20px 24px;">
         <!-- Windows -->
         <div id="sl-spanel-win">
-          <p style="font-size:13px;color:#1e3a8a;margin-bottom:14px;">Run the PowerShell forwarder script on any Windows host. It reads Security, System, and Application event channels and sends batches to CyberINK every 30 seconds using your HEC token — no interactive login required.</p>
+          <p style="font-size:13px;color:#1e3a8a;margin-bottom:14px;">Run the PowerShell forwarder script on any Windows host. It reads Security, System, and Application event channels and sends batches to Intel Web Security every 30 seconds using your HEC token — no interactive login required.</p>
           <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">1. Save this script on the Windows host</div>
           <div class="sl-code-block" style="margin-bottom:12px;font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-ps"></span></div>
           <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">2. Run it (or register as Scheduled Task)</div>
@@ -4309,7 +4309,7 @@ Export Power BI
         </div>
         <!-- Linux -->
         <div id="sl-spanel-linux" style="display:none;">
-          <p style="font-size:13px;color:#1e3a8a;margin-bottom:14px;">Forward Linux system logs using <strong>rsyslog</strong> or <strong>journald</strong>. The snippet below configures rsyslog to forward all facility.severity messages to CyberINK via HTTP using your HEC token.</p>
+          <p style="font-size:13px;color:#1e3a8a;margin-bottom:14px;">Forward Linux system logs using <strong>rsyslog</strong> or <strong>journald</strong>. The snippet below configures rsyslog to forward all facility.severity messages to Intel Web Security via HTTP using your HEC token.</p>
           <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">/etc/rsyslog.d/99-cyberink.conf</div>
           <div class="sl-code-block" style="margin-bottom:12px;font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-rsyslog"></span></div>
           <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">Reload rsyslog</div>
@@ -4319,7 +4319,7 @@ Export Power BI
         </div>
         <!-- Splunk -->
         <div id="sl-spanel-splunk" style="display:none;">
-          <p style="font-size:13px;color:#1e3a8a;margin-bottom:14px;">Point a <strong>Splunk Universal Forwarder</strong> or <strong>Heavy Forwarder</strong> at CyberINK's HEC endpoint. No Splunk plugin required — just configure an <code>outputs.conf</code> stanza.</p>
+          <p style="font-size:13px;color:#1e3a8a;margin-bottom:14px;">Point a <strong>Splunk Universal Forwarder</strong> or <strong>Heavy Forwarder</strong> at Intel Web Security's HEC endpoint. No Splunk plugin required — just configure an <code>outputs.conf</code> stanza.</p>
           <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">$SPLUNK_HOME/etc/system/local/outputs.conf</div>
           <div class="sl-code-block" style="margin-bottom:12px;font-size:11px;"><button class="sl-copy-btn" onclick="slCopyBlock(this)">Copy</button><span id="sl-modal-outputs"></span></div>
           <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">Test with curl from the Splunk host</div>
@@ -5213,7 +5213,7 @@ Export Power BI
     <!-- Auto-setup progress -->
     <div id="gf-autosetup-bar" style="display:none;margin-bottom:12px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1d4ed8;">
       <div style="font-weight:600;margin-bottom:6px;">Installing Grafana + Prometheus + Windows Exporter…</div>
-      <div id="gf-autosetup-status">A setup window has opened — <strong>accept the UAC (admin) prompt</strong> to allow installation. CyberINK will auto-connect once Grafana is ready.</div>
+      <div id="gf-autosetup-status">A setup window has opened — <strong>accept the UAC (admin) prompt</strong> to allow installation. Intel Web Security will auto-connect once Grafana is ready.</div>
       <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
         <div id="gf-autosetup-dot" style="width:8px;height:8px;border-radius:50%;background:#2563eb;animation:pulse 1.2s infinite;flex-shrink:0;"></div>
         <span id="gf-autosetup-poll">Waiting for Grafana to come online…</span>
@@ -6524,7 +6524,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     </style>
     <div class="moa-wrap">
       <div class="moa-title">Meet Our Agents</div>
-      <div class="moa-sub">CyberINK deploys 11 specialised security testing agents, each mapped to the OWASP Web Security Testing Guide (WSTG). Every agent runs real shell commands — no hardcoded results.</div>
+      <div class="moa-sub">Intel Web Security deploys 11 specialised security testing agents, each mapped to the OWASP Web Security Testing Guide (WSTG). Every agent runs real shell commands — no hardcoded results.</div>
       <div class="moa-grid">
 
         <div class="moa-card">
@@ -6852,13 +6852,13 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     <div class="legal-updated"><span data-t="id">Berlaku sejak: 1 Januari 2026 &nbsp;&bull;&nbsp; Terakhir diperbarui: 17 Mei 2026</span><span data-t="en">Effective: 1 January 2026 &nbsp;&bull;&nbsp; Last updated: 17 May 2026</span></div>
 
     <div class="legal-highlight">
-      <span data-t="id">Dengan menggunakan layanan CyberINK paket Pro, Anda menyetujui ketentuan penagihan dan berlangganan yang tercantum dalam kebijakan ini. Harap baca dengan seksama sebelum melakukan pembayaran.</span>
-      <span data-t="en">By using CyberINK Pro services, you agree to the billing and subscription terms set out in this policy. Please read carefully before making any payment.</span>
+      <span data-t="id">Dengan menggunakan layanan Intel Web Security paket Pro, Anda menyetujui ketentuan penagihan dan berlangganan yang tercantum dalam kebijakan ini. Harap baca dengan seksama sebelum melakukan pembayaran.</span>
+      <span data-t="en">By using Intel Web Security Pro services, you agree to the billing and subscription terms set out in this policy. Please read carefully before making any payment.</span>
     </div>
 
     <div class="legal-section">
       <h2><span data-t="id">1. Deskripsi Layanan dan Paket</span><span data-t="en">1. Service and Plan Description</span></h2>
-      <p><span data-t="id">CyberINK menyediakan platform keamanan berbasis kecerdasan buatan (AI) yang dirancang untuk organisasi yang membutuhkan pemantauan ancaman, pengujian keamanan web, dan manajemen kerentanan secara terpusat.</span><span data-t="en">CyberINK provides an AI-powered security platform designed for organisations that require centralised threat monitoring, web security testing, and vulnerability management.</span></p>
+      <p><span data-t="id">Intel Web Security menyediakan platform keamanan berbasis kecerdasan buatan (AI) yang dirancang untuk organisasi yang membutuhkan pemantauan ancaman, pengujian keamanan web, dan manajemen kerentanan secara terpusat.</span><span data-t="en">Intel Web Security provides an AI-powered security platform designed for organisations that require centralised threat monitoring, web security testing, and vulnerability management.</span></p>
       <h3><span data-t="id">1.1 Paket Basic (Gratis)</span><span data-t="en">1.1 Basic Plan (Free)</span></h3>
       <p><span data-t="id">Paket Basic tersedia tanpa biaya dan mencakup fitur-fitur pemantauan keamanan inti. Paket ini tidak memerlukan informasi pembayaran dan dapat digunakan tanpa batas waktu selama akun aktif dan mematuhi Kebijakan Penggunaan yang Dapat Diterima.</span><span data-t="en">The Basic plan is available at no cost and includes core security monitoring features. No payment information is required; the plan can be used indefinitely while the account remains active and complies with the Acceptable Use Policy.</span></p>
       <ul>
@@ -6907,7 +6907,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
     <div class="legal-section">
       <h2><span data-t="id">4. Metode Pembayaran</span><span data-t="en">4. Payment Methods</span></h2>
-      <p><span data-t="id">CyberINK menerima metode pembayaran berikut:</span><span data-t="en">CyberINK accepts the following payment methods:</span></p>
+      <p><span data-t="id">Intel Web Security menerima metode pembayaran berikut:</span><span data-t="en">Intel Web Security accepts the following payment methods:</span></p>
       <ul>
         <li><strong><span data-t="id">Transfer Bank:</span><span data-t="en">Bank Transfer:</span></strong> BCA, BNI, BRI, Mandiri, BSI</li>
         <li><strong>Virtual Account:</strong> <span data-t="id">Tersedia untuk semua bank di atas melalui gateway pembayaran</span><span data-t="en">Available for all banks above via payment gateway</span></li>
@@ -6915,7 +6915,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <li><strong><span data-t="id">Kartu Kredit/Debit:</span><span data-t="en">Credit/Debit Card:</span></strong> <span data-t="id">Visa, Mastercard (melalui payment gateway tersertifikasi PCI-DSS)</span><span data-t="en">Visa, Mastercard (via PCI-DSS certified payment gateway)</span></li>
         <li><strong><span data-t="id">Invoice Perusahaan:</span><span data-t="en">Corporate Invoice:</span></strong> <span data-t="id">Tersedia untuk langganan 5 seat ke atas, dengan termin pembayaran NET-15</span><span data-t="en">Available for 5+ seat subscriptions, with NET-15 payment terms</span></li>
       </ul>
-      <p><span data-t="id">CyberINK tidak menyimpan data kartu kredit secara langsung. Seluruh transaksi kartu diproses oleh payment gateway yang telah tersertifikasi PCI-DSS Level 1.</span><span data-t="en">CyberINK does not store credit card data directly. All card transactions are processed by a PCI-DSS Level 1 certified payment gateway.</span></p>
+      <p><span data-t="id">Intel Web Security tidak menyimpan data kartu kredit secara langsung. Seluruh transaksi kartu diproses oleh payment gateway yang telah tersertifikasi PCI-DSS Level 1.</span><span data-t="en">Intel Web Security does not store credit card data directly. All card transactions are processed by a PCI-DSS Level 1 certified payment gateway.</span></p>
     </div>
 
     <div class="legal-section">
@@ -6947,7 +6947,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           <tr><td><span data-t="id">Ekspor Laporan PDF/Excel</span><span data-t="en">PDF/Excel Report Export</span></td><td><span data-t="id">Tidak terbatas</span><span data-t="en">Unlimited</span></td><td>—</td></tr>
         </tbody>
       </table>
-      <p><span data-t="id">CyberINK berhak menangguhkan sementara akses Pro jika penggunaan terdeteksi melebihi batas wajar secara signifikan atau digunakan untuk tujuan yang melanggar hukum. Pemberitahuan akan dikirimkan terlebih dahulu melalui email kecuali pelanggaran bersifat kritis.</span><span data-t="en">CyberINK reserves the right to temporarily suspend Pro access if usage is detected to significantly exceed fair limits or is used for unlawful purposes. Prior notice will be sent by email unless the violation is critical.</span></p>
+      <p><span data-t="id">Intel Web Security berhak menangguhkan sementara akses Pro jika penggunaan terdeteksi melebihi batas wajar secara signifikan atau digunakan untuk tujuan yang melanggar hukum. Pemberitahuan akan dikirimkan terlebih dahulu melalui email kecuali pelanggaran bersifat kritis.</span><span data-t="en">Intel Web Security reserves the right to temporarily suspend Pro access if usage is detected to significantly exceed fair limits or is used for unlawful purposes. Prior notice will be sent by email unless the violation is critical.</span></p>
     </div>
 
     <div class="legal-section">
@@ -6957,7 +6957,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
     <div class="legal-section">
       <h2><span data-t="id">8. Jaminan Ketersediaan Layanan (SLA)</span><span data-t="en">8. Service Level Agreement (SLA)</span></h2>
-      <p><span data-t="id">CyberINK berkomitmen untuk menyediakan ketersediaan layanan (uptime) sebesar <strong>99,5%</strong> per bulan untuk pengguna Pro, dihitung berdasarkan uptime server dashboard dan mesin agen scan.</span><span data-t="en">CyberINK commits to providing service availability (uptime) of <strong>99.5%</strong> per month for Pro users, measured against the dashboard server and scan agent engine uptime.</span></p>
+      <p><span data-t="id">Intel Web Security berkomitmen untuk menyediakan ketersediaan layanan (uptime) sebesar <strong>99,5%</strong> per bulan untuk pengguna Pro, dihitung berdasarkan uptime server dashboard dan mesin agen scan.</span><span data-t="en">Intel Web Security commits to providing service availability (uptime) of <strong>99.5%</strong> per month for Pro users, measured against the dashboard server and scan agent engine uptime.</span></p>
       <ul>
         <li><span data-t="id">Pemeliharaan terjadwal akan diumumkan paling lambat 48 jam sebelumnya dan tidak dihitung sebagai downtime</span><span data-t="en">Scheduled maintenance will be announced at least 48 hours in advance and does not count as downtime</span></li>
         <li><span data-t="id">Jika uptime aktual di bawah 99,5%, pelanggan Pro berhak mengajukan kredit layanan sebesar 5% dari tagihan bulan tersebut per setiap 0,5% penurunan uptime</span><span data-t="en">If actual uptime falls below 99.5%, Pro subscribers may claim a service credit of 5% of that month's bill for each 0.5% drop in uptime</span></li>
@@ -6967,7 +6967,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
     <div class="legal-section">
       <h2><span data-t="id">9. Penghentian Layanan</span><span data-t="en">9. Service Termination</span></h2>
-      <p><span data-t="id">CyberINK berhak menghentikan atau menangguhkan akun tanpa pemberitahuan terlebih dahulu jika:</span><span data-t="en">CyberINK reserves the right to terminate or suspend accounts without prior notice if:</span></p>
+      <p><span data-t="id">Intel Web Security berhak menghentikan atau menangguhkan akun tanpa pemberitahuan terlebih dahulu jika:</span><span data-t="en">Intel Web Security reserves the right to terminate or suspend accounts without prior notice if:</span></p>
       <ul>
         <li><span data-t="id">Akun digunakan untuk melakukan pemindaian keamanan tanpa otorisasi pada sistem yang bukan milik pengguna</span><span data-t="en">The account is used to perform unauthorised security scanning on systems not owned by the user</span></li>
         <li><span data-t="id">Akun terlibat dalam aktivitas ilegal atau melanggar hukum yang berlaku di Indonesia</span><span data-t="en">The account is involved in illegal activities or activities that violate laws applicable in Indonesia</span></li>
@@ -7533,7 +7533,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <div class="appt-services">
           <div class="appt-svc-card" id="appt-svc-0" onclick="apptSelectService(this,'Dashboard Feature Training','1 hour')">
             <div class="appt-svc-name">Dashboard Feature Training</div>
-            <div class="appt-svc-desc">Personalised walkthrough of CyberINK's security intelligence platform — dashboards, scanning tools, GRC controls, and reporting.</div>
+            <div class="appt-svc-desc">Personalised walkthrough of Intel Web Security's security intelligence platform — dashboards, scanning tools, GRC controls, and reporting.</div>
             <div class="appt-svc-dur">Typical duration: 1 hour</div>
           </div>
           <div class="appt-svc-card" id="appt-svc-1" onclick="apptSelectService(this,'On-Site Cyber Security Audit','2 hours')">
@@ -7708,13 +7708,13 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     <div class="legal-updated"><span data-t="id">Berlaku sejak: 1 Januari 2026 &nbsp;&bull;&nbsp; Terakhir diperbarui: 17 Mei 2026</span><span data-t="en">Effective: 1 January 2026 &nbsp;&bull;&nbsp; Last updated: 17 May 2026</span></div>
 
     <div class="legal-highlight">
-      <span data-t="id">CyberINK berkomitmen untuk melindungi privasi Anda. Kebijakan ini menjelaskan data apa yang kami kumpulkan, bagaimana kami menggunakannya, dan hak-hak Anda sebagai pengguna. Kami mematuhi Undang-Undang Pelindungan Data Pribadi (UU PDP) No. 27 Tahun 2022 dan prinsip-prinsip GDPR secara sukarela.</span>
-      <span data-t="en">CyberINK is committed to protecting your privacy. This policy explains what data we collect, how we use it, and your rights as a user. We comply with Indonesian Personal Data Protection Law (UU PDP) No. 27 of 2022 and voluntarily apply GDPR principles.</span>
+      <span data-t="id">Intel Web Security berkomitmen untuk melindungi privasi Anda. Kebijakan ini menjelaskan data apa yang kami kumpulkan, bagaimana kami menggunakannya, dan hak-hak Anda sebagai pengguna. Kami mematuhi Undang-Undang Pelindungan Data Pribadi (UU PDP) No. 27 Tahun 2022 dan prinsip-prinsip GDPR secara sukarela.</span>
+      <span data-t="en">Intel Web Security is committed to protecting your privacy. This policy explains what data we collect, how we use it, and your rights as a user. We comply with Indonesian Personal Data Protection Law (UU PDP) No. 27 of 2022 and voluntarily apply GDPR principles.</span>
     </div>
 
     <div class="legal-section">
       <h2><span data-t="id">1. Identitas Pengendali Data</span><span data-t="en">1. Data Controller Identity</span></h2>
-      <p><span data-t="id">CyberINK bertindak sebagai Pengendali Data (Data Controller) atas seluruh data pribadi yang dikumpulkan melalui platform ini. Jika Anda memiliki pertanyaan tentang pemrosesan data pribadi Anda, hubungi:</span><span data-t="en">CyberINK acts as the Data Controller for all personal data collected through this platform. If you have questions about the processing of your personal data, please contact:</span></p>
+      <p><span data-t="id">Intel Web Security bertindak sebagai Pengendali Data (Data Controller) atas seluruh data pribadi yang dikumpulkan melalui platform ini. Jika Anda memiliki pertanyaan tentang pemrosesan data pribadi Anda, hubungi:</span><span data-t="en">Intel Web Security acts as the Data Controller for all personal data collected through this platform. If you have questions about the processing of your personal data, please contact:</span></p>
       <ul>
         <li><strong>Data Protection Officer (DPO):</strong> ngclaire75@gmail.com</li>
         <li><strong><span data-t="id">Alamat</span><span data-t="en">Address</span>:</strong> Surabaya, Indonesia</li>
@@ -7748,7 +7748,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <li><span data-t="id">Waktu akses dan endpoint yang diakses (log akses server)</span><span data-t="en">Access time and endpoints accessed (server access logs)</span></li>
       </ul>
       <h3><span data-t="id">2.4 Data Pembayaran</span><span data-t="en">2.4 Payment Data</span></h3>
-      <p><span data-t="id">Untuk pengguna Pro, data pembayaran (nomor kartu, informasi rekening) <strong>tidak disimpan oleh CyberINK</strong>. Seluruh transaksi keuangan diproses oleh payment gateway pihak ketiga yang tersertifikasi. Kami hanya menyimpan status pembayaran, tanggal transaksi, dan referensi ID transaksi untuk keperluan rekonsiliasi.</span><span data-t="en">For Pro users, payment data (card number, account details) is <strong>not stored by CyberINK</strong>. All financial transactions are processed by a certified third-party payment gateway. We only store payment status, transaction date, and transaction reference ID for reconciliation purposes.</span></p>
+      <p><span data-t="id">Untuk pengguna Pro, data pembayaran (nomor kartu, informasi rekening) <strong>tidak disimpan oleh Intel Web Security</strong>. Seluruh transaksi keuangan diproses oleh payment gateway pihak ketiga yang tersertifikasi. Kami hanya menyimpan status pembayaran, tanggal transaksi, dan referensi ID transaksi untuk keperluan rekonsiliasi.</span><span data-t="en">For Pro users, payment data (card number, account details) is <strong>not stored by Intel Web Security</strong>. All financial transactions are processed by a certified third-party payment gateway. We only store payment status, transaction date, and transaction reference ID for reconciliation purposes.</span></p>
     </div>
 
     <div class="legal-section">
@@ -7766,7 +7766,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <h2><span data-t="id">4. Penggunaan Data</span><span data-t="en">4. Use of Data</span></h2>
       <p><span data-t="id">Data yang kami kumpulkan digunakan semata-mata untuk tujuan berikut:</span><span data-t="en">Data we collect is used solely for the following purposes:</span></p>
       <ul>
-        <li><span data-t="id">Menyediakan, mengoperasikan, dan meningkatkan platform CyberINK</span><span data-t="en">Providing, operating, and improving the CyberINK platform</span></li>
+        <li><span data-t="id">Menyediakan, mengoperasikan, dan meningkatkan platform Intel Web Security</span><span data-t="en">Providing, operating, and improving the Intel Web Security platform</span></li>
         <li><span data-t="id">Memverifikasi identitas dan mengautentikasi akses pengguna</span><span data-t="en">Verifying identity and authenticating user access</span></li>
         <li><span data-t="id">Mengirimkan notifikasi terkait layanan (misalnya verifikasi email, peringatan keamanan akun)</span><span data-t="en">Sending service-related notifications (e.g. email verification, account security alerts)</span></li>
         <li><span data-t="id">Mengelola penagihan dan berlangganan</span><span data-t="en">Managing billing and subscriptions</span></li>
@@ -7826,7 +7826,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <li><strong><span data-t="id">Isolasi sesi:</span><span data-t="en">Session isolation:</span></strong> <span data-t="id">sesi pengguna dibatasi waktu dan di-invalidasi setelah logout</span><span data-t="en">user sessions are time-limited and invalidated on logout</span></li>
         <li><strong><span data-t="id">Kontrol akses berbasis peran:</span><span data-t="en">Role-based access control:</span></strong> <span data-t="id">halaman dan API dilindungi oleh middleware autentikasi dan otorisasi</span><span data-t="en">pages and APIs are protected by authentication and authorisation middleware</span></li>
         <li><strong><span data-t="id">Audit log:</span><span data-t="en">Audit log:</span></strong> <span data-t="id">seluruh tindakan administratif dan pemindaian dicatat dengan timestamp dan identitas pengguna</span><span data-t="en">all administrative actions and scans are logged with timestamp and user identity</span></li>
-        <li><strong><span data-t="id">Basis data lokal:</span><span data-t="en">Local database:</span></strong> <span data-t="id">data scan disimpan di SQLite yang diakses hanya oleh proses server CyberINK</span><span data-t="en">scan data is stored in SQLite accessible only by the CyberINK server process</span></li>
+        <li><strong><span data-t="id">Basis data lokal:</span><span data-t="en">Local database:</span></strong> <span data-t="id">data scan disimpan di SQLite yang diakses hanya oleh proses server Intel Web Security</span><span data-t="en">scan data is stored in SQLite accessible only by the Intel Web Security server process</span></li>
         <li><strong><span data-t="id">Pembaruan keamanan:</span><span data-t="en">Security updates:</span></strong> <span data-t="id">dependensi platform diperbarui secara berkala untuk menutup kerentanan yang diketahui</span><span data-t="en">platform dependencies are regularly updated to address known vulnerabilities</span></li>
       </ul>
     </div>
@@ -7885,7 +7885,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
 
     <div class="legal-section">
       <h2><span data-t="id">9. Cookie dan Penyimpanan Lokal</span><span data-t="en">9. Cookies and Local Storage</span></h2>
-      <p><span data-t="id">CyberINK menggunakan mekanisme penyimpanan berikut di perangkat Anda:</span><span data-t="en">CyberINK uses the following storage mechanisms on your device:</span></p>
+      <p><span data-t="id">Intel Web Security menggunakan mekanisme penyimpanan berikut di perangkat Anda:</span><span data-t="en">Intel Web Security uses the following storage mechanisms on your device:</span></p>
       <table class="legal-table">
         <thead><tr>
           <th><span data-t="id">Mekanisme</span><span data-t="en">Mechanism</span></th>
@@ -16119,7 +16119,7 @@ function initSyslogPage() {
 
   var psEl = document.getElementById('sl-ps-script');
   if (psEl) psEl.textContent =
-    '# CyberINK Windows Event Log Forwarder\n' +
+    '# Intel Web Security Windows Event Log Forwarder\n' +
     '$BaseUrl     = "' + origin + '"\n' +
     '$Username    = "' + (USER_NAME || 'your_username') + '"\n' +
     '$Password    = "your_password"   # replace with actual password\n' +
@@ -16136,7 +16136,7 @@ function initSyslogPage() {
     '} catch { Write-Error "Login failed: $_"; exit 1 }\n\n' +
     '# Track last RecordId per channel to avoid duplicate forwarding\n' +
     '$lastId = @{}\n\n' +
-    'Write-Host "CyberINK forwarder started. Polling every ${IntervalSec}s..."\n\n' +
+    'Write-Host "Intel Web Security forwarder started. Polling every ${IntervalSec}s..."\n\n' +
     'while ($true) {\n' +
     '  $batch = [System.Collections.Generic.List[object]]::new()\n' +
     '  foreach ($ch in $Channels) {\n' +
@@ -16181,7 +16181,7 @@ function initSyslogPage() {
     '  -Argument "-NonInteractive -File C:\\cyberink\\forwarder.ps1"\n' +
     '$trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Seconds 30) `\n' +
     '  -Once -At (Get-Date)\n' +
-    'Register-ScheduledTask -TaskName "CyberINK-Forwarder" `\n' +
+    'Register-ScheduledTask -TaskName "Intel Web Security-Forwarder" `\n' +
     '  -Action $action -Trigger $trigger -RunLevel Highest -Force';
 
   var restEl = document.getElementById('sl-rest-snippet');
@@ -16406,7 +16406,7 @@ function slPopulateSourceSnippets(tab) {
   if (tab === 'win') {
     var psEl = document.getElementById('sl-modal-ps');
     if (psEl) psEl.textContent =
-      '# CyberINK Windows Event Log Forwarder\n' +
+      '# Intel Web Security Windows Event Log Forwarder\n' +
       '$HecUrl      = "' + hecUrl + '"\n' +
       '$HecToken    = "' + hecToken + '"\n' +
       '$Channels    = @("Security","System","Application")\n' +
@@ -16416,7 +16416,7 @@ function slPopulateSourceSnippets(tab) {
       'function LevelName($lv) {\n' +
       '  switch ($lv) { 1{"CRITICAL"} 2{"ERROR"} 3{"WARN"} 4{"INFO"} 5{"INFO"} default{"INFO"} }\n' +
       '}\n\n' +
-      'Write-Host "CyberINK forwarder starting..."\n\n' +
+      'Write-Host "Intel Web Security forwarder starting..."\n\n' +
       'while ($true) {\n' +
       '  $batch = [System.Collections.Generic.List[object]]::new()\n' +
       '  foreach ($ch in $Channels) {\n' +
@@ -16456,18 +16456,18 @@ function slPopulateSourceSnippets(tab) {
       '$action  = New-ScheduledTaskAction -Execute "powershell.exe" `\n' +
       '  -Argument "-NonInteractive -ExecutionPolicy Bypass -File C:\\cyberink\\forwarder.ps1"\n' +
       '$trigger = New-ScheduledTaskTrigger -AtStartup\n' +
-      'Register-ScheduledTask -TaskName "CyberINK-Forwarder" `\n' +
+      'Register-ScheduledTask -TaskName "Intel Web Security-Forwarder" `\n' +
       '  -Action $action -Trigger $trigger -RunLevel Highest -Force';
   }
 
   if (tab === 'linux') {
     var rsEl = document.getElementById('sl-modal-rsyslog');
     if (rsEl) rsEl.textContent =
-      '# Forward all syslog messages to CyberINK via curl (omni-forwarder)\n' +
+      '# Forward all syslog messages to Intel Web Security via curl (omni-forwarder)\n' +
       '# Place in /etc/rsyslog.d/99-cyberink.conf\n\n' +
       'module(load="ommysql")  # optional — only if needed\n\n' +
-      '# Use omfwd to send as JSON to CyberINK HEC\n' +
-      'template(name="CyberINKJson" type="string"\n' +
+      '# Use omfwd to send as JSON to Intel Web Security HEC\n' +
+      'template(name="Intel Web SecurityJson" type="string"\n' +
       '  string="{\\"event\\":{\\"level\\":\\"%syslogseverity-text%\\",\\"message\\":\\"%msg%\\",\\"facility\\":\\"%syslogfacility-text%\\"},\\"host\\":\\"%hostname%\\",\\"source\\":\\"%programname%\\",\\"sourcetype\\":\\"syslog\\"}\\n"\n' +
       ')\n\n' +
       'action(\n' +
@@ -16475,14 +16475,14 @@ function slPopulateSourceSnippets(tab) {
       '  server="' + (origin.replace(/^https?:\/\//, '').split(':')[0]) + '"\n' +
       '  serverport="' + (origin.split(':').pop() || '8889') + '"\n' +
       '  restpath="/api/syslog/hec"\n' +
-      '  template="CyberINKJson"\n' +
+      '  template="Intel Web SecurityJson"\n' +
       '  httpcontenttype="application/json"\n' +
       '  httpheadernames=["Authorization"]\n' +
       '  httpheadervalues=["Splunk ' + hecToken + '"]\n' +
       ')';
     var jdEl = document.getElementById('sl-modal-journald');
     if (jdEl) jdEl.textContent =
-      '# Stream journald to CyberINK (one-liner, run in background)\n' +
+      '# Stream journald to Intel Web Security (one-liner, run in background)\n' +
       'journalctl -f -o json | while IFS= read -r line; do\n' +
       '  MSG=$(echo "$line" | python3 -c \'\n' +
       'import sys,json\n' +
@@ -19854,7 +19854,7 @@ function grcExport() {
     usermgmt: {
       title: 'User Management',
       subtitle: 'Admin — Account Control',
-      desc: 'Manage all CyberINK user accounts. View verification status, assigned plan, and role. Promote users to admin, reset passwords, resend verification emails, or delete accounts. Admin accounts cannot be modified or deleted.',
+      desc: 'Manage all Intel Web Security user accounts. View verification status, assigned plan, and role. Promote users to admin, reset passwords, resend verification emails, or delete accounts. Admin accounts cannot be modified or deleted.',
       tips: ['Unverified users cannot log in until their email is verified','Use "Resend Verification" if a user did not receive the confirmation email','Plan assignments control which pages and features each user can access']
     },
     invoices: {
@@ -19866,7 +19866,7 @@ function grcExport() {
     policy: {
       title: 'Terms of Service',
       subtitle: 'Subscription Policy',
-      desc: 'CyberINK subscription terms and conditions. Covers acceptable use, service availability SLA, data handling commitments, payment terms, and cancellation policy. Available in Indonesian and English.',
+      desc: 'Intel Web Security subscription terms and conditions. Covers acceptable use, service availability SLA, data handling commitments, payment terms, and cancellation policy. Available in Indonesian and English.',
       tips: ['Toggle between Bahasa Indonesia and English using the language switcher','Acceptable Use Policy section explains what scanning targets are permitted','Review the refund policy before making a payment decision']
     },
     privacy: {
