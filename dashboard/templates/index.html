@@ -2121,7 +2121,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
         onclick="versionModalShow()">Version</button>
       <button class="btn-topbar" onclick="pageInfoShow()" id="page-info-btn" title="What is this page?">Information</button>
       <button class="btn-topbar" onclick="toggleDashboardEdit()" id="dash-edit-btn">Customize</button>
-      <button class="btn-topbar primary" onclick="loadDefDashboard()">Refresh</button>
+      <button class="btn-topbar primary" onclick="loadDefDashboard(true)">Refresh</button>
       <button class="btn-topbar" onclick="window.print()">Print</button>
       <div style="width:1px;height:16px;background:#bfdbfe;margin:0 2px;flex-shrink:0;"></div>
       <div style="display:flex;align-items:center;gap:6px;">
@@ -2207,7 +2207,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   <div class="mvd-filter-bar">
     Filter by target groups &nbsp;|&nbsp; <strong id="mvd-filter-count">All targets</strong>
     &nbsp;
-    <select id="def-days" onchange="loadDefDashboard()" style="height:24px;border:1px solid #bfdbfe;border-radius:2px;padding:0 20px 0 6px;font-size:11px;background:#fff;appearance:none;cursor:pointer;font-family:inherit;">
+    <select id="def-days" onchange="loadDefDashboard(true)" style="height:24px;border:1px solid #bfdbfe;border-radius:2px;padding:0 20px 0 6px;font-size:11px;background:#fff;appearance:none;cursor:pointer;font-family:inherit;">
       <option value="7">Last 7 days</option>
       <option value="30" selected>Last 30 days</option>
       <option value="90">Last 90 days</option>
@@ -8776,9 +8776,9 @@ function _showLoadingOverlay(msg) {
   el.style.display = 'flex';
 }
 
-function loadDefDashboard() {
+function loadDefDashboard(silent) {
   _pagesLoaded['dashboard'] = true; // mark visited so sbNav won't double-show
-  _showLoadingOverlay('Loading dashboard…');
+  if (!silent) _showLoadingOverlay('Loading dashboard…');
   ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
     document.querySelectorAll('.'+cls).forEach(function(el){ el.style.opacity='0.35'; });
   });
