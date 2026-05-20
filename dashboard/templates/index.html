@@ -16828,51 +16828,43 @@ function umOpenPagesModal(usernames) {
   if (!grid) return;
   grid.innerHTML = '';
 
-  try {
-    var firstUser = _umUsers.find(function(u){ return u.username === usernames[0]; });
-    var initPages = (firstUser && firstUser.allowed_pages && Array.isArray(firstUser.allowed_pages))
-                      ? firstUser.allowed_pages.slice()
-                      : (typeof _PAGE_PRESETS !== 'undefined' && _PAGE_PRESETS.default ? _PAGE_PRESETS.default.slice() : []);
-    if (usernames.length > 1) initPages = [];
+  var firstUser = _umUsers.find(function(u){ return u.username === usernames[0]; });
+  var initPages = (firstUser && Array.isArray(firstUser.allowed_pages))
+                    ? firstUser.allowed_pages.slice()
+                    : _PAGE_PRESETS.default.slice();
+  if (usernames.length > 1) initPages = [];
 
-    var hasBasicUser = usernames.some(function(un) {
-      var u = _umUsers.find(function(x){ return x.username === un; });
-      return !u || (u.plan || 'basic') === 'basic';
+  var hasBasicUser = usernames.some(function(un) {
+    var u = _umUsers.find(function(x){ return x.username === un; });
+    return !u || (u.plan || 'basic') === 'basic';
+  });
+
+  // Build entire grid HTML as one string, then assign once
+  var gridHtml = '';
+  _ALL_PAGES.forEach(function(grp) {
+    gridHtml += '<div style="margin-bottom:14px;">';
+    gridHtml += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#3b82f6;margin-bottom:6px;border-bottom:1px solid #f3f4f6;padding-bottom:4px;">' + _esc(grp.group) + '</div>';
+    (grp.pages || []).forEach(function(p) {
+      var chk    = initPages.indexOf(p.key) !== -1;
+      var isPro  = _PRO_PAGES.indexOf(p.key) !== -1;
+      var locked = isPro && hasBasicUser;
+      var proTag = isPro ? ' <span style="font-size:9px;font-weight:700;color:#fff;background:#2563eb;border:1px solid #1d4ed8;border-radius:3px;padding:0 4px;">PRO</span>' : '';
+      gridHtml += '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:' + (locked ? '#9ca3af' : '#0f172a') + ';margin-bottom:5px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';"'
+        + (locked ? ' title="Upgrade user to Pro plan to enable this page"' : '') + '>'
+        + '<input type="checkbox" id="um-pg-' + p.key + '" value="' + p.key + '"'
+        + (chk && !locked ? ' checked' : '')
+        + (locked ? ' disabled' : '')
+        + ' style="cursor:' + (locked ? 'not-allowed' : 'pointer') + ';">'
+        + _esc(p.label) + proTag + '</label>';
     });
+    gridHtml += '</div>';
+  });
 
-    var proPages = (typeof _PRO_PAGES !== 'undefined') ? _PRO_PAGES : [];
-    var allPages = (typeof _ALL_PAGES !== 'undefined') ? _ALL_PAGES : [];
-
-    allPages.forEach(function(grp) {
-      var col = document.createElement('div');
-      col.style.cssText = 'margin-bottom:14px;';
-      var html = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#3b82f6;margin-bottom:6px;border-bottom:1px solid #f3f4f6;padding-bottom:4px;">' + _esc(grp.group) + '</div>';
-      (grp.pages || []).forEach(function(p) {
-        var chk    = initPages.indexOf(p.key) !== -1;
-        var isPro  = proPages.indexOf(p.key) !== -1;
-        var locked = isPro && hasBasicUser;
-        var proTag = isPro ? ' <span style="font-size:9px;font-weight:700;color:#fff;background:#2563eb;border:1px solid #1d4ed8;border-radius:3px;padding:0 4px;">PRO</span>' : '';
-        html += '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:' + (locked ? '#9ca3af' : '#0f172a') + ';margin-bottom:5px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';"'
-          + (locked ? ' title="Upgrade user to Pro plan to enable this page"' : '') + '>'
-          + '<input type="checkbox" id="um-pg-' + p.key + '" value="' + p.key + '"'
-          + (chk && !locked ? ' checked' : '')
-          + (locked ? ' disabled' : '')
-          + ' style="cursor:' + (locked ? 'not-allowed' : 'pointer') + ';">'
-          + _esc(p.label) + proTag + '</label>';
-      });
-      col.innerHTML = html;
-      grid.appendChild(col);
-    });
-
-    if (hasBasicUser) {
-      var proNote = document.createElement('div');
-      proNote.style.cssText = 'grid-column:1/-1;margin-top:4px;padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af;';
-      proNote.textContent = 'Pro-plan pages (marked PRO) are locked for Basic users. Upgrade the user\'s plan to Pro first.';
-      grid.appendChild(proNote);
-    }
-  } catch(e) {
-    grid.innerHTML = '<div style="grid-column:1/-1;padding:10px;color:#dc2626;font-size:12px;border:1px solid #fecaca;border-radius:4px;background:#fef2f2;">Error building page list: ' + String(e) + '</div>';
+  if (hasBasicUser) {
+    gridHtml += '<div style="grid-column:1/-1;margin-top:4px;padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af;">Pro-plan pages (marked PRO) are locked for Basic users. Upgrade the user\'s plan to Pro first.</div>';
   }
+
+  grid.innerHTML = gridHtml;
 }
 
 function umClosePagesModal() {
