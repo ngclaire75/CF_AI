@@ -8223,12 +8223,7 @@ var _USER_SECTIONS = USER_ALLOWED_PAGES !== null ? USER_ALLOWED_PAGES : [];
 // ── /ws/live — real-time stats via FastAPI WebSocket ─────────────────────────
 (function initLiveWs() {
   if (!window.WebSocket) return;
-  // Probe the WS endpoint first so Flask (which has no /ws/live) never logs a
-  // console error. We hit /api/health (always present) to check reachability,
-  // then attempt the upgrade only when the server is FastAPI.
-  fetch('/api/ws-available', { method: 'HEAD' })
-    .then(function(r) { if (r.ok) startWs(); })
-    .catch(function() {});
+  startWs();
 
   function startWs() {
     var _wsRetries = 0;

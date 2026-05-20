@@ -83,11 +83,11 @@ app.add_middleware(
 
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' app.midtrans.com; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' app.midtrans.com app.sandbox.midtrans.com; "
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com; "
     "font-src 'self' data: fonts.gstatic.com; "
     "img-src 'self' data: https:; "
-    "connect-src 'self' wss: https:; "
+    "connect-src 'self' wss: wss://*.inktelligence.online https:; "
     "frame-ancestors 'none';"
 )
 
