@@ -13073,8 +13073,20 @@ def api_dca_scan():
                 scanner = s.replace('3', '') if s == 'wapiti3' else s
                 break
         else:
-            return jsonify({'ok': False,
-                'error': 'No DAST scanner installed. Run: apt install nikto nuclei wapiti'}), 503
+            # Fall back to ZAP if no CLI scanner found
+            import urllib.request as _ureq_auto, urllib.parse as _up_auto
+            _zk_auto = os.environ.get('ZAP_API_KEY', '')
+            _zqs_auto = f'?apikey={_up_auto.quote(_zk_auto)}' if _zk_auto else ''
+            try:
+                with _ureq_auto.urlopen(f'http://localhost:8080/JSON/core/view/version/{_zqs_auto}', timeout=3):
+                    scanner = 'zap'
+            except Exception:
+                zap_bin_auto = _dca_find_bin('zaproxy', 'zap.sh', 'zap')
+                if zap_bin_auto:
+                    scanner = 'zap'
+                else:
+                    return jsonify({'ok': False,
+                        'error': 'No DAST scanner installed. Run: apt install nikto nuclei wapiti'}), 503
 
     with _tmp.TemporaryDirectory() as tdir:
         out_file = os.path.join(tdir, 'results.json')
@@ -13090,25 +13102,29 @@ def api_dca_scan():
                 cmd += ['-c', auth_cookie]
             try:
                 _sp.run(cmd, capture_output=True, timeout=180)
-                if os.path.exists(out_file) and os.path.getsize(out_file) > 0:
-                    with open(out_file) as f:
-                        raw = _jd.load(f)
-                    sev_words = [(['critical','remote code','rce','sql inject'], 'critical'),
-                                 (['xss','csrf','auth bypass','directory traversal'], 'high'),
-                                 (['disclosure','header','cookie'], 'low')]
-                    for v in raw.get('vulnerabilities', []):
-                        msg = v.get('msg', '')
-                        sev = 'medium'
-                        ml = msg.lower()
-                        for words, s in sev_words:
-                            if any(w in ml for w in words):
-                                sev = s; break
-                        findings.append({'id': v.get('id',''), 'title': msg[:120] or 'Finding',
-                            'severity': sev, 'url': v.get('url', target),
-                            'method': v.get('method','GET'), 'description': msg,
-                            'references': v.get('references',''), 'scanner': 'Nikto'})
                 scanner_used = 'Nikto'
+                if os.path.exists(out_file) and os.path.getsize(out_file) > 0:
+                    try:
+                        with open(out_file) as f:
+                            raw = _jd.load(f)
+                        sev_words = [(['critical','remote code','rce','sql inject'], 'critical'),
+                                     (['xss','csrf','auth bypass','directory traversal'], 'high'),
+                                     (['disclosure','header','cookie'], 'low')]
+                        for v in raw.get('vulnerabilities', []):
+                            msg = v.get('msg', '')
+                            sev = 'medium'
+                            ml = msg.lower()
+                            for words, s in sev_words:
+                                if any(w in ml for w in words):
+                                    sev = s; break
+                            findings.append({'id': v.get('id', ''), 'title': msg[:120] or 'Finding',
+                                'severity': sev, 'url': v.get('url', target),
+                                'method': v.get('method', 'GET'), 'description': msg,
+                                'references': v.get('references', ''), 'scanner': 'Nikto'})
+                    except Exception:
+                        warning = 'Nikto output could not be parsed (non-JSON response)'
             except _sp.TimeoutExpired:
+                scanner_used = 'Nikto'
                 warning = 'Scan timed out (180s)'
             except Exception as exc:
                 return jsonify({'ok': False, 'error': str(exc)}), 500
@@ -13222,13 +13238,13 @@ def api_dca_scan():
                     return jsonify({'ok': False,
                         'error': f'Could not start ZAP automatically ({exc}). '
                                  'Run: nohup zaproxy -daemon -port 8080 -host 127.0.0.1 &'}), 503
-                for _ in range(20):
+                for _ in range(45):
                     _tz.sleep(2)
                     if _zap_ready():
                         break
                 else:
                     return jsonify({'ok': False,
-                        'error': 'ZAP was started but did not become ready within 40 s. '
+                        'error': 'ZAP was started but did not become ready within 90 s. '
                                  'Wait a moment and try the scan again.'}), 503
 
             try:
@@ -13260,6 +13276,65 @@ def api_dca_scan():
 
     return jsonify({'ok': True, 'scanner': scanner_used, 'target': target,
                     'count': len(findings), 'findings': findings, 'warning': warning})
+
+
+@app.route('/api/dca/run', methods=['POST'])
+@login_required
+def api_dca_run():
+    """AI Pentest entry point — runs the standard DAST scan then optionally
+    enriches findings with Claude when ai_pentest=true."""
+    import json as _jd
+    data       = request.get_json(silent=True) or {}
+    ai_pentest = data.get('ai_pentest', False)
+
+    # api_dca_scan() reads flask.request directly, which is the current request,
+    # so calling it here works without any context switching.
+    raw = api_dca_scan()
+
+    # Unwrap Flask response (may be plain Response or (Response, status) tuple)
+    resp_obj = raw[0] if isinstance(raw, tuple) else raw
+    status   = raw[1] if isinstance(raw, tuple) else 200
+    try:
+        result = resp_obj.get_json()
+    except Exception:
+        return jsonify({'ok': False, 'error': 'Internal scan dispatch failed'}), 500
+
+    if not result.get('ok'):
+        return jsonify(result), status
+
+    findings = result.get('findings', [])
+
+    if ai_pentest and findings:
+        try:
+            import anthropic as _ant
+            _ac = _ant.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY', ''))
+            summary = '\n'.join(
+                f"- [{f.get('severity','?').upper()}] {f.get('title','')} @ {f.get('url','')}"
+                for f in findings[:20]
+            )
+            msg = _ac.messages.create(
+                model='claude-sonnet-4-6', max_tokens=800,
+                messages=[{'role': 'user', 'content':
+                    f'Given these DAST findings for {data.get("target","")}:\n{summary}\n\n'
+                    'Identify up to 3 chained attack paths or business-logic flaws not already listed. '
+                    'Reply ONLY with a JSON array of objects with keys: title, severity '
+                    '(critical/high/medium/low), description, url. No markdown fences.'}]
+            )
+            extra = _jd.loads(msg.content[0].text)
+            if isinstance(extra, list):
+                for e in extra:
+                    e['scanner'] = 'AI Pentest'
+                    e.setdefault('method', 'N/A')
+                    e.setdefault('references', '')
+                    e.setdefault('solution', '')
+                    findings.append(e)
+        except Exception:
+            pass  # AI enhancement is best-effort; don't fail the whole response
+
+    return jsonify({'ok': True, 'scanner': result.get('scanner', ''),
+                    'target': result.get('target', ''),
+                    'count': len(findings), 'findings': findings,
+                    'warning': result.get('warning')})
 
 
 @app.route('/api/dca/jira/test', methods=['POST'])
