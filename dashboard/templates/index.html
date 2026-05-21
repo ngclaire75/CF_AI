@@ -3908,7 +3908,7 @@ Export Power BI
 
         <!-- Auto Scan / scheduler -->
         <div class="dca-sched-wrap">
-          <div class="dca-sched-title">&#9201; Auto Scan (Daily)</div>
+          <div class="dca-sched-title">Auto Scan (Daily)</div>
           <div class="dca-sched-row">
             <select class="dca-sched-sel" id="dca-sched-freq">
               <option value="off">Off</option>
@@ -3926,12 +3926,12 @@ Export Power BI
         <div class="dca-pt">Self-Hosted App Scanner</div>
         <div style="font-size:11px;color:var(--c5);margin-bottom:8px;line-height:1.5">Select your app platform to run Nuclei templates targeting known CVEs and misconfigurations</div>
         <div class="dca-apps-grid" id="dca-apps-grid">
-          <div class="dca-app-chip" onclick="dcaToggleApp(this,'wordpress')"><div class="dca-app-icon">&#128394;</div>WordPress</div>
-          <div class="dca-app-chip" onclick="dcaToggleApp(this,'gitlab')"><div class="dca-app-icon">&#129398;</div>GitLab</div>
-          <div class="dca-app-chip" onclick="dcaToggleApp(this,'laravel')"><div class="dca-app-icon">&#127381;</div>Laravel</div>
-          <div class="dca-app-chip" onclick="dcaToggleApp(this,'drupal')"><div class="dca-app-icon">&#128190;</div>Drupal</div>
-          <div class="dca-app-chip" onclick="dcaToggleApp(this,'joomla')"><div class="dca-app-icon">&#128296;</div>Joomla</div>
-          <div class="dca-app-chip" onclick="dcaToggleApp(this,'django')"><div class="dca-app-icon">&#128013;</div>Django</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'wordpress')">WordPress</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'gitlab')">GitLab</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'laravel')">Laravel</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'drupal')">Drupal</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'joomla')">Joomla</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'django')">Django</div>
         </div>
       </div>
     </div>
@@ -3949,7 +3949,6 @@ Export Power BI
         </div>
         <div id="dca-findings-wrap">
           <div class="dca-empty">
-            <div style="font-size:32px;margin-bottom:10px">&#128270;</div>
             <div>Configure a target on the left and click <strong>Run Scan</strong></div>
             <div style="font-size:11px;margin-top:6px;color:var(--c5)">Safe to run in production — 2–4 min scan, OWASP Top 10 coverage</div>
           </div>
@@ -3959,7 +3958,7 @@ Export Power BI
           <div class="dca-toxic-wrap">
             <div class="dca-toxic-hdr">
               <div>
-                <div class="dca-toxic-title">&#9889; Toxic Combinations</div>
+                <div class="dca-toxic-title">Toxic Combinations</div>
                 <div class="dca-toxic-sub">Vulnerabilities that chain together to create critical attack paths</div>
               </div>
               <span class="dca-toxic-badge" id="dca-toxic-count">0</span>
@@ -3997,7 +3996,7 @@ Export Power BI
       <div class="dca-dangling-wrap">
         <div class="dca-dangling-hdr">
           <div>
-            <div class="dca-dangling-title">&#128279; Dangling Domains</div>
+            <div class="dca-dangling-title">Dangling Domains</div>
             <div style="font-size:11px;color:var(--c5);margin-top:2px">Detect subdomains pointing to dead cloud services — prevent subdomain takeover attacks</div>
           </div>
         </div>
@@ -4013,15 +4012,15 @@ Export Power BI
       <!-- AI Pentesting -->
       <div class="dca-pentest-wrap">
         <div class="dca-pentest-hdr">
-          <div class="dca-pentest-title">&#129302; AI Pentesting</div>
+          <div class="dca-pentest-title">AI Pentesting</div>
           <span class="dca-pentest-badge">AUTONOMOUS AGENT</span>
         </div>
         <div class="dca-pentest-body">Runs an autonomous AI agent that explores your attack surface, chains vulnerabilities into realistic attack scenarios, and produces a SOC2 / ISO 27001-ready pentest report — no manual effort required.</div>
         <div class="dca-pentest-feats">
-          <div class="dca-pentest-feat"><span>&#10003;</span><span>Chained attack path discovery</span></div>
-          <div class="dca-pentest-feat"><span>&#10003;</span><span>Business logic flaw detection</span></div>
-          <div class="dca-pentest-feat"><span>&#10003;</span><span>Authentication bypass testing</span></div>
-          <div class="dca-pentest-feat"><span>&#10003;</span><span>SOC2 / ISO pentest report</span></div>
+          <div class="dca-pentest-feat"><span>Chained attack path discovery</span></div>
+          <div class="dca-pentest-feat"><span>Business logic flaw detection</span></div>
+          <div class="dca-pentest-feat"><span>Authentication bypass testing</span></div>
+          <div class="dca-pentest-feat"><span>SOC2 / ISO pentest report</span></div>
         </div>
         <button class="dca-pentest-run" onclick="dcaAiPentest()">Launch AI Pentest</button>
         <div id="dca-pentest-status" style="margin-top:10px;font-size:11px;color:#5b21b6;display:none"></div>
