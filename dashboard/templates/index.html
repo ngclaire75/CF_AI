@@ -21558,9 +21558,21 @@ function grcExport() {
     tags += '<span class="sca-card-tag sca-tag-rule" title="' + _scaEsc(ruleId) + '">' + _scaEsc(_scaShortRule(ruleId)) + '</span>';
     tags += '</div>';
 
-    // Code block (up to 8 lines, vulnerable line highlighted)
+    // Code block — prefer context_lines (surrounding lines from file) over extra.lines
     var codeHtml = '';
-    if (snippet) {
+    var ctx = f.context_lines;
+    if (ctx && ctx.lines && ctx.lines.length) {
+      var linesHtml = ctx.lines.map(function(l, i) {
+        var lineNo  = ctx.start_line + i;
+        var isVuln  = lineNo >= ctx.vuln_start && lineNo <= ctx.vuln_end;
+        return '<div class="sca-code-line' + (isVuln ? ' vuln' : '') + '">' +
+          '<span class="sca-code-linenum">' + lineNo + '</span>' +
+          '<span class="sca-code-text">' + _scaEsc(l) + '</span></div>';
+      }).join('');
+      codeHtml = '<div class="sca-code-block">' +
+        '<div class="sca-code-file-bar"><span>' + _scaEsc(file) + '</span><span>line ' + _scaEsc(String(line)) + '</span></div>' +
+        '<div class="sca-code-lines">' + linesHtml + '</div></div>';
+    } else if (snippet) {
       var snippetLines = snippet.split('\n');
       var linesHtml = snippetLines.slice(0, 8).map(function(l, i) {
         var lineNo = line ? (parseInt(line) + i) : (i + 1);

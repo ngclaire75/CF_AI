@@ -12706,9 +12706,26 @@ def api_sca_scan():
                 return jsonify({'ok': False, 'error': 'Semgrep output could not be parsed',
                                 'stderr': res.stderr[:400]}), 500
             findings = data.get('results') or []
-            # Strip temp dir prefix from file paths
+            # Strip temp dir prefix and inject surrounding context lines
             for r in findings:
-                r['path'] = os.path.basename(r.get('path', ''))
+                full_path = r.get('path', '')
+                r['path'] = os.path.basename(full_path)
+                start_line = (r.get('start') or {}).get('line', 0)
+                end_line   = (r.get('end')   or {}).get('line', start_line)
+                if full_path and start_line > 0:
+                    try:
+                        with open(full_path, 'r', errors='replace') as _fh:
+                            _all = _fh.readlines()
+                        ctx_start = max(0, start_line - 3)
+                        ctx_end   = min(len(_all), end_line + 2)
+                        r['context_lines'] = {
+                            'lines':      [l.rstrip('\n') for l in _all[ctx_start:ctx_end]],
+                            'start_line': ctx_start + 1,
+                            'vuln_start': start_line,
+                            'vuln_end':   end_line,
+                        }
+                    except Exception:
+                        pass
             return jsonify({'ok': True,
                             'findings': findings,
                             'errors':   data.get('errors', []),
