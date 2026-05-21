@@ -13193,9 +13193,44 @@ def api_dca_scan():
             import urllib.request as _ureq
             import urllib.parse as _up
             import time as _tz
+            import subprocess as _sp_zap
             ZAP = 'http://localhost:8080'
             _zap_key = os.environ.get('ZAP_API_KEY', '')
-            _zap_qs = f'&apikey={_up.quote(_zap_key)}' if _zap_key else ''
+            _zap_qs  = f'&apikey={_up.quote(_zap_key)}' if _zap_key else ''
+            _zk_qs   = f'?apikey={_up.quote(_zap_key)}' if _zap_key else ''
+
+            def _zap_ready():
+                try:
+                    with _ureq.urlopen(f'{ZAP}/JSON/core/view/version/{_zk_qs}', timeout=3):
+                        return True
+                except Exception:
+                    return False
+
+            if not _zap_ready():
+                zap_bin = _dca_find_bin('zaproxy', 'zap.sh', 'zap')
+                if not zap_bin:
+                    return jsonify({'ok': False,
+                        'error': 'ZAP is not running and zaproxy was not found. '
+                                 'Start it manually: nohup zaproxy -daemon -port 8080 -host 127.0.0.1 &'}), 503
+                zap_cmd = [zap_bin, '-daemon', '-port', '8080', '-host', '127.0.0.1',
+                           '-config', 'api.disablekey=false']
+                if _zap_key:
+                    zap_cmd += ['-config', f'api.key={_zap_key}']
+                try:
+                    _sp_zap.Popen(zap_cmd, stdout=_sp_zap.DEVNULL, stderr=_sp_zap.DEVNULL)
+                except Exception as exc:
+                    return jsonify({'ok': False,
+                        'error': f'Could not start ZAP automatically ({exc}). '
+                                 'Run: nohup zaproxy -daemon -port 8080 -host 127.0.0.1 &'}), 503
+                for _ in range(20):
+                    _tz.sleep(2)
+                    if _zap_ready():
+                        break
+                else:
+                    return jsonify({'ok': False,
+                        'error': 'ZAP was started but did not become ready within 40 s. '
+                                 'Wait a moment and try the scan again.'}), 503
+
             try:
                 enc = _up.quote(target, safe='')
                 with _ureq.urlopen(f'{ZAP}/JSON/spider/action/scan/?url={enc}&recurse=true{_zap_qs}', timeout=10) as r:
@@ -13209,14 +13244,16 @@ def api_dca_scan():
                     alerts = _jd.loads(r.read()).get('alerts', [])
                 sev_map = {'0': 'info', '1': 'low', '2': 'medium', '3': 'high'}
                 for a in alerts:
-                    findings.append({'id': a.get('pluginId',''), 'title': a.get('alert','Finding'),
-                        'severity': sev_map.get(str(a.get('risk','1')), 'medium'),
-                        'url': a.get('url', target), 'method': a.get('method','GET'),
-                        'description': a.get('description',''), 'references': a.get('reference',''),
-                        'solution': a.get('solution',''), 'scanner': 'OWASP ZAP'})
+                    findings.append({'id': a.get('pluginId', ''), 'title': a.get('alert', 'Finding'),
+                        'severity': sev_map.get(str(a.get('risk', '1')), 'medium'),
+                        'url': a.get('url', target), 'method': a.get('method', 'GET'),
+                        'description': a.get('description', ''), 'references': a.get('reference', ''),
+                        'solution': a.get('solution', ''), 'scanner': 'OWASP ZAP'})
                 scanner_used = 'OWASP ZAP'
             except Exception as exc:
-                return jsonify({'ok': False, 'error': f'ZAP API error: {exc}. Ensure ZAP is running on localhost:8080 with REST API enabled.'}), 503
+                return jsonify({'ok': False,
+                    'error': f'ZAP API error: {exc}. '
+                             'ZAP is running but the scan request failed — check the target URL and try again.'}), 503
 
     if not scanner_used:
         return jsonify({'ok': False, 'error': 'Scan produced no output. The scanner may have failed silently.'}), 500
