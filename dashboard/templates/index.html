@@ -1972,9 +1972,6 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-gsc" onclick="sbNav('gsc',this)">
       <span class="sb-label">Search Console</span>
     </button>
-    <button class="sb-item" id="sb-filescan" onclick="sbNav('filescan',this)">
-      <span class="sb-label">File Scanner</span>
-    </button>
 
     <div class="sb-divider"></div>
 
@@ -2814,71 +2811,6 @@ Export Power BI
   </section>
   </div><!-- /page-gsc -->
 
-  <!-- ══ FILE SCANNER PAGE ════════════════════════════════════════════════ -->
-  <div id="page-filescan" class="page-section" style="display:none">
-  <section class="section">
-    <div class="sec-title">Website File Scanner</div>
-    <div style="font-size:13px;color:#3b82f6;margin-bottom:16px;">
-      Checks for malware, exposed sensitive files, suspicious uploads, and security misconfigurations — supports WordPress, Drupal, Joomla, Laravel, Django, and any web application.
-    </div>
-
-    <!-- Form -->
-    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
-      <div>
-        <label style="font-size:12px;font-weight:600;color:#172554;display:block;margin-bottom:4px;">Platform</label>
-        <select id="fs-platform" onchange="fsPlatformChange()" style="padding:7px 10px;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;background:#fff;color:#172554;">
-          <option value="wordpress">WordPress</option>
-          <option value="drupal">Drupal</option>
-          <option value="joomla">Joomla</option>
-          <option value="laravel">Laravel</option>
-          <option value="django">Django / Flask</option>
-          <option value="nodejs">Node.js / Express</option>
-          <option value="generic">Generic (any website)</option>
-        </select>
-      </div>
-      <div style="flex:1;min-width:220px;">
-        <label style="font-size:12px;font-weight:600;color:#172554;display:block;margin-bottom:4px;">Site URL</label>
-        <input id="fs-site-url" type="text" placeholder="https://example.com"
-          style="width:100%;padding:7px 10px;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;box-sizing:border-box;">
-      </div>
-      <button onclick="fsRun()" style="padding:7px 20px;background:#2563eb;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer;font-weight:600;">Scan Now</button>
-      <button onclick="fsClearResults()" style="padding:7px 14px;background:#eff6ff;color:#172554;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;cursor:pointer;">Clear Results</button>
-      <button onclick="fsClear()" style="padding:7px 14px;background:#fff;color:#3b82f6;border:1px solid #bfdbfe;border-radius:4px;font-size:13px;cursor:pointer;">Clear All</button>
-      <div id="fs-bulk-bar" style="display:none;margin-left:auto;gap:6px;flex-wrap:wrap;align-items:center;">
-        <span style="font-size:11px;color:#3b82f6;font-weight:600;">Mark all as:</span>
-        <button onclick="_fsMarkAll('ok')"         style="font-size:11px;padding:3px 10px;background:linear-gradient(135deg,#dbeafe,#eff6ff);color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;cursor:pointer;font-weight:600;">Known Safe</button>
-        <button onclick="_fsMarkAll('suspicious')" style="font-size:11px;padding:3px 10px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#dbeafe;border:1px solid #1e3a8a;border-radius:4px;cursor:pointer;font-weight:600;">Suspicious</button>
-        <button onclick="_fsMarkAll('malware')"    style="font-size:11px;padding:3px 10px;background:linear-gradient(135deg,#172554,#1e3a8a);color:#93c5fd;border:1px solid #172554;border-radius:4px;cursor:pointer;font-weight:600;">Malware</button>
-        <button onclick="_fsMarkAll('dismissed')"  style="font-size:11px;padding:3px 10px;background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;border-radius:4px;cursor:pointer;font-weight:600;">Dismiss All</button>
-        <button onclick="_fsClearDismissed()"      style="font-size:11px;padding:3px 10px;background:#fff;color:#172554;border:1px solid #bfdbfe;border-radius:4px;cursor:pointer;">Reset All</button>
-      </div>
-    </div>
-
-    <!-- Status -->
-    <div id="fs-loading" style="display:none;font-size:13px;color:#3b82f6;padding:8px 0;">Scanning… this may take 15–30 seconds.</div>
-    <div id="fs-error"   style="display:none;padding:12px;background:linear-gradient(135deg,#172554,#1e3a8a);border-radius:6px;font-size:13px;color:#93c5fd;margin-bottom:12px;"></div>
-
-    <!-- Results -->
-    <div id="fs-results" style="display:none;">
-      <!-- Summary bar -->
-      <div id="fs-summary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
-
-      <!-- WordPress panels -->
-      <div id="fs-wf-panel"      style="margin-bottom:16px;"></div>
-      <div id="fs-mods-panel"    style="margin-bottom:16px;"></div>
-      <div id="fs-uploads-panel" style="margin-bottom:16px;"></div>
-      <div id="fs-plugins-panel" style="margin-bottom:16px;"></div>
-      <!-- Generic / non-WP panels -->
-      <div id="fs-exposed-panel" style="margin-bottom:16px;"></div>
-      <div id="fs-headers-panel" style="margin-bottom:16px;"></div>
-      <div id="fs-platform-panel" style="margin-bottom:16px;"></div>
-    </div>
-
-    <div id="fs-empty" style="padding:32px;text-align:center;color:#60a5fa;font-size:13px;">
-      Select a platform, enter the site URL, and click Scan Now.
-    </div>
-  </section>
-  </div><!-- /page-filescan -->
 
   <!-- ══ PRIORITY ACTIONS PAGE ═════════════════════════════════════════════ -->
   <div id="page-priority" class="page-section" style="display:none">
@@ -3390,93 +3322,272 @@ Export Power BI
   <!-- ══ STATIC CODE ANALYSIS PAGE ════════════════════════════════════════ -->
   <div id="page-sca" class="page-section" style="display:none">
   <style>
-    .sca-wrap { display:grid; grid-template-columns:320px 1fr; gap:20px; padding:20px; max-width:1400px; margin:0 auto; }
-    @media(max-width:900px){ .sca-wrap { grid-template-columns:1fr; } }
-    .sca-panel { background:var(--c11); border:1px solid var(--c8); border-radius:10px; padding:20px; }
-    .sca-panel-title { font-size:13px; font-weight:700; color:var(--c1); margin-bottom:14px; text-transform:uppercase; letter-spacing:.06em; }
-    .sca-upload-zone { border:2px dashed var(--c5); border-radius:8px; padding:28px 16px; text-align:center; cursor:pointer; transition:background .2s, border-color .2s; }
-    .sca-upload-zone:hover, .sca-upload-zone.drag-over { background:var(--c10); border-color:var(--c4); }
-    .sca-upload-icon { font-size:28px; margin-bottom:6px; color:var(--c5); }
-    .sca-upload-hint { font-size:12px; color:var(--c5); line-height:1.5; }
-    .sca-file-list { margin-top:10px; max-height:120px; overflow-y:auto; font-size:11px; }
-    .sca-file-item { display:flex; align-items:center; gap:6px; padding:3px 6px; border-radius:4px; background:var(--c10); margin-bottom:3px; color:var(--c2); }
-    .sca-file-item span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .sca-label { font-size:11px; font-weight:600; color:var(--c2); margin:12px 0 4px; }
-    .sca-select { width:100%; padding:7px 10px; border:1px solid var(--c8); border-radius:6px; font-size:12px; color:var(--c1); background:var(--c11); outline:none; }
-    .sca-select:focus { border-color:var(--c4); }
-    .sca-toggle-link { font-size:11px; color:var(--c4); cursor:pointer; margin-top:10px; display:inline-block; }
-    .sca-toggle-link:hover { text-decoration:underline; }
-    .sca-custom-box { margin-top:8px; }
-    .sca-textarea { width:100%; padding:8px 10px; border:1px solid var(--c8); border-radius:6px; font-size:11px; font-family:monospace; color:var(--c1); background:#f8faff; resize:vertical; min-height:140px; box-sizing:border-box; }
-    .sca-textarea:focus { border-color:var(--c4); outline:none; }
-    .sca-btn { display:block; width:100%; margin-top:14px; padding:10px; background:var(--c4); color:#fff; border:none; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer; transition:background .2s; }
-    .sca-btn:hover { background:var(--c5); }
-    .sca-btn:disabled { background:var(--c8); cursor:not-allowed; }
-    .sca-results-panel { display:flex; flex-direction:column; gap:14px; }
-    .sca-stats-row { display:flex; gap:10px; flex-wrap:wrap; }
-    .sca-stat-box { flex:1; min-width:90px; background:var(--c11); border:1px solid var(--c8); border-radius:8px; padding:12px 14px; text-align:center; }
-    .sca-stat-num { font-size:26px; font-weight:700; color:var(--c1); }
-    .sca-stat-label { font-size:11px; color:var(--c5); margin-top:2px; }
-    .sca-stat-box.error-box { border-color:#fca5a5; background:#fff5f5; }
-    .sca-stat-box.error-box .sca-stat-num { color:#dc2626; }
-    .sca-stat-box.warn-box  { border-color:#fde68a; background:#fffbeb; }
-    .sca-stat-box.warn-box  .sca-stat-num { color:#d97706; }
-    .sca-stat-box.info-box  { border-color:var(--c8); background:var(--c10); }
-    .sca-stat-box.info-box  .sca-stat-num { color:var(--c4); }
-    .sca-table-wrap { background:var(--c11); border:1px solid var(--c8); border-radius:10px; overflow:hidden; }
-    .sca-table { width:100%; border-collapse:collapse; font-size:12px; }
-    .sca-table th { background:var(--c10); color:var(--c2); font-weight:700; text-align:left; padding:9px 12px; border-bottom:1px solid var(--c8); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
-    .sca-finding-row { border-bottom:1px solid var(--c9); transition:background .15s; }
-    .sca-finding-row:last-child { border-bottom:none; }
-    .sca-finding-row:hover { background:var(--c10); }
-    .sca-finding-row td { padding:9px 12px; vertical-align:top; }
-    .sca-badge-error   { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:#fee2e2; color:#dc2626; }
-    .sca-badge-warning { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:#fef3c7; color:#d97706; }
-    .sca-badge-info    { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:var(--c9); color:var(--c4); }
-    .sca-badge-low     { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:#f0fdf4; color:#16a34a; }
-    .sca-rule-id { font-size:10px; color:var(--c5); font-family:monospace; word-break:break-all; }
-    .sca-msg { font-size:12px; color:var(--c1); line-height:1.4; }
-    .sca-location { font-size:11px; color:var(--c2); font-family:monospace; white-space:nowrap; }
-    .sca-code { font-family:monospace; font-size:11px; background:#1e293b; color:#94a3b8; padding:5px 8px; border-radius:4px; white-space:pre; overflow:hidden; text-overflow:ellipsis; max-width:320px; display:block; margin-top:4px; }
-    .sca-empty { text-align:center; padding:48px 20px; color:var(--c5); }
-    .sca-empty-icon { font-size:36px; margin-bottom:10px; }
-    .sca-empty-text { font-size:13px; }
-    .sca-loading { text-align:center; padding:48px 20px; color:var(--c5); }
-    .sca-spinner { width:32px; height:32px; border:3px solid var(--c9); border-top-color:var(--c4); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 12px; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .sca-error-box { background:#fff5f5; border:1px solid #fca5a5; border-radius:8px; padding:14px 16px; color:#dc2626; font-size:12px; line-height:1.5; }
-    .sca-error-box code { display:block; margin-top:8px; font-size:11px; background:#fee2e2; padding:6px 10px; border-radius:4px; }
-    .sca-header { padding:20px 20px 0; }
-    .sca-title { font-size:20px; font-weight:700; color:var(--c1); }
-    .sca-subtitle { font-size:12px; color:var(--c5); margin-top:3px; }
-    .sca-semgrep-badge { display:inline-block; margin-left:6px; font-size:10px; font-weight:700; background:var(--c9); color:var(--c4); padding:2px 7px; border-radius:4px; vertical-align:middle; }
+    /* ── Layout ──────────────────────────────────────────────── */
+    .sca-hero{padding:24px 24px 0;max-width:1400px;margin:0 auto}
+    .sca-hero-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px}
+    .sca-hero-left{}
+    .sca-title{font-size:22px;font-weight:800;color:var(--c1);letter-spacing:-.3px}
+    .sca-subtitle{font-size:13px;color:var(--c5);margin-top:4px;line-height:1.6;max-width:560px}
+    .sca-engine-badge{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:10px;font-weight:700;background:var(--c10);border:1px solid var(--c8);color:var(--c4);padding:3px 10px;border-radius:20px}
+    .sca-hero-stats{display:flex;gap:20px;flex-wrap:wrap}
+    .sca-hero-stat{text-align:center}
+    .sca-hero-stat-num{font-size:22px;font-weight:800;color:var(--c4)}
+    .sca-hero-stat-lbl{font-size:10px;color:var(--c5);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    /* Vuln types grid */
+    .sca-vuln-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding:0 24px 20px;max-width:1400px;margin:0 auto}
+    .sca-vuln-card{background:var(--c11);border:1px solid var(--c8);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px}
+    .sca-vuln-icon{font-size:16px;flex-shrink:0}
+    .sca-vuln-name{font-size:11px;font-weight:600;color:var(--c2);line-height:1.3}
+    /* Main two-column layout */
+    .sca-wrap{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:0 20px 20px;max-width:1400px;margin:0 auto}
+    @media(max-width:900px){.sca-wrap{grid-template-columns:1fr}}
+    .sca-panel{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:18px}
+    .sca-panel-title{font-size:11px;font-weight:700;color:var(--c2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em}
+    /* Upload zone */
+    .sca-upload-zone{border:2px dashed var(--c5);border-radius:8px;padding:24px 14px;text-align:center;cursor:pointer;transition:background .2s,border-color .2s}
+    .sca-upload-zone:hover,.sca-upload-zone.drag-over{background:var(--c10);border-color:var(--c4)}
+    .sca-upload-hint{font-size:12px;color:var(--c5);line-height:1.5}
+    .sca-file-list{margin-top:10px;max-height:110px;overflow-y:auto;font-size:11px}
+    .sca-file-item{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;background:var(--c10);margin-bottom:3px;color:var(--c2)}
+    .sca-file-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sca-label{font-size:11px;font-weight:600;color:var(--c2);margin:10px 0 4px}
+    .sca-select{width:100%;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none}
+    .sca-select:focus{border-color:var(--c4)}
+    .sca-toggle-link{font-size:11px;color:var(--c4);cursor:pointer;margin-top:10px;display:inline-block}
+    .sca-toggle-link:hover{text-decoration:underline}
+    .sca-textarea{width:100%;padding:8px 10px;border:1px solid var(--c8);border-radius:6px;font-size:11px;font-family:monospace;color:var(--c1);background:#f8faff;resize:vertical;min-height:130px;box-sizing:border-box}
+    .sca-textarea:focus{border-color:var(--c4);outline:none}
+    .sca-btn{display:block;width:100%;margin-top:14px;padding:10px;background:var(--c4);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s}
+    .sca-btn:hover{background:var(--c5)}.sca-btn:disabled{background:var(--c8);cursor:not-allowed}
+    /* Context panel */
+    .sca-ctx-box{background:var(--c10);border:1px solid var(--c8);border-radius:7px;padding:10px 12px;margin:10px 0}
+    .sca-ctx-title{font-size:10px;font-weight:700;color:var(--c2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+    .sca-ctx-row{display:flex;align-items:center;gap:7px;margin-bottom:5px;cursor:pointer}
+    .sca-ctx-row:last-child{margin-bottom:0}
+    .sca-ctx-row input{cursor:pointer;accent-color:var(--c4)}
+    .sca-ctx-row label{font-size:11px;color:var(--c2);cursor:pointer}
+    .sca-ctx-note{font-size:10px;color:var(--c5);margin-top:6px;line-height:1.5}
+    /* Results panel */
+    .sca-results-panel{display:flex;flex-direction:column;gap:14px}
+    .sca-empty{text-align:center;padding:48px 20px;color:var(--c5)}
+    .sca-empty-text{font-size:13px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .sca-spinner{width:32px;height:32px;border:3px solid var(--c9);border-top-color:var(--c4);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+    .sca-error-box{background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:14px 16px;color:#dc2626;font-size:12px;line-height:1.5}
+    .sca-error-box code{display:block;margin-top:8px;font-size:11px;background:#fee2e2;padding:6px 10px;border-radius:4px}
+    /* Stats row */
+    .sca-stats-row{display:flex;gap:10px;flex-wrap:wrap}
+    .sca-stat-box{flex:1;min-width:90px;background:var(--c11);border:1px solid var(--c8);border-radius:8px;padding:12px 14px;text-align:center}
+    .sca-stat-num{font-size:26px;font-weight:700;color:var(--c1)}
+    .sca-stat-label{font-size:11px;color:var(--c5);margin-top:2px}
+    .sca-stat-box.error-box{border-color:#fca5a5;background:#fff5f5}.sca-stat-box.error-box .sca-stat-num{color:#dc2626}
+    .sca-stat-box.warn-box{border-color:#fde68a;background:#fffbeb}.sca-stat-box.warn-box .sca-stat-num{color:#d97706}
+    .sca-stat-box.info-box{border-color:var(--c8);background:var(--c10)}.sca-stat-box.info-box .sca-stat-num{color:var(--c4)}
+    /* Severity badges */
+    .sca-badge-error{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:#fee2e2;color:#dc2626}
+    .sca-badge-warning{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:#fef3c7;color:#d97706}
+    .sca-badge-info{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:var(--c9);color:var(--c4)}
+    .sca-badge-low{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:#f0fdf4;color:#16a34a}
+    /* Lang badges */
+    .sca-langs{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 10px}
+    .sca-lang{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid;white-space:nowrap}
+    .sca-lang-py{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+    .sca-lang-js{background:#fefce8;color:#854d0e;border-color:#fde047}
+    .sca-lang-ts{background:#eff6ff;color:#1e40af;border-color:#93c5fd}
+    .sca-lang-php{background:#faf5ff;color:#6d28d9;border-color:#ddd6fe}
+    .sca-lang-java{background:#fff7ed;color:#9a3412;border-color:#fdba74}
+    .sca-lang-go{background:#f0fdfa;color:#065f46;border-color:#6ee7b7}
+    .sca-lang-rb{background:#fef2f2;color:#991b1b;border-color:#fca5a5}
+    .sca-lang-cs{background:#f0fdf4;color:#166534;border-color:#86efac}
+    .sca-lang-kt{background:#fdf4ff;color:#7e22ce;border-color:#e9d5ff}
+    .sca-lang-sc{background:#fff1f2;color:#be123c;border-color:#fda4af}
+    .sca-lang-cpp{background:#f8fafc;color:#334155;border-color:#cbd5e1}
+    .sca-lang-tf{background:#eff6ff;color:#1e3a8a;border-color:#bfdbfe}
+    /* Finding cards */
+    .sca-cards-wrap{display:flex;flex-direction:column;gap:10px}
+    .sca-card{background:var(--c11);border:1px solid var(--c8);border-radius:10px;overflow:hidden}
+    .sca-card-header{display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;user-select:none;transition:background .15s}
+    .sca-card-header:hover{background:var(--c10)}
+    .sca-card-rule{font-size:11px;font-weight:700;color:var(--c2);font-family:monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sca-card-loc{font-size:10px;color:var(--c5);font-family:monospace;white-space:nowrap;margin-right:4px}
+    .sca-card-chevron{color:var(--c5);font-size:10px;transition:transform .2s;display:inline-block}
+    .sca-card-chevron.open{transform:rotate(180deg)}
+    .sca-card-body{padding:0 14px 14px;display:none}
+    .sca-card-body.open{display:block}
+    .sca-card-meta{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;margin-top:2px}
+    .sca-card-tag{font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;border:1px solid}
+    .sca-tag-cwe{background:#eff6ff;color:#1e40af;border-color:#bfdbfe}
+    .sca-tag-owasp{background:#f0fdf4;color:#166534;border-color:#bbf7d0}
+    .sca-tag-rule{background:#faf5ff;color:#6d28d9;border-color:#ddd6fe;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
+    .sca-card-msg{font-size:12px;color:var(--c1);line-height:1.6;margin-bottom:10px}
+    /* Code block */
+    .sca-code-block{background:#0f1117;border:1px solid #2a2d3a;border-radius:6px;overflow:hidden;margin-bottom:10px}
+    .sca-code-file-bar{background:#1b1d27;padding:5px 10px;font-size:10px;font-weight:600;color:var(--c5);font-family:monospace;display:flex;justify-content:space-between}
+    .sca-code-lines{padding:4px 0;font-size:11px;font-family:monospace;overflow-x:auto}
+    .sca-code-line{display:flex;padding:1px 10px;line-height:1.7}
+    .sca-code-line.vuln{background:rgba(220,38,38,.13);border-left:2px solid #ef4444}
+    .sca-code-linenum{color:#475569;min-width:28px;margin-right:10px;text-align:right;user-select:none;flex-shrink:0}
+    .sca-code-text{color:#94a3b8;white-space:pre}
+    .sca-code-line.vuln .sca-code-text{color:#fca5a5}
+    /* Card actions */
+    .sca-card-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .sca-ai-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:opacity .15s;font-family:inherit}
+    .sca-ai-btn:hover:not(:disabled){opacity:.85}.sca-ai-btn:disabled{background:#64748b;cursor:not-allowed}
+    /* AI confidence badge */
+    .sca-confidence{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid}
+    .sca-conf-high{background:#f0fdf4;color:#166534;border-color:#86efac}
+    .sca-conf-med{background:#fffbeb;color:#92400e;border-color:#fcd34d}
+    .sca-conf-low{background:#fef2f2;color:#991b1b;border-color:#fca5a5}
+    /* AI fix panel */
+    .sca-fix-panel{border-top:1px solid var(--c8);padding:14px 14px 10px;background:var(--c10);margin-top:10px;border-radius:0 0 8px 8px}
+    .sca-fix-loading{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--c5)}
+    .sca-fix-spinner{width:16px;height:16px;border:2px solid var(--c8);border-top-color:var(--c4);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+    .sca-fix-title{font-size:12px;font-weight:700;color:var(--c1);margin-bottom:8px}
+    .sca-fix-explanation{font-size:12px;color:var(--c2);line-height:1.65;margin-bottom:10px;padding:10px 12px;background:var(--c11);border-radius:6px;border:1px solid var(--c8)}
+    .sca-fix-summary{font-size:11px;font-weight:600;color:var(--c4);margin-bottom:10px}
+    .sca-fix-diff{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+    @media(max-width:700px){.sca-fix-diff{grid-template-columns:1fr}}
+    .sca-fix-diff-label{font-size:10px;font-weight:700;padding:4px 8px;font-family:monospace}
+    .sca-fix-diff-before .sca-fix-diff-label{background:#fee2e2;color:#dc2626}
+    .sca-fix-diff-after  .sca-fix-diff-label{background:#dcfce7;color:#16a34a}
+    .sca-fix-diff-code{background:#0f1117;padding:8px 10px;font-size:11px;font-family:monospace;white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto}
+    .sca-fix-diff-before .sca-fix-diff-code{border:1px solid #fca5a5;color:#fca5a5}
+    .sca-fix-diff-after  .sca-fix-diff-code{border:1px solid #86efac;color:#86efac}
+    .sca-fix-download{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+    .sca-fix-download:hover{background:#15803d}
+    .sca-fix-error{color:#dc2626;font-size:12px;padding:8px}
+    .sca-fix-no-key{color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:10px 12px;font-size:12px}
+    /* FP system */
+    .sca-filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+    .sca-fp-toggle{font-size:11px;color:var(--c5);background:none;border:1px solid var(--c8);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:inherit}
+    .sca-fp-toggle:hover{border-color:var(--c4);color:var(--c4)}
+    .sca-fp-toggle.active{background:var(--c10);border-color:var(--c4);color:var(--c4);font-weight:600}
+    .sca-fp-count{font-size:10px;color:var(--c5);background:var(--c10);padding:2px 7px;border-radius:10px}
+    .sca-card.is-fp .sca-card-header{opacity:.5}.sca-card.is-fp{border-color:#e2e8f0}
+    .sca-fp-btn{font-size:10px;font-weight:600;padding:3px 9px;border-radius:5px;border:1px solid var(--c8);background:none;color:var(--c5);cursor:pointer;font-family:inherit}
+    .sca-fp-btn:hover{background:#fee2e2;border-color:#fca5a5;color:#dc2626}
+    .sca-fp-btn.marked{background:#fee2e2;border-color:#fca5a5;color:#dc2626}
+    .sca-fp-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;background:#fee2e2;color:#dc2626;border-radius:3px;margin-left:4px;vertical-align:middle}
+    /* TL;DR */
+    .sca-tldr{background:var(--c10);border:1px solid var(--c8);border-radius:7px;padding:10px 12px;margin-top:10px}
+    .sca-tldr-title{font-size:11px;font-weight:700;color:var(--c4);margin-bottom:8px}
+    .sca-tldr-row{display:grid;grid-template-columns:90px 1fr;gap:4px 10px;margin-bottom:6px;align-items:start}
+    .sca-tldr-row:last-child{margin-bottom:0}
+    .sca-tldr-label{font-size:10px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.04em;padding-top:1px}
+    .sca-tldr-value{font-size:11px;color:var(--c2);line-height:1.6}
+    .sca-tldr-btn{font-size:10px;font-weight:600;padding:3px 10px;background:none;border:1px solid var(--c4);border-radius:5px;color:var(--c4);cursor:pointer;font-family:inherit}
+    .sca-tldr-btn:hover{background:var(--c4);color:#fff}
+    .sca-ctx-adj{font-size:9px;background:#7c3aed;color:#fff;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;font-weight:700}
+    /* Info cards row */
+    .sca-info-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:18px;padding:0 24px;max-width:1400px;margin-left:auto;margin-right:auto}
+    .sca-info-card{background:var(--c11);border:1px solid var(--c8);border-radius:8px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px}
+    .sca-info-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+    .sca-info-title{font-size:12px;font-weight:700;color:var(--c1);margin-bottom:3px}
+    .sca-info-desc{font-size:11px;color:var(--c5);line-height:1.5}
+    /* CI/CD + IDE callout */
+    .sca-callout-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 24px 20px;max-width:1400px;margin:0 auto}
+    @media(max-width:800px){.sca-callout-row{grid-template-columns:1fr}}
+    .sca-callout{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:16px}
+    .sca-callout-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+    .sca-callout-icon{font-size:18px}
+    .sca-callout-title{font-size:13px;font-weight:700;color:var(--c1)}
+    .sca-callout-body{font-size:12px;color:var(--c5);line-height:1.65}
+    .sca-callout-steps{margin:8px 0 0;padding-left:16px;font-size:11px;color:var(--c2);line-height:2}
+    .sca-callout-code{font-family:monospace;font-size:10px;background:var(--c10);border:1px solid var(--c8);border-radius:5px;padding:7px 10px;color:var(--c2);white-space:pre;overflow-x:auto;margin-top:8px;display:block}
   </style>
 
-  <div class="sca-header">
-    <div class="sca-title">Static Code Analysis <span class="sca-semgrep-badge">powered by semgrep</span></div>
-    <div class="sca-subtitle">Upload source files to scan for security vulnerabilities, code quality issues, and custom patterns.</div>
-    <div id="scaInstallBanner" style="display:none;margin-top:10px;padding:10px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af;align-items:center;gap:12px;">
+  <!-- Hero -->
+  <div class="sca-hero">
+    <div class="sca-hero-top">
+      <div class="sca-hero-left">
+        <div class="sca-title">Advanced SAST</div>
+        <div class="sca-subtitle">Find real vulnerabilities in your code — not noise. 85% fewer false positives vs traditional SAST tools, with AI-powered triaging, 1-click AutoFix, and multi-file context analysis.</div>
+        <div class="sca-engine-badge">&#128268; Powered by Opengrep / Semgrep</div>
+      </div>
+      <div class="sca-hero-stats">
+        <div class="sca-hero-stat"><div class="sca-hero-stat-num">85%</div><div class="sca-hero-stat-lbl">Less False Positives</div></div>
+        <div class="sca-hero-stat"><div class="sca-hero-stat-num">12+</div><div class="sca-hero-stat-lbl">Languages</div></div>
+        <div class="sca-hero-stat"><div class="sca-hero-stat-num">1-click</div><div class="sca-hero-stat-lbl">AI AutoFix</div></div>
+      </div>
+    </div>
+    <div id="scaInstallBanner" style="display:none;margin-bottom:14px;padding:10px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af;display:flex;align-items:center;gap:12px;">
       <span>semgrep is not installed on this server.</span>
       <button onclick="scaInstall()" id="scaInstallBtn" style="background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:4px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Install Now</button>
       <span id="scaInstallLog" style="font-family:monospace;font-size:11px;color:#1e3a8a;"></span>
     </div>
   </div>
 
+  <!-- Feature info cards -->
+  <div class="sca-info-row" style="margin-bottom:16px;padding-bottom:4px">
+    <div class="sca-info-card">
+      <div class="sca-info-icon">&#129302;</div>
+      <div><div class="sca-info-title">AI-Powered Triaging</div><div class="sca-info-desc">Auto-prioritize findings and dismiss false positives using multi-file context</div></div>
+    </div>
+    <div class="sca-info-card">
+      <div class="sca-info-icon">&#128295;</div>
+      <div><div class="sca-info-title">1-Click AutoFix</div><div class="sca-info-desc">AI generates a fix with confidence score — high, medium, or low — so you know when to trust it</div></div>
+    </div>
+    <div class="sca-info-card">
+      <div class="sca-info-icon">&#128203;</div>
+      <div><div class="sca-info-title">Custom Rules</div><div class="sca-info-desc">Write your own YAML detection rules to enforce security standards specific to your codebase</div></div>
+    </div>
+    <div class="sca-info-card">
+      <div class="sca-info-icon">&#127919;</div>
+      <div><div class="sca-info-title">Context-Aware Severity</div><div class="sca-info-desc">Severity adjusts based on your deployment context — internet-facing, PII, payments, or public API</div></div>
+    </div>
+  </div>
+
+  <!-- Supported vulnerability types -->
+  <div style="padding:0 24px 10px;max-width:1400px;margin:0 auto">
+    <div style="font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Detected Vulnerability Types</div>
+  </div>
+  <div class="sca-vuln-grid">
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128274;</div><div class="sca-vuln-name">Encryption Failures</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128200;</div><div class="sca-vuln-name">SQL Injection</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128296;</div><div class="sca-vuln-name">Cross-Site Scripting (XSS)</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128187;</div><div class="sca-vuln-name">Command Injection</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#127760;</div><div class="sca-vuln-name">SSRF</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128101;</div><div class="sca-vuln-name">Prototype Pollution</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128193;</div><div class="sca-vuln-name">Path Traversal</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128273;</div><div class="sca-vuln-name">Hardcoded Secrets</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128100;</div><div class="sca-vuln-name">Auth Bypass</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#9888;</div><div class="sca-vuln-name">Insecure Deserialisation</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128260;</div><div class="sca-vuln-name">LDAP / XXE Injection</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#9881;</div><div class="sca-vuln-name">Misconfiguration</div></div>
+  </div>
+
+  <!-- Main scan layout -->
   <div class="sca-wrap">
-    <!-- Left panel: upload + options -->
+    <!-- Left panel -->
     <div>
       <div class="sca-panel">
-        <div class="sca-panel-title">Upload Files</div>
+        <div class="sca-panel-title">Upload Source Files</div>
 
         <div class="sca-upload-zone" id="scaDropZone"
              ondragover="scaDragOver(event)"
              ondragleave="document.getElementById('scaDropZone').classList.remove('drag-over')"
              ondrop="scaDrop(event)"
              onclick="scaPickFiles()">
-          <div class="sca-upload-hint">Drag &amp; drop source files here<br>or click to browse<br><small>Python, JS, TS, PHP, Java, Go, Ruby, …</small></div>
+          <div class="sca-upload-hint">&#128196; Drag &amp; drop source files here<br>or click to browse<br><small style="color:var(--c5)">Python, JS, TS, PHP, Java, Go, Ruby, C#, …</small></div>
         </div>
         <input type="file" id="scaFileInput" multiple style="display:none" onchange="scaRenderFiles()">
         <div id="scaFileList" class="sca-file-list"></div>
+
+        <div class="sca-label" style="margin-top:10px">Languages</div>
+        <div class="sca-langs">
+          <span class="sca-lang sca-lang-py">Python</span>
+          <span class="sca-lang sca-lang-js">JavaScript</span>
+          <span class="sca-lang sca-lang-ts">TypeScript</span>
+          <span class="sca-lang sca-lang-php">PHP</span>
+          <span class="sca-lang sca-lang-java">Java</span>
+          <span class="sca-lang sca-lang-go">Go</span>
+          <span class="sca-lang sca-lang-rb">Ruby</span>
+          <span class="sca-lang sca-lang-cs">C# / .NET</span>
+          <span class="sca-lang sca-lang-kt">Kotlin</span>
+          <span class="sca-lang sca-lang-sc">Scala</span>
+          <span class="sca-lang sca-lang-cpp">C / C++</span>
+          <span class="sca-lang sca-lang-tf">Terraform</span>
+        </div>
 
         <div class="sca-label">Ruleset</div>
         <select id="scaRuleset" class="sca-select">
@@ -3494,8 +3605,18 @@ Export Power BI
           <option value="secrets">Secrets detection</option>
         </select>
 
-        <span class="sca-toggle-link" onclick="scaToggleCustomRules()">Use custom YAML rules</span>
-        <div id="scaCustomBox" class="sca-custom-box" style="display:none">
+        <!-- Scan context -->
+        <div class="sca-ctx-box">
+          <div class="sca-ctx-title">Scan Context</div>
+          <label class="sca-ctx-row"><input type="checkbox" id="sca-ctx-internet"> <label for="sca-ctx-internet">Internet-facing application</label></label>
+          <label class="sca-ctx-row"><input type="checkbox" id="sca-ctx-pii"> <label for="sca-ctx-pii">Handles PII / sensitive data</label></label>
+          <label class="sca-ctx-row"><input type="checkbox" id="sca-ctx-financial"> <label for="sca-ctx-financial">Financial / payment system</label></label>
+          <label class="sca-ctx-row"><input type="checkbox" id="sca-ctx-api"> <label for="sca-ctx-api">Public-facing API</label></label>
+          <div class="sca-ctx-note">Context bumps severity for high-risk deployments — surfaces critical findings first.</div>
+        </div>
+
+        <span class="sca-toggle-link" onclick="scaToggleCustomRules()">+ Custom YAML rules</span>
+        <div id="scaCustomBox" style="display:none;margin-top:8px">
           <div class="sca-label">Custom Rules (YAML)</div>
           <textarea id="scaCustomRules" class="sca-textarea">rules:
   - id: no-hardcoded-secrets
@@ -3509,15 +3630,53 @@ Export Power BI
     severity: ERROR</textarea>
         </div>
 
-        <button class="sca-btn" id="scaRunBtn" onclick="scaRun()">Run Scan</button>
+        <button class="sca-btn" id="scaRunBtn" onclick="scaRun()">&#128270; Run Scan</button>
+      </div>
+
+      <!-- AI Triage info box -->
+      <div style="background:linear-gradient(135deg,#1e3a8a08,#2563eb08);border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-top:14px">
+        <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:6px">&#129302; AI Triage Engine</div>
+        <div style="font-size:11px;color:#3b82f6;line-height:1.65">After each scan, AI automatically flags likely false positives and assigns confidence scores to each fix. Mark any finding as FP to train the filter for your codebase.</div>
       </div>
     </div>
 
     <!-- Right panel: results -->
     <div class="sca-results-panel" id="scaResultsPanel">
       <div class="sca-empty" id="scaEmpty">
-        <div class="sca-empty-text">Upload files and click <strong>Run Scan</strong> to see findings.</div>
+        <div style="font-size:32px;margin-bottom:10px">&#128270;</div>
+        <div class="sca-empty-text">Upload source files and click <strong>Run Scan</strong> to detect vulnerabilities.</div>
+        <div style="font-size:11px;color:var(--c5);margin-top:8px">Powered by Opengrep/Semgrep — finds real issues, not noise</div>
       </div>
+    </div>
+  </div>
+
+  <!-- CI/CD + IDE callout row -->
+  <div class="sca-callout-row">
+    <div class="sca-callout">
+      <div class="sca-callout-hdr">
+        <div class="sca-callout-icon">&#9881;</div>
+        <div class="sca-callout-title">CI/CD Enforcement</div>
+      </div>
+      <div class="sca-callout-body">Block PRs with critical vulnerabilities and get inline comments on changed lines — fail fast in your pipeline before code reaches production.</div>
+      <ol class="sca-callout-steps">
+        <li>Export findings as SARIF from the results panel</li>
+        <li>Upload the SARIF file to GitHub / GitLab code scanning</li>
+        <li>Set branch protection rules to block merges on new findings</li>
+      </ol>
+      <code class="sca-callout-code">semgrep --config auto --sarif &gt; results.sarif</code>
+    </div>
+    <div class="sca-callout">
+      <div class="sca-callout-hdr">
+        <div class="sca-callout-icon">&#128187;</div>
+        <div class="sca-callout-title">IDE Warnings</div>
+      </div>
+      <div class="sca-callout-body">See findings inline as you write code — get squiggly underlines and hover-over explanations in VS Code and JetBrains IDEs before committing.</div>
+      <ol class="sca-callout-steps">
+        <li>Install the <strong>Semgrep</strong> extension in VS Code</li>
+        <li>Open the same files you uploaded here</li>
+        <li>Findings appear as inline warnings with the same rules</li>
+      </ol>
+      <code class="sca-callout-code">ext install semgrep.semgrep  # VS Code Marketplace</code>
     </div>
   </div>
 
@@ -3526,31 +3685,48 @@ Export Power BI
   <!-- ══ DYNAMIC CODE ANALYSIS PAGE ════════════════════════════════════════ -->
   <div id="page-dca" class="page-section" style="display:none">
   <style>
-    .dca-header{padding:20px 24px 10px}
-    .dca-title{font-size:20px;font-weight:700;color:var(--c1)}
-    .dca-subtitle{font-size:12px;color:var(--c5);margin-top:3px}
-    .dca-scanner-bar{display:flex;gap:10px;flex-wrap:wrap;padding:0 24px 14px}
+    /* ── Layout ──────────────────────────────────────────────── */
+    .dca-hero{padding:24px 24px 16px;max-width:1400px;margin:0 auto}
+    .dca-hero-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:16px}
+    .dca-title{font-size:22px;font-weight:800;color:var(--c1);letter-spacing:-.3px}
+    .dca-subtitle{font-size:13px;color:var(--c5);margin-top:4px;line-height:1.6;max-width:560px}
+    .dca-safe-badge{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:10px;font-weight:700;background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:20px}
+    .dca-hero-stats{display:flex;gap:20px;flex-wrap:wrap}
+    .dca-hero-stat{text-align:center}
+    .dca-hero-stat-num{font-size:22px;font-weight:800;color:var(--c4)}
+    .dca-hero-stat-lbl{font-size:10px;color:var(--c5);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    /* Feature info cards */
+    .dca-feat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;padding:0 24px 16px;max-width:1400px;margin:0 auto}
+    .dca-feat-card{background:var(--c11);border:1px solid var(--c8);border-radius:8px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px}
+    .dca-feat-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+    .dca-feat-title{font-size:12px;font-weight:700;color:var(--c1);margin-bottom:3px}
+    .dca-feat-desc{font-size:11px;color:var(--c5);line-height:1.5}
+    /* Scanner bar */
+    .dca-scanner-bar{display:flex;gap:10px;flex-wrap:wrap;padding:0 24px 14px;max-width:1400px;margin:0 auto}
     .dca-chip{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid}
     .dca-chip.avail{background:#2563eb;border-color:#2563eb;color:#fff}
     .dca-chip.unavail{background:#64748b;border-color:#64748b;color:#fff}
     .dca-chip.loading{background:#93c5fd;border-color:#93c5fd;color:#1e3a8a}
     .dca-dot{display:none}
-    .dca-wrap{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:0 20px 20px;max-width:1400px;margin:0 auto}
+    /* Main layout */
+    .dca-wrap{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:0 20px 20px;max-width:1400px;margin:0 auto}
     @media(max-width:900px){.dca-wrap{grid-template-columns:1fr}}
-    .dca-panel{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:20px}
+    .dca-panel{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:18px}
     .dca-pt{font-size:11px;font-weight:700;color:var(--c2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em}
     .dca-lbl{font-size:11px;font-weight:600;color:var(--c2);margin:10px 0 3px}
     .dca-inp{width:100%;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none;box-sizing:border-box}
     .dca-inp:focus{border-color:var(--c4)}
     .dca-sel{width:100%;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none}
-    .dca-run{width:100%;margin-top:16px;padding:10px;background:var(--c4);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+    .dca-run{width:100%;margin-top:14px;padding:10px;background:var(--c4);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
     .dca-run:disabled{opacity:.5;cursor:not-allowed}
+    /* Severity badges */
     .dca-sev{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
     .dca-sev-critical{background:#fef2f2;color:#991b1b;border:1px solid #fca5a5}
     .dca-sev-high{background:#fff7ed;color:#9a3412;border:1px solid #fdba74}
     .dca-sev-medium{background:#fffbeb;color:#92400e;border:1px solid #fcd34d}
     .dca-sev-low{background:#f0fdf4;color:#166534;border:1px solid #86efac}
     .dca-sev-info{background:#f8fafc;color:#475569;border:1px solid #cbd5e1}
+    /* Findings table */
     .dca-tbl{width:100%;border-collapse:collapse;font-size:12px}
     .dca-tbl th{text-align:left;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c5);border-bottom:2px solid var(--c8)}
     .dca-tbl td{padding:8px 10px;border-bottom:1px solid var(--c8);color:var(--c1);vertical-align:top}
@@ -3558,6 +3734,60 @@ Export Power BI
     .dca-empty{text-align:center;padding:48px 20px;color:var(--c5);font-size:13px}
     .dca-abtn{padding:3px 8px;border-radius:4px;border:1px solid var(--c8);background:var(--c11);color:var(--c4);font-size:10px;font-weight:600;cursor:pointer;margin-right:3px}
     .dca-abtn:hover{background:var(--c4);color:#fff;border-color:var(--c4)}
+    /* Export bar */
+    .dca-xbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+    .dca-xbtn{padding:5px 14px;border:1px solid var(--c8);border-radius:6px;background:var(--c11);color:var(--c2);font-size:11px;font-weight:600;cursor:pointer}
+    .dca-xbtn:hover{background:var(--c10)}
+    /* Context flags */
+    .dca-ctx-box{background:var(--c10);border:1px solid var(--c8);border-radius:7px;padding:10px 12px;margin:10px 0}
+    .dca-ctx-title{font-size:10px;font-weight:700;color:var(--c2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+    .dca-ctx-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer}
+    .dca-ctx-row:last-child{margin-bottom:0}
+    .dca-ctx-row input{cursor:pointer;accent-color:var(--c4)}
+    .dca-ctx-row label{font-size:11px;color:var(--c2);cursor:pointer}
+    /* Expanded finding rows */
+    .dca-row-detail{display:none;padding:8px 10px 10px;background:var(--c10);border-top:1px solid var(--c8)}
+    .dca-row-detail.open{display:block}
+    .dca-detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 14px;margin-bottom:8px}
+    @media(max-width:700px){.dca-detail-grid{grid-template-columns:1fr}}
+    .dca-detail-lbl{font-size:10px;font-weight:700;color:var(--c5);text-transform:uppercase;margin-bottom:3px}
+    .dca-detail-val{font-size:11px;color:var(--c2);line-height:1.6}
+    .dca-evidence{font-family:monospace;font-size:10px;background:#0f1117;border:1px solid #2a2d3a;border-radius:5px;padding:6px 8px;color:#94a3b8;white-space:pre-wrap;word-break:break-all;max-height:80px;overflow-y:auto;margin-top:4px}
+    .dca-expand-btn{background:none;border:none;color:var(--c4);font-size:10px;cursor:pointer;padding:0;font-family:inherit;font-weight:600}
+    /* Toxic combinations */
+    .dca-toxic-wrap{background:var(--c11);border:1px solid var(--c8);border-radius:10px;overflow:hidden;margin-top:12px}
+    .dca-toxic-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--c8)}
+    .dca-toxic-title{font-size:13px;font-weight:700;color:var(--c1)}
+    .dca-toxic-sub{font-size:11px;color:var(--c5)}
+    .dca-toxic-badge{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+    .dca-toxic-card{border-bottom:1px solid var(--c8);padding:12px 16px}
+    .dca-toxic-card:last-child{border-bottom:none}
+    .dca-toxic-card-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .dca-toxic-desc{font-size:12px;color:var(--c2);line-height:1.6;margin-bottom:6px}
+    .dca-toxic-chain{display:flex;gap:4px;flex-wrap:wrap}
+    .dca-toxic-finding{font-size:10px;background:var(--c10);border:1px solid var(--c8);border-radius:4px;padding:2px 8px;color:var(--c2)}
+    /* Dangling domains */
+    .dca-dangling-wrap{background:var(--c11);border:1px solid var(--c8);border-radius:10px;overflow:hidden;margin-top:12px}
+    .dca-dangling-hdr{padding:12px 16px;border-bottom:1px solid var(--c8);display:flex;align-items:center;gap:10px}
+    .dca-dangling-title{font-size:13px;font-weight:700;color:var(--c1)}
+    .dca-dangling-body{padding:12px 16px}
+    .dca-dangling-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    .dca-dangling-inp{flex:1;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none}
+    .dca-dangling-inp:focus{border-color:var(--c4)}
+    .dca-dangling-btn{padding:7px 16px;background:var(--c4);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+    .dca-dangling-btn:disabled{opacity:.5;cursor:not-allowed}
+    .dca-dangling-out{font-size:12px;color:var(--c2);line-height:1.6}
+    .dca-dangling-find{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--c9)}
+    .dca-dangling-find:last-child{border-bottom:none}
+    /* Scheduled scan */
+    .dca-sched-wrap{background:var(--c10);border:1px solid var(--c8);border-radius:8px;padding:12px 14px;margin-top:12px}
+    .dca-sched-title{font-size:10px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+    .dca-sched-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+    .dca-sched-sel{padding:5px 8px;border:1px solid var(--c8);border-radius:6px;font-size:11px;color:var(--c1);background:var(--c11);outline:none}
+    .dca-sched-btn{padding:5px 12px;background:var(--c4);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+    .dca-sched-status{font-size:11px;color:var(--c5)}
+    .dca-sched-next{font-size:10px;color:var(--c4);font-weight:600}
+    /* Integrations */
     .dca-int-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--c8)}
     .dca-int-tab{padding:8px 16px;font-size:12px;font-weight:600;color:var(--c5);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px}
     .dca-int-tab.active{color:var(--c4);border-bottom-color:var(--c4)}
@@ -3566,24 +3796,77 @@ Export Power BI
     @media(max-width:700px){.dca-int-grid{grid-template-columns:1fr}}
     .dca-cs{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600}
     .dca-cs-ok{background:#f0fdf4;color:#166534}.dca-cs-fail{background:#fef2f2;color:#991b1b}
-    .dca-xbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
-    .dca-xbtn{padding:5px 14px;border:1px solid var(--c8);border-radius:6px;background:var(--c11);color:var(--c2);font-size:11px;font-weight:600;cursor:pointer}
-    .dca-xbtn:hover{background:var(--c10)}
+    /* API discovery section */
+    .dca-api-tabs{display:flex;gap:4px;border-bottom:1px solid var(--c8);margin-bottom:14px}
+    .dca-api-tab{padding:7px 14px;font-size:11px;font-weight:600;color:var(--c5);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+    .dca-api-tab.active{color:var(--c4);border-bottom-color:var(--c4)}
+    .dca-api-pane{display:none}.dca-api-pane.active{display:block}
+    .dca-endpoint-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--c9)}
+    .dca-endpoint-row:last-child{border-bottom:none}
+    .dca-method{font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;font-family:monospace;min-width:40px;text-align:center}
+    .dca-method-get{background:#f0fdf4;color:#166534}.dca-method-post{background:#eff6ff;color:#1d4ed8}
+    .dca-method-put{background:#fffbeb;color:#92400e}.dca-method-del{background:#fef2f2;color:#991b1b}
+    .dca-endpoint-path{font-family:monospace;font-size:11px;color:var(--c2);flex:1}
+    /* AI Pentest section */
+    .dca-pentest-wrap{background:linear-gradient(135deg,#1e3a8a0a,#7c3aed0a);border:1px solid #c4b5fd;border-radius:10px;padding:18px;margin-top:14px}
+    .dca-pentest-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .dca-pentest-title{font-size:14px;font-weight:700;color:#4c1d95}
+    .dca-pentest-badge{font-size:9px;font-weight:700;background:#7c3aed;color:#fff;padding:2px 7px;border-radius:10px}
+    .dca-pentest-body{font-size:12px;color:#5b21b6;line-height:1.65;margin-bottom:12px}
+    .dca-pentest-feats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+    @media(max-width:600px){.dca-pentest-feats{grid-template-columns:1fr}}
+    .dca-pentest-feat{display:flex;align-items:flex-start;gap:6px;font-size:11px;color:#5b21b6}
+    .dca-pentest-run{padding:8px 20px;background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+    .dca-pentest-run:hover{opacity:.9}
+    /* Self-hosted apps */
+    .dca-apps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:10px}
+    .dca-app-chip{background:var(--c11);border:1px solid var(--c8);border-radius:7px;padding:8px 10px;text-align:center;font-size:11px;font-weight:600;color:var(--c2);cursor:pointer;transition:border-color .15s}
+    .dca-app-chip:hover{border-color:var(--c4);color:var(--c4)}
+    .dca-app-chip.selected{border-color:var(--c4);background:var(--c10);color:var(--c4)}
+    .dca-app-icon{font-size:18px;margin-bottom:4px}
+    /* OWASP coverage */
+    .dca-owasp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-top:10px}
+    .dca-owasp-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--c2);padding:5px 8px;background:var(--c10);border-radius:6px}
+    .dca-owasp-dot{width:7px;height:7px;border-radius:50%;background:var(--c4);flex-shrink:0}
   </style>
 
-  <div class="dca-header">
-    <div class="dca-title">Dynamic Code Analysis</div>
-    <div class="dca-subtitle">Proof-based dynamic application security testing with real scanner integrations — Jira, GitHub, Jenkins, and Azure DevOps.</div>
+  <!-- Hero -->
+  <div class="dca-hero">
+    <div class="dca-hero-top">
+      <div>
+        <div class="dca-title">Protect your App &amp; APIs</div>
+        <div class="dca-subtitle">Dynamic Application Security Testing (DAST) that finds real vulnerabilities in running applications — OWASP Top 10, API surface monitoring, authenticated scanning, and AI-powered pentesting.</div>
+        <div class="dca-safe-badge">&#10003; Safe to run in production — low-noise, non-destructive</div>
+      </div>
+      <div class="dca-hero-stats">
+        <div class="dca-hero-stat"><div class="dca-hero-stat-num">2–4 min</div><div class="dca-hero-stat-lbl">Scan Time</div></div>
+        <div class="dca-hero-stat"><div class="dca-hero-stat-num">OWASP</div><div class="dca-hero-stat-lbl">Top 10 Coverage</div></div>
+        <div class="dca-hero-stat"><div class="dca-hero-stat-num">REST+GraphQL</div><div class="dca-hero-stat-lbl">API Discovery</div></div>
+      </div>
+    </div>
   </div>
 
+  <!-- Feature cards -->
+  <div class="dca-feat-row">
+    <div class="dca-feat-card"><div class="dca-feat-icon">&#128296;</div><div><div class="dca-feat-title">Authenticated DAST</div><div class="dca-feat-desc">Logs in as a real user to test authenticated routes, JWT tokens, and session handling</div></div></div>
+    <div class="dca-feat-card"><div class="dca-feat-icon">&#127760;</div><div><div class="dca-feat-title">API Discovery</div><div class="dca-feat-desc">Auto-discovers REST &amp; GraphQL endpoints and generates/updates Swagger / OpenAPI specs</div></div></div>
+    <div class="dca-feat-card"><div class="dca-feat-icon">&#9881;</div><div><div class="dca-feat-title">Self-Hosted Apps</div><div class="dca-feat-desc">Nuclei-powered scanning for WordPress, GitLab, Laravel, Drupal, Joomla &amp; more</div></div></div>
+    <div class="dca-feat-card"><div class="dca-feat-icon">&#129302;</div><div><div class="dca-feat-title">AI Pentesting</div><div class="dca-feat-desc">Autonomous agent explores attack paths and generates SOC2/ISO-ready pentest report</div></div></div>
+    <div class="dca-feat-card"><div class="dca-feat-icon">&#9889;</div><div><div class="dca-feat-title">Toxic Combinations</div><div class="dca-feat-desc">Detects chains of vulnerabilities that together create critical attack paths</div></div></div>
+    <div class="dca-feat-card"><div class="dca-feat-icon">&#128279;</div><div><div class="dca-feat-title">Dangling Domains</div><div class="dca-feat-desc">Find subdomains pointing to deprovisioned cloud resources before attackers take them over</div></div></div>
+  </div>
+
+  <!-- Scanner availability -->
   <div class="dca-scanner-bar" id="dca-scanner-bar">
-    <div class="dca-chip loading" id="dca-chip-nikto"><div class="dca-dot pend"></div>Nikto</div>
-    <div class="dca-chip loading" id="dca-chip-nuclei"><div class="dca-dot pend"></div>Nuclei</div>
-    <div class="dca-chip loading" id="dca-chip-wapiti"><div class="dca-dot pend"></div>Wapiti</div>
-    <div class="dca-chip loading" id="dca-chip-zap"><div class="dca-dot pend"></div>OWASP ZAP</div>
+    <div class="dca-chip loading" id="dca-chip-nikto">Nikto</div>
+    <div class="dca-chip loading" id="dca-chip-nuclei">Nuclei</div>
+    <div class="dca-chip loading" id="dca-chip-wapiti">Wapiti</div>
+    <div class="dca-chip loading" id="dca-chip-zap">OWASP ZAP</div>
   </div>
 
+  <!-- Main scan layout -->
   <div class="dca-wrap">
+    <!-- Left config panel -->
     <div>
       <div class="dca-panel">
         <div class="dca-pt">Scan Configuration</div>
@@ -3597,18 +3880,64 @@ Export Power BI
           <option value="wapiti">Wapiti</option>
           <option value="zap">OWASP ZAP (API daemon)</option>
         </select>
-        <div class="dca-lbl">Auth Username (optional)</div>
-        <input class="dca-inp" id="dca-auth-user" placeholder="username">
-        <div class="dca-lbl">Auth Password (optional)</div>
-        <input class="dca-inp" id="dca-auth-pass" type="password" placeholder="password">
-        <div class="dca-lbl">Session Cookie (optional)</div>
-        <input class="dca-inp" id="dca-auth-cookie" placeholder="PHPSESSID=abc123...">
-        <button class="dca-run" id="dca-run-btn" onclick="dcaRunScan()">Run Scan</button>
-        <div id="dca-scan-status" style="margin-top:10px;font-size:11px;color:var(--c5);text-align:center;"></div>
+
+        <!-- Authenticated DAST -->
+        <div style="margin-top:12px;padding:10px 12px;background:var(--c10);border:1px solid var(--c8);border-radius:7px">
+          <div style="font-size:10px;font-weight:700;color:var(--c2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Authenticated Scan (optional)</div>
+          <div class="dca-lbl" style="margin-top:0">Login URL / Username</div>
+          <input class="dca-inp" id="dca-auth-user" placeholder="username or email">
+          <div class="dca-lbl">Password</div>
+          <input class="dca-inp" id="dca-auth-pass" type="password" placeholder="password">
+          <div class="dca-lbl">Session Cookie</div>
+          <input class="dca-inp" id="dca-auth-cookie" placeholder="PHPSESSID=abc… or Bearer token">
+          <div style="font-size:10px;color:var(--c5);margin-top:5px">Provide credentials to test authenticated routes, session management, and JWT handling</div>
+        </div>
+
+        <!-- Context flags -->
+        <div class="dca-ctx-box">
+          <div class="dca-ctx-title">Scan Context</div>
+          <label class="dca-ctx-row"><input type="checkbox" id="dca-ctx-internet" checked> <label for="dca-ctx-internet">Internet-facing app</label></label>
+          <label class="dca-ctx-row"><input type="checkbox" id="dca-ctx-auth"> <label for="dca-ctx-auth">Has authenticated users</label></label>
+          <label class="dca-ctx-row"><input type="checkbox" id="dca-ctx-pii"> <label for="dca-ctx-pii">Processes sensitive / PII data</label></label>
+          <label class="dca-ctx-row"><input type="checkbox" id="dca-ctx-payments"> <label for="dca-ctx-payments">Handles payments</label></label>
+        </div>
+
+        <button class="dca-run" id="dca-run-btn" onclick="dcaRunScan()">&#128270; Run Scan</button>
+        <div id="dca-scan-status" style="margin-top:8px;font-size:11px;color:var(--c5);text-align:center;"></div>
+
+        <!-- Auto Scan / scheduler -->
+        <div class="dca-sched-wrap">
+          <div class="dca-sched-title">&#9201; Auto Scan (Daily)</div>
+          <div class="dca-sched-row">
+            <select class="dca-sched-sel" id="dca-sched-freq">
+              <option value="off">Off</option>
+              <option value="daily" selected>Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            <button class="dca-sched-btn" onclick="dcaSchedSave()">Save</button>
+          </div>
+          <div class="dca-sched-status" id="dca-sched-status"></div>
+        </div>
+      </div>
+
+      <!-- Self-hosted app selection -->
+      <div class="dca-panel" style="margin-top:14px">
+        <div class="dca-pt">Self-Hosted App Scanner</div>
+        <div style="font-size:11px;color:var(--c5);margin-bottom:8px;line-height:1.5">Select your app platform to run Nuclei templates targeting known CVEs and misconfigurations</div>
+        <div class="dca-apps-grid" id="dca-apps-grid">
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'wordpress')"><div class="dca-app-icon">&#128394;</div>WordPress</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'gitlab')"><div class="dca-app-icon">&#129398;</div>GitLab</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'laravel')"><div class="dca-app-icon">&#127381;</div>Laravel</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'drupal')"><div class="dca-app-icon">&#128190;</div>Drupal</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'joomla')"><div class="dca-app-icon">&#128296;</div>Joomla</div>
+          <div class="dca-app-chip" onclick="dcaToggleApp(this,'django')"><div class="dca-app-icon">&#128013;</div>Django</div>
+        </div>
       </div>
     </div>
 
+    <!-- Right results panel -->
     <div>
+      <!-- Main findings tabs -->
       <div class="dca-panel" style="min-height:320px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div class="dca-pt" style="margin-bottom:0">Findings</div>
@@ -3618,13 +3947,104 @@ Export Power BI
           </div>
         </div>
         <div id="dca-findings-wrap">
-          <div class="dca-empty">Configure a scan on the left and click Run Scan to see findings.</div>
+          <div class="dca-empty">
+            <div style="font-size:32px;margin-bottom:10px">&#128270;</div>
+            <div>Configure a target on the left and click <strong>Run Scan</strong></div>
+            <div style="font-size:11px;margin-top:6px;color:var(--c5)">Safe to run in production — 2–4 min scan, OWASP Top 10 coverage</div>
+          </div>
         </div>
+        <!-- Toxic Combinations -->
+        <div id="dca-toxic-section" style="display:none">
+          <div class="dca-toxic-wrap">
+            <div class="dca-toxic-hdr">
+              <div>
+                <div class="dca-toxic-title">&#9889; Toxic Combinations</div>
+                <div class="dca-toxic-sub">Vulnerabilities that chain together to create critical attack paths</div>
+              </div>
+              <span class="dca-toxic-badge" id="dca-toxic-count">0</span>
+            </div>
+            <div id="dca-toxic-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Discovery panel -->
+      <div class="dca-panel" style="margin-top:14px">
+        <div class="dca-pt">API Surface Discovery</div>
+        <div style="font-size:11px;color:var(--c5);margin-bottom:10px;line-height:1.5">After scanning, auto-discovered REST and GraphQL endpoints appear here. Export as Swagger / OpenAPI spec for further testing.</div>
+        <div class="dca-api-tabs">
+          <button class="dca-api-tab active" onclick="dcaApiTab('rest',this)">REST Endpoints</button>
+          <button class="dca-api-tab" onclick="dcaApiTab('graphql',this)">GraphQL</button>
+          <button class="dca-api-tab" onclick="dcaApiTab('spec',this)">OpenAPI Spec</button>
+        </div>
+        <div class="dca-api-pane active" id="dca-api-pane-rest">
+          <div id="dca-api-rest-list" style="font-size:12px;color:var(--c5)">No endpoints discovered yet. Run a scan to auto-detect REST routes.</div>
+        </div>
+        <div class="dca-api-pane" id="dca-api-pane-graphql">
+          <div id="dca-api-gql-list" style="font-size:12px;color:var(--c5)">No GraphQL introspection found yet.</div>
+        </div>
+        <div class="dca-api-pane" id="dca-api-pane-spec">
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button class="dca-xbtn" onclick="dcaExportSpec('openapi')">Export OpenAPI 3.0</button>
+            <button class="dca-xbtn" onclick="dcaExportSpec('swagger')">Export Swagger 2.0</button>
+          </div>
+          <pre id="dca-api-spec-out" style="font-family:monospace;font-size:10px;background:var(--c10);border:1px solid var(--c8);border-radius:6px;padding:10px;color:var(--c2);white-space:pre-wrap;max-height:200px;overflow-y:auto">Run a scan first to generate the spec.</pre>
+        </div>
+      </div>
+
+      <!-- Dangling Domains -->
+      <div class="dca-dangling-wrap">
+        <div class="dca-dangling-hdr">
+          <div>
+            <div class="dca-dangling-title">&#128279; Dangling Domains</div>
+            <div style="font-size:11px;color:var(--c5);margin-top:2px">Detect subdomains pointing to dead cloud services — prevent subdomain takeover attacks</div>
+          </div>
+        </div>
+        <div class="dca-dangling-body">
+          <div class="dca-dangling-row">
+            <input class="dca-dangling-inp" id="dca-dangling-domain" placeholder="example.com" type="text">
+            <button class="dca-dangling-btn" id="dca-dangling-btn" onclick="dcaDanglingCheck()">Scan Subdomains</button>
+          </div>
+          <div class="dca-dangling-out" id="dca-dangling-out"></div>
+        </div>
+      </div>
+
+      <!-- AI Pentesting -->
+      <div class="dca-pentest-wrap">
+        <div class="dca-pentest-hdr">
+          <div class="dca-pentest-title">&#129302; AI Pentesting</div>
+          <span class="dca-pentest-badge">AUTONOMOUS AGENT</span>
+        </div>
+        <div class="dca-pentest-body">Runs an autonomous AI agent that explores your attack surface, chains vulnerabilities into realistic attack scenarios, and produces a SOC2 / ISO 27001-ready pentest report — no manual effort required.</div>
+        <div class="dca-pentest-feats">
+          <div class="dca-pentest-feat"><span>&#10003;</span><span>Chained attack path discovery</span></div>
+          <div class="dca-pentest-feat"><span>&#10003;</span><span>Business logic flaw detection</span></div>
+          <div class="dca-pentest-feat"><span>&#10003;</span><span>Authentication bypass testing</span></div>
+          <div class="dca-pentest-feat"><span>&#10003;</span><span>SOC2 / ISO pentest report</span></div>
+        </div>
+        <button class="dca-pentest-run" onclick="dcaAiPentest()">Launch AI Pentest</button>
+        <div id="dca-pentest-status" style="margin-top:10px;font-size:11px;color:#5b21b6;display:none"></div>
       </div>
     </div>
   </div>
 
-  <div style="padding:0 20px 30px;max-width:1400px;margin:0 auto">
+  <!-- OWASP coverage + Integrations -->
+  <div style="padding:0 20px 20px;max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="dca-panel">
+      <div class="dca-pt">OWASP Top 10 Coverage</div>
+      <div class="dca-owasp-grid">
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A01 Broken Access Control</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A02 Cryptographic Failures</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A03 Injection (SQLi, XSS, Cmd)</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A04 Insecure Design</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A05 Security Misconfiguration</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A06 Vulnerable Components</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A07 Auth &amp; Session Failures</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A08 Software Integrity Failures</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A09 Logging &amp; Monitoring</div>
+        <div class="dca-owasp-item"><div class="dca-owasp-dot"></div>A10 SSRF</div>
+      </div>
+    </div>
     <div class="dca-panel">
       <div class="dca-pt">Integrations</div>
       <div class="dca-int-tabs">
@@ -3636,135 +4056,112 @@ Export Power BI
 
       <!-- Jira -->
       <div class="dca-int-pane active" id="dca-int-pane-jira">
-        <div class="dca-int-grid">
-          <div>
-            <div class="dca-lbl">Jira URL</div>
-            <input class="dca-inp" id="dca-jira-url" placeholder="https://yourorg.atlassian.net">
-            <div class="dca-lbl">Email / Username</div>
-            <input class="dca-inp" id="dca-jira-user" placeholder="you@company.com">
-            <div class="dca-lbl">API Token</div>
-            <input class="dca-inp" id="dca-jira-token" type="password" placeholder="Atlassian API token">
-            <div class="dca-lbl">Project Key</div>
-            <input class="dca-inp" id="dca-jira-project" placeholder="SEC">
+        <div>
+          <div class="dca-lbl">Jira URL</div>
+          <input class="dca-inp" id="dca-jira-url" placeholder="https://yourorg.atlassian.net">
+          <div class="dca-lbl">Email / Username</div>
+          <input class="dca-inp" id="dca-jira-user" placeholder="you@company.com">
+          <div class="dca-lbl">API Token</div>
+          <input class="dca-inp" id="dca-jira-token" type="password" placeholder="Atlassian API token">
+          <div class="dca-lbl">Project Key</div>
+          <input class="dca-inp" id="dca-jira-project" placeholder="SEC">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <button class="dca-abtn" style="padding:5px 14px;font-size:11px" onclick="dcaTestInt('jira')">Test</button>
+            <span id="dca-jira-status" style="display:none" class="dca-cs"></span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <button class="dca-abtn" style="padding:6px 16px;font-size:12px" onclick="dcaTestInt('jira')">Test Connection</button>
-              <span id="dca-jira-status" style="display:none" class="dca-cs"></span>
+          <div id="dca-jira-push-wrap" style="display:none;margin-top:8px">
+            <div style="display:flex;gap:6px;align-items:center">
+              <select class="dca-sel" id="dca-jira-sev" style="width:auto;padding:4px 8px;font-size:11px">
+                <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
+              </select>
+              <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('jira')">Push to Jira</button>
             </div>
-            <div style="font-size:11px;color:var(--c5);line-height:1.7">Get an API token at <b>id.atlassian.com → Security → API tokens</b>. Findings are created as Bug issues with severity mapped to priority.</div>
-            <div id="dca-jira-push-wrap" style="display:none">
-              <div class="dca-lbl">Severity filter</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-                <select class="dca-sel" id="dca-jira-sev" style="width:auto;padding:4px 8px;font-size:11px">
-                  <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
-                </select>
-                <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('jira')">Push to Jira</button>
-              </div>
-              <div id="dca-jira-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
-            </div>
+            <div id="dca-jira-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
           </div>
         </div>
       </div>
 
       <!-- GitHub -->
       <div class="dca-int-pane" id="dca-int-pane-github">
-        <div class="dca-int-grid">
-          <div>
-            <div class="dca-lbl">Personal Access Token</div>
-            <input class="dca-inp" id="dca-gh-token" type="password" placeholder="ghp_...">
-            <div class="dca-lbl">Repository Owner</div>
-            <input class="dca-inp" id="dca-gh-owner" placeholder="your-org-or-username">
-            <div class="dca-lbl">Repository Name</div>
-            <input class="dca-inp" id="dca-gh-repo" placeholder="your-repo">
+        <div>
+          <div class="dca-lbl">Personal Access Token</div>
+          <input class="dca-inp" id="dca-gh-token" type="password" placeholder="ghp_...">
+          <div class="dca-lbl">Repository Owner</div>
+          <input class="dca-inp" id="dca-gh-owner" placeholder="your-org-or-username">
+          <div class="dca-lbl">Repository Name</div>
+          <input class="dca-inp" id="dca-gh-repo" placeholder="your-repo">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <button class="dca-abtn" style="padding:5px 14px;font-size:11px" onclick="dcaTestInt('github')">Test</button>
+            <span id="dca-github-status" style="display:none" class="dca-cs"></span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <button class="dca-abtn" style="padding:6px 16px;font-size:12px" onclick="dcaTestInt('github')">Test Connection</button>
-              <span id="dca-github-status" style="display:none" class="dca-cs"></span>
+          <div id="dca-github-push-wrap" style="display:none;margin-top:8px">
+            <div style="display:flex;gap:6px;align-items:center">
+              <select class="dca-sel" id="dca-github-sev" style="width:auto;padding:4px 8px;font-size:11px">
+                <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
+              </select>
+              <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('github')">Push Issues</button>
             </div>
-            <div style="font-size:11px;color:var(--c5);line-height:1.7">Token needs <b>repo</b> scope. Issues are created with <b>security</b> label and severity label auto-applied.</div>
-            <div id="dca-github-push-wrap" style="display:none">
-              <div class="dca-lbl">Severity filter</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-                <select class="dca-sel" id="dca-github-sev" style="width:auto;padding:4px 8px;font-size:11px">
-                  <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
-                </select>
-                <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('github')">Push to GitHub</button>
-              </div>
-              <div id="dca-github-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
-            </div>
+            <div id="dca-github-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
           </div>
         </div>
       </div>
 
       <!-- Jenkins -->
       <div class="dca-int-pane" id="dca-int-pane-jenkins">
-        <div class="dca-int-grid">
-          <div>
-            <div class="dca-lbl">Jenkins URL</div>
-            <input class="dca-inp" id="dca-jenkins-url" placeholder="https://jenkins.yourcompany.com">
-            <div class="dca-lbl">Username</div>
-            <input class="dca-inp" id="dca-jenkins-user" placeholder="admin">
-            <div class="dca-lbl">API Token</div>
-            <input class="dca-inp" id="dca-jenkins-token" type="password" placeholder="Jenkins API token">
-            <div class="dca-lbl">Job / Pipeline Name</div>
-            <input class="dca-inp" id="dca-jenkins-job" placeholder="security-scan-pipeline">
+        <div>
+          <div class="dca-lbl">Jenkins URL</div>
+          <input class="dca-inp" id="dca-jenkins-url" placeholder="https://jenkins.yourcompany.com">
+          <div class="dca-lbl">Username</div>
+          <input class="dca-inp" id="dca-jenkins-user" placeholder="admin">
+          <div class="dca-lbl">API Token</div>
+          <input class="dca-inp" id="dca-jenkins-token" type="password" placeholder="Jenkins API token">
+          <div class="dca-lbl">Job / Pipeline Name</div>
+          <input class="dca-inp" id="dca-jenkins-job" placeholder="security-scan-pipeline">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <button class="dca-abtn" style="padding:5px 14px;font-size:11px" onclick="dcaTestInt('jenkins')">Test</button>
+            <span id="dca-jenkins-status" style="display:none" class="dca-cs"></span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <button class="dca-abtn" style="padding:6px 16px;font-size:12px" onclick="dcaTestInt('jenkins')">Test Connection</button>
-              <span id="dca-jenkins-status" style="display:none" class="dca-cs"></span>
-            </div>
-            <div style="font-size:11px;color:var(--c5);line-height:1.7">Get your API token from <b>Jenkins → User → Configure → API Token</b>.</div>
-            <div id="dca-jenkins-trigger-wrap" style="display:none">
-              <div class="dca-lbl">Build parameters (key=value per line, optional)</div>
-              <textarea class="dca-inp" id="dca-jenkins-params" rows="3" placeholder="TARGET_URL=https://example.com&#10;SCAN_TYPE=full"></textarea>
-              <button class="dca-abtn" style="padding:5px 14px;margin-top:6px" onclick="dcaTriggerJenkins()">Trigger Pipeline</button>
-              <div id="dca-jenkins-trigger-log" style="margin-top:6px;font-size:11px;color:var(--c5)"></div>
-            </div>
+          <div id="dca-jenkins-trigger-wrap" style="display:none;margin-top:8px">
+            <textarea class="dca-inp" id="dca-jenkins-params" rows="3" placeholder="TARGET_URL=https://example.com&#10;SCAN_TYPE=full"></textarea>
+            <button class="dca-abtn" style="padding:5px 14px;margin-top:6px" onclick="dcaTriggerJenkins()">Trigger Pipeline</button>
+            <div id="dca-jenkins-trigger-log" style="margin-top:6px;font-size:11px;color:var(--c5)"></div>
           </div>
         </div>
       </div>
 
       <!-- Azure DevOps -->
       <div class="dca-int-pane" id="dca-int-pane-azure">
-        <div class="dca-int-grid">
-          <div>
-            <div class="dca-lbl">Organization</div>
-            <input class="dca-inp" id="dca-azure-org" placeholder="your-org">
-            <div class="dca-lbl">Project</div>
-            <input class="dca-inp" id="dca-azure-project" placeholder="MyProject">
-            <div class="dca-lbl">Personal Access Token (PAT)</div>
-            <input class="dca-inp" id="dca-azure-pat" type="password" placeholder="Azure DevOps PAT">
-            <div class="dca-lbl">Work Item Type</div>
-            <select class="dca-sel" id="dca-azure-type">
-              <option value="Bug">Bug</option>
-              <option value="Task">Task</option>
-              <option value="Issue">Issue</option>
-            </select>
+        <div>
+          <div class="dca-lbl">Organization</div>
+          <input class="dca-inp" id="dca-azure-org" placeholder="your-org">
+          <div class="dca-lbl">Project</div>
+          <input class="dca-inp" id="dca-azure-project" placeholder="MyProject">
+          <div class="dca-lbl">Personal Access Token (PAT)</div>
+          <input class="dca-inp" id="dca-azure-pat" type="password" placeholder="Azure DevOps PAT">
+          <div class="dca-lbl">Work Item Type</div>
+          <select class="dca-sel" id="dca-azure-type">
+            <option value="Bug">Bug</option>
+            <option value="Task">Task</option>
+            <option value="Issue">Issue</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <button class="dca-abtn" style="padding:5px 14px;font-size:11px" onclick="dcaTestInt('azure')">Test</button>
+            <span id="dca-azure-status" style="display:none" class="dca-cs"></span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <button class="dca-abtn" style="padding:6px 16px;font-size:12px" onclick="dcaTestInt('azure')">Test Connection</button>
-              <span id="dca-azure-status" style="display:none" class="dca-cs"></span>
+          <div id="dca-azure-push-wrap" style="display:none;margin-top:8px">
+            <div style="display:flex;gap:6px;align-items:center">
+              <select class="dca-sel" id="dca-azure-sev" style="width:auto;padding:4px 8px;font-size:11px">
+                <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
+              </select>
+              <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('azure')">Push to Azure</button>
             </div>
-            <div style="font-size:11px;color:var(--c5);line-height:1.7">PAT requires <b>Work Items (Read, Write & Manage)</b> scope. Get it from <b>Azure DevOps → User Settings → Personal Access Tokens</b>.</div>
-            <div id="dca-azure-push-wrap" style="display:none">
-              <div class="dca-lbl">Severity filter</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-                <select class="dca-sel" id="dca-azure-sev" style="width:auto;padding:4px 8px;font-size:11px">
-                  <option value="all">All</option><option value="critical">Critical</option><option value="high">High+</option><option value="medium">Medium+</option>
-                </select>
-                <button class="dca-abtn" style="padding:5px 14px" onclick="dcaPushAll('azure')">Push to Azure</button>
-              </div>
-              <div id="dca-azure-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
-            </div>
+            <div id="dca-azure-push-log" style="margin-top:6px;font-size:11px;color:var(--c5);max-height:60px;overflow-y:auto"></div>
           </div>
         </div>
       </div>
     </div>
   </div>
+
   </div><!-- /page-dca -->
 
   <!-- ══ SCAN HISTORY PAGE ══════════════════════════════════════════════════ -->
@@ -8270,7 +8667,6 @@ var _USER_SECTIONS = USER_ALLOWED_PAGES !== null ? USER_ALLOWED_PAGES : [];
 var _PAGE_TITLES = {
   'chatbot':       'AI Chatbot',
   'gsc':           'Domain Health & Search Console',
-  'filescan':      'File Scanner',
   'dashboard':     'Security Dashboard',
   'observability': 'Unified Observability',
   'signals':       'Security Signals',
@@ -8436,7 +8832,6 @@ function sbNav(section, el) {
   if (section === 'securescore')   loadSecureScore();
   if (section === 'priority')      loadMaintenanceStatus();
   if (section === 'gsc')           loadGscPage();
-  if (section === 'filescan')      loadFileScanPage();
   if (section === 'usermgmt')      loadUserMgmt();
   if (section === 'invoices')      loadInvoices();
   if (section === 'grc')           grcInit();
@@ -9326,7 +9721,7 @@ function _applySidebarAccess() {
 
   // Map every sb-* button id to its section key
   var _SB_MAP = {
-    'sb-chatbot':'chatbot','sb-gsc':'gsc','sb-filescan':'filescan',
+    'sb-chatbot':'chatbot','sb-gsc':'gsc',
     'sb-dashboard':'dashboard','sb-securescore':'securescore','sb-threatanalytics':'threatanalytics',
     'sb-incidents':'incidents','sb-signals':'signals','sb-eventtimeline':'eventtimeline','sb-mitre':'mitre',
     'sb-priority':'priority','sb-recommendations':'recommendations','sb-remediation':'remediation',
@@ -15817,7 +16212,6 @@ var _ALL_PAGES = [
   { group: 'AI Tools',               pages: [
     { key: 'chatbot',        label: 'AI Assistant' },
     { key: 'gsc',            label: 'Domain Health & Search Console' },
-    { key: 'filescan',       label: 'File Scanner' },
   ]},
   { group: 'Overview',               pages: [
     { key: 'agents',         label: 'AI Agents' },
@@ -15857,8 +16251,8 @@ var _ALL_PAGES = [
 
 // Presets
 var _PAGE_PRESETS = {
-  default:  ['chatbot','gsc','filescan','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','myappts','filemanager'],
-  analyst:  ['dashboard','chatbot','gsc','filescan','threatanalytics','incidents','priority','syslog','logexplorer','pluginlogs','network','history','grc'],
+  default:  ['chatbot','gsc','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','myappts','filemanager'],
+  analyst:  ['dashboard','chatbot','gsc','threatanalytics','incidents','priority','syslog','logexplorer','pluginlogs','network','history','grc'],
   readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
   all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
   none:     [],
@@ -19780,12 +20174,6 @@ function grcExport() {
       desc: 'Integrates with Google Search Console to display keyword performance, page indexing status, Core Web Vitals, and PageSpeed metrics. Helps you detect SEO-impact from security incidents.',
       tips: ['Connect via Google OAuth for live Search Console data','PageSpeed score below 50 may indicate injected scripts or heavy payloads','Sudden traffic drops can indicate a Google blacklisting event']
     },
-    filescan: {
-      title: 'File Scanner',
-      subtitle: 'WordPress Malware Detection',
-      desc: 'Scans WordPress installations for malware, PHP files in uploads directories, modified core files, and suspicious plugins using the Wordfence vulnerability database and WordPress REST API.',
-      tips: ['Enter the full site URL including https://', 'Scan may take 15–30 seconds depending on site size','Mark findings as Known Safe, Suspicious, or Malware to track your review']
-    },
     agents: {
       title: 'AI Security Agents',
       subtitle: 'Agent Catalog',
@@ -19900,12 +20288,6 @@ function grcExport() {
       subtitle: 'DAST — Runtime Security Testing',
       desc: 'Proof-based dynamic application security testing against live targets. Runs Nikto, Nuclei, Wapiti, or OWASP ZAP against a URL and returns real findings with severity, affected URL, HTTP method, and description. Integrates with Jira, GitHub, Jenkins, and Azure DevOps to push findings directly into your workflow.',
       tips: ['Select "Auto" scanner to use the best available tool installed on the server','Use the Test Connection button in each integration tab before pushing findings','Bulk-push findings to Jira or GitHub with the severity filter to skip low-priority items','Export findings as CSV or HTML report for executive or technical reporting']
-    },
-    filescan: {
-      title: 'File Scanner',
-      subtitle: 'Multi-Platform Security Scanner',
-      desc: 'HTTP-based security scanner supporting WordPress, Drupal, Joomla, Laravel, Django, Node.js, and generic web apps. Checks for exposed sensitive files (.env, config, backups), missing security headers (CSP, HSTS, X-Frame), and platform-specific vulnerabilities — no agent or plugin required.',
-      tips: ['Select the correct platform for targeted checks relevant to that framework','WordPress scans use the Wordfence vulnerability database via the WP REST API','Non-WordPress scans are HTTP-based and require no credentials or plugin installation']
     },
     logexplorer: {
       title: 'Log Explorer',
@@ -20858,6 +21240,9 @@ function grcExport() {
 
   // ── Static Code Analysis (SCA) ─────────────────────────────────────────────
   var _scaFiles = [];
+  var _scaFileContents = {};  // filename → text content (for AI fix)
+  var _scaFindings = [];      // last scan findings (for AI fix)
+  var _scaFixStore = {};      // idx → {filename, content} after AI fix
 
   window.scaDragOver = function(e) {
     e.preventDefault();
@@ -20885,6 +21270,13 @@ function grcExport() {
     }
     var list = document.getElementById('scaFileList');
     if (!_scaFiles.length) { list.innerHTML = ''; return; }
+    // Read file contents for AI fix feature
+    _scaFileContents = {};
+    _scaFiles.forEach(function(f) {
+      var reader = new FileReader();
+      reader.onload = function(e) { _scaFileContents[f.name] = e.target.result; };
+      reader.readAsText(f);
+    });
     list.innerHTML = _scaFiles.map(function(f) {
       return '<div class="sca-file-item"><span>' + f.name + '</span>' +
              '<small style="color:#94a3b8">' + (f.size > 1024 ? (f.size/1024).toFixed(1)+'KB' : f.size+'B') + '</small></div>';
@@ -20972,6 +21364,334 @@ function grcExport() {
     return '<span class="sca-badge-info">INFO</span>';
   };
 
+  function _scaEsc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function _scaShortRule(id) {
+    var parts = (id||'').split('.');
+    return parts.slice(-2).join('.') || id;
+  }
+
+  // ── False Positive system ───────────────────────────────────────────────────
+  var _scaFpKeys = JSON.parse(localStorage.getItem('sca_fp_keys') || '[]');
+  var _scaShowFp  = false;
+
+  function _scaFpKey(f) {
+    return (f.check_id||'') + '|' + (f.path||'') + '|' + ((f.start&&f.start.line)||'');
+  }
+
+  window.scaMarkFp = function(idx) {
+    var f = _scaFindings[idx]; if (!f) return;
+    var key = _scaFpKey(f);
+    var pos = _scaFpKeys.indexOf(key);
+    if (pos === -1) { _scaFpKeys.push(key); }
+    else            { _scaFpKeys.splice(pos, 1); }
+    localStorage.setItem('sca_fp_keys', JSON.stringify(_scaFpKeys));
+    _scaApplyFpDisplay();
+  };
+
+  function _scaApplyFpDisplay() {
+    var fpCount = 0;
+    _scaFindings.forEach(function(f, i) {
+      var card = document.getElementById('sca-card-' + i);
+      if (!card) return;
+      var isFp = _scaFpKeys.indexOf(_scaFpKey(f)) !== -1;
+      if (isFp) fpCount++;
+      card.classList.toggle('is-fp', isFp);
+      card.style.display = (isFp && !_scaShowFp) ? 'none' : '';
+      var btn = document.getElementById('sca-fp-btn-' + i);
+      if (btn) { btn.textContent = isFp ? '✓ False Positive' : '⚑ Mark as FP'; btn.classList.toggle('marked', isFp); }
+    });
+    var badge = document.getElementById('sca-fp-count-badge');
+    if (badge) { badge.textContent = fpCount + ' FP'; badge.style.display = fpCount ? '' : 'none'; }
+    var toggle = document.getElementById('sca-fp-toggle');
+    if (toggle) toggle.classList.toggle('active', _scaShowFp);
+  }
+
+  window.scaToggleFp = function() {
+    _scaShowFp = !_scaShowFp;
+    _scaApplyFpDisplay();
+  };
+
+  // ── Context-aware severity adjustment ──────────────────────────────────────
+  function _scaGetContext() {
+    return {
+      internet:  !!(document.getElementById('sca-ctx-internet')  && document.getElementById('sca-ctx-internet').checked),
+      pii:       !!(document.getElementById('sca-ctx-pii')       && document.getElementById('sca-ctx-pii').checked),
+      financial: !!(document.getElementById('sca-ctx-financial') && document.getElementById('sca-ctx-financial').checked),
+      api:       !!(document.getElementById('sca-ctx-api')       && document.getElementById('sca-ctx-api').checked),
+    };
+  }
+
+  function _scaAdjustedSev(baseSev, ruleId) {
+    var ctx = _scaGetContext();
+    var s = (baseSev||'INFO').toUpperCase();
+    var r = (ruleId||'').toLowerCase();
+    var bump = 0;
+
+    if (ctx.internet  && /xss|inject|traversal|redirect|ssrf|lfi/.test(r))      bump++;
+    if (ctx.pii       && /secret|password|credential|token|key|pii|user|email/.test(r)) bump++;
+    if (ctx.financial && /inject|overflow|traversal|crypto|hash/.test(r))        bump++;
+    if (ctx.api       && /auth|idor|bola|rate|inject|jwt/.test(r))               bump++;
+
+    var order = ['INFO','LOW','WARNING','ERROR'];
+    var idx   = order.indexOf(s);
+    if (idx === -1) idx = 0;
+    var newIdx = Math.min(idx + bump, order.length - 1);
+    return {sev: order[newIdx], adjusted: newIdx > idx};
+  }
+
+  // ── TL;DR knowledge base ────────────────────────────────────────────────────
+  var _scaTldrKB = {
+    'hardcoded-password':    {what:'A password is embedded directly in the source code.',          affects:'Any environment that runs this code — anyone with repo access can see it.',    fix:'Move the password to an environment variable (e.g. os.environ["DB_PASS"]) and load it at runtime.'},
+    'hardcoded-secret':      {what:'A secret, API key, or credential is hardcoded in source.',     affects:'Attackers who access the repo, build artifacts, or container images.',           fix:'Use a secrets manager or environment variable; rotate the exposed credential immediately.'},
+    'sql-injection':         {what:'User input is interpolated directly into a SQL query.',        affects:'Any endpoint that takes external input and queries a database.',                 fix:'Use parameterised queries or an ORM. Never build SQL strings from user data.'},
+    'xss':                   {what:'User-controlled data is rendered as HTML without escaping.',   affects:'All users of the application — attackers can steal sessions and redirect users.',fix:'Escape output with your framework\'s template engine. Set a Content-Security-Policy header.'},
+    'path-traversal':        {what:'User input controls a file path, allowing directory traversal.',affects:'Any endpoint that reads/writes files based on user input.',                    fix:'Validate the path is within the expected directory (use realpath and check prefix).'},
+    'command-injection':     {what:'User input is passed to a shell command.',                     affects:'Critical — full server compromise if exploited.',                              fix:'Avoid shell=True. Use subprocess with a list of arguments, never string interpolation.'},
+    'ssrf':                  {what:'The server fetches a URL provided by the user.',               affects:'Internal services (metadata endpoints, databases) reachable from the server.',  fix:'Whitelist allowed domains; block private IP ranges (169.254.x.x, 10.x.x.x, 172.16.x.x, 192.168.x.x).'},
+    'open-redirect':         {what:'A redirect URL is taken from user input without validation.',  affects:'Users can be redirected to phishing sites via a trusted-looking link.',          fix:'Whitelist allowed redirect destinations or use relative paths only.'},
+    'weak-hash':             {what:'A weak or insecure hash function (MD5/SHA-1) is used.',        affects:'Stored passwords or integrity-checked data may be brute-forced.',               fix:'Use bcrypt, scrypt, or Argon2 for passwords; SHA-256+ for general hashing.'},
+    'insecure-random':       {what:'A non-cryptographic random generator is used for security.',   affects:'Tokens, session IDs, or keys generated this way are predictable.',               fix:'Use secrets.token_hex() (Python) or crypto.randomBytes() (Node) for security tokens.'},
+    'deserializ':            {what:'Untrusted data is deserialized, potentially executing code.',  affects:'Critical — can lead to remote code execution.',                                 fix:'Avoid deserializing untrusted data. Use safe formats (JSON). Validate structure before use.'},
+    'prototype-pollution':   {what:'Object properties can be injected via __proto__ or constructor.',affects:'Node.js apps — can override built-in behaviour and bypass security checks.', fix:'Validate and sanitise object keys; use Object.create(null) for lookup tables.'},
+    'jwt':                   {what:'JWT validation is missing or weak (e.g. alg:none accepted).',  affects:'Authentication can be bypassed — any user can forge an identity.',              fix:'Always verify the signature with a secret/key; reject tokens with alg=none; use a well-audited JWT library.'},
+    'csrf':                  {what:'State-changing requests are not protected against cross-site forgery.', affects:'Authenticated users can be tricked into performing actions without consent.', fix:'Add CSRF tokens to all state-changing forms; use SameSite=Strict cookie attribute.'},
+    'disabled-cert':         {what:'SSL certificate verification is disabled.',                    affects:'Man-in-the-middle attacks are possible on all HTTPS connections.',               fix:'Never pass verify=False. Use system trust store or provide a CA bundle.'},
+    'eval':                  {what:'User input is evaluated as code (eval, exec, Function).',      affects:'Remote code execution — full server or browser compromise.',                    fix:'Never use eval with user data. If dynamic execution is required, use a sandboxed parser.'},
+  };
+
+  function _scaTldrForRule(ruleId) {
+    var r = (ruleId||'').toLowerCase();
+    for (var key in _scaTldrKB) {
+      if (r.indexOf(key) !== -1) return _scaTldrKB[key];
+    }
+    return null;
+  }
+
+  window.scaFetchTldr = function(idx) {
+    var f = _scaFindings[idx]; if (!f) return;
+    var out = document.getElementById('sca-tldr-' + idx); if (!out) return;
+    out.innerHTML = '<div style="font-size:11px;color:var(--c5);padding:6px 0">Generating TL;DR…</div>';
+    fetch('/api/sca/tldr', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({rule_id: f.check_id, message: (f.extra||{}).message || '', severity: (f.extra||{}).severity || 'INFO'})
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (!d.ok) { out.innerHTML = '<div style="font-size:11px;color:#dc2626">AI unavailable: ' + _scaEsc(d.error||'') + '</div>'; return; }
+      out.innerHTML = _scaTldrHtml(d);
+    })
+    .catch(function(e){ out.innerHTML = '<div style="font-size:11px;color:#dc2626">Request failed</div>'; });
+  };
+
+  function _scaTldrHtml(d) {
+    return '<div class="sca-tldr">' +
+      '<div class="sca-tldr-title">TL;DR — Remediation Advice</div>' +
+      '<div class="sca-tldr-row"><div class="sca-tldr-label">What is it?</div><div class="sca-tldr-value">' + _scaEsc(d.what||'') + '</div></div>' +
+      '<div class="sca-tldr-row"><div class="sca-tldr-label">Affects me?</div><div class="sca-tldr-value">' + _scaEsc(d.affects||'') + '</div></div>' +
+      '<div class="sca-tldr-row"><div class="sca-tldr-label">How to fix</div><div class="sca-tldr-value">' + _scaEsc(d.fix||'') + '</div></div>' +
+    '</div>';
+  }
+
+  function _scaCweFromRule(ruleId) {
+    var r = (ruleId||'').toLowerCase();
+    if (/hardcoded.?(password|secret|credential|key)/.test(r)) return {id:'798', name:'Hard-coded Credentials'};
+    if (/sql.?inject|sqli/.test(r))                             return {id:'89',  name:'SQL Injection'};
+    if (/xss|cross.?site.?script/.test(r))                      return {id:'79',  name:'XSS'};
+    if (/path.?traversal|directory.?traversal|lfi/.test(r))     return {id:'22',  name:'Path Traversal'};
+    if (/command.?inject|os.?command|shell.?exec/.test(r))       return {id:'78',  name:'OS Command Injection'};
+    if (/open.?redirect/.test(r))                               return {id:'601', name:'Open Redirect'};
+    if (/csrf/.test(r))                                         return {id:'352', name:'CSRF'};
+    if (/xxe/.test(r))                                          return {id:'611', name:'XXE'};
+    if (/ssrf/.test(r))                                         return {id:'918', name:'SSRF'};
+    if (/weak.?crypto|weak.?hash|use.?md5|use.?sha1/.test(r))   return {id:'327', name:'Broken Crypto'};
+    if (/insecure.?random/.test(r))                             return {id:'330', name:'Insecure Randomness'};
+    if (/deserializ/.test(r))                                   return {id:'502', name:'Unsafe Deserialization'};
+    if (/prototype.?pollution/.test(r))                         return {id:'1321',name:'Prototype Pollution'};
+    if (/jwt|json.?web.?token/.test(r))                         return {id:'347', name:'Improper JWT Verification'};
+    if (/secret|api.?key/.test(r))                              return {id:'312', name:'Sensitive Data Exposure'};
+    if (/eval\b|exec\b/.test(r))                                return {id:'78',  name:'Code Injection'};
+    if (/null.?deref|null.?pointer/.test(r))                    return {id:'476', name:'Null Dereference'};
+    if (/use.?after.?free/.test(r))                             return {id:'416', name:'Use-After-Free'};
+    return null;
+  }
+
+  function _scaOwaspFromRule(ruleId) {
+    var r = (ruleId||'').toLowerCase();
+    if (/sql.?inject|xss|ssti|command.?inject|xxe|path.?traversal|eval|exec|code.?inject/.test(r)) return 'A03:2021 Injection';
+    if (/hardcoded.?password|hardcoded.?secret|hardcoded.?credential/.test(r)) return 'A07:2021 Auth Failures';
+    if (/secret|api.?key/.test(r))   return 'A02:2021 Crypto Failures';
+    if (/crypto|hash|md5|sha1|weak.?cipher|tls|ssl/.test(r)) return 'A02:2021 Crypto Failures';
+    if (/open.?redirect|ssrf/.test(r)) return 'A10:2021 SSRF';
+    if (/deserializ/.test(r))          return 'A08:2021 Insecure Deserialization';
+    if (/prototype.?pollution|dom.?xss/.test(r)) return 'A03:2021 Injection';
+    if (/config|setting|debug|stack.?trace|banner/.test(r)) return 'A05:2021 Misconfiguration';
+    if (/auth|login|session|jwt|csrf/.test(r)) return 'A07:2021 Auth Failures';
+    return null;
+  }
+
+  function _scaBuildCard(f, idx) {
+    var baseSev  = (f.extra && f.extra.severity ? f.extra.severity : 'INFO').toUpperCase();
+    var adjResult = _scaAdjustedSev(baseSev, f.check_id || '');
+    var sev      = adjResult.sev;
+    var adjusted = adjResult.adjusted;
+    var file     = f.path || '';
+    var line     = (f.start && f.start.line) ? f.start.line : '';
+    var ruleId   = f.check_id || '';
+    var msg      = (f.extra && f.extra.message) ? f.extra.message : '';
+    var snippet  = (f.extra && f.extra.lines) ? String(f.extra.lines) : '';
+    var cwe      = _scaCweFromRule(ruleId);
+    var owasp    = _scaOwaspFromRule(ruleId);
+    var isFp     = _scaFpKeys.indexOf(_scaFpKey(f)) !== -1;
+
+    // Severity badge (+ context-adjusted marker)
+    var badge = scaSeverityBadge(sev);
+    if (adjusted) badge += '<span class="sca-ctx-adj" title="Severity raised by scan context">context+</span>';
+
+    // Tags row
+    var tags = '<div class="sca-card-meta">';
+    if (cwe)   tags += '<span class="sca-card-tag sca-tag-cwe" title="CWE-' + cwe.id + '">CWE-' + cwe.id + ' ' + _scaEsc(cwe.name) + '</span>';
+    if (owasp) tags += '<span class="sca-card-tag sca-tag-owasp">' + _scaEsc(owasp) + '</span>';
+    tags += '<span class="sca-card-tag sca-tag-rule" title="' + _scaEsc(ruleId) + '">' + _scaEsc(_scaShortRule(ruleId)) + '</span>';
+    tags += '</div>';
+
+    // Code block (up to 8 lines, vulnerable line highlighted)
+    var codeHtml = '';
+    if (snippet) {
+      var snippetLines = snippet.split('\n');
+      var linesHtml = snippetLines.slice(0, 8).map(function(l, i) {
+        var lineNo = line ? (parseInt(line) + i) : (i + 1);
+        return '<div class="sca-code-line' + (i === 0 ? ' vuln' : '') + '">' +
+          '<span class="sca-code-linenum">' + lineNo + '</span>' +
+          '<span class="sca-code-text">' + _scaEsc(l) + '</span></div>';
+      }).join('');
+      if (snippetLines.length > 8) linesHtml += '<div class="sca-code-line"><span class="sca-code-linenum"></span><span class="sca-code-text" style="color:#475569">… ' + (snippetLines.length - 8) + ' more lines</span></div>';
+      codeHtml = '<div class="sca-code-block">' +
+        '<div class="sca-code-file-bar"><span>' + _scaEsc(file) + '</span><span>line ' + _scaEsc(String(line)) + '</span></div>' +
+        '<div class="sca-code-lines">' + linesHtml + '</div></div>';
+    }
+
+    // TL;DR — show immediately if KB has entry, otherwise show "Get AI Advice" button
+    var tldrEntry  = _scaTldrForRule(ruleId);
+    var tldrHtml   = tldrEntry
+      ? '<div id="sca-tldr-' + idx + '">' + _scaTldrHtml(tldrEntry) + '</div>'
+      : '<div id="sca-tldr-' + idx + '"><button class="sca-tldr-btn" onclick="scaFetchTldr(' + idx + ')">Get AI Advice</button></div>';
+
+    // Fix + FP buttons
+    var hasContent = !!(_scaFileContents[file] || _scaFileContents[file.split('/').pop()] || _scaFileContents[file.split('\\').pop()]);
+    var fixBtn = '<button class="sca-ai-btn" id="sca-fix-btn-' + idx + '" onclick="scaAiFix(' + idx + ')"' +
+      (hasContent ? '' : ' disabled title="Upload the source file to enable AI fix"') + '>✨ Fix with AI</button>';
+    var fpBtn  = '<button class="sca-fp-btn' + (isFp ? ' marked' : '') + '" id="sca-fp-btn-' + idx + '" onclick="scaMarkFp(' + idx + ')">' + (isFp ? '✓ False Positive' : '⚑ Mark as FP') + '</button>';
+
+    return '<div class="sca-card' + (isFp ? ' is-fp' : '') + '" id="sca-card-' + idx + '" style="' + (isFp && !_scaShowFp ? 'display:none' : '') + '">' +
+      '<div class="sca-card-header" onclick="scaToggleCard(' + idx + ')">' +
+        badge +
+        (isFp ? '<span class="sca-fp-badge">FP</span>' : '') +
+        '<span class="sca-card-rule" title="' + _scaEsc(ruleId) + '">' + _scaEsc(_scaShortRule(ruleId)) + '</span>' +
+        '<span class="sca-card-loc">' + _scaEsc(file) + (line ? ':' + line : '') + '</span>' +
+        '<span class="sca-card-chevron" id="sca-chev-' + idx + '">▼</span>' +
+      '</div>' +
+      '<div class="sca-card-body" id="sca-body-' + idx + '">' +
+        tags +
+        '<div class="sca-card-msg">' + _scaEsc(msg) + '</div>' +
+        codeHtml +
+        tldrHtml +
+        '<div class="sca-card-actions" style="margin-top:10px;">' + fixBtn + fpBtn + '</div>' +
+        '<div id="sca-fix-out-' + idx + '"></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  window.scaToggleCard = function(idx, forceOpen) {
+    var body = document.getElementById('sca-body-' + idx);
+    var chev = document.getElementById('sca-chev-' + idx);
+    if (!body) return;
+    var open = body.classList.contains('open');
+    if (forceOpen === true || !open) {
+      body.classList.add('open');
+      if (chev) chev.classList.add('open');
+    } else {
+      body.classList.remove('open');
+      if (chev) chev.classList.remove('open');
+    }
+  };
+
+  window.scaAiFix = function(idx) {
+    var f = _scaFindings[idx];
+    if (!f) return;
+    var out = document.getElementById('sca-fix-out-' + idx);
+    if (!out) return;
+    var btn = document.getElementById('sca-fix-btn-' + idx);
+    if (btn) { btn.disabled = true; btn.textContent = 'Analyzing…'; }
+
+    var file = f.path || '';
+    var content = _scaFileContents[file]
+      || _scaFileContents[file.split('/').pop()]
+      || _scaFileContents[file.split('\\').pop()]
+      || '';
+
+    if (!content) {
+      out.innerHTML = '<div class="sca-fix-panel"><div class="sca-fix-error">File content not found. Re-upload the source file and try again.</div></div>';
+      if (btn) { btn.disabled = false; btn.textContent = '✨ Fix with AI'; }
+      return;
+    }
+
+    out.innerHTML = '<div class="sca-fix-panel"><div class="sca-fix-loading"><div class="sca-fix-spinner"></div><span>Analyzing with AI — this may take a moment…</span></div></div>';
+
+    fetch('/api/sca/fix', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({file_content: content, filename: file, finding: f})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (btn) { btn.disabled = false; btn.textContent = '✨ Fix with AI'; }
+      if (!d.ok) {
+        var noKeyMsg = d.no_key
+          ? '<div class="sca-fix-no-key">No AI API key configured. Add <strong>ANTHROPIC_API_KEY</strong> or <strong>OPENAI_API_KEY</strong> to your <code>.env</code> file on the server.</div>'
+          : '<div class="sca-fix-error">AI fix failed: ' + _scaEsc(d.error || 'Unknown error') + '</div>';
+        out.innerHTML = '<div class="sca-fix-panel">' + noKeyMsg + '</div>';
+        return;
+      }
+      var snippet  = (f.extra && f.extra.lines) ? String(f.extra.lines) : '';
+      var diffHtml = '';
+      if (snippet || d.fixed_snippet) {
+        diffHtml = '<div class="sca-fix-diff">' +
+          '<div class="sca-fix-diff-before"><div class="sca-fix-diff-label">BEFORE</div><div class="sca-fix-diff-code">' + _scaEsc(snippet) + '</div></div>' +
+          '<div class="sca-fix-diff-after"><div class="sca-fix-diff-label">AFTER</div><div class="sca-fix-diff-code">' + _scaEsc(d.fixed_snippet || '') + '</div></div>' +
+          '</div>';
+      }
+      var dlBtn = d.fixed_code
+        ? '<button class="sca-fix-download" onclick="scaDownloadFix(' + idx + ')">⬇ Download fixed ' + _scaEsc(file.split('/').pop() || file) + '</button>'
+        : '';
+      out.innerHTML = '<div class="sca-fix-panel">' +
+        '<div class="sca-fix-title">✨ AI Analysis &amp; Fix</div>' +
+        '<div class="sca-fix-explanation">' + _scaEsc(d.explanation || '') + '</div>' +
+        (d.fix_summary ? '<div class="sca-fix-summary">Fix: ' + _scaEsc(d.fix_summary) + '</div>' : '') +
+        diffHtml + dlBtn +
+        '</div>';
+      if (d.fixed_code) _scaFixStore[idx] = {filename: file.split('/').pop() || file, content: d.fixed_code};
+    })
+    .catch(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '✨ Fix with AI'; }
+      out.innerHTML = '<div class="sca-fix-panel"><div class="sca-fix-error">Request failed: ' + _scaEsc(String(err)) + '</div></div>';
+    });
+  };
+
+  window.scaDownloadFix = function(idx) {
+    var entry = _scaFixStore[idx];
+    if (!entry) return;
+    var blob = new Blob([entry.content], {type: 'text/plain'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url; a.download = 'fixed_' + entry.filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
   window.scaRenderResults = function(data) {
     var panel = document.getElementById('scaResultsPanel');
     if (!data.ok) {
@@ -20981,62 +21701,58 @@ function grcExport() {
         extra = '<code>pip install semgrep</code>' +
           '<div style="margin-top:8px;font-size:11px;color:#92400e">After installing, restart the Flask server.</div>';
       } else if (data.stderr) {
-        extra = '<code>' + data.stderr + '</code>';
+        extra = '<code>' + _scaEsc(data.stderr) + '</code>';
       }
-      panel.innerHTML = '<div class="sca-error-box">&#9888; ' + errMsg + extra + '</div>';
+      panel.innerHTML = '<div class="sca-error-box">&#9888; ' + _scaEsc(errMsg) + extra + '</div>';
       return;
     }
 
     var findings = data.findings || [];
+    // Sort: ERROR → WARNING → LOW → INFO
+    var sevRank = {ERROR:0, WARNING:1, LOW:2, INFO:3};
+    findings.sort(function(a, b) {
+      var sa = sevRank[(a.extra && a.extra.severity || 'INFO').toUpperCase()] || 3;
+      var sb = sevRank[(b.extra && b.extra.severity || 'INFO').toUpperCase()] || 3;
+      return sa - sb;
+    });
+    _scaFindings = findings;
+    _scaFixStore = {};
+
     var errCount  = findings.filter(function(f){ return (f.extra && f.extra.severity || '').toUpperCase() === 'ERROR'; }).length;
     var warnCount = findings.filter(function(f){ return (f.extra && f.extra.severity || '').toUpperCase() === 'WARNING'; }).length;
     var infoCount = findings.length - errCount - warnCount;
 
     var statsHtml = '<div class="sca-stats-row">' +
       '<div class="sca-stat-box"><div class="sca-stat-num">' + findings.length + '</div><div class="sca-stat-label">Total Findings</div></div>' +
-      '<div class="sca-stat-box"><div class="sca-stat-num" style="color:#dc2626">' + errCount + '</div><div class="sca-stat-label">ERROR</div></div>' +
-      '<div class="sca-stat-box"><div class="sca-stat-num" style="color:#2563eb">' + warnCount + '</div><div class="sca-stat-label">WARNING</div></div>' +
-      '<div class="sca-stat-box"><div class="sca-stat-num" style="color:var(--c4)">' + infoCount + '</div><div class="sca-stat-label">INFO / LOW</div></div>' +
+      '<div class="sca-stat-box error-box"><div class="sca-stat-num">' + errCount + '</div><div class="sca-stat-label">ERROR</div></div>' +
+      '<div class="sca-stat-box warn-box"><div class="sca-stat-num">' + warnCount + '</div><div class="sca-stat-label">WARNING</div></div>' +
+      '<div class="sca-stat-box info-box"><div class="sca-stat-num">' + infoCount + '</div><div class="sca-stat-label">INFO / LOW</div></div>' +
     '</div>';
 
     if (!findings.length) {
-      var versionNote = data.version ? ' <span style="font-size:10px;color:var(--c8)">semgrep v' + data.version + '</span>' : '';
-      panel.innerHTML = statsHtml +
-        '<div class="sca-empty">' +
-        '<div class="sca-empty-text"><strong>No findings detected.</strong>' + versionNote + '<br>' +
-        'Your code passed all rules in the selected ruleset.</div></div>';
+      var vn = data.version ? ' <span style="font-size:10px;color:var(--c8)">semgrep v' + data.version + '</span>' : '';
+      panel.innerHTML = statsHtml + '<div class="sca-empty"><div class="sca-empty-text"><strong>No findings detected.</strong>' + vn + '<br>Your code passed all rules in the selected ruleset.</div></div>';
       return;
     }
 
-    var rows = findings.map(function(f) {
-      var sev    = (f.extra && f.extra.severity) ? f.extra.severity : 'INFO';
-      var file   = f.path || '';
-      var line   = (f.start && f.start.line) ? f.start.line : '';
-      var ruleId = f.check_id || '';
-      var msg    = (f.extra && f.extra.message) ? f.extra.message : '';
-      var snippet = (f.extra && f.extra.lines) ? String(f.extra.lines).replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
-      return '<tr class="sca-finding-row">' +
-        '<td>' + scaSeverityBadge(sev) + '</td>' +
-        '<td class="sca-location">' + file + (line ? ':' + line : '') + '</td>' +
-        '<td class="sca-rule-id">' + ruleId + '</td>' +
-        '<td><div class="sca-msg">' + msg + '</div>' +
-          (snippet ? '<code class="sca-code">' + snippet + '</code>' : '') +
-        '</td>' +
-      '</tr>';
-    }).join('');
-
     var versionBadge = data.version ? '<span style="font-size:10px;color:var(--c5);margin-left:8px;">semgrep v' + data.version + '</span>' : '';
-    panel.innerHTML = statsHtml +
-      '<div class="sca-table-wrap">' +
-      '<div style="padding:10px 14px 0;font-size:13px;font-weight:700;color:var(--c1)">' +
-        findings.length + ' Finding' + (findings.length !== 1 ? 's' : '') + versionBadge +
-      '</div>' +
-      '<table class="sca-table"><thead><tr>' +
-        '<th style="width:80px">Severity</th>' +
-        '<th style="width:180px">File : Line</th>' +
-        '<th style="width:220px">Rule ID</th>' +
-        '<th>Message / Snippet</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    var cardsHtml = findings.map(function(f, i) { return _scaBuildCard(f, i); }).join('');
+
+    var fpBar = '<div class="sca-filter-bar">' +
+      '<span style="font-size:13px;font-weight:700;color:var(--c1)">' + findings.length + ' Finding' + (findings.length !== 1 ? 's' : '') + versionBadge + '</span>' +
+      '<button class="sca-fp-toggle" id="sca-fp-toggle" onclick="scaToggleFp()">Show False Positives</button>' +
+      '<span class="sca-fp-count" id="sca-fp-count-badge" style="display:none">0 FP</span>' +
+    '</div>';
+
+    panel.innerHTML = statsHtml + fpBar + '<div class="sca-cards-wrap">' + cardsHtml + '</div>';
+
+    // Apply stored FP state
+    _scaApplyFpDisplay();
+    // Auto-expand: all if ≤5, first 3 otherwise (skip FP cards)
+    var expanded = 0;
+    for (var i = 0; i < findings.length && expanded < (findings.length <= 5 ? findings.length : 3); i++) {
+      if (_scaFpKeys.indexOf(_scaFpKey(findings[i])) === -1) { scaToggleCard(i, true); expanded++; }
+    }
   };
 
 })();
@@ -21095,27 +21811,269 @@ function dcaRunScan() {
   }).catch(function(e){ btn.disabled=false; status.textContent='Request failed: '+e; });
 }
 
+// ── Actionable advice knowledge base ─────────────────────────────────────────
+var _dcaAdviceKB = {
+  'sql injection':          {what:'User input is inserted into a SQL query, allowing an attacker to read, modify, or delete database data.',                       fix:'Use parameterised queries. Never concatenate user input into SQL strings.',                        ref:'OWASP A03:2021'},
+  'xss':                    {what:'Malicious script can be injected into the page and executed in other users\' browsers, stealing sessions or redirecting users.',fix:'Escape all user-controlled output. Implement a Content-Security-Policy header.',                   ref:'OWASP A03:2021'},
+  'cross-site scripting':   {what:'Malicious script injection into the page.',                                                                                     fix:'Escape output, use CSP header.',                                                                  ref:'OWASP A03:2021'},
+  'csrf':                   {what:'Authenticated users can be tricked into performing actions they didn\'t intend.',                                               fix:'Add CSRF tokens to all state-changing forms; use SameSite=Strict cookies.',                        ref:'OWASP A01:2021'},
+  'open redirect':          {what:'The app redirects users to an attacker-controlled URL, enabling phishing attacks.',                                             fix:'Whitelist valid redirect destinations or use relative paths.',                                     ref:'OWASP A01:2021'},
+  'path traversal':         {what:'Attackers can read files outside the intended directory (e.g. /etc/passwd).',                                                   fix:'Validate file paths are within the expected directory using realpath().',                          ref:'OWASP A01:2021'},
+  'clickjacking':           {what:'The page can be embedded in an iframe and trick users into clicking hidden elements.',                                          fix:'Set X-Frame-Options: DENY or Content-Security-Policy: frame-ancestors \'none\'.',                  ref:'OWASP A05:2021'},
+  'information disclosure': {what:'Sensitive internal information (stack traces, server versions) is exposed to attackers.',                                       fix:'Disable debug mode in production; suppress detailed error messages.',                              ref:'OWASP A05:2021'},
+  'missing security header':{what:'HTTP security headers that instruct browsers to apply extra protection are absent.',                                            fix:'Add HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy headers.',                ref:'OWASP A05:2021'},
+  'ssl':                    {what:'The SSL/TLS configuration is weak or outdated, allowing downgrade or interception attacks.',                                    fix:'Enforce TLS 1.2+; disable SSLv3/TLS 1.0/1.1; use strong cipher suites.',                          ref:'OWASP A02:2021'},
+  'default credentials':    {what:'The service is accessible with factory-default username and password.',                                                         fix:'Change all default credentials immediately; enforce strong password policy.',                        ref:'OWASP A07:2021'},
+  'sensitive data':         {what:'Sensitive information is transmitted or stored without adequate protection.',                                                   fix:'Encrypt data at rest and in transit; avoid logging sensitive fields.',                              ref:'OWASP A02:2021'},
+  'command injection':      {what:'User input is passed to a system shell command, enabling full server takeover.',                                                fix:'Never pass user input to shell commands. Use language-native APIs instead.',                        ref:'OWASP A03:2021'},
+  'file inclusion':         {what:'An attacker can load arbitrary local or remote files through the application.',                                                 fix:'Validate and whitelist file paths; disable allow_url_include in PHP.',                              ref:'OWASP A03:2021'},
+  'ssrf':                   {what:'The server fetches URLs supplied by the user, exposing internal services and cloud metadata endpoints.',                        fix:'Whitelist allowed domains; block requests to 169.254.x.x, 10.x.x.x, 172.16.x.x.',                ref:'OWASP A10:2021'},
+};
+
+function _dcaGetAdvice(title, desc) {
+  var combined = ((title||'') + ' ' + (desc||'')).toLowerCase();
+  for (var key in _dcaAdviceKB) {
+    if (combined.indexOf(key) !== -1) return _dcaAdviceKB[key];
+  }
+  return null;
+}
+
+// ── Context-aware severity for DAST ──────────────────────────────────────────
+function _dcaCtxBump(sev, title) {
+  var internet  = document.getElementById('dca-ctx-internet')  && document.getElementById('dca-ctx-internet').checked;
+  var auth      = document.getElementById('dca-ctx-auth')      && document.getElementById('dca-ctx-auth').checked;
+  var pii       = document.getElementById('dca-ctx-pii')       && document.getElementById('dca-ctx-pii').checked;
+  var payments  = document.getElementById('dca-ctx-payments')  && document.getElementById('dca-ctx-payments').checked;
+  var t = (title||'').toLowerCase();
+  var order = ['info','low','medium','high','critical'];
+  var idx = order.indexOf(sev); if (idx === -1) idx = 0;
+  var bump = 0;
+  if (internet && /inject|traversal|xss|ssrf|rce|command/.test(t)) bump++;
+  if (auth     && /auth|login|session|csrf|password|credential/.test(t)) bump++;
+  if (pii      && /disclosure|information|leak|sensitive|data/.test(t)) bump++;
+  if (payments && /inject|redirect|tamper/.test(t)) bump++;
+  return {sev: order[Math.min(idx + bump, order.length - 1)], bumped: bump > 0};
+}
+
 function dcaRenderFindings(findings) {
   var wrap = document.getElementById('dca-findings-wrap');
-  if (!findings || !findings.length) { wrap.innerHTML='<div class="dca-empty">No findings detected.</div>'; return; }
+  if (!findings || !findings.length) { wrap.innerHTML='<div class="dca-empty">No findings detected.</div>'; dcaToxicAnalyze([]); return; }
   var ord = {critical:0,high:1,medium:2,low:3,info:4};
   findings = findings.slice().sort(function(a,b){return (ord[a.severity]||5)-(ord[b.severity]||5);});
-  var h = '<table class="dca-tbl"><thead><tr><th style="width:80px">Severity</th><th>Title</th><th>URL</th><th style="width:60px">Method</th><th style="width:70px">Scanner</th><th style="width:90px">Actions</th></tr></thead><tbody>';
+
+  var h = '<table class="dca-tbl" style="table-layout:fixed"><thead><tr>' +
+    '<th style="width:90px">Severity</th>' +
+    '<th>Title / Description</th>' +
+    '<th style="width:170px">URL</th>' +
+    '<th style="width:55px">Method</th>' +
+    '<th style="width:65px">Scanner</th>' +
+    '<th style="width:100px">Actions</th>' +
+    '</tr></thead><tbody>';
+
   findings.forEach(function(f,i){
-    var sev=(f.severity||'info').toLowerCase();
-    h+='<tr>';
-    h+='<td><span class="dca-sev dca-sev-'+sev+'">'+sev+'</span></td>';
-    h+='<td style="max-width:240px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_dcaEsc(f.title)+'">'+_dcaEsc(f.title)+'</div>'
-      +(f.description?'<div style="font-size:10px;color:var(--c5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_dcaEsc(f.description)+'">'+_dcaEsc(f.description.slice(0,100))+'</div>':'')+'</td>';
-    h+='<td style="max-width:180px;font-family:monospace;font-size:10px;word-break:break-all">'+_dcaEsc(f.url)+'</td>';
-    h+='<td><span style="background:var(--c10);padding:1px 5px;border-radius:3px;font-size:10px">'+_dcaEsc(f.method||'GET')+'</span></td>';
-    h+='<td style="font-size:10px;color:var(--c5)">'+_dcaEsc(f.scanner||'')+'</td>';
-    h+='<td><button class="dca-abtn" onclick="dcaFindingAct('+i+',\'jira\')">Jira</button>'
-      +'<button class="dca-abtn" onclick="dcaFindingAct('+i+',\'github\')">GH</button>'
-      +'<button class="dca-abtn" onclick="dcaFindingAct('+i+',\'azure\')">Az</button></td>';
-    h+='</tr>';
+    var sev0 = (f.severity||'info').toLowerCase();
+    var ctxR = _dcaCtxBump(sev0, f.title);
+    var sev  = ctxR.sev;
+    var advice = _dcaGetAdvice(f.title, f.description);
+
+    h += '<tr style="cursor:pointer" onclick="dcaToggleDetail(' + i + ')">';
+    h += '<td><span class="dca-sev dca-sev-'+sev+'">'+sev+'</span>' + (ctxR.bumped ? '<div style="font-size:9px;color:#7c3aed;font-weight:700;margin-top:2px">context+</div>' : '') + '</td>';
+    h += '<td><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px" title="'+_dcaEsc(f.title)+'">'+_dcaEsc(f.title)+'</div>' +
+         (f.description ? '<div style="font-size:10px;color:var(--c5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px" title="'+_dcaEsc(f.description)+'">'+_dcaEsc((f.description).slice(0,120))+'</div>' : '') +
+         '<button class="dca-expand-btn" onclick="event.stopPropagation();dcaToggleDetail('+i+')">▼ details</button></td>';
+    h += '<td style="font-family:monospace;font-size:10px;word-break:break-all;max-width:170px">'+_dcaEsc(f.url||'')+'</td>';
+    h += '<td><span style="background:var(--c10);padding:1px 5px;border-radius:3px;font-size:10px">'+_dcaEsc(f.method||'GET')+'</span></td>';
+    h += '<td style="font-size:10px;color:var(--c5)">'+_dcaEsc(f.scanner||'')+'</td>';
+    h += '<td><button class="dca-abtn" onclick="event.stopPropagation();dcaFindingAct('+i+',\'jira\')">Jira</button>' +
+         '<button class="dca-abtn" onclick="event.stopPropagation();dcaFindingAct('+i+',\'github\')">GH</button>' +
+         '<button class="dca-abtn" onclick="event.stopPropagation();dcaFindingAct('+i+',\'azure\')">Az</button></td>';
+    h += '</tr>';
+
+    // Detail row (hidden by default)
+    var detailContent = '';
+    if (advice) {
+      detailContent += '<div class="dca-detail-grid">' +
+        '<div><div class="dca-detail-lbl">What is it?</div><div class="dca-detail-val">'+_dcaEsc(advice.what)+'</div></div>' +
+        '<div><div class="dca-detail-lbl">How to fix</div><div class="dca-detail-val">'+_dcaEsc(advice.fix)+'</div></div>' +
+        '<div><div class="dca-detail-lbl">Reference</div><div class="dca-detail-val">'+_dcaEsc(advice.ref||'')+'</div></div>' +
+      '</div>';
+    } else if (f.description) {
+      detailContent += '<div class="dca-detail-grid"><div style="grid-column:1/-1"><div class="dca-detail-lbl">Description</div><div class="dca-detail-val">'+_dcaEsc(f.description)+'</div></div></div>';
+    }
+    if (f.evidence || f.parameter) {
+      detailContent += '<div class="dca-detail-lbl" style="margin-top:8px">Evidence</div>' +
+        '<div class="dca-evidence">'+_dcaEsc(f.evidence || f.parameter || '')+'</div>';
+    }
+    h += '<tr id="dca-detail-' + i + '"><td colspan="6" style="padding:0">' +
+         '<div class="dca-row-detail" id="dca-detail-body-' + i + '">' + detailContent + '</div></td></tr>';
   });
-  wrap.innerHTML = h+'</tbody></table>';
+
+  wrap.innerHTML = h + '</tbody></table>';
+  dcaToxicAnalyze(findings);
+}
+
+function dcaToggleDetail(idx) {
+  var body = document.getElementById('dca-detail-body-' + idx); if (!body) return;
+  body.classList.toggle('open');
+  var btn = body.parentElement && body.parentElement.parentElement && body.parentElement.parentElement.previousElementSibling;
+  // update expand button text
+  var expandBtn = document.querySelector('#dca-findings-wrap tbody tr:nth-child(' + (idx*2+1) + ') .dca-expand-btn');
+  if (expandBtn) expandBtn.textContent = body.classList.contains('open') ? '▲ hide' : '▼ details';
+}
+
+// ── Toxic Combinations ────────────────────────────────────────────────────────
+var _dcaToxicRules = [
+  {
+    id: 'sqli-admin', title: 'SQL Injection + Exposed Admin Panel',
+    severity: 'critical',
+    desc: 'An SQL injection vulnerability combined with an exposed admin panel creates a direct path to full database and application compromise. Attackers can bypass authentication and exfiltrate all data.',
+    a: /sql.?inject/i, b: /admin.?panel|phpmyadmin|adminer|cpanel/i,
+  },
+  {
+    id: 'xss-no-csp', title: 'Cross-Site Scripting + Missing CSP',
+    severity: 'high',
+    desc: 'XSS vulnerabilities become far more dangerous without a Content-Security-Policy. Without CSP, injected scripts run with full browser privileges — attacker can exfiltrate cookies and perform account takeover.',
+    a: /cross-site script|xss/i, b: /content.?security.?policy|missing.*header/i,
+  },
+  {
+    id: 'redirect-csrf', title: 'Open Redirect + CSRF',
+    severity: 'high',
+    desc: 'An open redirect combined with missing CSRF protection enables attackers to craft trusted-looking links that silently perform authenticated actions on behalf of the victim.',
+    a: /open.?redirect/i, b: /csrf|cross.?site.?request/i,
+  },
+  {
+    id: 'default-creds-rce', title: 'Default Credentials + Remote Code Execution',
+    severity: 'critical',
+    desc: 'Default credentials give an attacker administrative access. Combined with RCE, this results in full server compromise. Treat this combination as an active breach.',
+    a: /default.?credent|default.?password/i, b: /remote.?code.?exec|rce|command.?inject/i,
+  },
+  {
+    id: 'info-auth-bypass', title: 'Information Disclosure + Authentication Bypass',
+    severity: 'critical',
+    desc: 'Information disclosure (e.g. stack traces, internal paths) can reveal details that help an attacker craft an authentication bypass. Together these form a full account-takeover chain.',
+    a: /information.?disclos|stack.?trace|server.?version/i, b: /auth.?bypass|broken.?auth|improper.?auth/i,
+  },
+  {
+    id: 'lfi-sensitive', title: 'File Inclusion + Sensitive Data Exposure',
+    severity: 'critical',
+    desc: 'Local file inclusion allows an attacker to read arbitrary server files. When combined with sensitive data exposure, attackers can read config files, .env files, and credentials directly.',
+    a: /file.?inclus|path.?traversal|lfi/i, b: /sensitive.?data|credentials|api.?key|config/i,
+  },
+  {
+    id: 'ssrf-payments', title: 'SSRF + Payment / Financial Context',
+    severity: 'critical',
+    desc: 'SSRF in a financial application can expose payment processing backends and internal billing APIs, enabling fraud or full financial data exfiltration.',
+    a: /ssrf|server.?side.?request/i, b: /payment|billing|stripe|paypal|financial/i,
+  },
+];
+
+function dcaToxicAnalyze(findings) {
+  var sec = document.getElementById('dca-toxic-section');
+  if (!sec) return;
+  if (!findings || !findings.length) { sec.style.display='none'; return; }
+
+  var isInternet  = document.getElementById('dca-ctx-internet')  && document.getElementById('dca-ctx-internet').checked;
+  var isPayments  = document.getElementById('dca-ctx-payments')  && document.getElementById('dca-ctx-payments').checked;
+  var titles = findings.map(function(f){ return f.title||''; });
+  var combos = [];
+
+  _dcaToxicRules.forEach(function(rule) {
+    // Skip payment-related rule if context not set
+    if (rule.id === 'ssrf-payments' && !isPayments) return;
+    var matchA = titles.some(function(t){ return rule.a.test(t); });
+    var matchB = titles.some(function(t){ return rule.b.test(t); });
+    if (matchA && matchB) {
+      var chainFindings = findings
+        .filter(function(f){ return rule.a.test(f.title||'') || rule.b.test(f.title||''); })
+        .map(function(f){ return f.title; });
+      combos.push({title: rule.title, severity: rule.severity, desc: rule.desc, chain: chainFindings});
+    }
+  });
+
+  if (!combos.length) { sec.style.display='none'; return; }
+
+  var body = document.getElementById('dca-toxic-body');
+  var count = document.getElementById('dca-toxic-count');
+  if (count) count.textContent = combos.length + ' combo' + (combos.length!==1?'s':'');
+
+  body.innerHTML = combos.map(function(c){
+    var sevClass = 'dca-sev-' + c.severity;
+    var chainHtml = c.chain.slice(0,5).map(function(t){ return '<span class="dca-toxic-finding">'+_dcaEsc(t)+'</span>'; }).join('');
+    return '<div class="dca-toxic-card">' +
+      '<div class="dca-toxic-card-hdr">' +
+        '<span class="dca-sev '+sevClass+'">'+c.severity+'</span>' +
+        '<strong style="font-size:13px;color:var(--c1)">'+_dcaEsc(c.title)+'</strong>' +
+      '</div>' +
+      '<div class="dca-toxic-desc">'+_dcaEsc(c.desc)+'</div>' +
+      '<div class="dca-toxic-chain">'+chainHtml+'</div>' +
+    '</div>';
+  }).join('');
+
+  sec.style.display = '';
+}
+
+// ── Dangling domains ──────────────────────────────────────────────────────────
+function dcaDanglingCheck() {
+  var domain = (document.getElementById('dca-dangling-domain').value||'').trim();
+  if (!domain) { alert('Enter a domain to scan.'); return; }
+  var btn = document.getElementById('dca-dangling-btn');
+  var out = document.getElementById('dca-dangling-out');
+  btn.disabled = true; btn.textContent = 'Scanning…';
+  out.innerHTML = '<div style="color:var(--c5);font-size:12px">Enumerating subdomains and checking for dangling DNS…</div>';
+
+  fetch('/api/dca/dangling', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({domain: domain})
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    btn.disabled = false; btn.textContent = 'Scan Subdomains';
+    if (!d.ok) { out.innerHTML = '<div style="color:#dc2626;font-size:12px">Error: '+_dcaEsc(d.error||'Unknown error')+'</div>'; return; }
+    var results = d.results || [];
+    if (!results.length) { out.innerHTML = '<div style="color:var(--c5);font-size:12px;padding:8px 0">No dangling DNS records found for <strong>'+_dcaEsc(domain)+'</strong>. All checked subdomains resolve correctly.</div>'; return; }
+    var h = '';
+    results.forEach(function(r){
+      var sevColor = r.severity === 'HIGH' ? '#dc2626' : r.severity === 'MEDIUM' ? '#d97706' : '#64748b';
+      h += '<div class="dca-dangling-find">' +
+        '<span style="font-size:10px;font-weight:700;color:'+sevColor+';background:'+sevColor+'1a;border:1px solid '+sevColor+'40;padding:2px 7px;border-radius:4px;flex-shrink:0">'+r.severity+'</span>' +
+        '<div>' +
+          '<div style="font-size:12px;font-weight:600;color:var(--c1)">'+_dcaEsc(r.subdomain)+'</div>' +
+          '<div style="font-size:11px;color:var(--c5)">'+_dcaEsc(r.message)+'</div>' +
+          (r.cname ? '<div style="font-size:10px;font-family:monospace;color:#94a3b8;margin-top:2px">CNAME → '+_dcaEsc(r.cname)+'</div>' : '') +
+        '</div>' +
+      '</div>';
+    });
+    out.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--c1);margin-bottom:8px">'+results.length+' issue(s) found for '+_dcaEsc(domain)+'</div>' + h;
+  })
+  .catch(function(e){ btn.disabled=false; btn.textContent='Scan Subdomains'; out.innerHTML='<div style="color:#dc2626;font-size:12px">Request failed: '+_dcaEsc(String(e))+'</div>'; });
+}
+
+// ── Scheduled scan ────────────────────────────────────────────────────────────
+(function dcaSchedInit() {
+  var cfg = JSON.parse(localStorage.getItem('dca_sched')||'{}');
+  var sel = document.getElementById('dca-sched-freq');
+  if (sel && cfg.freq) sel.value = cfg.freq;
+  dcaSchedRenderStatus();
+})();
+
+function dcaSchedSave() {
+  var freq = (document.getElementById('dca-sched-freq')||{}).value || 'off';
+  var target = (document.getElementById('dca-target')||{}).value || '';
+  var now = Date.now();
+  var nextMs = freq === 'daily' ? now + 86400000 : freq === 'weekly' ? now + 604800000 : null;
+  localStorage.setItem('dca_sched', JSON.stringify({freq: freq, target: target, next: nextMs}));
+  dcaSchedRenderStatus();
+}
+
+function dcaSchedRenderStatus() {
+  var st = document.getElementById('dca-sched-status'); if (!st) return;
+  var cfg = JSON.parse(localStorage.getItem('dca_sched')||'{}');
+  if (!cfg.freq || cfg.freq === 'off') { st.innerHTML = '<span style="color:var(--c5)">Auto scan is off.</span>'; return; }
+  var next = cfg.next ? new Date(cfg.next).toLocaleString() : '—';
+  st.innerHTML = '<span style="color:var(--c4);font-weight:600">'+cfg.freq.charAt(0).toUpperCase()+cfg.freq.slice(1)+' scan enabled</span>' +
+    ' <span style="color:var(--c5)">— next run: <span class="dca-sched-next">'+_dcaEsc(next)+'</span></span>' +
+    (cfg.target ? '<div style="font-size:10px;color:var(--c5);margin-top:2px">Target: '+_dcaEsc(cfg.target)+'</div>' : '');
 }
 
 function _dcaEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -21270,6 +22228,86 @@ function dcaExportHTML() {
   var a=document.createElement('a');
   a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);
   a.download='dca-report-'+new Date().toISOString().slice(0,10)+'.html';a.click();
+}
+
+// ── API Discovery tab switching ────────────────────────────────────────────────
+function dcaApiTab(tab, el) {
+  document.querySelectorAll('.dca-api-tab').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.dca-api-pane').forEach(function(p){p.classList.remove('active');});
+  el.classList.add('active');
+  var pane=document.getElementById('dca-api-pane-'+tab);if(pane)pane.classList.add('active');
+}
+
+// ── Render discovered API endpoints after scan ──────────────────────────────
+function dcaRenderApiEndpoints(endpoints) {
+  var restList = document.getElementById('dca-api-rest-list');
+  var gqlList  = document.getElementById('dca-api-gql-list');
+  var specOut  = document.getElementById('dca-api-spec-out');
+  if (!endpoints || !endpoints.length) return;
+  var rest = endpoints.filter(function(e){return e.type !== 'graphql';});
+  var gql  = endpoints.filter(function(e){return e.type === 'graphql';});
+  var methodClass = {GET:'dca-method-get',POST:'dca-method-post',PUT:'dca-method-put',DELETE:'dca-method-del'};
+  if (rest.length && restList) {
+    restList.innerHTML = rest.map(function(e){
+      var mc = methodClass[e.method] || '';
+      return '<div class="dca-endpoint-row">'
+        +'<span class="dca-method '+mc+'">'+(e.method||'GET')+'</span>'
+        +'<span class="dca-endpoint-path">'+_dcaEsc(e.path||e.url||'')+'</span>'
+        +'<span style="font-size:10px;color:var(--c5)">'+_dcaEsc(e.status||'')+'</span>'
+        +'</div>';
+    }).join('');
+  }
+  if (gql.length && gqlList) {
+    gqlList.innerHTML = '<div style="font-size:11px;color:var(--c2)">'+gql.length+' GraphQL endpoint(s) discovered. Introspection '+(gql[0].introspection?'<b style="color:#166534">enabled</b>':'<b style="color:#dc2626">disabled</b>')+'.</div>';
+  }
+  if (specOut) {
+    var paths = {};
+    rest.forEach(function(e){
+      var p = e.path || '/';
+      if (!paths[p]) paths[p] = {};
+      paths[p][(e.method||'get').toLowerCase()] = {summary: 'Discovered by DAST', responses: {'200':{description:'OK'}}};
+    });
+    var spec = {openapi:'3.0.0',info:{title:'Auto-discovered API',version:'1.0.0'},paths:paths};
+    specOut.textContent = JSON.stringify(spec, null, 2);
+  }
+}
+
+// ── Export OpenAPI / Swagger spec ──────────────────────────────────────────
+function dcaExportSpec(fmt) {
+  var out = document.getElementById('dca-api-spec-out');
+  if (!out || out.textContent.indexOf('{') === -1) { alert('Run a scan first to generate the spec.'); return; }
+  var content = out.textContent;
+  var a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(content);
+  a.download = (fmt === 'swagger' ? 'swagger' : 'openapi') + '-spec.json';
+  a.click();
+}
+
+// ── Self-hosted app chip toggle ────────────────────────────────────────────
+function dcaToggleApp(el, app) {
+  el.classList.toggle('selected');
+}
+
+// ── AI Pentesting stub ────────────────────────────────────────────────────
+function dcaAiPentest() {
+  var target = (document.getElementById('dca-target').value||'').trim();
+  var st = document.getElementById('dca-pentest-status');
+  if (!target) { alert('Enter a target URL in the scan configuration first.'); return; }
+  if (st) { st.style.display='block'; st.textContent = 'Launching AI Pentest agent for '+target+' … this may take several minutes.'; }
+  // Calls the same DAST scan endpoint with ai_pentest flag; results merge into findings panel
+  fetch('/api/dca/run', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({target: target, scanner: 'nuclei', ai_pentest: true,
+      auth_user: document.getElementById('dca-auth-user').value||'',
+      auth_pass: document.getElementById('dca-auth-pass').value||'',
+      auth_cookie: document.getElementById('dca-auth-cookie').value||''})
+  }).then(function(r){return r.json();}).then(function(d){
+    if (st) st.textContent = 'AI Pentest complete. ' + (d.findings||[]).length + ' finding(s) added.';
+    if (d.findings && d.findings.length) dcaRenderFindings(d.findings);
+  }).catch(function(e){
+    if (st) st.textContent = 'Error: ' + e;
+  });
 }
 
 </script>

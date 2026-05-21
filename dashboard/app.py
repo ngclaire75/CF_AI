@@ -12720,6 +12720,261 @@ def api_sca_scan():
             return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
+@app.route('/api/sca/tldr', methods=['POST'])
+@login_required
+def api_sca_tldr():
+    """AI-powered TL;DR for a semgrep rule finding: what / does it affect me / how to fix."""
+    import json as _json
+    data     = request.get_json(force=True, silent=True) or {}
+    rule_id  = data.get('rule_id', '')
+    message  = data.get('message', '')
+    severity = data.get('severity', 'INFO')
+
+    prompt = (
+        f'You are a security expert explaining a semgrep finding to a developer.\n\n'
+        f'Rule ID: {rule_id}\n'
+        f'Severity: {severity}\n'
+        f'Message: {message}\n\n'
+        f'Respond ONLY with a JSON object (no markdown) in exactly this schema:\n'
+        f'{{\n'
+        f'  "what":    "<one sentence: what this vulnerability class is>",\n'
+        f'  "affects": "<one sentence: when/why this affects the application and who is at risk>",\n'
+        f'  "fix":     "<one to two sentences: the concrete fix — specific function/pattern to use>"\n'
+        f'}}'
+    )
+
+    ant_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+    oai_key = os.environ.get('OPENAI_API_KEY', '').strip()
+    if not ant_key and not oai_key:
+        return jsonify({'ok': False, 'error': 'No AI API key configured'}), 503
+
+    try:
+        result_text = ''
+        if ant_key:
+            import anthropic as _ant
+            resp = _ant.Anthropic(api_key=ant_key).messages.create(
+                model='claude-haiku-4-5-20251001', max_tokens=512,
+                messages=[{'role': 'user', 'content': prompt}],
+            )
+            result_text = resp.content[0].text if resp.content else ''
+        if not result_text and oai_key:
+            import openai as _oai
+            resp = _oai.OpenAI(api_key=oai_key).chat.completions.create(
+                model='gpt-4o-mini',
+                messages=[{'role': 'user', 'content': prompt}],
+                max_tokens=512,
+                response_format={'type': 'json_object'},
+            )
+            result_text = resp.choices[0].message.content or ''
+        stripped = result_text.strip()
+        if stripped.startswith('```'):
+            stripped = stripped.split('\n', 1)[-1]
+            if '```' in stripped: stripped = stripped[:stripped.rfind('```')]
+        parsed = _json.loads(stripped)
+        return jsonify({'ok': True, 'what': parsed.get('what',''), 'affects': parsed.get('affects',''), 'fix': parsed.get('fix','')})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@app.route('/api/dca/dangling', methods=['POST'])
+@login_required
+def api_dca_dangling():
+    """Check a domain's subdomains for dangling DNS / subdomain takeover candidates."""
+    import json as _json, socket as _sock, urllib.request as _req, urllib.parse as _up
+    data   = request.get_json(force=True, silent=True) or {}
+    domain = (data.get('domain') or '').strip().lower().rstrip('.')
+    if not domain:
+        return jsonify({'ok': False, 'error': 'domain is required'}), 400
+
+    _CLOUD_SUFFIXES = [
+        's3.amazonaws.com', 'cloudfront.net', 'azurewebsites.net', 'azurefd.net',
+        'blob.core.windows.net', 'github.io', 'netlify.app', 'vercel.app',
+        'pages.dev', 'fly.dev', 'herokuapp.com', 'fastly.net', 'azureedge.net',
+        'trafficmanager.net', 'cloudapp.azure.com', 'ondigitalocean.app',
+    ]
+
+    def _doh_cname(name):
+        try:
+            url = f'https://cloudflare-dns.com/dns-query?name={_up.quote(name)}&type=CNAME'
+            rq  = _req.Request(url, headers={'Accept': 'application/dns-json', 'User-Agent': 'CF_AI/1.0'})
+            with _req.urlopen(rq, timeout=8) as r:
+                answers = _json.loads(r.read()).get('Answer', [])
+            return [a.get('data','').rstrip('.') for a in answers if a.get('data')]
+        except Exception:
+            return []
+
+    def _doh_a(name):
+        try:
+            url = f'https://cloudflare-dns.com/dns-query?name={_up.quote(name)}&type=A'
+            rq  = _req.Request(url, headers={'Accept': 'application/dns-json', 'User-Agent': 'CF_AI/1.0'})
+            with _req.urlopen(rq, timeout=8) as r:
+                answers = _json.loads(r.read()).get('Answer', [])
+            return [a.get('data','') for a in answers if a.get('data')]
+        except Exception:
+            return []
+
+    def _get_subdomains(domain):
+        try:
+            url = f'https://crt.sh/?q=%.{_up.quote(domain)}&output=json'
+            rq  = _req.Request(url, headers={'User-Agent': 'CF_AI/1.0'})
+            with _req.urlopen(rq, timeout=15) as r:
+                entries = _json.loads(r.read())
+            subs = set()
+            for e in entries:
+                for n in (e.get('name_value','') or '').split('\n'):
+                    n = n.strip().lower().lstrip('*.')
+                    if n.endswith('.' + domain) or n == domain:
+                        subs.add(n)
+            return list(subs)[:60]
+        except Exception:
+            return []
+
+    subs = _get_subdomains(domain)
+    results = []
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _check(sub):
+        cnames = _doh_cname(sub)
+        for cname in cnames:
+            cl = cname.lower()
+            for suffix in _CLOUD_SUFFIXES:
+                if cl.endswith(suffix):
+                    a_recs = _doh_a(cname)
+                    if not a_recs:
+                        return {
+                            'subdomain': sub, 'cname': cname,
+                            'severity': 'HIGH',
+                            'message': f'CNAME points to {suffix} but target does not resolve — potential subdomain takeover'
+                        }
+                    return {
+                        'subdomain': sub, 'cname': cname,
+                        'severity': 'INFO',
+                        'message': f'CNAME → {cname} (resolves OK)'
+                    }
+        return None
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futs = {pool.submit(_check, s): s for s in subs}
+        for fut in as_completed(futs, timeout=25):
+            try:
+                r = fut.result()
+                if r: results.append(r)
+            except Exception:
+                pass
+
+    # Only return HIGH + MEDIUM (filter INFO)
+    results = [r for r in results if r['severity'] != 'INFO']
+    results.sort(key=lambda r: 0 if r['severity']=='HIGH' else 1)
+    return jsonify({'ok': True, 'domain': domain, 'subdomains_checked': len(subs), 'results': results})
+
+
+@app.route('/api/sca/fix', methods=['POST'])
+@login_required
+def api_sca_fix():
+    """AI-powered fix suggestion for a single semgrep finding."""
+    import json as _json
+    data = request.get_json(force=True, silent=True) or {}
+    file_content = data.get('file_content', '')
+    filename     = data.get('filename', 'unknown')
+    finding      = data.get('finding', {})
+
+    if not file_content or not finding:
+        return jsonify({'ok': False, 'error': 'file_content and finding are required'}), 400
+
+    rule_id  = finding.get('check_id', 'unknown')
+    message  = (finding.get('extra') or {}).get('message', '')
+    line_num = (finding.get('start') or {}).get('line', 0)
+    snippet  = (finding.get('extra') or {}).get('lines', '')
+    severity = (finding.get('extra') or {}).get('severity', 'INFO')
+
+    # Build context: send lines around the vulnerability (or full file if small)
+    lines = file_content.splitlines()
+    total = len(lines)
+    if total <= 250:
+        numbered = '\n'.join(f'{i+1}: {l}' for i, l in enumerate(lines))
+        send_full = True
+    else:
+        ctx_s = max(0, line_num - 25)
+        ctx_e = min(total, line_num + 25)
+        numbered = '\n'.join(f'{ctx_s+i+1}: {l}' for i, l in enumerate(lines[ctx_s:ctx_e]))
+        send_full = False
+
+    prompt = (
+        f'You are a security engineer reviewing code for a semgrep finding.\n\n'
+        f'FILE: {filename}  ({total} lines total)\n'
+        f'FINDING:\n'
+        f'  Rule:     {rule_id}\n'
+        f'  Severity: {severity}\n'
+        f'  Line:     {line_num}\n'
+        f'  Message:  {message}\n'
+        f'  Snippet:  {snippet}\n\n'
+        f'RELEVANT CODE:\n```\n{numbered}\n```\n\n'
+        f'Respond ONLY with a JSON object (no markdown fences) in exactly this schema:\n'
+        f'{{\n'
+        f'  "explanation": "<2-3 sentences: what the vulnerability is and why it is dangerous>",\n'
+        f'  "fix_summary": "<one line: what the fix does>",\n'
+        f'  "fixed_snippet": "<the corrected version of ONLY the vulnerable lines — same line count if possible>",\n'
+        + ('  "fixed_code": "<the COMPLETE fixed file content>"\n' if send_full else '  "fixed_code": ""\n') +
+        f'}}'
+    )
+
+    ant_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+    oai_key = os.environ.get('OPENAI_API_KEY', '').strip()
+    if not ant_key and not oai_key:
+        return jsonify({'ok': False, 'no_key': True,
+                        'error': 'No AI API key configured (ANTHROPIC_API_KEY or OPENAI_API_KEY)'}), 503
+
+    result_text = ''
+    try:
+        if ant_key:
+            import anthropic as _ant
+            client = _ant.Anthropic(api_key=ant_key)
+            resp = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=8096,
+                messages=[{'role': 'user', 'content': prompt}],
+            )
+            result_text = resp.content[0].text if resp.content else ''
+        if not result_text and oai_key:
+            import openai as _oai
+            client = _oai.OpenAI(api_key=oai_key)
+            resp = client.chat.completions.create(
+                model='gpt-4o',
+                messages=[{'role': 'user', 'content': prompt}],
+                max_tokens=8096,
+                response_format={'type': 'json_object'},
+            )
+            result_text = resp.choices[0].message.content or ''
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    if not result_text:
+        return jsonify({'ok': False, 'error': 'AI returned empty response'}), 500
+
+    # Strip markdown fences if model ignores the instruction
+    stripped = result_text.strip()
+    if stripped.startswith('```'):
+        stripped = stripped.split('\n', 1)[-1]
+        if '```' in stripped:
+            stripped = stripped[:stripped.rfind('```')]
+
+    try:
+        parsed = _json.loads(stripped)
+    except _json.JSONDecodeError:
+        # Best-effort: return raw explanation text
+        return jsonify({'ok': True, 'explanation': stripped[:600],
+                        'fix_summary': '', 'fixed_snippet': '', 'fixed_code': ''})
+
+    return jsonify({
+        'ok':            True,
+        'explanation':   parsed.get('explanation', ''),
+        'fix_summary':   parsed.get('fix_summary', ''),
+        'fixed_snippet': parsed.get('fixed_snippet', ''),
+        'fixed_code':    parsed.get('fixed_code', ''),
+    })
+
+
 # ── Dynamic Code Analysis (DAST) ─────────────────────────────────────────────
 
 def _dca_find_bin(*names):
@@ -12758,7 +13013,10 @@ def api_dca_scanners():
             results[key] = {'available': False}
     try:
         import urllib.request as _ureq
-        with _ureq.urlopen('http://localhost:8080/JSON/core/view/version/', timeout=3) as r:
+        import urllib.parse as _up
+        _zk = os.environ.get('ZAP_API_KEY', '')
+        _zqs = f'?apikey={_up.quote(_zk)}' if _zk else ''
+        with _ureq.urlopen(f'http://localhost:8080/JSON/core/view/version/{_zqs}', timeout=3) as r:
             ver_data = _jd.loads(r.read())
             results['zap'] = {'available': True, 'path': 'localhost:8080', 'api': True,
                               'version': ver_data.get('version', 'running')}
@@ -12919,16 +13177,18 @@ def api_dca_scan():
             import urllib.parse as _up
             import time as _tz
             ZAP = 'http://localhost:8080'
+            _zap_key = os.environ.get('ZAP_API_KEY', '')
+            _zap_qs = f'&apikey={_up.quote(_zap_key)}' if _zap_key else ''
             try:
                 enc = _up.quote(target, safe='')
-                with _ureq.urlopen(f'{ZAP}/JSON/spider/action/scan/?url={enc}&recurse=true', timeout=10) as r:
+                with _ureq.urlopen(f'{ZAP}/JSON/spider/action/scan/?url={enc}&recurse=true{_zap_qs}', timeout=10) as r:
                     spider_id = _jd.loads(r.read()).get('scan', '0')
                 for _ in range(30):
-                    with _ureq.urlopen(f'{ZAP}/JSON/spider/view/status/?scanId={spider_id}', timeout=5) as r:
+                    with _ureq.urlopen(f'{ZAP}/JSON/spider/view/status/?scanId={spider_id}{_zap_qs}', timeout=5) as r:
                         if int(_jd.loads(r.read()).get('status', 0)) >= 100:
                             break
                     _tz.sleep(2)
-                with _ureq.urlopen(f'{ZAP}/JSON/alert/view/alerts/?baseurl={enc}&start=0&count=500', timeout=10) as r:
+                with _ureq.urlopen(f'{ZAP}/JSON/alert/view/alerts/?baseurl={enc}&start=0&count=500{_zap_qs}', timeout=10) as r:
                     alerts = _jd.loads(r.read()).get('alerts', [])
                 sev_map = {'0': 'info', '1': 'low', '2': 'medium', '3': 'high'}
                 for a in alerts:
