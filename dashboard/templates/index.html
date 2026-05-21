@@ -2034,6 +2034,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-rtp" onclick="sbNav('rtp',this)">
       <span class="sb-label">Runtime Protection</span>
     </button>
+    <button class="sb-item" id="sb-mld" onclick="sbNav('mld',this)">
+      <span class="sb-label">Malware Detection</span>
+    </button>
 
     {% if current_user.role == 'admin' %}
     <div class="sb-divider"></div>
@@ -4422,6 +4425,207 @@ Export Power BI
   </div>
 
   </div><!-- /page-rtp -->
+
+  <!-- ══ MALWARE DETECTION PAGE ════════════════════════════════════════════ -->
+  <div id="page-mld" class="page-section" style="display:none">
+  <style>
+    /* ── Hero ── */
+    .mld-hero{padding:28px 28px 16px;max-width:1300px;margin:0 auto}
+    .mld-hero-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px}
+    .mld-title{font-size:22px;font-weight:800;color:var(--c1);letter-spacing:-.3px}
+    .mld-subtitle{font-size:13px;color:var(--c5);margin-top:5px;line-height:1.6;max-width:580px}
+    .mld-badge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;font-weight:700;background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;padding:3px 10px;border-radius:20px}
+    .mld-stats{display:flex;gap:24px;flex-wrap:wrap}
+    .mld-stat-num{font-size:18px;font-weight:800;color:var(--c4)}
+    .mld-stat-lbl{font-size:10px;color:var(--c5);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    /* ── Feature info cards ── */
+    .mld-feat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .mld-feat-card{background:var(--c11);border:1px solid var(--c8);border-radius:8px;padding:14px 16px}
+    .mld-feat-title{font-size:12px;font-weight:700;color:var(--c1);margin-bottom:4px}
+    .mld-feat-desc{font-size:11px;color:var(--c5);line-height:1.5}
+    /* ── Peace callout ── */
+    .mld-peace{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .mld-peace-inner{background:linear-gradient(135deg,#1a0505,#7f1d1d);border-radius:12px;padding:24px 28px;display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap}
+    .mld-peace-left{flex:1;min-width:220px}
+    .mld-peace-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:6px}
+    .mld-peace-sub{font-size:12px;color:#fca5a5;line-height:1.6}
+    .mld-peace-items{display:flex;flex-direction:column;gap:8px;flex:1;min-width:200px}
+    .mld-peace-item{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#fee2e2;line-height:1.5}
+    .mld-peace-check{width:18px;height:18px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:10px;color:#fff;font-weight:800}
+    /* ── Background strip ── */
+    .mld-bg-strip{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .mld-bg-strip-inner{background:var(--c10);border:1px solid var(--c8);border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+    .mld-bg-strip-title{font-size:13px;font-weight:700;color:var(--c1);flex-shrink:0}
+    .mld-bg-items{display:flex;gap:20px;flex-wrap:wrap}
+    .mld-bg-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--c2)}
+    .mld-bg-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0}
+    /* ── Threat grid ── */
+    .mld-body{padding:0 28px 28px;max-width:1300px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+    @media(max-width:1000px){.mld-body{grid-template-columns:1fr 1fr}}
+    @media(max-width:640px){.mld-body{grid-template-columns:1fr}}
+    .mld-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--c5);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--c8)}
+    .mld-card{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column}
+    .mld-card-hdr{display:flex;align-items:flex-start;gap:10px;margin-bottom:0}
+    .mld-card-icon{width:30px;height:30px;border-radius:6px;background:#fef2f2;border:1px solid #fca5a5;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;margin-top:1px}
+    .mld-card-title{font-size:13px;font-weight:700;color:var(--c1);line-height:1.4;margin-bottom:4px}
+    .mld-card-desc{font-size:11px;color:var(--c5);line-height:1.55}
+    .mld-tag{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;padding:2px 7px;border-radius:20px;margin-top:8px;text-transform:uppercase;letter-spacing:.04em}
+    .mld-tag.med{background:#fffbeb;color:#92400e;border-color:#fcd34d}
+  </style>
+
+  <!-- Hero -->
+  <div class="mld-hero">
+    <div class="mld-hero-top">
+      <div>
+        <div class="mld-title">Malware Detection</div>
+        <div class="mld-subtitle">Scan every dependency in real time — stop malicious packages before they enter your codebase, reach production, or hijack your servers.</div>
+        <div class="mld-badge">REAL-TIME SCANNING</div>
+      </div>
+      <div class="mld-stats">
+        <div><div class="mld-stat-num">Instant</div><div class="mld-stat-lbl">Alert Time</div></div>
+        <div><div class="mld-stat-num">npm · yarn · pnpm</div><div class="mld-stat-lbl">Package Managers</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature info cards -->
+  <div class="mld-feat-row">
+    <div class="mld-feat-card">
+      <div class="mld-feat-title">Get Notified Instantly</div>
+      <div class="mld-feat-desc">Critical alerts via email or Slack/Teams the moment malware is detected. Legacy SCA scanners don't offer this real-time protection.</div>
+    </div>
+    <div class="mld-feat-card">
+      <div class="mld-feat-title">Avoid Downtime &amp; Breaches</div>
+      <div class="mld-feat-desc">Malicious packages can hijack resources for crypto mining, obfuscate code to hide backdoors, and leak sensitive data — caught before damage is done.</div>
+    </div>
+    <div class="mld-feat-card">
+      <div class="mld-feat-title">Real-Time IDE Protection</div>
+      <div class="mld-feat-desc">Scans against a live malware feed as you type or install dependencies. If a threat is detected, it blocks the package and alerts you instantly.</div>
+    </div>
+    <div class="mld-feat-card">
+      <div class="mld-feat-title">Safe Package Installation</div>
+      <div class="mld-feat-desc">Hooks into your package manager to block malicious dependencies the moment they're installed. Real-time scans on npm, yarn, and pnpm installs.</div>
+    </div>
+    <div class="mld-feat-card">
+      <div class="mld-feat-title">Live Threat Feed</div>
+      <div class="mld-feat-desc">Stay informed with a live malware feed providing detailed insights into newly detected threats across various package registries worldwide.</div>
+    </div>
+    <div class="mld-feat-card">
+      <div class="mld-feat-title">Stay Ahead of Attackers</div>
+      <div class="mld-feat-desc">Attackers read patch notes too. Flags vulnerable dependencies and pushes ready-to-merge PRs so fixes land before attackers ever strike.</div>
+    </div>
+  </div>
+
+  <!-- Peace of mind callout -->
+  <div class="mld-peace">
+    <div class="mld-peace-inner">
+      <div class="mld-peace-left">
+        <div class="mld-peace-title">Stop malware before it reaches production</div>
+        <div class="mld-peace-sub">Malicious packages can drain your servers, exfiltrate credentials, and take down your service. Real-time detection means zero dwell time.</div>
+      </div>
+      <div class="mld-peace-items">
+        <div class="mld-peace-item"><div class="mld-peace-check">&#10003;</div><span>No manual dependency audits required</span></div>
+        <div class="mld-peace-item"><div class="mld-peace-check">&#10003;</div><span>No waiting for scheduled scans</span></div>
+        <div class="mld-peace-item"><div class="mld-peace-check">&#10003;</div><span>No delayed notifications when threats emerge</span></div>
+        <div class="mld-peace-item"><div class="mld-peace-check">&#10003;</div><span>No more supply chain breaches</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scans in the background strip -->
+  <div class="mld-bg-strip">
+    <div class="mld-bg-strip-inner">
+      <div class="mld-bg-strip-title">Scans in the background</div>
+      <div class="mld-bg-items">
+        <div class="mld-bg-item"><div class="mld-bg-dot"></div>Monitors every npm, yarn, and pnpm install</div>
+        <div class="mld-bg-item"><div class="mld-bg-dot"></div>Checks against a live malware intelligence feed</div>
+        <div class="mld-bg-item"><div class="mld-bg-dot"></div>Blocks malicious packages before they hit your repo</div>
+        <div class="mld-bg-item"><div class="mld-bg-dot"></div>Alerts your team instantly via email or Slack</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Threat categories grid -->
+  <div class="mld-body">
+
+    <!-- Column 1 — Package-Based Attacks -->
+    <div>
+      <div class="mld-section-title">Package-Based Attacks</div>
+      <div class="mld-card" style="margin-bottom:12px">
+        <div class="mld-card-hdr">
+          <div class="mld-card-icon">&#128187;</div>
+          <div>
+            <div class="mld-card-title">Crypto Mining Hijacks</div>
+            <div class="mld-card-desc">Malicious packages that silently consume your CPU and cloud resources to mine cryptocurrency — driving up server costs without any trace in your own code.</div>
+            <div class="mld-tag">High Severity</div>
+          </div>
+        </div>
+      </div>
+      <div class="mld-card">
+        <div class="mld-card-hdr">
+          <div class="mld-card-icon">&#128274;</div>
+          <div>
+            <div class="mld-card-title">Credential Theft</div>
+            <div class="mld-card-desc">Packages that intercept environment variables, API keys, or auth tokens and exfiltrate them to attacker-controlled servers on install or at runtime.</div>
+            <div class="mld-tag">Critical</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 2 — Code Manipulation -->
+    <div>
+      <div class="mld-section-title">Code Manipulation</div>
+      <div class="mld-card" style="margin-bottom:12px">
+        <div class="mld-card-hdr">
+          <div class="mld-card-icon">&#128373;</div>
+          <div>
+            <div class="mld-card-title">Code Obfuscation &amp; Backdoors</div>
+            <div class="mld-card-desc">Malicious packages obfuscate their source to hide backdoors. Detected by behavioral analysis — not just pattern matching — so even novel obfuscation is caught.</div>
+            <div class="mld-tag">High Severity</div>
+          </div>
+        </div>
+      </div>
+      <div class="mld-card">
+        <div class="mld-card-hdr">
+          <div class="mld-card-icon">&#128196;</div>
+          <div>
+            <div class="mld-card-title">Data Exfiltration</div>
+            <div class="mld-card-desc">Packages that read sensitive files, scrape environment variables, or capture traffic and quietly send data out — causing breaches and massive public fallout.</div>
+            <div class="mld-tag">Critical</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 3 — Supply Chain -->
+    <div>
+      <div class="mld-section-title">Supply Chain Attacks</div>
+      <div class="mld-card" style="margin-bottom:12px">
+        <div class="mld-card-hdr">
+          <div class="mld-card-icon">&#128260;</div>
+          <div>
+            <div class="mld-card-title">Dependency Confusion</div>
+            <div class="mld-card-desc">Attackers publish packages with the same name as your private internal modules on public registries, tricking package managers into pulling malicious code.</div>
+            <div class="mld-tag">High Severity</div>
+          </div>
+        </div>
+      </div>
+      <div class="mld-card">
+        <div class="mld-card-hdr">
+          <div class="mld-card-icon">&#128269;</div>
+          <div>
+            <div class="mld-card-title">Typosquatting</div>
+            <div class="mld-card-desc">Malicious packages registered under names nearly identical to popular libraries — one typo in your install command and attackers are inside your build pipeline.</div>
+            <div class="mld-tag med">Medium Severity</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  </div><!-- /page-mld -->
 
   <!-- ══ SCAN HISTORY PAGE ══════════════════════════════════════════════════ -->
   <div id="page-history" class="page-section" style="display:none">
@@ -8929,6 +9133,7 @@ var _PAGE_TITLES = {
   'sca':           'Static Code Analysis',
   'dca':           'Dynamic Code Analysis',
   'rtp':           'Runtime Protection',
+  'mld':           'Malware Detection',
   'account':       'Account Settings',
   'filemanager':   'My File Manager',
   'support':       'Customer Service Centre',
@@ -9962,7 +10167,7 @@ function _applySidebarAccess() {
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
     'sb-syslog':'syslog','sb-agents':'agents',
     'sb-scan':'scan','sb-history':'history','sb-grc':'grc',
-    'sb-sca':'sca','sb-dca':'dca','sb-rtp':'rtp',
+    'sb-sca':'sca','sb-dca':'dca','sb-rtp':'rtp','sb-mld':'mld',
     'sb-filemanager':'filemanager','sb-myappts':'myappts',
     'sb-support':'support',
     'sb-credits':'credits',
@@ -16465,6 +16670,7 @@ var _ALL_PAGES = [
     { key: 'sca',            label: 'Static Code Analysis' },
     { key: 'dca',            label: 'Dynamic Code Analysis' },
     { key: 'rtp',            label: 'Runtime Protection' },
+    { key: 'mld',            label: 'Malware Detection' },
   ]},
   { group: 'Risk Management & Audit Control', pages: [
     { key: 'grc',            label: 'Risk Management & Audit Control' },
@@ -16485,7 +16691,7 @@ var _ALL_PAGES = [
 
 // Presets
 var _PAGE_PRESETS = {
-  default:  ['chatbot','gsc','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','rtp','myappts','filemanager'],
+  default:  ['chatbot','gsc','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','rtp','mld','myappts','filemanager'],
   analyst:  ['dashboard','chatbot','gsc','threatanalytics','incidents','priority','syslog','logexplorer','pluginlogs','network','history','grc'],
   readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
   all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
