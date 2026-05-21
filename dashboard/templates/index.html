@@ -3502,7 +3502,7 @@ Export Power BI
       <div class="sca-hero-left">
         <div class="sca-title">Advanced SAST</div>
         <div class="sca-subtitle">Find real vulnerabilities in your code — not noise. 85% fewer false positives vs traditional SAST tools, with AI-powered triaging, 1-click AutoFix, and multi-file context analysis.</div>
-        <div class="sca-engine-badge">&#128268; Powered by Opengrep / Semgrep</div>
+        <div class="sca-engine-badge">Powered by Opengrep / Semgrep</div>
       </div>
       <div class="sca-hero-stats">
         <div class="sca-hero-stat"><div class="sca-hero-stat-num">85%</div><div class="sca-hero-stat-lbl">Less False Positives</div></div>
@@ -3520,19 +3520,19 @@ Export Power BI
   <!-- Feature info cards -->
   <div class="sca-info-row" style="margin-bottom:16px;padding-bottom:4px">
     <div class="sca-info-card">
-      <div class="sca-info-icon">&#129302;</div>
+      <div class="sca-info-icon"></div>
       <div><div class="sca-info-title">AI-Powered Triaging</div><div class="sca-info-desc">Auto-prioritize findings and dismiss false positives using multi-file context</div></div>
     </div>
     <div class="sca-info-card">
-      <div class="sca-info-icon">&#128295;</div>
+      <div class="sca-info-icon"></div>
       <div><div class="sca-info-title">1-Click AutoFix</div><div class="sca-info-desc">AI generates a fix with confidence score — high, medium, or low — so you know when to trust it</div></div>
     </div>
     <div class="sca-info-card">
-      <div class="sca-info-icon">&#128203;</div>
+      <div class="sca-info-icon"></div>
       <div><div class="sca-info-title">Custom Rules</div><div class="sca-info-desc">Write your own YAML detection rules to enforce security standards specific to your codebase</div></div>
     </div>
     <div class="sca-info-card">
-      <div class="sca-info-icon">&#127919;</div>
+      <div class="sca-info-icon"></div>
       <div><div class="sca-info-title">Context-Aware Severity</div><div class="sca-info-desc">Severity adjusts based on your deployment context — internet-facing, PII, payments, or public API</div></div>
     </div>
   </div>
@@ -3542,18 +3542,18 @@ Export Power BI
     <div style="font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Detected Vulnerability Types</div>
   </div>
   <div class="sca-vuln-grid">
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128274;</div><div class="sca-vuln-name">Encryption Failures</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128200;</div><div class="sca-vuln-name">SQL Injection</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128296;</div><div class="sca-vuln-name">Cross-Site Scripting (XSS)</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128187;</div><div class="sca-vuln-name">Command Injection</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#127760;</div><div class="sca-vuln-name">SSRF</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128101;</div><div class="sca-vuln-name">Prototype Pollution</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128193;</div><div class="sca-vuln-name">Path Traversal</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128273;</div><div class="sca-vuln-name">Hardcoded Secrets</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128100;</div><div class="sca-vuln-name">Auth Bypass</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#9888;</div><div class="sca-vuln-name">Insecure Deserialisation</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#128260;</div><div class="sca-vuln-name">LDAP / XXE Injection</div></div>
-    <div class="sca-vuln-card"><div class="sca-vuln-icon">&#9881;</div><div class="sca-vuln-name">Misconfiguration</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Encryption Failures</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">SQL Injection</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Cross-Site Scripting (XSS)</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Command Injection</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">SSRF</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Prototype Pollution</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Path Traversal</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Hardcoded Secrets</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Auth Bypass</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Insecure Deserialisation</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">LDAP / XXE Injection</div></div>
+    <div class="sca-vuln-card"><div class="sca-vuln-name">Misconfiguration</div></div>
   </div>
 
   <!-- Main scan layout -->
@@ -3568,7 +3568,7 @@ Export Power BI
              ondragleave="document.getElementById('scaDropZone').classList.remove('drag-over')"
              ondrop="scaDrop(event)"
              onclick="scaPickFiles()">
-          <div class="sca-upload-hint">&#128196; Drag &amp; drop source files here<br>or click to browse<br><small style="color:var(--c5)">Python, JS, TS, PHP, Java, Go, Ruby, C#, …</small></div>
+          <div class="sca-upload-hint">Drag &amp; drop source files here<br>or click to browse<br><small style="color:var(--c5)">Python, JS, TS, PHP, Java, Go, Ruby, C#, …</small></div>
         </div>
         <input type="file" id="scaFileInput" multiple style="display:none" onchange="scaRenderFiles()">
         <div id="scaFileList" class="sca-file-list"></div>
@@ -3630,12 +3630,12 @@ Export Power BI
     severity: ERROR</textarea>
         </div>
 
-        <button class="sca-btn" id="scaRunBtn" onclick="scaRun()">&#128270; Run Scan</button>
+        <button class="sca-btn" id="scaRunBtn" onclick="scaRun()">Run Scan</button>
       </div>
 
       <!-- AI Triage info box -->
       <div style="background:linear-gradient(135deg,#1e3a8a08,#2563eb08);border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-top:14px">
-        <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:6px">&#129302; AI Triage Engine</div>
+        <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:6px">AI Triage Engine</div>
         <div style="font-size:11px;color:#3b82f6;line-height:1.65">After each scan, AI automatically flags likely false positives and assigns confidence scores to each fix. Mark any finding as FP to train the filter for your codebase.</div>
       </div>
     </div>
@@ -3643,7 +3643,6 @@ Export Power BI
     <!-- Right panel: results -->
     <div class="sca-results-panel" id="scaResultsPanel">
       <div class="sca-empty" id="scaEmpty">
-        <div style="font-size:32px;margin-bottom:10px">&#128270;</div>
         <div class="sca-empty-text">Upload source files and click <strong>Run Scan</strong> to detect vulnerabilities.</div>
         <div style="font-size:11px;color:var(--c5);margin-top:8px">Powered by Opengrep/Semgrep — finds real issues, not noise</div>
       </div>
@@ -3654,7 +3653,6 @@ Export Power BI
   <div class="sca-callout-row">
     <div class="sca-callout">
       <div class="sca-callout-hdr">
-        <div class="sca-callout-icon">&#9881;</div>
         <div class="sca-callout-title">CI/CD Enforcement</div>
       </div>
       <div class="sca-callout-body">Block PRs with critical vulnerabilities and get inline comments on changed lines — fail fast in your pipeline before code reaches production.</div>
@@ -3667,7 +3665,6 @@ Export Power BI
     </div>
     <div class="sca-callout">
       <div class="sca-callout-hdr">
-        <div class="sca-callout-icon">&#128187;</div>
         <div class="sca-callout-title">IDE Warnings</div>
       </div>
       <div class="sca-callout-body">See findings inline as you write code — get squiggly underlines and hover-over explanations in VS Code and JetBrains IDEs before committing.</div>
@@ -3836,7 +3833,7 @@ Export Power BI
       <div>
         <div class="dca-title">Protect your App &amp; APIs</div>
         <div class="dca-subtitle">Dynamic Application Security Testing (DAST) that finds real vulnerabilities in running applications — OWASP Top 10, API surface monitoring, authenticated scanning, and AI-powered pentesting.</div>
-        <div class="dca-safe-badge">&#10003; Safe to run in production — low-noise, non-destructive</div>
+        <div class="dca-safe-badge">Safe to run in production — low-noise, non-destructive</div>
       </div>
       <div class="dca-hero-stats">
         <div class="dca-hero-stat"><div class="dca-hero-stat-num">2–4 min</div><div class="dca-hero-stat-lbl">Scan Time</div></div>
@@ -3848,12 +3845,12 @@ Export Power BI
 
   <!-- Feature cards -->
   <div class="dca-feat-row">
-    <div class="dca-feat-card"><div class="dca-feat-icon">&#128296;</div><div><div class="dca-feat-title">Authenticated DAST</div><div class="dca-feat-desc">Logs in as a real user to test authenticated routes, JWT tokens, and session handling</div></div></div>
-    <div class="dca-feat-card"><div class="dca-feat-icon">&#127760;</div><div><div class="dca-feat-title">API Discovery</div><div class="dca-feat-desc">Auto-discovers REST &amp; GraphQL endpoints and generates/updates Swagger / OpenAPI specs</div></div></div>
-    <div class="dca-feat-card"><div class="dca-feat-icon">&#9881;</div><div><div class="dca-feat-title">Self-Hosted Apps</div><div class="dca-feat-desc">Nuclei-powered scanning for WordPress, GitLab, Laravel, Drupal, Joomla &amp; more</div></div></div>
-    <div class="dca-feat-card"><div class="dca-feat-icon">&#129302;</div><div><div class="dca-feat-title">AI Pentesting</div><div class="dca-feat-desc">Autonomous agent explores attack paths and generates SOC2/ISO-ready pentest report</div></div></div>
-    <div class="dca-feat-card"><div class="dca-feat-icon">&#9889;</div><div><div class="dca-feat-title">Toxic Combinations</div><div class="dca-feat-desc">Detects chains of vulnerabilities that together create critical attack paths</div></div></div>
-    <div class="dca-feat-card"><div class="dca-feat-icon">&#128279;</div><div><div class="dca-feat-title">Dangling Domains</div><div class="dca-feat-desc">Find subdomains pointing to deprovisioned cloud resources before attackers take them over</div></div></div>
+    <div class="dca-feat-card"><div><div class="dca-feat-title">Authenticated DAST</div><div class="dca-feat-desc">Logs in as a real user to test authenticated routes, JWT tokens, and session handling</div></div></div>
+    <div class="dca-feat-card"><div><div class="dca-feat-title">API Discovery</div><div class="dca-feat-desc">Auto-discovers REST &amp; GraphQL endpoints and generates/updates Swagger / OpenAPI specs</div></div></div>
+    <div class="dca-feat-card"><div><div class="dca-feat-title">Self-Hosted Apps</div><div class="dca-feat-desc">Nuclei-powered scanning for WordPress, GitLab, Laravel, Drupal, Joomla &amp; more</div></div></div>
+    <div class="dca-feat-card"><div><div class="dca-feat-title">AI Pentesting</div><div class="dca-feat-desc">Autonomous agent explores attack paths and generates SOC2/ISO-ready pentest report</div></div></div>
+    <div class="dca-feat-card"><div><div class="dca-feat-title">Toxic Combinations</div><div class="dca-feat-desc">Detects chains of vulnerabilities that together create critical attack paths</div></div></div>
+    <div class="dca-feat-card"><div><div class="dca-feat-title">Dangling Domains</div><div class="dca-feat-desc">Find subdomains pointing to deprovisioned cloud resources before attackers take them over</div></div></div>
   </div>
 
   <!-- Scanner availability -->
@@ -3902,7 +3899,7 @@ Export Power BI
           <label class="dca-ctx-row"><input type="checkbox" id="dca-ctx-payments"> <label for="dca-ctx-payments">Handles payments</label></label>
         </div>
 
-        <button class="dca-run" id="dca-run-btn" onclick="dcaRunScan()">&#128270; Run Scan</button>
+        <button class="dca-run" id="dca-run-btn" onclick="dcaRunScan()">Run Scan</button>
         <div id="dca-scan-status" style="margin-top:8px;font-size:11px;color:var(--c5);text-align:center;"></div>
 
         <!-- Auto Scan / scheduler -->
