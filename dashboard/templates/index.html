@@ -2031,6 +2031,9 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-grc" onclick="sbNav('grc',this)">
       <span class="sb-label">Risk Management & Audit Control</span>
     </button>
+    <button class="sb-item" id="sb-rtp" onclick="sbNav('rtp',this)">
+      <span class="sb-label">Runtime Protection</span>
+    </button>
 
     {% if current_user.role == 'admin' %}
     <div class="sb-divider"></div>
@@ -4164,6 +4167,182 @@ Export Power BI
 
   </div><!-- /page-dca -->
 
+  <!-- ══ RUNTIME PROTECTION PAGE ══════════════════════════════════════════════ -->
+  <div id="page-rtp" class="page-section" style="display:none">
+  <style>
+    .rtp-hero{padding:28px 28px 16px;max-width:1300px;margin:0 auto}
+    .rtp-hero-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px}
+    .rtp-title{font-size:22px;font-weight:800;color:var(--c1);letter-spacing:-.3px}
+    .rtp-subtitle{font-size:13px;color:var(--c5);margin-top:5px;line-height:1.6;max-width:560px}
+    .rtp-badge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;font-weight:700;background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:20px}
+    .rtp-stats{display:flex;gap:24px;flex-wrap:wrap}
+    .rtp-stat-num{font-size:22px;font-weight:800;color:var(--c4)}
+    .rtp-stat-lbl{font-size:10px;color:var(--c5);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    .rtp-body{padding:0 28px 28px;max-width:1300px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+    @media(max-width:1000px){.rtp-body{grid-template-columns:1fr 1fr}}
+    @media(max-width:640px){.rtp-body{grid-template-columns:1fr}}
+    .rtp-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--c5);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--c8)}
+    .rtp-card{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;transition:border-color .15s}
+    .rtp-card.active{border-color:#2563eb;background:linear-gradient(135deg,#eff6ff,#fff)}
+    .rtp-card-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+    .rtp-card-title{font-size:13px;font-weight:700;color:var(--c1);line-height:1.4}
+    .rtp-card-desc{font-size:11px;color:var(--c5);line-height:1.55}
+    .rtp-toggle{position:relative;width:38px;height:20px;flex-shrink:0;margin-top:2px}
+    .rtp-toggle input{opacity:0;width:0;height:0;position:absolute}
+    .rtp-slider{position:absolute;inset:0;border-radius:20px;background:#cbd5e1;cursor:pointer;transition:background .2s}
+    .rtp-slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;border-radius:50%;background:#fff;transition:transform .2s}
+    .rtp-toggle input:checked+.rtp-slider{background:#2563eb}
+    .rtp-toggle input:checked+.rtp-slider:before{transform:translateX(18px)}
+    .rtp-expand{margin-top:12px;padding-top:12px;border-top:1px solid var(--c8);display:none}
+    .rtp-card.active .rtp-expand{display:block}
+    .rtp-lbl{font-size:10px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+    .rtp-inp{width:100%;padding:6px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:#fff;outline:none;box-sizing:border-box}
+    .rtp-inp:focus{border-color:var(--c4)}
+    .rtp-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+    .rtp-chip{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid var(--c8);background:var(--c11);color:var(--c2);cursor:pointer;transition:all .15s;user-select:none}
+    .rtp-chip.on{background:#2563eb;border-color:#2563eb;color:#fff}
+    .rtp-save-bar{padding:0 28px 28px;max-width:1300px;margin:0 auto;display:flex;align-items:center;gap:12px}
+    .rtp-save-btn{padding:10px 28px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+    .rtp-save-btn:hover{opacity:.9}
+    .rtp-save-msg{font-size:12px;color:#166534;font-weight:600}
+    .rtp-dot{width:8px;height:8px;border-radius:50%;background:#cbd5e1;flex-shrink:0;margin-top:3px}
+    .rtp-card.active .rtp-dot{background:#22c55e}
+  </style>
+
+  <!-- Hero -->
+  <div class="rtp-hero">
+    <div class="rtp-hero-top">
+      <div>
+        <div class="rtp-title">Runtime Protection</div>
+        <div class="rtp-subtitle">Block attacks in real time before they reach your application — injection attacks, malicious traffic, bots, and known threat actors.</div>
+        <div class="rtp-badge">RUNTIME WAF</div>
+      </div>
+      <div class="rtp-stats">
+        <div><div class="rtp-stat-num" id="rtp-active-count">0</div><div class="rtp-stat-lbl">Rules Active</div></div>
+        <div><div class="rtp-stat-num">9</div><div class="rtp-stat-lbl">Total Rules</div></div>
+        <div><div class="rtp-stat-num">Real-time</div><div class="rtp-stat-lbl">Blocking Mode</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules grid -->
+  <div class="rtp-body">
+
+    <!-- Column 1 — Injection & Traversal -->
+    <div>
+      <div class="rtp-section-title">Injection &amp; Traversal</div>
+      <div class="rtp-card" id="rtp-card-sqli" style="margin-bottom:12px">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-sqli"></div><div class="rtp-card-title">SQL &amp; NoSQL Injection</div></div><div class="rtp-card-desc">Block attempts to manipulate database queries for malicious purposes like data theft or authentication bypass. Supports MySQL, MongoDB, PostgreSQL &amp; more.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-sqli" onchange="rtpToggle('sqli',this)"><span class="rtp-slider"></span></label>
+        </div>
+      </div>
+      <div class="rtp-card" id="rtp-card-cmdi" style="margin-bottom:12px">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-cmdi"></div><div class="rtp-card-title">Command Injection</div></div><div class="rtp-card-desc">Block attacks that inject and execute arbitrary system commands on your server through user input fields.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-cmdi" onchange="rtpToggle('cmdi',this)"><span class="rtp-slider"></span></label>
+        </div>
+      </div>
+      <div class="rtp-card" id="rtp-card-path">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-path"></div><div class="rtp-card-title">Path Traversal</div></div><div class="rtp-card-desc">Block attempts to access unauthorized files or directories by manipulating file paths (<code style="font-size:10px;background:#f1f5f9;padding:1px 4px;border-radius:3px">../../../etc/passwd</code>).</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-path" onchange="rtpToggle('path',this)"><span class="rtp-slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 2 — Traffic Control -->
+    <div>
+      <div class="rtp-section-title">Traffic Control</div>
+      <div class="rtp-card" id="rtp-card-rate" style="margin-bottom:12px">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-rate"></div><div class="rtp-card-title">Set Rate Limiting</div></div><div class="rtp-card-desc">Block bots or brute-force attacks that flood your app with requests, aiming to overwhelm servers or disrupt service for legitimate users.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-rate" onchange="rtpToggle('rate',this)"><span class="rtp-slider"></span></label>
+        </div>
+        <div class="rtp-expand" id="rtp-expand-rate">
+          <div class="rtp-lbl">Max requests / minute / IP</div>
+          <input class="rtp-inp" id="rtp-rate-limit" type="number" value="120" min="10" max="10000" style="width:120px">
+          <div class="rtp-lbl" style="margin-top:8px">Apply to</div>
+          <div class="rtp-chip-row">
+            <span class="rtp-chip on" onclick="this.classList.toggle('on')">API routes</span>
+            <span class="rtp-chip on" onclick="this.classList.toggle('on')">Login endpoints</span>
+            <span class="rtp-chip" onclick="this.classList.toggle('on')">All routes</span>
+          </div>
+        </div>
+      </div>
+      <div class="rtp-card" id="rtp-card-block" style="margin-bottom:12px">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-block"></div><div class="rtp-card-title">Block Traffic Granularly</div></div><div class="rtp-card-desc">Automatically block critical injection attacks, define custom IP blocklists and allowlists, and enforce fine-grained access rules.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-block" onchange="rtpToggle('block',this)"><span class="rtp-slider"></span></label>
+        </div>
+        <div class="rtp-expand" id="rtp-expand-block">
+          <div class="rtp-lbl">Blocked IPs / CIDR ranges (one per line)</div>
+          <textarea class="rtp-inp" id="rtp-block-ips" rows="3" placeholder="192.168.1.100&#10;10.0.0.0/8"></textarea>
+          <div class="rtp-lbl" style="margin-top:8px">Allowlisted IPs</div>
+          <textarea class="rtp-inp" id="rtp-allow-ips" rows="2" placeholder="203.0.113.0/24"></textarea>
+        </div>
+      </div>
+      <div class="rtp-card" id="rtp-card-tor">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-tor"></div><div class="rtp-card-title">Block Tor Traffic</div></div><div class="rtp-card-desc">Block all traffic originating from Tor exit nodes to prevent anonymous abuse, credential stuffing, and evasion of IP-based rules.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-tor" onchange="rtpToggle('tor',this)"><span class="rtp-slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 3 — Threat Intelligence -->
+    <div>
+      <div class="rtp-section-title">Threat Intelligence</div>
+      <div class="rtp-card" id="rtp-card-crowdsec" style="margin-bottom:12px">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-crowdsec"></div><div class="rtp-card-title">Block Known Threat Actors</div></div><div class="rtp-card-desc">Leverages CrowdSec to instantly block malicious IPs and threat actors — brute-force attackers, botnet actors, scanner IPs, and more.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-crowdsec" onchange="rtpToggle('crowdsec',this)"><span class="rtp-slider"></span></label>
+        </div>
+        <div class="rtp-expand" id="rtp-expand-crowdsec">
+          <div class="rtp-lbl">CrowdSec API Key</div>
+          <input class="rtp-inp" id="rtp-crowdsec-key" type="password" placeholder="cs_...">
+          <div style="font-size:10px;color:var(--c5);margin-top:4px">Get a free key at crowdsec.net — blocks 100k+ known malicious IPs</div>
+        </div>
+      </div>
+      <div class="rtp-card" id="rtp-card-bots" style="margin-bottom:12px">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-bots"></div><div class="rtp-card-title">Block Bots</div></div><div class="rtp-card-desc">Block bots by category — SEO crawlers, AI data scrapers, AI assistants, web archivers, and other automated agents.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-bots" onchange="rtpToggle('bots',this)"><span class="rtp-slider"></span></label>
+        </div>
+        <div class="rtp-expand" id="rtp-expand-bots">
+          <div class="rtp-lbl">Block these categories</div>
+          <div class="rtp-chip-row">
+            <span class="rtp-chip on" onclick="this.classList.toggle('on')">SEO Crawlers</span>
+            <span class="rtp-chip on" onclick="this.classList.toggle('on')">AI Scrapers</span>
+            <span class="rtp-chip on" onclick="this.classList.toggle('on')">AI Assistants</span>
+            <span class="rtp-chip" onclick="this.classList.toggle('on')">Archivers</span>
+            <span class="rtp-chip" onclick="this.classList.toggle('on')">Vuln Scanners</span>
+            <span class="rtp-chip" onclick="this.classList.toggle('on')">Generic Bots</span>
+          </div>
+        </div>
+      </div>
+      <div class="rtp-card" id="rtp-card-countries">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-countries"></div><div class="rtp-card-title">Block Countries</div></div><div class="rtp-card-desc">Comply with legal requirements or reduce attack vectors by restricting traffic from specific countries.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-countries" onchange="rtpToggle('countries',this)"><span class="rtp-slider"></span></label>
+        </div>
+        <div class="rtp-expand" id="rtp-expand-countries">
+          <div class="rtp-lbl">Country codes to block (ISO-2, comma-separated)</div>
+          <input class="rtp-inp" id="rtp-country-list" type="text" placeholder="CN, RU, KP, IR, BY">
+          <div style="font-size:10px;color:var(--c5);margin-top:4px">Example: CN, RU, KP, IR — leave blank to block none</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save bar -->
+  <div class="rtp-save-bar">
+    <button class="rtp-save-btn" onclick="rtpSave()">Save Configuration</button>
+    <span class="rtp-save-msg" id="rtp-save-msg" style="display:none"></span>
+  </div>
+
+  </div><!-- /page-rtp -->
+
   <!-- ══ SCAN HISTORY PAGE ══════════════════════════════════════════════════ -->
   <div id="page-history" class="page-section" style="display:none">
 
@@ -5066,7 +5245,6 @@ Export Power BI
       <button class="le-tab" id="le-tab-btn-applog" onclick="leTab('applog',this)">App Logs (SSH)</button>
       <button class="le-tab" id="le-tab-btn-cpanel" onclick="leTab('cpanel',this)">cPanel</button>
       <button class="le-tab" id="le-tab-btn-hostinger" onclick="leTab('hostinger',this)">MySQL / DB</button>
-      <button class="le-tab" id="le-tab-btn-history" onclick="leTab('history',this)">Scan History</button>
       <button class="le-tab" id="le-tab-btn-cf" onclick="leTab('cf',this)">Cloudflare</button>
       <button class="le-tab" id="le-tab-btn-ftp" onclick="leTab('ftp',this)">FTP</button>
     </div>
@@ -5344,33 +5522,7 @@ Export Power BI
       </div>
     </div>
 
-    <!-- ── Scan History Logs tab ── -->
-    <div id="le-pane-history" class="le-tab-pane" style="display:none;">
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
-        <input type="text" id="le-login-target" placeholder="Filter by target (optional)" style="height:30px;border:1px solid #bfdbfe;border-radius:8px;padding:0 10px;font-size:12px;width:240px;font-family:inherit;outline:none;">
-        <button onclick="loadLoginEvents()" style="height:30px;padding:0 16px;background:#0f172a;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">Load from Scan History</button>
-      </div>
-      <div class="le-hint">Shows WordPress WP-LOG events captured during previous scans. For real-time events, use the WordPress Admin tab above.</div>
-      <div id="login-events-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Loading login events…</div>
-      <div id="login-events-error" style="display:none;padding:12px 16px;background:linear-gradient(135deg,#172554,#1e3a8a);border-radius:6px;color:#93c5fd;font-size:12px;margin-bottom:12px;"></div>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="login-events-table">
-          <thead><tr style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Timestamp</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Username</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Event</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">IP Address</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Country</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Status</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Target</th>
-          </tr></thead>
-          <tbody id="login-events-body">
-            <tr><td colspan="7" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Click "Load from Scan History" to fetch WordPress login events captured during scans.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
+    <!-- Scan History tab removed -->
     <!-- ── Cloudflare Security Insights tab ── -->
     <div id="le-pane-cf" class="le-tab-pane" style="display:none;">
       <div class="le-cred-form">
@@ -8696,6 +8848,7 @@ var _PAGE_TITLES = {
   'invoices':      'Invoice Management',
   'sca':           'Static Code Analysis',
   'dca':           'Dynamic Code Analysis',
+  'rtp':           'Runtime Protection',
   'account':       'Account Settings',
   'filemanager':   'My File Manager',
   'support':       'Customer Service Centre',
@@ -9729,7 +9882,7 @@ function _applySidebarAccess() {
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
     'sb-syslog':'syslog','sb-agents':'agents',
     'sb-scan':'scan','sb-history':'history','sb-grc':'grc',
-    'sb-sca':'sca','sb-dca':'dca',
+    'sb-sca':'sca','sb-dca':'dca','sb-rtp':'rtp',
     'sb-filemanager':'filemanager','sb-myappts':'myappts',
     'sb-support':'support',
     'sb-credits':'credits',
@@ -16231,6 +16384,7 @@ var _ALL_PAGES = [
     { key: 'history',        label: 'Scan Analytics' },
     { key: 'sca',            label: 'Static Code Analysis' },
     { key: 'dca',            label: 'Dynamic Code Analysis' },
+    { key: 'rtp',            label: 'Runtime Protection' },
   ]},
   { group: 'Risk Management & Audit Control', pages: [
     { key: 'grc',            label: 'Risk Management & Audit Control' },
@@ -16251,7 +16405,7 @@ var _ALL_PAGES = [
 
 // Presets
 var _PAGE_PRESETS = {
-  default:  ['chatbot','gsc','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','myappts','filemanager'],
+  default:  ['chatbot','gsc','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','rtp','myappts','filemanager'],
   analyst:  ['dashboard','chatbot','gsc','threatanalytics','incidents','priority','syslog','logexplorer','pluginlogs','network','history','grc'],
   readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
   all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
@@ -22321,6 +22475,68 @@ function dcaAiPentest() {
     if (st) st.textContent = 'Error: ' + e;
   });
 }
+
+// ── Runtime Protection ────────────────────────────────────────────────────────
+var _RTP_KEYS = ['sqli','cmdi','path','rate','block','tor','crowdsec','bots','countries'];
+
+function rtpToggle(key, cb) {
+  var card = document.getElementById('rtp-card-' + key);
+  var dot  = document.getElementById('rtp-dot-' + key);
+  if (card) card.classList.toggle('active', cb.checked);
+  if (dot)  dot.style.background = cb.checked ? '#22c55e' : '#cbd5e1';
+  rtpUpdateCount();
+}
+
+function rtpUpdateCount() {
+  var n = _RTP_KEYS.filter(function(k) {
+    var el = document.getElementById('rtp-' + k);
+    return el && el.checked;
+  }).length;
+  var c = document.getElementById('rtp-active-count');
+  if (c) c.textContent = n;
+}
+
+function rtpSave() {
+  var cfg = {};
+  _RTP_KEYS.forEach(function(k) {
+    var el = document.getElementById('rtp-' + k);
+    cfg[k] = el ? el.checked : false;
+  });
+  cfg.rate_limit    = (document.getElementById('rtp-rate-limit') || {}).value || '120';
+  cfg.block_ips     = (document.getElementById('rtp-block-ips')  || {}).value || '';
+  cfg.allow_ips     = (document.getElementById('rtp-allow-ips')  || {}).value || '';
+  cfg.crowdsec_key  = (document.getElementById('rtp-crowdsec-key') || {}).value || '';
+  cfg.country_list  = (document.getElementById('rtp-country-list') || {}).value || '';
+  cfg.bot_cats = Array.from(document.querySelectorAll('#rtp-expand-bots .rtp-chip.on'))
+                      .map(function(c){ return c.textContent.trim(); });
+  localStorage.setItem('cfai_rtp_config', JSON.stringify(cfg));
+  var msg = document.getElementById('rtp-save-msg');
+  if (msg) { msg.style.display = 'inline'; msg.textContent = 'Configuration saved.';
+             setTimeout(function(){ msg.style.display = 'none'; }, 2500); }
+}
+
+function rtpLoad() {
+  try {
+    var cfg = JSON.parse(localStorage.getItem('cfai_rtp_config') || '{}');
+    _RTP_KEYS.forEach(function(k) {
+      var el = document.getElementById('rtp-' + k);
+      if (!el) return;
+      if (cfg[k]) { el.checked = true; rtpToggle(k, el); }
+    });
+    if (cfg.rate_limit)   { var rl = document.getElementById('rtp-rate-limit');   if(rl) rl.value = cfg.rate_limit; }
+    if (cfg.block_ips)    { var bi = document.getElementById('rtp-block-ips');    if(bi) bi.value = cfg.block_ips; }
+    if (cfg.allow_ips)    { var ai = document.getElementById('rtp-allow-ips');    if(ai) ai.value = cfg.allow_ips; }
+    if (cfg.crowdsec_key) { var ck = document.getElementById('rtp-crowdsec-key'); if(ck) ck.value = cfg.crowdsec_key; }
+    if (cfg.country_list) { var cl = document.getElementById('rtp-country-list'); if(cl) cl.value = cfg.country_list; }
+    if (cfg.bot_cats && cfg.bot_cats.length) {
+      document.querySelectorAll('#rtp-expand-bots .rtp-chip').forEach(function(chip) {
+        chip.classList.toggle('on', cfg.bot_cats.indexOf(chip.textContent.trim()) !== -1);
+      });
+    }
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', rtpLoad);
 
 </script>
 <script>
