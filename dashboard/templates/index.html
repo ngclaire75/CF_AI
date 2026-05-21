@@ -4233,6 +4233,47 @@ Export Power BI
     .rtp-save-msg{font-size:12px;color:#166534;font-weight:600}
     .rtp-dot{width:8px;height:8px;border-radius:50%;background:#cbd5e1;flex-shrink:0;margin-top:3px}
     .rtp-card.active .rtp-dot{background:#22c55e}
+    /* ── Live stats bar ── */
+    .rtp-live-bar{display:flex;align-items:center;gap:0;padding:0 28px 16px;max-width:1300px;margin:0 auto;flex-wrap:wrap;gap:12px}
+    .rtp-live-stat{background:var(--c11);border:1px solid var(--c8);border-radius:8px;padding:10px 18px;min-width:110px}
+    .rtp-live-num{font-size:20px;font-weight:800;color:var(--c4)}
+    .rtp-live-lbl{font-size:10px;color:var(--c5);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+    .rtp-refresh-btn{padding:7px 16px;background:var(--c10);border:1px solid var(--c8);border-radius:6px;font-size:11px;font-weight:600;color:var(--c2);cursor:pointer;font-family:inherit}
+    .rtp-refresh-btn:hover{background:var(--c8)}
+    .rtp-live-ts{font-size:10px;color:var(--c5);margin-left:8px}
+    /* ── Events panel ── */
+    .rtp-events{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .rtp-events-inner{background:var(--c11);border:1px solid var(--c8);border-radius:10px;overflow:hidden}
+    .rtp-events-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--c8);flex-wrap:wrap;gap:8px}
+    .rtp-events-title{font-size:13px;font-weight:700;color:var(--c1)}
+    .rtp-events-sub{font-size:11px;color:var(--c5)}
+    .rtp-events-table{width:100%;border-collapse:collapse;font-size:11px}
+    .rtp-events-table th{padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--c5);border-bottom:1px solid var(--c8)}
+    .rtp-events-table td{padding:8px 12px;border-bottom:1px solid var(--c8);color:var(--c2);vertical-align:middle}
+    .rtp-events-table tr:last-child td{border-bottom:none}
+    .rtp-events-table tr:hover td{background:var(--c10)}
+    .rtp-rule-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .rtp-rule-badge.sqli{background:#fef2f2;color:#991b1b;border:1px solid #fca5a5}
+    .rtp-rule-badge.cmdi{background:#fff7ed;color:#9a3412;border:1px solid #fdba74}
+    .rtp-rule-badge.path{background:#fffbeb;color:#92400e;border:1px solid #fcd34d}
+    .rtp-rule-badge.rate{background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd}
+    .rtp-rule-badge.block{background:#f5f3ff;color:#6d28d9;border:1px solid #c4b5fd}
+    .rtp-rule-badge.tor{background:#f0fdf4;color:#166534;border:1px solid #86efac}
+    .rtp-rule-badge.crowdsec{background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7}
+    .rtp-rule-badge.bots{background:#fdf4ff;color:#7e22ce;border:1px solid #d8b4fe}
+    .rtp-rule-badge.countries{background:#f0f9ff;color:#075985;border:1px solid #7dd3fc}
+    .rtp-empty-msg{padding:24px;text-align:center;color:var(--c5);font-size:12px}
+    /* ── Test panel ── */
+    .rtp-test-panel{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .rtp-test-inner{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:16px 20px}
+    .rtp-test-title{font-size:13px;font-weight:700;color:var(--c1);margin-bottom:10px}
+    .rtp-test-row{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+    .rtp-test-inp{flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--c8);border-radius:6px;font-size:12px;font-family:monospace;color:var(--c1);background:#fff;outline:none}
+    .rtp-test-inp:focus{border-color:var(--c4)}
+    .rtp-test-btn{padding:8px 18px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+    .rtp-test-result{margin-top:10px;font-size:12px;padding:8px 12px;border-radius:6px;display:none}
+    .rtp-test-result.blocked{background:#fef2f2;color:#991b1b;border:1px solid #fca5a5}
+    .rtp-test-result.allowed{background:#f0fdf4;color:#166534;border:1px solid #86efac}
   </style>
 
   <!-- Hero -->
@@ -4248,6 +4289,56 @@ Export Power BI
         <div><div class="rtp-stat-num">9</div><div class="rtp-stat-lbl">Total Rules</div></div>
         <div><div class="rtp-stat-num">In-App</div><div class="rtp-stat-lbl">No External Deps</div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Live stats bar -->
+  <div class="rtp-live-bar">
+    <div class="rtp-live-stat">
+      <div class="rtp-live-num" id="rtp-stat-today">—</div>
+      <div class="rtp-live-lbl">Blocked Today</div>
+    </div>
+    <div class="rtp-live-stat">
+      <div class="rtp-live-num" id="rtp-stat-total">—</div>
+      <div class="rtp-live-lbl">All Time Blocked</div>
+    </div>
+    <div class="rtp-live-stat">
+      <div class="rtp-live-num" id="rtp-stat-session">—</div>
+      <div class="rtp-live-lbl">This Session</div>
+    </div>
+    <div class="rtp-live-stat">
+      <div class="rtp-live-num" id="rtp-stat-tor">—</div>
+      <div class="rtp-live-lbl">Tor Nodes Loaded</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <button class="rtp-refresh-btn" onclick="rtpRefreshStats()">Refresh Stats</button>
+      <span class="rtp-live-ts" id="rtp-stats-ts"></span>
+    </div>
+  </div>
+
+  <!-- Recent blocked events -->
+  <div class="rtp-events">
+    <div class="rtp-events-inner">
+      <div class="rtp-events-hdr">
+        <div class="rtp-events-title">Recent Blocked Requests</div>
+        <div class="rtp-events-sub">Auto-refreshes every 30s while active</div>
+      </div>
+      <div id="rtp-events-body">
+        <div class="rtp-empty-msg">No blocked requests yet — protection is active.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test protection -->
+  <div class="rtp-test-panel">
+    <div class="rtp-test-inner">
+      <div class="rtp-test-title">Test Protection</div>
+      <div style="font-size:11px;color:var(--c5);margin-bottom:10px">Enter a payload to verify the WAF would block it based on your active rules.</div>
+      <div class="rtp-test-row">
+        <input class="rtp-test-inp" id="rtp-test-input" type="text" placeholder="e.g.  ' OR 1=1 --   or   ../../../etc/passwd">
+        <button class="rtp-test-btn" onclick="rtpTest()">Test Payload</button>
+      </div>
+      <div class="rtp-test-result" id="rtp-test-result"></div>
     </div>
   </div>
 
@@ -4369,6 +4460,10 @@ Export Power BI
         <div class="rtp-card-hdr">
           <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-tor"></div><div class="rtp-card-title">Block Tor Traffic</div></div><div class="rtp-card-desc">Block all traffic originating from Tor exit nodes to prevent anonymous abuse, credential stuffing, and evasion of IP-based rules.</div></div>
           <label class="rtp-toggle"><input type="checkbox" id="rtp-tor" onchange="rtpToggle('tor',this)"><span class="rtp-slider"></span></label>
+        </div>
+        <div style="margin-top:8px;display:flex;align-items:center;gap:10px">
+          <button class="rtp-refresh-btn" onclick="rtpRefreshTor(this)" style="font-size:10px;padding:4px 10px">Refresh Tor List</button>
+          <span id="rtp-tor-status" style="font-size:10px;color:var(--c5)"></span>
         </div>
       </div>
     </div>
@@ -22764,6 +22859,7 @@ function dcaAiPentest() {
 
 // ── Runtime Protection ────────────────────────────────────────────────────────
 var _RTP_KEYS = ['sqli','cmdi','path','rate','block','tor','crowdsec','bots','countries'];
+var _rtpStatsTimer = null;
 
 function rtpToggle(key, cb) {
   var card = document.getElementById('rtp-card-' + key);
@@ -22780,49 +22876,201 @@ function rtpUpdateCount() {
   }).length;
   var c = document.getElementById('rtp-active-count');
   if (c) c.textContent = n;
+  var s = document.getElementById('rtp-stat-active-hero');
+  if (s) s.textContent = n;
 }
 
-function rtpSave() {
+function _rtpCollectCfg() {
   var cfg = {};
   _RTP_KEYS.forEach(function(k) {
     var el = document.getElementById('rtp-' + k);
     cfg[k] = el ? el.checked : false;
   });
-  cfg.rate_limit    = (document.getElementById('rtp-rate-limit') || {}).value || '120';
-  cfg.block_ips     = (document.getElementById('rtp-block-ips')  || {}).value || '';
-  cfg.allow_ips     = (document.getElementById('rtp-allow-ips')  || {}).value || '';
-  cfg.crowdsec_key  = (document.getElementById('rtp-crowdsec-key') || {}).value || '';
-  cfg.country_list  = (document.getElementById('rtp-country-list') || {}).value || '';
-  cfg.bot_cats = Array.from(document.querySelectorAll('#rtp-expand-bots .rtp-chip.on'))
-                      .map(function(c){ return c.textContent.trim(); });
-  localStorage.setItem('cfai_rtp_config', JSON.stringify(cfg));
+  cfg.rate_limit   = (document.getElementById('rtp-rate-limit')   || {}).value || '120';
+  cfg.block_ips    = (document.getElementById('rtp-block-ips')    || {}).value || '';
+  cfg.allow_ips    = (document.getElementById('rtp-allow-ips')    || {}).value || '';
+  cfg.crowdsec_key = (document.getElementById('rtp-crowdsec-key') || {}).value || '';
+  cfg.country_list = (document.getElementById('rtp-country-list') || {}).value || '';
+  cfg.bot_cats     = Array.from(document.querySelectorAll('#rtp-expand-bots .rtp-chip.on'))
+                         .map(function(c){ return c.textContent.trim(); });
+  return cfg;
+}
+
+function rtpSave() {
+  var cfg = _rtpCollectCfg();
   var msg = document.getElementById('rtp-save-msg');
-  if (msg) { msg.style.display = 'inline'; msg.textContent = 'Configuration saved.';
-             setTimeout(function(){ msg.style.display = 'none'; }, 2500); }
+  fetch('/api/rtp/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(cfg)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (msg) {
+      msg.style.display = 'inline';
+      msg.textContent   = d.ok ? 'Configuration saved and active.' : ('Error: ' + (d.error || 'unknown'));
+      msg.style.color   = d.ok ? '#166534' : '#991b1b';
+      setTimeout(function(){ msg.style.display = 'none'; }, 3000);
+    }
+    rtpRefreshStats();
+  })
+  .catch(function(e) {
+    if (msg) { msg.style.display='inline'; msg.textContent='Save failed: '+e; msg.style.color='#991b1b';
+               setTimeout(function(){ msg.style.display='none'; }, 3000); }
+  });
+}
+
+function _rtpApplyCfg(cfg) {
+  _RTP_KEYS.forEach(function(k) {
+    var el = document.getElementById('rtp-' + k);
+    if (!el) return;
+    var was = el.checked;
+    el.checked = !!cfg[k];
+    if (el.checked !== was) rtpToggle(k, el);
+  });
+  var map = {
+    'rtp-rate-limit':   cfg.rate_limit,
+    'rtp-block-ips':    cfg.block_ips,
+    'rtp-allow-ips':    cfg.allow_ips,
+    'rtp-country-list': cfg.country_list,
+  };
+  Object.keys(map).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && map[id] != null) el.value = map[id];
+  });
+  if (cfg.crowdsec_key) {
+    var ck = document.getElementById('rtp-crowdsec-key');
+    if (ck) ck.value = cfg.crowdsec_key;
+  }
+  if (Array.isArray(cfg.bot_cats)) {
+    document.querySelectorAll('#rtp-expand-bots .rtp-chip').forEach(function(chip) {
+      chip.classList.toggle('on', cfg.bot_cats.indexOf(chip.textContent.trim()) !== -1);
+    });
+  }
 }
 
 function rtpLoad() {
-  try {
-    var cfg = JSON.parse(localStorage.getItem('cfai_rtp_config') || '{}');
-    _RTP_KEYS.forEach(function(k) {
-      var el = document.getElementById('rtp-' + k);
-      if (!el) return;
-      if (cfg[k]) { el.checked = true; rtpToggle(k, el); }
+  fetch('/api/rtp/config')
+    .then(function(r){ return r.json(); })
+    .then(function(cfg) {
+      _rtpApplyCfg(cfg);
+      rtpRefreshStats();
+    })
+    .catch(function() {
+      // fallback to localStorage if API unavailable
+      try {
+        var cfg = JSON.parse(localStorage.getItem('cfai_rtp_config') || '{}');
+        _rtpApplyCfg(cfg);
+      } catch(e) {}
     });
-    if (cfg.rate_limit)   { var rl = document.getElementById('rtp-rate-limit');   if(rl) rl.value = cfg.rate_limit; }
-    if (cfg.block_ips)    { var bi = document.getElementById('rtp-block-ips');    if(bi) bi.value = cfg.block_ips; }
-    if (cfg.allow_ips)    { var ai = document.getElementById('rtp-allow-ips');    if(ai) ai.value = cfg.allow_ips; }
-    if (cfg.crowdsec_key) { var ck = document.getElementById('rtp-crowdsec-key'); if(ck) ck.value = cfg.crowdsec_key; }
-    if (cfg.country_list) { var cl = document.getElementById('rtp-country-list'); if(cl) cl.value = cfg.country_list; }
-    if (cfg.bot_cats && cfg.bot_cats.length) {
-      document.querySelectorAll('#rtp-expand-bots .rtp-chip').forEach(function(chip) {
-        chip.classList.toggle('on', cfg.bot_cats.indexOf(chip.textContent.trim()) !== -1);
-      });
-    }
-  } catch(e) {}
 }
 
-document.addEventListener('DOMContentLoaded', rtpLoad);
+function _rtpRuleBadge(rule) {
+  return '<span class="rtp-rule-badge ' + rule + '">' + rule + '</span>';
+}
+
+function rtpRefreshStats() {
+  fetch('/api/rtp/stats')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var set = function(id, v) { var el=document.getElementById(id); if(el) el.textContent=v; };
+      set('rtp-stat-today',   d.today_blocked   != null ? d.today_blocked   : '—');
+      set('rtp-stat-total',   d.total_blocked   != null ? d.total_blocked   : '—');
+      set('rtp-stat-session', d.session_blocked != null ? d.session_blocked : '—');
+      set('rtp-stat-tor',     d.tor_nodes       != null ? d.tor_nodes       : '—');
+      set('rtp-active-count', d.active_rules    != null ? d.active_rules    : '—');
+      var ts = document.getElementById('rtp-stats-ts');
+      if (ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString();
+      // Render events table
+      var body = document.getElementById('rtp-events-body');
+      if (body) {
+        if (!d.recent || !d.recent.length) {
+          body.innerHTML = '<div class="rtp-empty-msg">No blocked requests yet — protection is active.</div>';
+        } else {
+          var rows = d.recent.map(function(ev) {
+            var t = ev.ts ? ev.ts.replace('T',' ').replace('Z','') : '';
+            return '<tr>'
+              + '<td>' + (t.substring(0,19) || '') + '</td>'
+              + '<td>' + _rtpRuleBadge(ev.rule || '') + '</td>'
+              + '<td style="font-family:monospace">' + (ev.ip || '') + '</td>'
+              + '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (ev.path || '') + '</td>'
+              + '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c5)">' + (ev.reason || '') + '</td>'
+              + '</tr>';
+          }).join('');
+          body.innerHTML = '<table class="rtp-events-table">'
+            + '<thead><tr><th>Time (UTC)</th><th>Rule</th><th>IP</th><th>Path</th><th>Reason</th></tr></thead>'
+            + '<tbody>' + rows + '</tbody></table>';
+        }
+      }
+    })
+    .catch(function() {});
+}
+
+function rtpRefreshTor(btn) {
+  var status = document.getElementById('rtp-tor-status');
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = 'Refreshing…';
+  fetch('/api/rtp/tor/refresh', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function() {
+      if (status) status.textContent = 'Refreshed.';
+      if (btn) btn.disabled = false;
+      setTimeout(function(){ rtpRefreshStats(); }, 1500);
+    })
+    .catch(function() {
+      if (status) status.textContent = 'Failed.';
+      if (btn) btn.disabled = false;
+    });
+}
+
+function rtpTest() {
+  var inp = document.getElementById('rtp-test-input');
+  var res = document.getElementById('rtp-test-result');
+  if (!inp || !res) return;
+  var payload = inp.value.trim();
+  if (!payload) return;
+  res.style.display = 'none';
+  fetch('/api/rtp/test', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({payload: payload})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    res.style.display = 'block';
+    if (d.blocked) {
+      var rules = Object.keys(d.matched_rules || {}).join(', ');
+      res.className = 'rtp-test-result blocked';
+      res.textContent = 'BLOCKED — matched rules: ' + rules + '. This payload would be blocked by the active WAF.';
+    } else {
+      res.className = 'rtp-test-result allowed';
+      res.textContent = 'ALLOWED — no active rule matched this payload. Check your rule configuration.';
+    }
+  })
+  .catch(function(e) {
+    res.style.display = 'block';
+    res.className = 'rtp-test-result blocked';
+    res.textContent = 'Test error: ' + e;
+  });
+}
+
+function _rtpStartAutoRefresh() {
+  if (_rtpStatsTimer) clearInterval(_rtpStatsTimer);
+  _rtpStatsTimer = setInterval(function() {
+    if (document.getElementById('page-rtp') &&
+        document.getElementById('page-rtp').style.display !== 'none') {
+      rtpRefreshStats();
+    } else {
+      clearInterval(_rtpStatsTimer);
+      _rtpStatsTimer = null;
+    }
+  }, 30000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  rtpLoad();
+  _rtpStartAutoRefresh();
+});
 
 </script>
 <script>

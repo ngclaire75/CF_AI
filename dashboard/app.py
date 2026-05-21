@@ -63,6 +63,7 @@ _SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '').strip()
 _geoip_cache: dict = {}
 # ── Dashboard summary cache — per-user, 60s TTL ──────────────────────────────
 import time as _time_mod
+import collections as _collections
 _summary_cache: dict = {}   # keyed by username, value: {'data': [...], 'ts': float}
 _pci_cache:     dict = {}   # keyed by username, value: {'data': dict, 'ts': float}
 
@@ -1352,6 +1353,272 @@ def _enforce_auth():
     u = session['user']
     if request.path.startswith('/api/admin/') and u.get('role') != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RUNTIME PROTECTION — WAF middleware
+# ══════════════════════════════════════════════════════════════════════════════
+
+_RTP_CONFIG_FILE = Path(__file__).parent.parent / 'data' / 'rtp_config.json'
+_RTP_LOG_FILE    = Path(__file__).parent.parent / 'data' / 'rtp_blocked.jsonl'
+
+_rtp_config: dict = {}
+_rtp_config_lock  = _threading.Lock()
+
+_rtp_stats: dict = {
+    'total':   0,
+    'by_rule': _collections.Counter(),
+    'recent':  _collections.deque(maxlen=200),
+}
+_rtp_stats_lock = _threading.Lock()
+
+# Per-IP rate-limit buckets {ip: deque of float timestamps}
+_rtp_rate_buckets: dict = {}
+_rtp_rate_lock = _threading.Lock()
+
+# Tor exit-node cache
+_rtp_tor_nodes: set = set()
+_rtp_tor_ts: float  = 0.0
+_rtp_tor_lock = _threading.Lock()
+
+# CrowdSec decision cache {ip: (blocked: bool, ts: float)}
+_rtp_cs_cache: dict = {}
+_rtp_cs_lock = _threading.Lock()
+
+# ── Attack detection regexes ──────────────────────────────────────────────────
+_SQLI_RE = re.compile(
+    r"(?i)(?:"
+    r"'[\s]*(?:or|and)[\s]+'|"
+    r"\b(?:select|union|insert|update|delete|drop|alter|truncate|declare|"
+    r"exec(?:ute)?|cast|convert|xp_\w+|sp_\w+)\b|"
+    r";\s*(?:drop|delete|truncate|insert|update|create|alter)\b|"
+    r"\d\s*=\s*\d|0x[0-9a-f]+|"
+    r"\bwaitfor\s+delay\b|\bsleep\s*\(|"
+    r"\bload_file\b|\binto\s+outfile\b|"
+    r"--[\s\S]|/\*[\s\S]*?\*/"
+    r")"
+)
+_CMDI_RE = re.compile(
+    r'(?:[;&|`]|\$\(|\$\{|%0a|%0d)[\s\S]{0,40}'
+    r'(?:ls|cat|rm|wget|curl|bash|sh|python3?|perl|ruby|nc|netcat|'
+    r'chmod|chown|id|whoami|uname|passwd|/etc/|/bin/|/usr/)',
+    re.IGNORECASE
+)
+_PATH_RE = re.compile(
+    r'(?:\.\./|\.\.\\|%2e%2e[%/\\]|%252e%252e|%c0%ae%c0%ae)',
+    re.IGNORECASE
+)
+_BOT_PATTERNS: dict = {
+    'SEO Crawlers':  re.compile(r'(?i)googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|ia_archiver'),
+    'AI Scrapers':   re.compile(r'(?i)gptbot|chatgpt-user|claudebot|ccbot|bytespider|petalbot|amazonbot'),
+    'AI Assistants': re.compile(r'(?i)openai|bingpreview|google-extended'),
+    'Archivers':     re.compile(r'(?i)archive\.org_bot|wayback|httrack'),
+    'Vuln Scanners': re.compile(r'(?i)nikto|nessus|nmap|masscan|sqlmap|dirbuster|gobuster|wpscan|nuclei|acunetix|zap'),
+    'Generic Bots':  re.compile(r'(?i)\bbot\b|\bspider\b|\bcrawler\b|\bscraper\b|python-requests|go-http-client|libwww-perl'),
+}
+
+def _rtp_load_config_from_disk() -> dict:
+    try:
+        with open(_RTP_CONFIG_FILE, 'r') as fh:
+            return _json.load(fh)
+    except Exception:
+        return {}
+
+def _rtp_persist(cfg: dict) -> None:
+    try:
+        _RTP_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_RTP_CONFIG_FILE, 'w') as fh:
+            _json.dump(cfg, fh, indent=2)
+    except Exception:
+        pass
+
+def _rtp_log_event(rule: str, ip: str, path: str, reason: str) -> None:
+    ev = {
+        'ts':     _datetime.datetime.utcnow().isoformat() + 'Z',
+        'rule':   rule,
+        'ip':     ip,
+        'path':   path,
+        'reason': reason,
+    }
+    with _rtp_stats_lock:
+        _rtp_stats['total'] += 1
+        _rtp_stats['by_rule'][rule] += 1
+        _rtp_stats['recent'].appendleft(ev)
+    try:
+        _RTP_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_RTP_LOG_FILE, 'a') as fh:
+            fh.write(_json.dumps(ev) + '\n')
+    except Exception:
+        pass
+
+def _rtp_real_ip() -> str:
+    fwd = request.headers.get('X-Forwarded-For', '')
+    return fwd.split(',')[0].strip() if fwd else (request.remote_addr or '0.0.0.0')
+
+def _rtp_ip_in_list(ip: str, entries: list) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    for e in entries:
+        e = e.strip()
+        if not e:
+            continue
+        try:
+            if '/' in e:
+                if addr in ipaddress.ip_network(e, strict=False):
+                    return True
+            elif addr == ipaddress.ip_address(e):
+                return True
+        except ValueError:
+            pass
+    return False
+
+def _rtp_refresh_tor(force: bool = False) -> None:
+    global _rtp_tor_nodes, _rtp_tor_ts
+    with _rtp_tor_lock:
+        if not force and _time.time() - _rtp_tor_ts < 3600:
+            return
+        try:
+            with _up_req.urlopen('https://check.torproject.org/torbulkexitlist', timeout=6) as r:
+                lines = r.read().decode().splitlines()
+            _rtp_tor_nodes = {l.strip() for l in lines if l.strip() and not l.startswith('#')}
+            _rtp_tor_ts = _time.time()
+        except Exception:
+            pass
+
+def _rtp_crowdsec_blocked(ip: str, key: str) -> bool:
+    with _rtp_cs_lock:
+        cached = _rtp_cs_cache.get(ip)
+        if cached and _time.time() - cached[1] < 900:
+            return cached[0]
+    blocked = False
+    try:
+        req = _up_req.Request(
+            f'https://cti.api.crowdsec.net/v2/smoke/{ip}',
+            headers={'x-api-key': key, 'User-Agent': 'cfai-waf/1.0'}
+        )
+        with _up_req.urlopen(req, timeout=3) as r:
+            data = _json.loads(r.read())
+        score = ((data.get('scores') or {}).get('overall') or {})
+        blocked = int(score.get('aggressiveness', 0)) >= 3
+    except Exception:
+        pass
+    with _rtp_cs_lock:
+        _rtp_cs_cache[ip] = (blocked, _time.time())
+    return blocked
+
+def _rtp_scan_inputs() -> tuple:
+    """Scan all request inputs for injection/traversal. Returns (rule, reason) or (None,None)."""
+    candidates = list(request.args.values()) + list(request.form.values())
+    try:
+        body = request.get_json(silent=True, force=True)
+        if isinstance(body, dict):
+            candidates += [str(v) for v in body.values()]
+        elif isinstance(body, list):
+            candidates += [str(v) for v in body]
+    except Exception:
+        pass
+    try:
+        raw = request.get_data(as_text=True, cache=True)
+        if raw and len(raw) < 8192:
+            candidates.append(raw)
+    except Exception:
+        pass
+    candidates.append(request.path)
+    for val in candidates:
+        s = str(val)
+        if _SQLI_RE.search(s):
+            return ('sqli', f'SQLi pattern: {s[:80]}')
+        if _CMDI_RE.search(s):
+            return ('cmdi', f'CMDi pattern: {s[:80]}')
+        if _PATH_RE.search(s):
+            return ('path', f'Path traversal: {s[:80]}')
+    return (None, None)
+
+@app.before_request
+def _rtp_waf():
+    skip = ('/static/', '/login', '/signup', '/logout', '/verify/',
+            '/api/rtp/', '/api/syslog/hec', '/api/syslog/ingest',
+            '/api/events/ingest', '/api/payment/')
+    if any(request.path.startswith(p) for p in skip):
+        return None
+    with _rtp_config_lock:
+        cfg = dict(_rtp_config)
+    if not cfg:
+        return None
+
+    ip = _rtp_real_ip()
+    ua = request.headers.get('User-Agent', '')
+
+    # Allowlist — skip all checks for trusted IPs
+    allow_list = [x for x in cfg.get('allow_ips', '').splitlines() if x.strip()]
+    if allow_list and _rtp_ip_in_list(ip, allow_list):
+        return None
+
+    # Blocklist
+    if cfg.get('block'):
+        block_list = [x for x in cfg.get('block_ips', '').splitlines() if x.strip()]
+        if block_list and _rtp_ip_in_list(ip, block_list):
+            _rtp_log_event('block', ip, request.path, 'IP blocklist')
+            return jsonify({'error': 'Access denied', 'rule': 'block'}), 403
+
+    # Tor exit nodes
+    if cfg.get('tor'):
+        _rtp_refresh_tor()
+        if ip in _rtp_tor_nodes:
+            _rtp_log_event('tor', ip, request.path, 'Tor exit node')
+            return jsonify({'error': 'Access denied', 'rule': 'tor'}), 403
+
+    # CrowdSec
+    if cfg.get('crowdsec'):
+        key = cfg.get('crowdsec_key', '').strip()
+        if key and _rtp_crowdsec_blocked(ip, key):
+            _rtp_log_event('crowdsec', ip, request.path, 'CrowdSec threat feed')
+            return jsonify({'error': 'Access denied', 'rule': 'crowdsec'}), 403
+
+    # Country blocking
+    if cfg.get('countries'):
+        blocked_cc = [c.strip().upper() for c in cfg.get('country_list', '').split(',') if c.strip()]
+        if blocked_cc:
+            cc = _geoip_detail(ip).get('country_code', '')
+            if cc and cc.upper() in blocked_cc:
+                _rtp_log_event('countries', ip, request.path, f'Country: {cc}')
+                return jsonify({'error': 'Access denied', 'rule': 'countries'}), 403
+
+    # Bot blocking
+    if cfg.get('bots') and ua:
+        enabled = cfg.get('bot_cats', [])
+        for cat, pat in _BOT_PATTERNS.items():
+            if cat in enabled and pat.search(ua):
+                _rtp_log_event('bots', ip, request.path, f'Bot ({cat})')
+                return jsonify({'error': 'Access denied', 'rule': 'bots'}), 403
+
+    # Rate limiting
+    if cfg.get('rate'):
+        limit = int(cfg.get('rate_limit', 120))
+        now   = _time.time()
+        with _rtp_rate_lock:
+            bucket = _rtp_rate_buckets.setdefault(ip, _collections.deque())
+            while bucket and now - bucket[0] > 60.0:
+                bucket.popleft()
+            bucket.append(now)
+            count = len(bucket)
+        if count > limit:
+            _rtp_log_event('rate', ip, request.path, f'{count}/{limit} rpm')
+            return jsonify({'error': 'Too many requests', 'rule': 'rate'}), 429
+
+    # Injection / path traversal
+    if cfg.get('sqli') or cfg.get('cmdi') or cfg.get('path'):
+        rule, reason = _rtp_scan_inputs()
+        if rule and cfg.get(rule):
+            _rtp_log_event(rule, ip, request.path, reason)
+            return jsonify({'error': 'Request blocked', 'rule': rule}), 403
+
+    return None
+
+# Load WAF config at startup
+with _rtp_config_lock:
+    _rtp_config = _rtp_load_config_from_disk()
 
 # ── Auth routes ───────────────────────────────────────────────────────────────
 @app.route('/login', methods=['GET', 'POST'])
@@ -15559,6 +15826,95 @@ def gcal_callback():
                 'You may close this tab.'), 200
     except Exception as exc:
         return f'OAuth callback error: {exc}', 500
+
+
+# ── RTP API ───────────────────────────────────────────────────────────────────
+
+@app.route('/api/rtp/config', methods=['GET'])
+@login_required
+def rtp_config_get():
+    with _rtp_config_lock:
+        cfg = dict(_rtp_config)
+    if cfg.get('crowdsec_key'):
+        cfg['crowdsec_key'] = '••••••••'
+    return jsonify(cfg)
+
+
+@app.route('/api/rtp/config', methods=['POST'])
+@login_required
+def rtp_config_save():
+    data = request.get_json(silent=True) or {}
+    with _rtp_config_lock:
+        if data.get('crowdsec_key') == '••••••••':
+            data['crowdsec_key'] = _rtp_config.get('crowdsec_key', '')
+        _rtp_config.update(data)
+        _rtp_persist(dict(_rtp_config))
+    return jsonify({'ok': True})
+
+
+@app.route('/api/rtp/stats', methods=['GET'])
+@login_required
+def rtp_stats_get():
+    with _rtp_stats_lock:
+        session_total = _rtp_stats['total']
+        by_rule       = dict(_rtp_stats['by_rule'])
+        recent        = list(_rtp_stats['recent'])
+
+    file_total  = 0
+    today_total = 0
+    today_str   = _datetime.datetime.utcnow().strftime('%Y-%m-%d')
+    try:
+        with open(_RTP_LOG_FILE, 'r') as fh:
+            for line in fh:
+                file_total += 1
+                try:
+                    ev = _json.loads(line)
+                    if ev.get('ts', '').startswith(today_str):
+                        today_total += 1
+                except Exception:
+                    pass
+    except FileNotFoundError:
+        pass
+
+    with _rtp_config_lock:
+        rule_keys    = ['sqli', 'cmdi', 'path', 'rate', 'block', 'tor', 'crowdsec', 'bots', 'countries']
+        active_count = sum(1 for k in rule_keys if _rtp_config.get(k))
+
+    return jsonify({
+        'total_blocked':   file_total,
+        'today_blocked':   today_total,
+        'session_blocked': session_total,
+        'by_rule':         by_rule,
+        'active_rules':    active_count,
+        'recent':          recent[:20],
+        'tor_nodes':       len(_rtp_tor_nodes),
+    })
+
+
+@app.route('/api/rtp/tor/refresh', methods=['POST'])
+@login_required
+def rtp_tor_refresh():
+    _threading.Thread(target=lambda: _rtp_refresh_tor(force=True), daemon=True).start()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/rtp/test', methods=['POST'])
+@login_required
+def rtp_test():
+    """Test whether a given payload would be blocked by the current WAF config."""
+    data    = request.get_json(silent=True) or {}
+    payload = str(data.get('payload', ''))
+    results = {}
+    with _rtp_config_lock:
+        cfg = dict(_rtp_config)
+    if cfg.get('sqli') and _SQLI_RE.search(payload):
+        results['sqli'] = True
+    if cfg.get('cmdi') and _CMDI_RE.search(payload):
+        results['cmdi'] = True
+    if cfg.get('path') and _PATH_RE.search(payload):
+        results['path'] = True
+    blocked = bool(results)
+    return jsonify({'blocked': blocked, 'matched_rules': results, 'payload': payload[:200]})
 
 
 if __name__ == '__main__':
