@@ -4170,14 +4170,37 @@ Export Power BI
   <!-- ══ RUNTIME PROTECTION PAGE ══════════════════════════════════════════════ -->
   <div id="page-rtp" class="page-section" style="display:none">
   <style>
+    /* ── Hero ── */
     .rtp-hero{padding:28px 28px 16px;max-width:1300px;margin:0 auto}
     .rtp-hero-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px}
     .rtp-title{font-size:22px;font-weight:800;color:var(--c1);letter-spacing:-.3px}
-    .rtp-subtitle{font-size:13px;color:var(--c5);margin-top:5px;line-height:1.6;max-width:560px}
+    .rtp-subtitle{font-size:13px;color:var(--c5);margin-top:5px;line-height:1.6;max-width:580px}
     .rtp-badge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;font-weight:700;background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:3px 10px;border-radius:20px}
     .rtp-stats{display:flex;gap:24px;flex-wrap:wrap}
     .rtp-stat-num{font-size:22px;font-weight:800;color:var(--c4)}
     .rtp-stat-lbl{font-size:10px;color:var(--c5);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    /* ── Feature info cards ── */
+    .rtp-feat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .rtp-feat-card{background:var(--c11);border:1px solid var(--c8);border-radius:8px;padding:14px 16px}
+    .rtp-feat-title{font-size:12px;font-weight:700;color:var(--c1);margin-bottom:4px}
+    .rtp-feat-desc{font-size:11px;color:var(--c5);line-height:1.5}
+    /* ── Peace of mind callout ── */
+    .rtp-peace{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .rtp-peace-inner{background:linear-gradient(135deg,#0f172a,#1e3a8a);border-radius:12px;padding:24px 28px;display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap}
+    .rtp-peace-left{flex:1;min-width:220px}
+    .rtp-peace-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:6px}
+    .rtp-peace-sub{font-size:12px;color:#93c5fd;line-height:1.6}
+    .rtp-peace-items{display:flex;flex-direction:column;gap:8px;flex:1;min-width:200px}
+    .rtp-peace-item{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#dbeafe;line-height:1.5}
+    .rtp-peace-check{width:18px;height:18px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:10px;color:#fff;font-weight:800}
+    /* ── Background strip ── */
+    .rtp-bg-strip{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .rtp-bg-strip-inner{background:var(--c10);border:1px solid var(--c8);border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+    .rtp-bg-strip-title{font-size:13px;font-weight:700;color:var(--c1);flex-shrink:0}
+    .rtp-bg-items{display:flex;gap:20px;flex-wrap:wrap}
+    .rtp-bg-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--c2)}
+    .rtp-bg-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0}
+    /* ── Rules grid ── */
     .rtp-body{padding:0 28px 28px;max-width:1300px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
     @media(max-width:1000px){.rtp-body{grid-template-columns:1fr 1fr}}
     @media(max-width:640px){.rtp-body{grid-template-columns:1fr}}
@@ -4214,13 +4237,70 @@ Export Power BI
     <div class="rtp-hero-top">
       <div>
         <div class="rtp-title">Runtime Protection</div>
-        <div class="rtp-subtitle">Block attacks in real time before they reach your application — injection attacks, malicious traffic, bots, and known threat actors.</div>
-        <div class="rtp-badge">RUNTIME WAF</div>
+        <div class="rtp-subtitle">Runs inside your application with zero external dependencies. Blocks injection attacks, bots, and malicious traffic in real time — before they ever reach your database.</div>
+        <div class="rtp-badge">ALWAYS-ON PROTECTION</div>
       </div>
       <div class="rtp-stats">
         <div><div class="rtp-stat-num" id="rtp-active-count">0</div><div class="rtp-stat-lbl">Rules Active</div></div>
         <div><div class="rtp-stat-num">9</div><div class="rtp-stat-lbl">Total Rules</div></div>
-        <div><div class="rtp-stat-num">Real-time</div><div class="rtp-stat-lbl">Blocking Mode</div></div>
+        <div><div class="rtp-stat-num">In-App</div><div class="rtp-stat-lbl">No External Deps</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature info cards -->
+  <div class="rtp-feat-row">
+    <div class="rtp-feat-card">
+      <div class="rtp-feat-title">Fully Embedded</div>
+      <div class="rtp-feat-desc">Runs inside your application with no reliance on external servers. Zero external dependencies, faster performance, always-on security.</div>
+    </div>
+    <div class="rtp-feat-card">
+      <div class="rtp-feat-title">Easy Setup</div>
+      <div class="rtp-feat-desc">No extra infrastructure or hardware required. Toggle rules on, save config, and protection is active immediately — no agents to deploy.</div>
+    </div>
+    <div class="rtp-feat-card">
+      <div class="rtp-feat-title">Low Performance Impact</div>
+      <div class="rtp-feat-desc">Analyzes data on the fly with minimal overhead. Designed to have near-zero effect on response times for legitimate requests.</div>
+    </div>
+    <div class="rtp-feat-card">
+      <div class="rtp-feat-title">Way Less False Positives</div>
+      <div class="rtp-feat-desc">Blocklists are too simple. With in-app context, Runtime Protection knows the difference between a malicious command and legitimate user input.</div>
+    </div>
+    <div class="rtp-feat-card">
+      <div class="rtp-feat-title">Stop Attacks in Real-Time</div>
+      <div class="rtp-feat-desc">Blocks attacks before they ever reach your database. SQL injection, command injection, path traversal — stopped at the application layer.</div>
+    </div>
+    <div class="rtp-feat-card">
+      <div class="rtp-feat-title">Block Users, Bots &amp; Countries</div>
+      <div class="rtp-feat-desc">Get extra control when something doesn't feel right — restrict by IP routes, block entire countries, or ban specific bots and threat actors.</div>
+    </div>
+  </div>
+
+  <!-- Peace of mind callout -->
+  <div class="rtp-peace">
+    <div class="rtp-peace-inner">
+      <div class="rtp-peace-left">
+        <div class="rtp-peace-title">Get peace of mind at runtime</div>
+        <div class="rtp-peace-sub">Concerned about spam, bots, or malicious user input? Runtime Protection gives you always-on security so you don't have to worry.</div>
+      </div>
+      <div class="rtp-peace-items">
+        <div class="rtp-peace-item"><div class="rtp-peace-check">&#10003;</div><span>No more updating rulesets manually</span></div>
+        <div class="rtp-peace-item"><div class="rtp-peace-check">&#10003;</div><span>No constant monitoring required</span></div>
+        <div class="rtp-peace-item"><div class="rtp-peace-check">&#10003;</div><span>No extra follow-up actions needed</span></div>
+        <div class="rtp-peace-item"><div class="rtp-peace-check">&#10003;</div><span>No more breaches from injection attacks</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Runs in the background strip -->
+  <div class="rtp-bg-strip">
+    <div class="rtp-bg-strip-inner">
+      <div class="rtp-bg-strip-title">Runs in the background</div>
+      <div class="rtp-bg-items">
+        <div class="rtp-bg-item"><div class="rtp-bg-dot"></div>Analyzes data on the fly and blocks attacks automatically</div>
+        <div class="rtp-bg-item"><div class="rtp-bg-dot"></div>No rulesets to update</div>
+        <div class="rtp-bg-item"><div class="rtp-bg-dot"></div>No monitoring dashboards to watch</div>
+        <div class="rtp-bg-item"><div class="rtp-bg-dot"></div>No follow-up actions required</div>
       </div>
     </div>
   </div>
