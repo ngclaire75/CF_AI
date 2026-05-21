@@ -15917,6 +15917,339 @@ def rtp_test():
     return jsonify({'blocked': blocked, 'matched_rules': results, 'payload': payload[:200]})
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# MALWARE DETECTION MODULE
+# ══════════════════════════════════════════════════════════════════════════════
+
+_MLD_SCAN_FILE  = Path(__file__).parent.parent / 'data' / 'mld_scans.jsonl'
+_MLD_ALERT_FILE = Path(__file__).parent.parent / 'data' / 'mld_alerts.json'
+_MLD_FEED_CACHE: dict = {'data': [], 'ts': 0.0}
+_MLD_FEED_LOCK  = _threading.Lock()
+
+_MLD_KNOWN: dict = {
+    'npm': {
+        'event-stream':            'Injected with flatmap-stream backdoor targeting BitcoinGold wallets (GHSA-g4d3-h8cr-w83p)',
+        'flatmap-stream':          'Bitcoin Gold wallet credential stealer — injected into event-stream',
+        'ua-parser-js':            'Cryptominer + password stealer injected in 0.7.29, 0.8.0, 1.0.0 (GHSA-pjwm-rvh2-c87p)',
+        'coa':                     'Password stealer injected in 2.0.3, 2.0.4, 2.1.1, 2.1.3 (GHSA-73qr-pfmq-6rp8)',
+        'rc':                      'Password stealer injected in 1.2.9, 1.3.9, 2.3.9 (GHSA-g2q5-5433-rhrf)',
+        'node-ipc':                'Protestware — wipes files on Russian/Belarusian IPs in 10.1.1–10.1.3 (CVE-2022-23812)',
+        'colors':                  'Author sabotaged 1.4.1+ with infinite loop (CVE-2022-0536)',
+        'klow':                    'Typosquat — exfiltrates environment variables to attacker C2',
+        'lodash-utils':            'Typosquat of lodash — contains crypto miner',
+        'discordjs-token-grabber': 'Discord token stealer masquerading as discord.js helper',
+        'twilio-npm':              'Typosquat of twilio — exfiltrates /etc/passwd and environment',
+        'cross-env.js':            'Typosquat of cross-env — remote code execution payload',
+    },
+    'pypi': {
+        'colourama':          'Typosquat of colorama — substitutes Bitcoin addresses in clipboard',
+        'reqeusts':           'Typosquat of requests — exfiltrates environment variables',
+        'django-server':      'Typosquat of django — reverse shell on install',
+        'setup-tools':        'Typosquat of setuptools — data exfiltration',
+        'python-dateutil2':   'Typosquat of python-dateutil — backdoor + reverse shell',
+        'aiohttp-requests':   'Typosquat of aiohttp — steals AWS credentials',
+        'py-jwt':             'Typosquat of PyJWT — credential harvester',
+    },
+    'rubygems': {
+        'pretty_color': 'Typosquat of paint gem — credential harvester',
+        'rest-client':  'rest-client 1.6.13 compromised with reverse shell backdoor',
+    },
+    'nuget': {
+        'Newtonsoft.Json.Net': 'Typosquat of Newtonsoft.Json — drops trojan on install',
+        'Bootstrap.Less':      'Typosquat of Bootstrap — data exfiltration',
+    },
+}
+
+def _mld_parse_manifest(content: str, ecosystem: str) -> list:
+    eco = ecosystem.lower()
+    pkgs = []
+    if eco == 'npm':
+        try:
+            data = _json.loads(content)
+            for section in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
+                for name, ver in (data.get(section) or {}).items():
+                    clean = re.sub(r'^[^0-9]*', '', str(ver)).split(' ')[0] if ver else ''
+                    pkgs.append({'name': name, 'version': clean, 'ecosystem': 'npm'})
+        except Exception:
+            for m in re.finditer(r'"([^"@\s][^"@]*)":\s*"([0-9][^"]*)"', content):
+                pkgs.append({'name': m.group(1), 'version': m.group(2), 'ecosystem': 'npm'})
+    elif eco in ('pypi', 'python'):
+        for line in content.splitlines():
+            line = re.sub(r'#.*', '', line).strip()
+            if not line or line.startswith(('-', '[')):
+                continue
+            m = re.match(r'^([A-Za-z0-9_.-]+)\s*(?:[>=<!~^]+\s*([0-9][A-Za-z0-9._-]*))?', line)
+            if m:
+                pkgs.append({'name': m.group(1), 'version': m.group(2) or '', 'ecosystem': 'PyPI'})
+    elif eco == 'maven':
+        for m in re.finditer(r'<dependency>(.*?)</dependency>', content, re.DOTALL):
+            dep = m.group(1)
+            gid = re.search(r'<groupId>(.*?)</groupId>', dep)
+            aid = re.search(r'<artifactId>(.*?)</artifactId>', dep)
+            ver = re.search(r'<version>(.*?)</version>', dep)
+            if gid and aid:
+                pkgs.append({'name': f'{gid.group(1)}:{aid.group(1)}',
+                             'version': ver.group(1) if ver else '', 'ecosystem': 'Maven'})
+    elif eco in ('rubygems', 'ruby'):
+        for line in content.splitlines():
+            m = re.match(r"^\s*gem\s+['\"]([A-Za-z0-9_.-]+)['\"](?:.*?['\"]([0-9][^'\"]*)['\"])?", line)
+            if m:
+                pkgs.append({'name': m.group(1), 'version': m.group(2) or '', 'ecosystem': 'RubyGems'})
+    elif eco in ('nuget', '.net'):
+        for m in re.finditer(r'Include="([^"]+)"\s+Version="([^"]*)"', content, re.IGNORECASE):
+            pkgs.append({'name': m.group(1), 'version': m.group(2), 'ecosystem': 'NuGet'})
+        for m in re.finditer(r'<package\s+id="([^"]+)"\s+version="([^"]*)"', content, re.IGNORECASE):
+            pkgs.append({'name': m.group(1), 'version': m.group(2), 'ecosystem': 'NuGet'})
+    return pkgs
+
+def _mld_check_known(packages: list) -> list:
+    out = []
+    for p in packages:
+        eco = p.get('ecosystem', '').lower()
+        key = {'pypi': 'pypi', 'rubygems': 'rubygems', 'nuget': 'nuget'}.get(eco, 'npm')
+        db  = _MLD_KNOWN.get(key, {})
+        note = db.get(p['name']) or db.get(p['name'].lower())
+        if note:
+            out.append({'package': p['name'], 'version': p.get('version', ''),
+                        'ecosystem': p.get('ecosystem', ''), 'vuln_id': 'CFAI-KNOWN-MAL',
+                        'title': 'Known malicious package', 'summary': note,
+                        'severity': 'CRITICAL', 'is_malware': True,
+                        'fix': 'Remove immediately', 'published': '', 'refs': []})
+    return out
+
+def _mld_osv_scan(packages: list) -> list:
+    if not packages:
+        return []
+    queries = []
+    for p in packages[:100]:
+        q: dict = {'package': {'name': p['name'], 'ecosystem': p['ecosystem']}}
+        if p.get('version'):
+            q['version'] = p['version']
+        queries.append(q)
+    try:
+        payload = _json.dumps({'queries': queries}).encode()
+        req = _up_req.Request('https://api.osv.dev/v1/querybatch', data=payload,
+                              headers={'Content-Type': 'application/json',
+                                       'User-Agent': 'cfai-mld/1.0'}, method='POST')
+        with _up_req.urlopen(req, timeout=25) as resp:
+            data = _json.loads(resp.read())
+    except Exception:
+        return []
+    out = []
+    for i, result in enumerate(data.get('results', [])):
+        vulns = result.get('vulns') or []
+        if not vulns:
+            continue
+        pkg = packages[i] if i < len(packages) else {}
+        for v in vulns:
+            db  = v.get('database_specific') or {}
+            sev = (db.get('severity') or 'MEDIUM').upper()
+            if sev not in ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW'):
+                sev = 'MEDIUM'
+            fix = ''
+            for aff in (v.get('affected') or []):
+                for rng in (aff.get('ranges') or []):
+                    for ev in (rng.get('events') or []):
+                        if 'fixed' in ev:
+                            fix = ev['fixed']
+                            break
+                    if fix:
+                        break
+                if fix:
+                    break
+            vid = v.get('id', '')
+            out.append({'package': pkg.get('name', ''), 'version': pkg.get('version', ''),
+                        'ecosystem': pkg.get('ecosystem', ''), 'vuln_id': vid,
+                        'title': (v.get('summary') or '')[:120],
+                        'summary': (v.get('details') or '')[:400],
+                        'severity': sev,
+                        'is_malware': vid.startswith('MAL-') or 'malware' in (v.get('summary') or '').lower(),
+                        'fix': fix or 'See advisory', 'published': (v.get('published') or '')[:10],
+                        'refs': [(r.get('url') or '') for r in (v.get('references') or [])[:3]]})
+    return out
+
+def _mld_fetch_feed() -> list:
+    with _MLD_FEED_LOCK:
+        if _time.time() - _MLD_FEED_CACHE['ts'] < 3600 and _MLD_FEED_CACHE['data']:
+            return list(_MLD_FEED_CACHE['data'])
+    entries = []
+    try:
+        url = ('https://api.github.com/advisories'
+               '?type=malware&per_page=30&sort=published&direction=desc')
+        req = _up_req.Request(url, headers={
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'cfai-mld/1.0',
+            'X-GitHub-Api-Version': '2022-11-28',
+        })
+        with _up_req.urlopen(req, timeout=12) as resp:
+            items = _json.loads(resp.read())
+        for adv in (items if isinstance(items, list) else []):
+            pkg_name, pkg_eco = '', ''
+            for vuln in (adv.get('vulnerabilities') or []):
+                p2 = vuln.get('package') or {}
+                if p2.get('name'):
+                    pkg_name = p2['name']
+                    pkg_eco  = p2.get('ecosystem', '')
+                    break
+            entries.append({'id': adv.get('ghsa_id', ''), 'package': pkg_name,
+                            'ecosystem': pkg_eco, 'summary': adv.get('summary', ''),
+                            'severity': (adv.get('severity') or 'UNKNOWN').upper(),
+                            'published': (adv.get('published_at') or '')[:10],
+                            'url': adv.get('html_url', ''),
+                            'cve': adv.get('cve_id') or ''})
+    except Exception:
+        pass
+    if not entries:
+        entries = [
+            {'id': 'GHSA-pjwm-rvh2-c87p', 'package': 'ua-parser-js', 'ecosystem': 'npm',
+             'summary': 'Cryptominer and password stealer injected in 0.7.29, 0.8.0, 1.0.0',
+             'severity': 'CRITICAL', 'published': '2021-10-22',
+             'url': 'https://github.com/advisories/GHSA-pjwm-rvh2-c87p', 'cve': 'CVE-2021-41265'},
+            {'id': 'GHSA-73qr-pfmq-6rp8', 'package': 'coa', 'ecosystem': 'npm',
+             'summary': 'Compromised versions 2.0.3/2.0.4/2.1.1 inject password stealer',
+             'severity': 'CRITICAL', 'published': '2021-11-04',
+             'url': 'https://github.com/advisories/GHSA-73qr-pfmq-6rp8', 'cve': 'CVE-2021-43616'},
+            {'id': 'GHSA-97m3-w2cp-4xx6', 'package': 'node-ipc', 'ecosystem': 'npm',
+             'summary': 'Protestware wipes files on Russian/Belarusian IPs (10.1.1–10.1.3)',
+             'severity': 'CRITICAL', 'published': '2022-03-16',
+             'url': 'https://github.com/advisories/GHSA-97m3-w2cp-4xx6', 'cve': 'CVE-2022-23812'},
+            {'id': 'GHSA-g4d3-h8cr-w83p', 'package': 'event-stream', 'ecosystem': 'npm',
+             'summary': 'Backdoor injected via flatmap-stream targeting BitcoinGold wallets',
+             'severity': 'HIGH', 'published': '2018-11-27',
+             'url': 'https://github.com/advisories/GHSA-g4d3-h8cr-w83p', 'cve': ''},
+            {'id': 'MAL-colourama', 'package': 'colourama', 'ecosystem': 'PyPI',
+             'summary': 'Typosquat of colorama — substitutes Bitcoin addresses in clipboard',
+             'severity': 'HIGH', 'published': '2018-10-08', 'url': '', 'cve': ''},
+            {'id': 'MAL-rest-client', 'package': 'rest-client', 'ecosystem': 'RubyGems',
+             'summary': 'rest-client 1.6.13 compromised with reverse shell backdoor',
+             'severity': 'CRITICAL', 'published': '2019-08-19', 'url': '', 'cve': ''},
+            {'id': 'MAL-twilio-npm', 'package': 'twilio-npm', 'ecosystem': 'npm',
+             'summary': 'Typosquat of twilio — exfiltrates /etc/passwd and environment variables',
+             'severity': 'HIGH', 'published': '2020-08-21', 'url': '', 'cve': ''},
+        ]
+    with _MLD_FEED_LOCK:
+        _MLD_FEED_CACHE['data'] = entries
+        _MLD_FEED_CACHE['ts']   = _time.time()
+    return entries
+
+def _mld_save_scan(user: str, eco: str, pkg_count: int, findings: list) -> None:
+    rec = {'ts': _datetime.datetime.utcnow().isoformat() + 'Z', 'user': user,
+           'ecosystem': eco, 'pkg_count': pkg_count, 'finding_count': len(findings),
+           'critical': sum(1 for f in findings if f.get('severity') == 'CRITICAL'),
+           'high':     sum(1 for f in findings if f.get('severity') == 'HIGH'),
+           'malware':  sum(1 for f in findings if f.get('is_malware'))}
+    try:
+        _MLD_SCAN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_MLD_SCAN_FILE, 'a') as fh:
+            fh.write(_json.dumps(rec) + '\n')
+    except Exception:
+        pass
+
+def _mld_load_history(limit: int = 50) -> list:
+    rows = []
+    try:
+        with open(_MLD_SCAN_FILE, 'r') as fh:
+            for line in fh:
+                try:
+                    rows.append(_json.loads(line))
+                except Exception:
+                    pass
+    except FileNotFoundError:
+        pass
+    return rows[-limit:][::-1]
+
+
+@app.route('/api/mld/scan', methods=['POST'])
+@login_required
+def mld_scan():
+    data      = request.get_json(silent=True) or {}
+    manifest  = data.get('manifest', '').strip()
+    ecosystem = data.get('ecosystem', 'npm').strip()
+    if not manifest:
+        return jsonify({'error': 'No manifest provided'}), 400
+    packages = _mld_parse_manifest(manifest, ecosystem)
+    if not packages:
+        return jsonify({'error': 'Could not parse any packages from the manifest. '
+                                 'Make sure the ecosystem matches the file format.'}), 400
+    known     = _mld_check_known(packages)
+    known_set = {f['package'].lower() for f in known}
+    osv       = [f for f in _mld_osv_scan(packages) if f['package'].lower() not in known_set]
+    findings  = known + osv
+    user      = (session.get('user') or {}).get('username', 'unknown')
+    _mld_save_scan(user, ecosystem, len(packages), findings)
+    return jsonify({'pkg_count': len(packages), 'finding_count': len(findings),
+                    'findings': findings, 'packages': packages[:300]})
+
+
+@app.route('/api/mld/feed', methods=['GET'])
+@login_required
+def mld_feed():
+    if request.args.get('refresh') == '1':
+        with _MLD_FEED_LOCK:
+            _MLD_FEED_CACHE['ts'] = 0.0
+    return jsonify({'feed': _mld_fetch_feed()})
+
+
+@app.route('/api/mld/history', methods=['GET'])
+@login_required
+def mld_history_api():
+    return jsonify({'history': _mld_load_history()})
+
+
+@app.route('/api/mld/sbom', methods=['POST'])
+@login_required
+def mld_sbom():
+    data     = request.get_json(silent=True) or {}
+    packages = data.get('packages', [])
+    findings = data.get('findings', [])
+    vuln_set = {f['package'].lower() for f in findings}
+    now_str  = _datetime.datetime.utcnow().isoformat() + 'Z'
+    sbom = {'bomFormat': 'CycloneDX', 'specVersion': '1.4', 'version': 1,
+            'metadata': {'timestamp': now_str,
+                         'tools': [{'name': 'CF_AI Malware Detection', 'version': '1.0'}]},
+            'components': [], 'vulnerabilities': []}
+    for p in packages:
+        comp = {'type': 'library', 'name': p.get('name', ''),
+                'version': p.get('version', ''),
+                'purl': f"pkg:{p.get('ecosystem','').lower()}/{p.get('name','')}@{p.get('version','')}"}
+        if p.get('name', '').lower() in vuln_set:
+            comp['properties'] = [{'name': 'risk', 'value': 'malware-detected'}]
+        sbom['components'].append(comp)
+    for f in findings:
+        sbom['vulnerabilities'].append({'id': f.get('vuln_id', ''),
+            'source': {'name': 'OSV / CFAI'},
+            'ratings': [{'severity': f.get('severity', 'UNKNOWN').lower()}],
+            'description': f.get('title', '') or f.get('summary', ''),
+            'affects': [{'ref': f.get('package', '')}]})
+    resp = make_response(_json.dumps(sbom, indent=2))
+    resp.headers['Content-Type'] = 'application/json'
+    resp.headers['Content-Disposition'] = 'attachment; filename="sbom.cdx.json"'
+    return resp
+
+
+@app.route('/api/mld/alerts/config', methods=['GET'])
+@login_required
+def mld_alerts_get():
+    try:
+        with open(_MLD_ALERT_FILE, 'r') as fh:
+            return jsonify(_json.load(fh))
+    except Exception:
+        return jsonify({'email_enabled': False, 'email': '', 'threshold': 'HIGH'})
+
+
+@app.route('/api/mld/alerts/config', methods=['POST'])
+@login_required
+def mld_alerts_save():
+    data = request.get_json(silent=True) or {}
+    try:
+        _MLD_ALERT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_MLD_ALERT_FILE, 'w') as fh:
+            _json.dump(data, fh, indent=2)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    return jsonify({'ok': True})
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('CFAI_DASHBOARD_PORT', 8889))
     print(f'CF_AI Dashboard running on http://0.0.0.0:{port}')

@@ -4566,6 +4566,79 @@ Export Power BI
     .mld-card-desc{font-size:11px;color:var(--c5);line-height:1.55}
     .mld-tag{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;padding:2px 7px;border-radius:20px;margin-top:8px;text-transform:uppercase;letter-spacing:.04em}
     .mld-tag.med{background:#fffbeb;color:#92400e;border-color:#fcd34d}
+    /* ── Tabbed functional interface ── */
+    .mld-tabs-wrap{padding:0 28px 28px;max-width:1300px;margin:0 auto}
+    .mld-tabs{display:flex;gap:0;border-bottom:2px solid var(--c8);margin-bottom:0}
+    .mld-tab{padding:9px 20px;font-size:12px;font-weight:600;color:var(--c5);background:transparent;border:none;cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s}
+    .mld-tab:hover{color:var(--c1)}
+    .mld-tab.active{color:#2563eb;border-bottom-color:#2563eb}
+    .mld-pane{padding-top:16px}
+    /* Scanner pane */
+    .mld-scanner-hdr{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+    .mld-scanner-title{font-size:14px;font-weight:700;color:var(--c1)}
+    .mld-scanner-sub{font-size:11px;color:var(--c5);margin-top:3px}
+    .mld-eco-row{display:flex;align-items:center;gap:8px}
+    .mld-eco-label{font-size:11px;font-weight:600;color:var(--c2)}
+    .mld-eco-select{padding:6px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none;font-family:inherit}
+    .mld-manifest-input{width:100%;min-height:130px;padding:10px 12px;border:1px solid var(--c8);border-radius:8px;font-size:11px;font-family:monospace;color:var(--c1);background:var(--c11);resize:vertical;outline:none;box-sizing:border-box;line-height:1.5}
+    .mld-manifest-input:focus{border-color:#2563eb}
+    .mld-scan-actions{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+    .mld-scan-btn{padding:9px 22px;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+    .mld-scan-btn:hover{opacity:.9}
+    .mld-scan-btn:disabled{opacity:.5;cursor:not-allowed}
+    .mld-sbom-btn{padding:9px 18px;background:var(--c10);border:1px solid var(--c8);border-radius:7px;font-size:12px;font-weight:600;color:var(--c2);cursor:pointer;font-family:inherit}
+    .mld-sbom-btn:hover{background:var(--c8)}
+    .mld-scan-status{font-size:12px;color:var(--c5)}
+    /* Results table */
+    .mld-result-summary{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+    .mld-result-stat{padding:8px 14px;border-radius:7px;font-size:12px;font-weight:700;border:1px solid}
+    .mld-result-stat.clean{background:#f0fdf4;color:#166534;border-color:#86efac}
+    .mld-result-stat.warn{background:#fffbeb;color:#92400e;border-color:#fcd34d}
+    .mld-result-stat.danger{background:#fef2f2;color:#991b1b;border-color:#fca5a5}
+    .mld-result-stat.info{background:var(--c10);color:var(--c2);border-color:var(--c8)}
+    .mld-result-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+    .mld-result-table th{padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--c5);border-bottom:2px solid var(--c8);background:var(--c10)}
+    .mld-result-table td{padding:9px 12px;border-bottom:1px solid var(--c8);vertical-align:top}
+    .mld-result-table tr:hover td{background:var(--c10)}
+    .mld-sev{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .mld-sev.CRITICAL{background:#fef2f2;color:#991b1b;border:1px solid #fca5a5}
+    .mld-sev.HIGH{background:#fff7ed;color:#9a3412;border:1px solid #fdba74}
+    .mld-sev.MEDIUM{background:#fffbeb;color:#92400e;border:1px solid #fcd34d}
+    .mld-sev.LOW{background:#f0fdf4;color:#166534;border:1px solid #86efac}
+    .mld-malware-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;margin-left:4px}
+    .mld-empty{padding:28px;text-align:center;color:var(--c5);font-size:12px}
+    /* Feed pane */
+    .mld-feed-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+    .mld-feed-title{font-size:14px;font-weight:700;color:var(--c1)}
+    .mld-feed-sub{font-size:11px;color:var(--c5)}
+    .mld-feed-refresh{padding:6px 14px;background:var(--c10);border:1px solid var(--c8);border-radius:6px;font-size:11px;font-weight:600;color:var(--c2);cursor:pointer;font-family:inherit}
+    .mld-feed-item{background:var(--c11);border:1px solid var(--c8);border-radius:8px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px}
+    .mld-feed-sev-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px}
+    .mld-feed-pkg{font-size:13px;font-weight:700;color:var(--c1)}
+    .mld-feed-eco{font-size:10px;font-weight:600;color:var(--c5);margin-left:6px;background:var(--c10);border:1px solid var(--c8);padding:1px 6px;border-radius:10px}
+    .mld-feed-summary{font-size:11px;color:var(--c5);margin-top:4px;line-height:1.5}
+    .mld-feed-meta{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
+    .mld-feed-id{font-size:10px;font-family:monospace;color:var(--c5)}
+    .mld-feed-date{font-size:10px;color:var(--c5)}
+    .mld-feed-link{font-size:10px;color:#2563eb;text-decoration:none}
+    .mld-feed-link:hover{text-decoration:underline}
+    /* History pane */
+    .mld-hist-table{width:100%;border-collapse:collapse;font-size:12px}
+    .mld-hist-table th{padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--c5);border-bottom:2px solid var(--c8);background:var(--c10)}
+    .mld-hist-table td{padding:9px 12px;border-bottom:1px solid var(--c8);color:var(--c2);vertical-align:middle}
+    .mld-hist-table tr:hover td{background:var(--c10)}
+    /* Alerts pane */
+    .mld-alerts-form{max-width:500px}
+    .mld-alerts-title{font-size:14px;font-weight:700;color:var(--c1);margin-bottom:4px}
+    .mld-alerts-sub{font-size:11px;color:var(--c5);margin-bottom:16px;line-height:1.5}
+    .mld-field{margin-bottom:14px}
+    .mld-field-label{font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+    .mld-field-input{width:100%;padding:8px 12px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none;box-sizing:border-box;font-family:inherit}
+    .mld-field-input:focus{border-color:#2563eb}
+    .mld-field-select{width:100%;padding:8px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none;font-family:inherit}
+    .mld-toggle-row{display:flex;align-items:center;gap:10px}
+    .mld-save-alerts-btn{padding:9px 22px;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px}
+    .mld-alerts-msg{font-size:12px;color:#166534;font-weight:600;margin-left:10px}
   </style>
 
   <!-- Hero -->
@@ -4640,84 +4713,116 @@ Export Power BI
     </div>
   </div>
 
-  <!-- Threat categories grid -->
-  <div class="mld-body">
+  <!-- Functional tabbed interface -->
+  <div class="mld-tabs-wrap">
+    <div class="mld-tabs">
+      <button class="mld-tab active" id="mld-tab-scanner" onclick="mldTab('scanner',this)">Dependency Scanner</button>
+      <button class="mld-tab" id="mld-tab-feed"    onclick="mldTab('feed',this)">Live Threat Feed</button>
+      <button class="mld-tab" id="mld-tab-history" onclick="mldTab('history',this)">Scan History</button>
+      <button class="mld-tab" id="mld-tab-alerts"  onclick="mldTab('alerts',this)">Alerts</button>
+    </div>
 
-    <!-- Column 1 — Package-Based Attacks -->
-    <div>
-      <div class="mld-section-title">Package-Based Attacks</div>
-      <div class="mld-card" style="margin-bottom:12px">
-        <div class="mld-card-hdr">
-          <div class="mld-card-icon">&#128187;</div>
-          <div>
-            <div class="mld-card-title">Crypto Mining Hijacks</div>
-            <div class="mld-card-desc">Malicious packages that silently consume your CPU and cloud resources to mine cryptocurrency — driving up server costs without any trace in your own code.</div>
-            <div class="mld-tag">High Severity</div>
-          </div>
+    <!-- ── Scanner pane ── -->
+    <div class="mld-pane" id="mld-pane-scanner">
+      <div class="mld-scanner-hdr">
+        <div>
+          <div class="mld-scanner-title">Dependency Scanner</div>
+          <div class="mld-scanner-sub">Paste your manifest file and select the ecosystem to scan for malware &amp; known vulnerabilities via OSV.dev</div>
+        </div>
+        <div class="mld-eco-row">
+          <span class="mld-eco-label">Ecosystem:</span>
+          <select class="mld-eco-select" id="mld-ecosystem" onchange="mldUpdatePlaceholder()">
+            <option value="npm">npm (package.json)</option>
+            <option value="pypi">PyPI (requirements.txt)</option>
+            <option value="maven">Maven (pom.xml)</option>
+            <option value="rubygems">RubyGems (Gemfile)</option>
+            <option value="nuget">NuGet (.csproj)</option>
+          </select>
         </div>
       </div>
-      <div class="mld-card">
-        <div class="mld-card-hdr">
-          <div class="mld-card-icon">&#128274;</div>
-          <div>
-            <div class="mld-card-title">Credential Theft</div>
-            <div class="mld-card-desc">Packages that intercept environment variables, API keys, or auth tokens and exfiltrate them to attacker-controlled servers on install or at runtime.</div>
-            <div class="mld-tag">Critical</div>
-          </div>
+      <textarea class="mld-manifest-input" id="mld-manifest" placeholder='Paste your package.json here...&#10;&#10;Example:&#10;{&#10;  "dependencies": {&#10;    "express": "^4.18.0",&#10;    "lodash": "4.17.21"&#10;  }&#10;}'></textarea>
+      <div class="mld-scan-actions">
+        <button class="mld-scan-btn" id="mld-scan-btn" onclick="mldScan()">Scan Dependencies</button>
+        <button class="mld-sbom-btn" id="mld-sbom-btn" onclick="mldExportSbom()" style="display:none">Export SBOM (CycloneDX)</button>
+        <span class="mld-scan-status" id="mld-scan-status"></span>
+      </div>
+      <div id="mld-scan-results"></div>
+    </div>
+
+    <!-- ── Live Threat Feed pane ── -->
+    <div class="mld-pane" id="mld-pane-feed" style="display:none">
+      <div class="mld-feed-hdr">
+        <div>
+          <div class="mld-feed-title">Live Malware Threat Feed</div>
+          <div class="mld-feed-sub">Recently discovered malicious packages — sourced from GitHub Advisory Database &amp; curated intelligence</div>
         </div>
+        <button class="mld-feed-refresh" onclick="mldLoadFeed(true)">Refresh</button>
+      </div>
+      <div id="mld-feed-body">
+        <div class="mld-empty">Loading threat feed…</div>
       </div>
     </div>
 
-    <!-- Column 2 — Code Manipulation -->
-    <div>
-      <div class="mld-section-title">Code Manipulation</div>
-      <div class="mld-card" style="margin-bottom:12px">
-        <div class="mld-card-hdr">
-          <div class="mld-card-icon">&#128373;</div>
-          <div>
-            <div class="mld-card-title">Code Obfuscation &amp; Backdoors</div>
-            <div class="mld-card-desc">Malicious packages obfuscate their source to hide backdoors. Detected by behavioral analysis — not just pattern matching — so even novel obfuscation is caught.</div>
-            <div class="mld-tag">High Severity</div>
-          </div>
+    <!-- ── History pane ── -->
+    <div class="mld-pane" id="mld-pane-history" style="display:none">
+      <div class="mld-feed-hdr">
+        <div>
+          <div class="mld-feed-title">Scan History</div>
+          <div class="mld-feed-sub">Recent dependency scans performed on this dashboard</div>
         </div>
+        <button class="mld-feed-refresh" onclick="mldLoadHistory()">Refresh</button>
       </div>
-      <div class="mld-card">
-        <div class="mld-card-hdr">
-          <div class="mld-card-icon">&#128196;</div>
-          <div>
-            <div class="mld-card-title">Data Exfiltration</div>
-            <div class="mld-card-desc">Packages that read sensitive files, scrape environment variables, or capture traffic and quietly send data out — causing breaches and massive public fallout.</div>
-            <div class="mld-tag">Critical</div>
-          </div>
-        </div>
+      <div id="mld-history-body">
+        <div class="mld-empty">Loading history…</div>
       </div>
     </div>
 
-    <!-- Column 3 — Supply Chain -->
-    <div>
-      <div class="mld-section-title">Supply Chain Attacks</div>
-      <div class="mld-card" style="margin-bottom:12px">
-        <div class="mld-card-hdr">
-          <div class="mld-card-icon">&#128260;</div>
-          <div>
-            <div class="mld-card-title">Dependency Confusion</div>
-            <div class="mld-card-desc">Attackers publish packages with the same name as your private internal modules on public registries, tricking package managers into pulling malicious code.</div>
-            <div class="mld-tag">High Severity</div>
+    <!-- ── Alerts pane ── -->
+    <div class="mld-pane" id="mld-pane-alerts" style="display:none">
+      <div class="mld-alerts-form">
+        <div class="mld-alerts-title">Alert Configuration</div>
+        <div class="mld-alerts-sub">Get notified the moment malware or a critical vulnerability is detected in a dependency scan.</div>
+
+        <div class="mld-field">
+          <div class="mld-field-label">Email Notifications</div>
+          <div class="mld-toggle-row">
+            <label class="rtp-toggle"><input type="checkbox" id="mld-alert-email-on"><span class="rtp-slider"></span></label>
+            <span style="font-size:12px;color:var(--c2)">Send alerts via email</span>
           </div>
         </div>
-      </div>
-      <div class="mld-card">
-        <div class="mld-card-hdr">
-          <div class="mld-card-icon">&#128269;</div>
-          <div>
-            <div class="mld-card-title">Typosquatting</div>
-            <div class="mld-card-desc">Malicious packages registered under names nearly identical to popular libraries — one typo in your install command and attackers are inside your build pipeline.</div>
-            <div class="mld-tag med">Medium Severity</div>
+
+        <div class="mld-field">
+          <div class="mld-field-label">Alert Email Address</div>
+          <input class="mld-field-input" id="mld-alert-email" type="email" placeholder="security@yourcompany.com">
+        </div>
+
+        <div class="mld-field">
+          <div class="mld-field-label">Minimum Severity to Alert</div>
+          <select class="mld-field-select" id="mld-alert-threshold">
+            <option value="CRITICAL">Critical only</option>
+            <option value="HIGH" selected>High and above</option>
+            <option value="MEDIUM">Medium and above</option>
+            <option value="LOW">All severities</option>
+          </select>
+        </div>
+
+        <div class="mld-field">
+          <div class="mld-field-label">Slack Webhook URL (optional)</div>
+          <input class="mld-field-input" id="mld-alert-slack" type="url" placeholder="https://hooks.slack.com/services/…">
+        </div>
+
+        <div class="mld-field">
+          <div class="mld-field-label">Alert on Malware Only</div>
+          <div class="mld-toggle-row">
+            <label class="rtp-toggle"><input type="checkbox" id="mld-alert-malware-only"><span class="rtp-slider"></span></label>
+            <span style="font-size:12px;color:var(--c2)">Only alert for confirmed malware (ignore regular CVEs)</span>
           </div>
         </div>
+
+        <button class="mld-save-alerts-btn" onclick="mldSaveAlerts()">Save Alert Settings</button>
+        <span class="mld-alerts-msg" id="mld-alerts-msg" style="display:none"></span>
       </div>
     </div>
-
   </div>
 
   </div><!-- /page-mld -->
@@ -22856,6 +22961,237 @@ function dcaAiPentest() {
     if (st) st.textContent = 'Error: ' + e;
   });
 }
+
+// ── Malware Detection ─────────────────────────────────────────────────────────
+var _mldScanData = null;  // last scan result for SBOM export
+
+var _MLD_PLACEHOLDERS = {
+  npm:      'Paste your package.json here…\n\nExample:\n{\n  "dependencies": {\n    "express": "^4.18.0",\n    "lodash": "4.17.21"\n  }\n}',
+  pypi:     'Paste your requirements.txt here…\n\nExample:\nrequests==2.31.0\nDjango>=4.2.0\nnumpy',
+  maven:    'Paste your pom.xml <dependencies> block here…',
+  rubygems: 'Paste your Gemfile here…\n\nExample:\ngem "rails", "~> 7.0"\ngem "devise"',
+  nuget:    'Paste your .csproj PackageReference section here…',
+};
+
+function mldUpdatePlaceholder() {
+  var eco = (document.getElementById('mld-ecosystem') || {}).value || 'npm';
+  var ta  = document.getElementById('mld-manifest');
+  if (ta) ta.placeholder = _MLD_PLACEHOLDERS[eco] || '';
+}
+
+function mldTab(name, btn) {
+  ['scanner','feed','history','alerts'].forEach(function(n) {
+    var pane = document.getElementById('mld-pane-' + n);
+    var tab  = document.getElementById('mld-tab-' + n);
+    if (pane) pane.style.display = n === name ? '' : 'none';
+    if (tab)  tab.classList.toggle('active', n === name);
+  });
+  if (name === 'feed')    mldLoadFeed(false);
+  if (name === 'history') mldLoadHistory();
+  if (name === 'alerts')  mldLoadAlerts();
+}
+
+function _mldSevColor(sev) {
+  return {CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#d97706',LOW:'#16a34a'}[sev] || '#6b7280';
+}
+
+function _mldSevBadge(sev) {
+  return '<span class="mld-sev ' + sev + '">' + sev + '</span>';
+}
+
+function mldScan() {
+  var manifest  = (document.getElementById('mld-manifest') || {}).value || '';
+  var ecosystem = (document.getElementById('mld-ecosystem') || {}).value || 'npm';
+  var btn       = document.getElementById('mld-scan-btn');
+  var status    = document.getElementById('mld-scan-status');
+  var results   = document.getElementById('mld-scan-results');
+  if (!manifest.trim()) { if (status) status.textContent = 'Please paste a manifest file first.'; return; }
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = 'Scanning…';
+  if (results) results.innerHTML = '';
+  document.getElementById('mld-sbom-btn').style.display = 'none';
+
+  fetch('/api/mld/scan', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({manifest: manifest, ecosystem: ecosystem})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (btn) btn.disabled = false;
+    if (d.error) { if (status) status.textContent = 'Error: ' + d.error; return; }
+    _mldScanData = d;
+    if (status) status.textContent = '';
+
+    var findings  = d.findings || [];
+    var pkgCount  = d.pkg_count || 0;
+    var malware   = findings.filter(function(f){ return f.is_malware; });
+    var critical  = findings.filter(function(f){ return f.severity === 'CRITICAL'; });
+    var high      = findings.filter(function(f){ return f.severity === 'HIGH'; });
+
+    var summary = '';
+    if (!findings.length) {
+      summary = '<div class="mld-result-stat clean">&#10003; ' + pkgCount + ' packages scanned — no issues found</div>';
+    } else {
+      summary = '<div class="mld-result-stat info">' + pkgCount + ' packages scanned</div>'
+              + (malware.length  ? '<div class="mld-result-stat danger">' + malware.length + ' malware detected</div>' : '')
+              + (critical.length ? '<div class="mld-result-stat danger">' + critical.length + ' critical</div>' : '')
+              + (high.length     ? '<div class="mld-result-stat warn">'   + high.length     + ' high</div>'     : '')
+              + (findings.length - critical.length - high.length > 0
+                  ? '<div class="mld-result-stat info">' + (findings.length - critical.length - high.length) + ' other</div>' : '');
+    }
+
+    var tableRows = '';
+    if (findings.length) {
+      tableRows = '<table class="mld-result-table"><thead><tr>'
+        + '<th>Package</th><th>Version</th><th>Severity</th>'
+        + '<th>ID</th><th>Title</th><th>Fix</th></tr></thead><tbody>';
+      findings.forEach(function(f) {
+        var malBadge = f.is_malware ? '<span class="mld-malware-badge">MALWARE</span>' : '';
+        var refs = (f.refs && f.refs[0]) ? '<br><a class="mld-feed-link" href="' + f.refs[0] + '" target="_blank" rel="noopener">Advisory</a>' : '';
+        tableRows += '<tr>'
+          + '<td style="font-weight:600;color:var(--c1)">' + (f.package || '') + malBadge + '</td>'
+          + '<td style="font-family:monospace;color:var(--c5)">' + (f.version || 'any') + '</td>'
+          + '<td>' + _mldSevBadge(f.severity || 'UNKNOWN') + '</td>'
+          + '<td style="font-family:monospace;font-size:10px;color:var(--c5)">' + (f.vuln_id || '') + refs + '</td>'
+          + '<td style="max-width:260px"><div style="font-weight:600;font-size:11px;color:var(--c1)">' + (f.title || '') + '</div>'
+            + (f.summary ? '<div style="font-size:10px;color:var(--c5);margin-top:2px">' + f.summary.substring(0,180) + '</div>' : '')
+          + '</td>'
+          + '<td style="font-size:10px;color:#166534;font-weight:600">' + (f.fix || '') + '</td>'
+          + '</tr>';
+      });
+      tableRows += '</tbody></table>';
+    }
+
+    if (results) results.innerHTML = '<div class="mld-result-summary">' + summary + '</div>' + tableRows;
+    if (findings.length) document.getElementById('mld-sbom-btn').style.display = '';
+  })
+  .catch(function(e) {
+    if (btn) btn.disabled = false;
+    if (status) status.textContent = 'Scan failed: ' + e;
+  });
+}
+
+function mldExportSbom() {
+  if (!_mldScanData) return;
+  fetch('/api/mld/sbom', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({packages: _mldScanData.packages || [], findings: _mldScanData.findings || []})
+  })
+  .then(function(r){ return r.blob(); })
+  .then(function(blob) {
+    var url  = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url; link.download = 'sbom.cdx.json'; link.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  })
+  .catch(function(){});
+}
+
+function mldLoadFeed(force) {
+  var body = document.getElementById('mld-feed-body');
+  if (body) body.innerHTML = '<div class="mld-empty">Loading…</div>';
+  fetch('/api/mld/feed' + (force ? '?refresh=1' : ''))
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var feed = d.feed || [];
+      if (!body) return;
+      if (!feed.length) { body.innerHTML = '<div class="mld-empty">No threat feed data available.</div>'; return; }
+      body.innerHTML = feed.map(function(item) {
+        var dot   = '<div class="mld-feed-sev-dot" style="background:' + _mldSevColor(item.severity) + '"></div>';
+        var sev   = _mldSevBadge(item.severity || 'UNKNOWN');
+        var link  = item.url ? '<a class="mld-feed-link" href="' + item.url + '" target="_blank" rel="noopener">View Advisory</a>' : '';
+        var cve   = item.cve ? '<span class="mld-feed-id">' + item.cve + '</span>' : '';
+        return '<div class="mld-feed-item">' + dot
+          + '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+          + '<span class="mld-feed-pkg">' + (item.package || 'Unknown') + '</span>'
+          + '<span class="mld-feed-eco">' + (item.ecosystem || '') + '</span>' + sev + '</div>'
+          + '<div class="mld-feed-summary">' + (item.summary || '') + '</div>'
+          + '<div class="mld-feed-meta">'
+          + '<span class="mld-feed-id">' + (item.id || '') + '</span>'
+          + cve
+          + (item.published ? '<span class="mld-feed-date">' + item.published + '</span>' : '')
+          + link + '</div></div></div>';
+      }).join('');
+    })
+    .catch(function() { if (body) body.innerHTML = '<div class="mld-empty">Failed to load feed.</div>'; });
+}
+
+function mldLoadHistory() {
+  var body = document.getElementById('mld-history-body');
+  if (body) body.innerHTML = '<div class="mld-empty">Loading…</div>';
+  fetch('/api/mld/history')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var rows = d.history || [];
+      if (!body) return;
+      if (!rows.length) { body.innerHTML = '<div class="mld-empty">No scans recorded yet.</div>'; return; }
+      var tbl = '<table class="mld-hist-table"><thead><tr>'
+        + '<th>Time (UTC)</th><th>User</th><th>Ecosystem</th><th>Packages</th>'
+        + '<th>Findings</th><th>Critical</th><th>Malware</th></tr></thead><tbody>';
+      rows.forEach(function(r) {
+        var ts = (r.ts || '').replace('T',' ').replace('Z','').substring(0,19);
+        tbl += '<tr>'
+          + '<td style="font-family:monospace;font-size:11px">' + ts + '</td>'
+          + '<td>' + (r.user || '') + '</td>'
+          + '<td><span class="mld-feed-eco" style="margin:0">' + (r.ecosystem || '') + '</span></td>'
+          + '<td style="text-align:center">' + (r.pkg_count || 0) + '</td>'
+          + '<td style="text-align:center">' + (r.finding_count || 0) + '</td>'
+          + '<td style="text-align:center">' + (r.critical > 0 ? '<span style="color:#dc2626;font-weight:700">' + r.critical + '</span>' : '0') + '</td>'
+          + '<td style="text-align:center">' + (r.malware > 0 ? '<span class="mld-malware-badge" style="margin:0">' + r.malware + '</span>' : '0') + '</td>'
+          + '</tr>';
+      });
+      tbl += '</tbody></table>';
+      body.innerHTML = tbl;
+    })
+    .catch(function() { if (body) body.innerHTML = '<div class="mld-empty">Failed to load history.</div>'; });
+}
+
+function mldLoadAlerts() {
+  fetch('/api/mld/alerts/config')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val; };
+      var chk = function(id, val) { var el = document.getElementById(id); if (el) el.checked = !!val; };
+      chk('mld-alert-email-on',    d.email_enabled);
+      set('mld-alert-email',       d.email || '');
+      set('mld-alert-threshold',   d.threshold || 'HIGH');
+      set('mld-alert-slack',       d.slack_webhook || '');
+      chk('mld-alert-malware-only', d.malware_only);
+    })
+    .catch(function(){});
+}
+
+function mldSaveAlerts() {
+  var get = function(id) { var el = document.getElementById(id); return el ? el.value : ''; };
+  var chk = function(id) { var el = document.getElementById(id); return el ? el.checked : false; };
+  var cfg = {
+    email_enabled: chk('mld-alert-email-on'),
+    email:         get('mld-alert-email'),
+    threshold:     get('mld-alert-threshold'),
+    slack_webhook: get('mld-alert-slack'),
+    malware_only:  chk('mld-alert-malware-only'),
+  };
+  var msg = document.getElementById('mld-alerts-msg');
+  fetch('/api/mld/alerts/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(cfg)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (msg) {
+      msg.style.display = 'inline';
+      msg.textContent   = d.ok ? 'Alert settings saved.' : ('Error: ' + (d.error || ''));
+      msg.style.color   = d.ok ? '#166534' : '#991b1b';
+      setTimeout(function(){ msg.style.display = 'none'; }, 3000);
+    }
+  })
+  .catch(function(){});
+}
+
+document.addEventListener('DOMContentLoaded', mldUpdatePlaceholder);
 
 // ── Runtime Protection ────────────────────────────────────────────────────────
 var _RTP_KEYS = ['sqli','cmdi','path','rate','block','tor','crowdsec','bots','countries'];
