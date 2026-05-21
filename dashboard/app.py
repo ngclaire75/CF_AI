@@ -6767,54 +6767,18 @@ def grafana_proxy(path):
                     '}'
                     '::-webkit-scrollbar-thumb:hover{background:#4338ca;}'
                     '*{scrollbar-width:thin;scrollbar-color:#6366f1 #eef2ff;}'
-                    '.fix-btn{'
-                      'margin-top:22px;width:100%;padding:10px 0;'
-                      'background:linear-gradient(135deg,#4f46e5,#6366f1);'
-                      'color:#fff;border:none;border-radius:10px;'
-                      'font-size:.875rem;font-weight:700;cursor:pointer;'
-                      'font-family:inherit;letter-spacing:.01em;'
-                    '}'
-                    '.fix-btn:hover{opacity:.9}'
-                    '.fix-btn:disabled{opacity:.5;cursor:not-allowed}'
-                    '.fix-msg{margin-top:10px;font-size:.8rem;text-align:center;min-height:18px;color:#4f46e5}'
-                    '</style>'
-                    '<script>'
-                    'function fixIni(){'
-                      'var btn=document.getElementById("fix-btn");'
-                      'var msg=document.getElementById("fix-msg");'
-                      'btn.disabled=true;btn.textContent="Patching...";'
-                      'fetch("/api/grafana/patch-ini",{method:"POST"})'
-                        '.then(function(r){return r.json();})'
-                        '.then(function(d){'
-                          'if(d.ok){'
-                            'msg.style.color="#166534";'
-                            'msg.textContent="Done — "+(d.msg||"Grafana restarted. Refresh in ~10s.");'
-                            'btn.textContent="Patched";'
-                          '}else{'
-                            'msg.style.color="#991b1b";'
-                            'msg.textContent="Failed: "+(d.error||"unknown error");'
-                            'btn.disabled=false;btn.textContent="Fix automatically";'
-                          '}'
-                        '}).catch(function(){'
-                          'msg.style.color="#991b1b";'
-                          'msg.textContent="Request failed.";'
-                          'btn.disabled=false;btn.textContent="Fix automatically";'
-                        '});'
-                    '}'
-                    '</script>'
-                    '</head><body>'
+                    '</style></head><body>'
                     '<div class="card">'
                       '<div class="badge">Grafana</div>'
                       '<h1>Application files failed to load</h1>'
                       '<p class="sub">Grafana is running but its frontend assets could not be served through the reverse proxy.</p>'
                       '<div class="divider"></div>'
                       '<ol>'
-                        '<li><span class="num">1</span><span>Set <code>serve_from_sub_path = true</code> and <code>root_url</code> in <code>grafana.ini</code> to include the subpath — or use <strong>Fix automatically</strong> below.</span></li>'
+                        '<li><span class="num">1</span><span>Reverse proxy subpath — set <code>root_url</code> in <code>grafana.ini</code> to include the subpath, and enable <code>serve_from_sub_path = true</code>.</span></li>'
                         '<li><span class="num">2</span><span>Restart Grafana after any config change: <code>systemctl restart grafana-server</code></span></li>'
-                        '<li><span class="num">3</span><span>Check browser console for blocked asset requests — Grafana loads JS from <code>/public/build/</code>.</span></li>'
+                        '<li><span class="num">3</span><span>Try the <strong>Fix automatically</strong> button below to patch <code>grafana.ini</code> without SSH.</span></li>'
+                        '<li><span class="num">4</span><span>Check browser console for blocked asset requests — Grafana loads JS from <code>/public/build/</code>.</span></li>'
                       '</ol>'
-                      '<button id="fix-btn" class="fix-btn" onclick="fixIni()">Fix automatically</button>'
-                      '<div id="fix-msg" class="fix-msg"></div>'
                     '</div>'
                     '</body></html>'
                 )
@@ -7214,39 +7178,8 @@ echo "[OK] Setup complete — Grafana :3000, Prometheus :9090, Node Exporter :91
 @login_required
 def api_grafana_patch_ini():
     """Patch grafana.ini on an existing install to enable anonymous access + embedding."""
-    import subprocess, sys as _sys
-
-    if _sys.platform != 'win32':
-        # Linux: patch /etc/grafana/grafana.ini via bash
-        bash_script = (
-            'INI=/etc/grafana/grafana.ini\n'
-            'if [ ! -f "$INI" ]; then echo "ERR:grafana.ini not found at $INI"; exit 1; fi\n'
-            'grep -q "\\[auth\\.anonymous\\]" "$INI" || '
-            'printf "\\n[auth.anonymous]\\nenabled = true\\norg_name = Main Org.\\norg_role = Viewer\\n" >> "$INI"\n'
-            'grep -q "allow_embedding" "$INI" || '
-            'printf "\\n[security]\\nallow_embedding = true\\n" >> "$INI"\n'
-            'grep -q "serve_from_sub_path" "$INI" || '
-            'printf "\\n[server]\\nserve_from_sub_path = true\\n" >> "$INI"\n'
-            'systemctl restart grafana-server\n'
-            'sleep 3\n'
-            'echo "OK:$INI"\n'
-        )
-        try:
-            result = subprocess.run(
-                ['bash', '-c', bash_script],
-                capture_output=True, text=True, timeout=30
-            )
-            out = (result.stdout + result.stderr).strip()
-            if 'OK:' in out:
-                return jsonify({'ok': True, 'msg': 'grafana.ini patched and Grafana restarted.'})
-            if 'ERR:' in out:
-                return jsonify({'ok': False, 'error': out})
-            return jsonify({'ok': True, 'msg': out or 'Done.'})
-        except Exception as e:
-            return jsonify({'ok': False, 'error': str(e)})
-
-    # Windows: PowerShell script
-    ps_script = r"""
+    import subprocess
+    script = r"""
 $candidates = @(
     "C:\Program Files\GrafanaLabs\grafana\conf\grafana.ini",
     "C:\Program Files (x86)\GrafanaLabs\grafana\conf\grafana.ini"
@@ -7277,11 +7210,11 @@ foreach ($ini in $candidates) {
 }
 if (-not $patched) { Write-Host "ERR:grafana.ini not found" }
 """
-    import base64 as _b64
-    encoded = _b64.b64encode(ps_script.encode('utf-16-le')).decode('ascii')
+    import base64 as _b64, subprocess
+    encoded = _b64.b64encode(script.encode('utf-16-le')).decode('ascii')
     try:
         result = subprocess.run(
-            ['powershell.exe', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
+            ['powershell', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
             capture_output=True, text=True, timeout=20
         )
         out = (result.stdout + result.stderr).strip()
