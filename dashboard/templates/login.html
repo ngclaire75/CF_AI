@@ -113,7 +113,15 @@
     {% endif %}
 
     {% if error %}
-    <div class="alert alert-error">{{ error }}</div>
+    <div class="alert alert-error">
+      {{ error }}
+      {% if signup_hint %}
+      <div style="margin-top:10px;">
+        Don't have an account?
+        <a href="/signup" style="color:#93c5fd;font-weight:600;text-decoration:underline;">Create one with your Gmail &rarr;</a>
+      </div>
+      {% endif %}
+    </div>
     {% endif %}
 
     <form method="POST" action="/login">

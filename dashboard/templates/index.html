@@ -23522,8 +23522,15 @@ document.addEventListener('DOMContentLoaded', function() {
     f.setAttribute('autocomplete', 'off');
     f.style.display = 'contents';
     f.addEventListener('submit', function(e) { e.preventDefault(); });
+    // Hidden username field — required by password managers for accessibility
+    var u = document.createElement('input');
+    u.type = 'text'; u.setAttribute('autocomplete', 'username');
+    u.setAttribute('aria-hidden', 'true');
+    u.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;';
+    f.appendChild(u);
     inp.parentNode.insertBefore(f, inp);
     f.appendChild(inp);
+    if (!inp.getAttribute('autocomplete')) inp.setAttribute('autocomplete', 'new-password');
   });
 });
 </script>

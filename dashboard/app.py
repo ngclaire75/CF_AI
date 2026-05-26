@@ -1763,23 +1763,27 @@ with _rtp_alert_lock:
 def login_page():
     if session.get('user'):
         return redirect(url_for('index'))
-    error   = None
-    success = request.args.get('verified') == '1'
+    error       = None
+    signup_hint = False
+    success     = request.args.get('verified') == '1'
     if request.method == 'POST':
         identifier = (request.form.get('username') or '').strip()
         password   = request.form.get('password') or ''
         users      = _load_users()
         key, user  = _find_user_by_identifier(identifier, users)
-        if user and check_password_hash(user['password'], password):
-            if not user.get('verified', True):
-                error = 'Please verify your email before logging in. Check your inbox for the verification link.'
-            else:
-                session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', ''),
-                                   'country': user.get('country', ''), 'currency_code': user.get('currency_code', 'USD')}
-                return redirect(url_for('index'))
+        if user is None:
+            error       = 'No account found with that username or email.'
+            signup_hint = True
+        elif not check_password_hash(user['password'], password):
+            error = 'Incorrect password.'
+        elif not user.get('verified', True):
+            error = 'Please verify your email before logging in. Check your inbox for the verification link.'
         else:
-            error = 'Invalid username/email or password.'
-    return render_template('login.html', error=error, success='Account verified! You can now sign in.' if success else None)
+            session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', ''),
+                               'country': user.get('country', ''), 'currency_code': user.get('currency_code', 'USD')}
+            return redirect(url_for('index'))
+    return render_template('login.html', error=error, signup_hint=signup_hint,
+                           success='Account verified! You can now sign in.' if success else None)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup_page():
