@@ -17888,7 +17888,7 @@ function invRenderTable(rows) {
     var canCancel = (r.status === 'active' || r.status === 'pending');
     var actions = canCancel
       ? '<button class="mdef-toolbar-btn" style="color:#172554;border-color:#f1b3b7;" onclick="invConfirmCancel(' + r.id + ',\'' + _esc(r.username) + '\')">Cancel</button>'
-      : '<span style="color:var(--c6);font-size:11px;">' + r.status + '</span>';
+      : '<span style="color:var(--c6);font-size:11px;">' + r.status.charAt(0).toUpperCase() + r.status.slice(1) + '</span>';
     return '<tr>'
       + '<td style="font-weight:600;">' + _esc(r.username) + '</td>'
       + '<td style="color:var(--c4);">' + _esc(r.email || '—') + '</td>'
