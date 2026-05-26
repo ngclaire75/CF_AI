@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intel Web Security — AI-Powered Security Intelligence Platform</title>
+<link rel="icon" href="/static/Intel.jpeg" type="image/jpeg">
+<style>
+/* ─── Reset + Base ─────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',Arial,sans-serif;
+  background:#030712;color:#f1f5f9;line-height:1.6;overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+button{font-family:inherit;cursor:pointer}
+
+/* ─── CSS Variables ────────────────────────────────────────────── */
+:root{
+  --bg0:#030712;--bg1:#0a0f1e;--bg2:#0f172a;--bg3:#1e293b;
+  --blue:#2563eb;--blue2:#3b82f6;--blue3:#60a5fa;--blue4:#93c5fd;
+  --indigo:#4f46e5;--violet:#7c3aed;
+  --text:#f1f5f9;--text2:#cbd5e1;--text3:#94a3b8;--text4:#64748b;
+  --border:rgba(51,65,85,.6);--border2:rgba(37,99,235,.3);
+  --glow:rgba(37,99,235,.25);--glow2:rgba(96,165,250,.15);
+  --radius:14px;--radius2:20px;--radius3:28px;
+  --shadow:0 4px 24px rgba(0,0,0,.4);
+  --shadow2:0 8px 48px rgba(0,0,0,.5);
+  --font-display:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+}
+
+/* ─── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#0a0f1e}
+::-webkit-scrollbar-thumb{background:#1e3a8a;border-radius:3px}
+
+/* ─── Utility ──────────────────────────────────────────────────── */
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+.gradient-text{
+  background:linear-gradient(135deg,#60a5fa 0%,#2563eb 40%,#818cf8 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.gradient-text-warm{
+  background:linear-gradient(135deg,#f8fafc 0%,#93c5fd 60%,#60a5fa 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.tag{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.3);
+  color:#60a5fa;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  padding:5px 12px;border-radius:100px;
+}
+.tag .dot{width:6px;height:6px;border-radius:50%;background:#60a5fa;animation:pulse-dot 1.8s ease infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+
+/* ─── Animated Background ──────────────────────────────────────── */
+.bg-mesh{
+  position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+}
+.bg-mesh::before{
+  content:'';position:absolute;width:800px;height:800px;
+  background:radial-gradient(circle,rgba(37,99,235,.08) 0%,transparent 70%);
+  top:-200px;left:-200px;animation:mesh-move1 20s ease-in-out infinite;
+}
+.bg-mesh::after{
+  content:'';position:absolute;width:600px;height:600px;
+  background:radial-gradient(circle,rgba(79,70,229,.07) 0%,transparent 70%);
+  bottom:-100px;right:-100px;animation:mesh-move2 25s ease-in-out infinite;
+}
+.bg-mesh .orb3{
+  position:absolute;width:500px;height:500px;
+  background:radial-gradient(circle,rgba(96,165,250,.05) 0%,transparent 70%);
+  top:40%;left:40%;transform:translate(-50%,-50%);
+  animation:mesh-move3 30s ease-in-out infinite;
+}
+@keyframes mesh-move1{0%,100%{transform:translate(0,0)}33%{transform:translate(100px,80px)}66%{transform:translate(-60px,120px)}}
+@keyframes mesh-move2{0%,100%{transform:translate(0,0)}33%{transform:translate(-80px,-60px)}66%{transform:translate(60px,-100px)}}
+@keyframes mesh-move3{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.3)}}
+
+/* ─── Grid Lines Background ────────────────────────────────────── */
+.grid-bg{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(37,99,235,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(37,99,235,.04) 1px,transparent 1px);
+  background-size:60px 60px;
+}
+
+/* ─── Navigation ───────────────────────────────────────────────── */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  padding:0 24px;height:68px;display:flex;align-items:center;
+  transition:background .3s,border-color .3s,backdrop-filter .3s;
+}
+.nav.scrolled{
+  background:rgba(3,7,18,.85);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid rgba(37,99,235,.15);
+}
+.nav-inner{
+  max-width:1200px;margin:0 auto;width:100%;
+  display:flex;align-items:center;gap:0;
+}
+.nav-logo{
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+  font-size:17px;font-weight:700;letter-spacing:-.3px;color:#fff;
+  margin-right:40px;
+}
+.nav-logo img{width:32px;height:32px;border-radius:8px;object-fit:cover;}
+.nav-links{
+  display:flex;align-items:center;gap:4px;flex:1;
+}
+.nav-links a{
+  padding:7px 14px;border-radius:8px;font-size:14px;font-weight:500;
+  color:var(--text3);transition:color .2s,background .2s;
+}
+.nav-links a:hover{color:#fff;background:rgba(255,255,255,.06)}
+.nav-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.btn-nav-ghost{
+  padding:8px 18px;border-radius:8px;font-size:14px;font-weight:600;
+  color:var(--text2);border:1px solid var(--border);background:transparent;
+  transition:all .2s;
+}
+.btn-nav-ghost:hover{background:rgba(255,255,255,.06);color:#fff;border-color:rgba(255,255,255,.2)}
+.btn-nav-cta{
+  padding:8px 20px;border-radius:8px;font-size:14px;font-weight:600;
+  background:var(--blue);color:#fff;border:none;
+  transition:all .2s;box-shadow:0 0 0 0 var(--glow);
+}
+.btn-nav-cta:hover{background:#1d4ed8;transform:translateY(-1px);box-shadow:0 4px 20px rgba(37,99,235,.4)}
+
+/* ─── Hero ─────────────────────────────────────────────────────── */
+.hero{
+  position:relative;z-index:1;min-height:100vh;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  text-align:center;padding:140px 24px 80px;
+  overflow:hidden;
+}
+.hero-eyebrow{margin-bottom:28px;animation:fade-up .8s ease both .1s}
+.hero-headline{
+  font-size:clamp(40px,6vw,78px);font-weight:800;
+  line-height:1.08;letter-spacing:-2.5px;
+  color:#fff;margin-bottom:28px;
+  animation:fade-up .9s ease both .25s;
+  max-width:900px;
+}
+.hero-headline .line2{
+  display:block;margin-top:4px;
+}
+.hero-rotate-wrap{
+  display:inline-block;overflow:hidden;vertical-align:top;
+  height:1.08em;position:relative;
+}
+.hero-rotate-words{
+  display:flex;flex-direction:column;
+  animation:word-slide 8s ease-in-out infinite;
+}
+.hero-rotate-words span{
+  display:block;height:1.08em;line-height:1.08;
+  background:linear-gradient(135deg,#60a5fa 0%,#818cf8 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+@keyframes word-slide{
+  0%,18%{transform:translateY(0)}
+  22%,38%{transform:translateY(-100%)}
+  42%,58%{transform:translateY(-200%)}
+  62%,78%{transform:translateY(-300%)}
+  82%,100%{transform:translateY(0)}
+}
+.hero-sub{
+  font-size:clamp(16px,2.2vw,20px);color:var(--text3);
+  max-width:620px;line-height:1.65;margin-bottom:44px;
+  animation:fade-up .9s ease both .4s;
+}
+.hero-actions{
+  display:flex;flex-wrap:wrap;gap:14px;justify-content:center;
+  margin-bottom:60px;animation:fade-up .9s ease both .55s;
+}
+.btn-hero-primary{
+  padding:15px 36px;border-radius:12px;font-size:16px;font-weight:700;
+  background:var(--blue);color:#fff;border:none;
+  transition:all .25s;letter-spacing:-.1px;
+  box-shadow:0 0 40px rgba(37,99,235,.35);
+}
+.btn-hero-primary:hover{
+  background:#1d4ed8;transform:translateY(-2px);
+  box-shadow:0 8px 40px rgba(37,99,235,.5);
+}
+.btn-hero-ghost{
+  padding:14px 32px;border-radius:12px;font-size:16px;font-weight:600;
+  background:rgba(255,255,255,.06);color:#fff;
+  border:1px solid rgba(255,255,255,.15);transition:all .25s;
+}
+.btn-hero-ghost:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3)}
+.hero-trusted{
+  font-size:12px;color:var(--text4);letter-spacing:.3px;text-transform:uppercase;
+  margin-bottom:14px;animation:fade-up .9s ease both .65s;
+}
+.hero-badges{
+  display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+  animation:fade-up .9s ease both .75s;margin-bottom:72px;
+}
+.hero-badge{
+  display:flex;align-items:center;gap:7px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  border-radius:100px;padding:6px 14px;font-size:12px;font-weight:500;color:var(--text2);
+  transition:all .2s;
+}
+.hero-badge:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)}
+.hero-badge svg{width:14px;height:14px;fill:var(--blue3)}
+
+/* ─── Dashboard Preview ─────────────────────────────────────────── */
+.dashboard-preview{
+  position:relative;width:100%;max-width:1100px;margin:0 auto;
+  animation:fade-up 1s ease both .85s;
+}
+.preview-browser{
+  background:#0a1628;border:1px solid rgba(37,99,235,.25);border-radius:16px;
+  overflow:hidden;box-shadow:0 40px 120px rgba(0,0,0,.7),0 0 0 1px rgba(37,99,235,.1);
+}
+.preview-browser-bar{
+  background:#111827;padding:12px 16px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid rgba(37,99,235,.15);
+}
+.preview-dot{width:12px;height:12px;border-radius:50%}
+.preview-dot.r{background:#ef4444}.preview-dot.y{background:#f59e0b}.preview-dot.g{background:#22c55e}
+.preview-url{
+  flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:4px 12px;font-size:11px;color:var(--text4);
+  margin:0 12px;letter-spacing:.2px;
+}
+.preview-glow{
+  position:absolute;bottom:-60px;left:50%;transform:translateX(-50%);
+  width:80%;height:80px;
+  background:radial-gradient(ellipse,rgba(37,99,235,.2) 0%,transparent 70%);
+  filter:blur(20px);pointer-events:none;
+}
+
+/* ─── Dashboard Slideshow ───────────────────────────────────────── */
+.slides-outer{position:relative;overflow:hidden}
+.slides-track{display:flex;transition:transform .7s cubic-bezier(.4,0,.2,1)}
+.slide{
+  min-width:100%;padding:24px;
+  background:linear-gradient(180deg,#0a1628 0%,#060c1a 100%);
+}
+.slide-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;padding-bottom:16px;
+  border-bottom:1px solid rgba(37,99,235,.15);
+}
+.slide-title{font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px}
+.slide-title .icon{
+  width:28px;height:28px;border-radius:7px;
+  background:rgba(37,99,235,.2);display:flex;align-items:center;justify-content:center;
+}
+.slide-title .icon svg{width:14px;height:14px;stroke:#60a5fa;fill:none;stroke-width:2}
+.slide-status{
+  display:flex;align-items:center;gap:5px;
+  font-size:10px;font-weight:600;color:#22c55e;letter-spacing:.3px;
+}
+.slide-status .sdot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse-dot 1.5s ease infinite}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-box{
+  background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.15);
+  border-radius:10px;padding:14px 16px;
+}
+.stat-box .sv{font-size:22px;font-weight:800;color:#fff;line-height:1}
+.stat-box .sl{font-size:10px;color:var(--text4);margin-top:4px;font-weight:500;letter-spacing:.2px}
+.stat-box .sd{font-size:10px;color:#22c55e;margin-top:2px;font-weight:600}
+.chart-area{
+  background:rgba(0,0,0,.3);border:1px solid rgba(37,99,235,.1);
+  border-radius:10px;padding:16px;height:140px;position:relative;overflow:hidden;
+}
+.chart-bars{
+  display:flex;align-items:flex-end;gap:6px;height:100%;padding-top:8px;
+}
+.bar{
+  flex:1;border-radius:4px 4px 0 0;background:rgba(37,99,235,.4);
+  border:1px solid rgba(37,99,235,.3);position:relative;overflow:hidden;
+  animation:bar-grow .8s ease both;transform-origin:bottom;
+}
+.bar::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(0deg,transparent,rgba(96,165,250,.15));
+}
+.bar.hi{background:rgba(37,99,235,.7);border-color:rgba(37,99,235,.6)}
+.rule-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+.rule-card{
+  background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.15);
+  border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;
+}
+.rule-name{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px}
+.rule-toggle{
+  width:28px;height:16px;border-radius:8px;
+  background:#22c55e;position:relative;
+}
+.rule-toggle::after{
+  content:'';position:absolute;top:2px;right:2px;
+  width:12px;height:12px;border-radius:50%;background:#fff;
+}
+.rule-toggle.off{background:var(--bg3)}
+.rule-toggle.off::after{right:auto;left:2px}
+.evt-table{width:100%;border-collapse:collapse;font-size:11px}
+.evt-table th{
+  background:rgba(0,0,0,.4);color:var(--text4);font-weight:600;
+  padding:7px 10px;text-align:left;font-size:10px;letter-spacing:.3px;text-transform:uppercase;
+  border-bottom:1px solid rgba(37,99,235,.1);
+}
+.evt-table td{padding:7px 10px;border-bottom:1px solid rgba(37,99,235,.06);color:var(--text2)}
+.evt-table tr:hover td{background:rgba(37,99,235,.05)}
+.badge-type{
+  display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px;
+}
+.badge-sqli{background:rgba(239,68,68,.15);color:#fca5a5}
+.badge-rate{background:rgba(245,158,11,.15);color:#fcd34d}
+.badge-block{background:rgba(37,99,235,.15);color:#93c5fd}
+.badge-cmdi{background:rgba(124,58,237,.15);color:#c4b5fd}
+.badge-tor{background:rgba(15,23,42,.8);color:#94a3b8;border:1px solid #334155}
+.badge-nosql{background:rgba(236,72,153,.15);color:#f9a8d4}
+.badge-ok{background:rgba(34,197,94,.12);color:#86efac}
+.badge-warn{background:rgba(245,158,11,.12);color:#fde68a}
+.scan-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.scan-gauge{
+  background:rgba(0,0,0,.3);border:1px solid rgba(37,99,235,.1);
+  border-radius:10px;padding:16px;text-align:center;
+}
+.gauge-wrap{position:relative;width:90px;height:90px;margin:0 auto 8px}
+.gauge-svg{width:90px;height:90px}
+.gauge-val{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:20px;font-weight:800;color:#fff;
+}
+.log-row{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  border-bottom:1px solid rgba(37,99,235,.06);font-size:10px;
+}
+.log-row:last-child{border:none}
+.log-time{color:var(--text4);min-width:60px;font-family:ui-monospace,'SF Mono',Menlo,monospace}
+.log-method{
+  padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;
+  background:rgba(37,99,235,.15);color:#93c5fd;font-family:ui-monospace,monospace;
+}
+.log-method.post{background:rgba(34,197,94,.12);color:#86efac}
+.log-method.del{background:rgba(239,68,68,.12);color:#fca5a5}
+.log-path{color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,monospace}
+.log-status.s2{color:#22c55e}.log-status.s3{color:#f59e0b}.log-status.s4{color:#ef4444}
+.mini-bars{display:flex;align-items:flex-end;gap:3px;height:60px;margin-top:8px}
+.mini-bar{flex:1;border-radius:2px 2px 0 0;background:rgba(37,99,235,.4)}
+.slide-nav-dots{
+  display:flex;justify-content:center;gap:8px;padding:16px 0;
+}
+.sdot-btn{
+  width:8px;height:8px;border-radius:50%;
+  background:rgba(255,255,255,.2);border:none;transition:all .3s;cursor:pointer;
+}
+.sdot-btn.active{background:var(--blue2);width:24px;border-radius:4px}
+.slide-tabs{
+  display:flex;gap:2px;padding:16px 24px 0;
+  background:#0a1628;border-bottom:1px solid rgba(37,99,235,.1);
+  overflow-x:auto;scrollbar-width:none;
+}
+.slide-tabs::-webkit-scrollbar{display:none}
+.slide-tab{
+  padding:9px 16px;border:none;background:none;cursor:pointer;
+  font-size:12px;font-weight:600;color:var(--text4);
+  border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;
+}
+.slide-tab:hover{color:var(--text2)}
+.slide-tab.active{color:var(--blue3);border-bottom-color:var(--blue3)}
+@keyframes bar-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+
+/* ─── Floating Tags ─────────────────────────────────────────────── */
+.float-tags{
+  position:absolute;pointer-events:none;
+  inset:0;overflow:hidden;
+}
+.ftag{
+  position:absolute;
+  background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.25);
+  border-radius:100px;padding:7px 14px;font-size:11px;font-weight:600;
+  color:var(--blue3);white-space:nowrap;
+  animation:float-drift linear infinite;opacity:0;
+}
+@keyframes float-drift{
+  0%{opacity:0;transform:translateY(40px)}
+  10%{opacity:1}
+  90%{opacity:1}
+  100%{opacity:0;transform:translateY(-40px)}
+}
+
+/* ─── Stats Bar ─────────────────────────────────────────────────── */
+.stats-bar{
+  position:relative;z-index:1;padding:70px 24px;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  background:rgba(10,15,30,.6);
+}
+.stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:40px;max-width:1000px;margin:0 auto;text-align:center;
+}
+.stat-item .num{
+  font-size:clamp(36px,5vw,52px);font-weight:800;letter-spacing:-1.5px;
+  color:#fff;line-height:1;
+}
+.stat-item .num span{color:var(--blue3)}
+.stat-item .lbl{font-size:13px;color:var(--text3);margin-top:8px;font-weight:500}
+
+/* ─── Section Layout ────────────────────────────────────────────── */
+.section{position:relative;z-index:1;padding:100px 24px}
+.section-label{
+  font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:var(--blue3);margin-bottom:16px;display:block;
+}
+.section-title{
+  font-size:clamp(28px,4vw,48px);font-weight:800;letter-spacing:-1.2px;
+  color:#fff;line-height:1.12;margin-bottom:16px;
+}
+.section-sub{font-size:17px;color:var(--text3);max-width:600px;line-height:1.65;margin-bottom:52px}
+.text-center{text-align:center}
+.text-center .section-sub{margin-left:auto;margin-right:auto}
+
+/* ─── Products ──────────────────────────────────────────────────── */
+.products-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:20px;max-width:1100px;margin:0 auto;
+}
+.product-card{
+  background:rgba(10,18,40,.7);border:1px solid rgba(37,99,235,.15);
+  border-radius:var(--radius2);padding:32px 28px;
+  transition:all .35s cubic-bezier(.4,0,.2,1);
+  position:relative;overflow:hidden;
+}
+.product-card::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 0% 0%,rgba(37,99,235,.08),transparent 60%);
+  opacity:0;transition:opacity .35s;
+}
+.product-card:hover{
+  border-color:rgba(37,99,235,.4);
+  transform:translateY(-6px);
+  box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 0 1px rgba(37,99,235,.2);
+}
+.product-card:hover::before{opacity:1}
+.product-icon{
+  width:52px;height:52px;border-radius:14px;
+  background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.25);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:22px;transition:all .3s;
+}
+.product-card:hover .product-icon{background:rgba(37,99,235,.25);border-color:rgba(37,99,235,.4)}
+.product-icon svg{width:24px;height:24px;stroke:#60a5fa;fill:none;stroke-width:1.8}
+.product-name{font-size:17px;font-weight:700;color:#fff;margin-bottom:10px;letter-spacing:-.3px}
+.product-desc{font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:20px}
+.product-tags{display:flex;flex-wrap:wrap;gap:6px}
+.ptag{
+  font-size:10px;font-weight:600;padding:3px 9px;border-radius:5px;
+  background:rgba(37,99,235,.1);color:var(--blue4);border:1px solid rgba(37,99,235,.2);
+  letter-spacing:.2px;
+}
+.product-card .arrow{
+  position:absolute;bottom:28px;right:28px;
+  width:32px;height:32px;border-radius:8px;
+  background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.2);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transform:translateX(-4px);transition:all .3s;
+}
+.product-card:hover .arrow{opacity:1;transform:translateX(0)}
+.product-card .arrow svg{width:14px;height:14px;stroke:#60a5fa;fill:none;stroke-width:2}
+
+/* ─── Feature Sections ──────────────────────────────────────────── */
+.feature-row{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:80px;align-items:center;max-width:1100px;margin:0 auto;
+  padding:60px 0;
+}
+.feature-row + .feature-row{
+  border-top:1px solid var(--border);
+}
+.feature-row.reverse .feature-visual{order:-1}
+.feature-list{list-style:none;display:flex;flex-direction:column;gap:14px;margin-bottom:32px}
+.feature-list li{
+  display:flex;align-items:flex-start;gap:12px;
+  font-size:15px;color:var(--text2);line-height:1.5;
+}
+.feature-list .fi{
+  flex-shrink:0;width:20px;height:20px;border-radius:50%;
+  background:rgba(37,99,235,.2);border:1px solid rgba(37,99,235,.3);
+  display:flex;align-items:center;justify-content:center;margin-top:2px;
+}
+.feature-list .fi svg{width:10px;height:10px;stroke:#60a5fa;fill:none;stroke-width:3}
+.feature-visual{
+  background:rgba(10,18,40,.8);border:1px solid rgba(37,99,235,.2);
+  border-radius:var(--radius2);padding:28px;
+  box-shadow:0 20px 60px rgba(0,0,0,.4);
+}
+.feature-visual.dark{background:#06091a}
+.btn-text{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:15px;font-weight:600;color:var(--blue3);
+  transition:gap .2s;
+}
+.btn-text:hover{gap:10px}
+.btn-text svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* ─── Pricing ───────────────────────────────────────────────────── */
+.pricing-section{
+  position:relative;z-index:1;padding:100px 24px;
+  background:linear-gradient(180deg,transparent 0%,rgba(15,23,42,.6) 50%,transparent 100%);
+}
+.billing-toggle{
+  display:inline-flex;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);border-radius:10px;
+  padding:4px;margin-bottom:52px;
+}
+.billing-btn{
+  padding:9px 28px;border:none;border-radius:7px;font-size:14px;font-weight:600;
+  background:transparent;color:var(--text3);transition:all .25s;cursor:pointer;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;
+}
+.billing-btn.active{background:var(--blue);color:#fff;box-shadow:0 2px 12px rgba(37,99,235,.3)}
+.billing-save{
+  display:inline-flex;align-items:center;
+  background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);
+  color:#4ade80;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;
+  margin-left:6px;vertical-align:middle;letter-spacing:.3px;
+}
+.pricing-cards{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:24px;max-width:1000px;margin:0 auto;align-items:start;
+}
+.pricing-card{
+  background:rgba(10,18,40,.8);border:1px solid rgba(37,99,235,.15);
+  border-radius:var(--radius2);padding:36px 32px;
+  transition:all .3s;position:relative;overflow:hidden;
+}
+.pricing-card.featured{
+  border-color:var(--blue);border-width:2px;
+  background:rgba(15,30,70,.8);
+  box-shadow:0 0 0 1px rgba(37,99,235,.3),0 20px 60px rgba(37,99,235,.15);
+}
+.pricing-card.featured::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#2563eb,#818cf8,#60a5fa);
+}
+.pricing-badge{
+  display:inline-block;background:var(--blue);color:#fff;
+  font-size:10px;font-weight:700;padding:4px 11px;border-radius:100px;
+  letter-spacing:.4px;text-transform:uppercase;margin-bottom:20px;
+}
+.pricing-tier-name{font-size:20px;font-weight:700;color:#fff;margin-bottom:8px}
+.pricing-tier-desc{font-size:13px;color:var(--text3);margin-bottom:24px;line-height:1.5}
+.pricing-amount{
+  font-size:44px;font-weight:800;color:#fff;letter-spacing:-1.5px;line-height:1;
+  margin-bottom:4px;
+}
+.pricing-amount .cur{font-size:20px;font-weight:700;vertical-align:super;letter-spacing:0}
+.pricing-amount .period{font-size:15px;font-weight:500;color:var(--text3)}
+.pricing-orig{
+  font-size:13px;color:var(--text4);text-decoration:line-through;margin-bottom:4px;height:18px;
+}
+.pricing-features-list{
+  list-style:none;display:flex;flex-direction:column;gap:12px;
+  margin:28px 0;
+}
+.pricing-features-list li{
+  display:flex;align-items:flex-start;gap:10px;
+  font-size:14px;color:var(--text2);line-height:1.45;
+}
+.check-icon{
+  flex-shrink:0;width:18px;height:18px;border-radius:50%;
+  background:rgba(37,99,235,.2);border:1px solid rgba(37,99,235,.3);
+  display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+.check-icon svg{width:10px;height:10px;stroke:#60a5fa;fill:none;stroke-width:3}
+.check-icon.green{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3)}
+.check-icon.green svg{stroke:#4ade80}
+.btn-pricing{
+  width:100%;padding:13px;border-radius:10px;font-size:15px;font-weight:700;
+  border:1px solid rgba(37,99,235,.4);color:var(--blue3);background:rgba(37,99,235,.08);
+  transition:all .25s;letter-spacing:-.1px;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;
+}
+.btn-pricing:hover{background:rgba(37,99,235,.15);border-color:var(--blue2)}
+.btn-pricing.primary{
+  background:var(--blue);color:#fff;border-color:transparent;
+  box-shadow:0 4px 20px rgba(37,99,235,.35);
+}
+.btn-pricing.primary:hover{background:#1d4ed8;box-shadow:0 8px 32px rgba(37,99,235,.45);transform:translateY(-1px)}
+.pricing-footer{text-align:center;margin-top:36px;font-size:13px;color:var(--text4)}
+.pricing-footer a{color:var(--blue3)}
+
+/* ─── CTA Banner ────────────────────────────────────────────────── */
+.cta-banner{
+  position:relative;z-index:1;padding:100px 24px;text-align:center;
+  background:linear-gradient(135deg,rgba(37,99,235,.12) 0%,rgba(79,70,229,.08) 100%);
+  border-top:1px solid rgba(37,99,235,.15);border-bottom:1px solid rgba(37,99,235,.15);
+  overflow:hidden;
+}
+.cta-banner::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 50%,rgba(37,99,235,.15),transparent 60%);
+}
+.cta-title{
+  font-size:clamp(28px,4.5vw,54px);font-weight:800;letter-spacing:-1.5px;
+  color:#fff;margin-bottom:18px;position:relative;
+}
+.cta-sub{font-size:18px;color:var(--text3);margin-bottom:40px;position:relative}
+.cta-actions{display:flex;gap:14px;justify-content:center;position:relative}
+
+/* ─── Footer ────────────────────────────────────────────────────── */
+.footer{
+  position:relative;z-index:1;padding:60px 24px 32px;
+  border-top:1px solid var(--border);background:rgba(3,7,18,.9);
+}
+.footer-grid{
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;
+  gap:48px;max-width:1100px;margin:0 auto 48px;
+}
+.footer-brand .logo{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.footer-brand .logo img{width:28px;height:28px;border-radius:7px;object-fit:cover}
+.footer-brand .logo span{font-size:16px;font-weight:700;color:#fff}
+.footer-brand p{font-size:13px;color:var(--text4);line-height:1.65;max-width:260px}
+.footer-col h5{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:16px}
+.footer-col a{
+  display:block;font-size:14px;color:var(--text4);margin-bottom:10px;transition:color .2s;
+}
+.footer-col a:hover{color:#fff}
+.footer-bottom{
+  display:flex;align-items:center;justify-content:space-between;
+  max-width:1100px;margin:0 auto;
+  padding-top:28px;border-top:1px solid var(--border);
+  font-size:12px;color:var(--text4);
+}
+
+/* ─── Animations ────────────────────────────────────────────────── */
+@keyframes fade-up{
+  from{opacity:0;transform:translateY(24px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes fade-in{
+  from{opacity:0}to{opacity:1}
+}
+.reveal{opacity:0;transform:translateY(30px);transition:all .7s cubic-bezier(.4,0,.2,1)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+.reveal-delay-4{transition-delay:.4s}
+.reveal-delay-5{transition-delay:.5s}
+
+/* ─── Testimonials ──────────────────────────────────────────────── */
+.testimonials-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:20px;max-width:1100px;margin:0 auto;
+}
+.testimonial-card{
+  background:rgba(10,18,40,.7);border:1px solid rgba(37,99,235,.12);
+  border-radius:var(--radius);padding:28px;
+  transition:all .3s;
+}
+.testimonial-card:hover{border-color:rgba(37,99,235,.3);transform:translateY(-3px)}
+.tq{font-size:14px;color:var(--text2);line-height:1.65;margin-bottom:20px;font-style:italic}
+.ta{display:flex;align-items:center;gap:10px}
+.ta-avatar{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,#1e3a8a,#2563eb);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.ta-name{font-size:13px;font-weight:700;color:#fff}
+.ta-role{font-size:11px;color:var(--text4)}
+.stars{color:#f59e0b;font-size:12px;margin-bottom:12px;letter-spacing:2px}
+
+/* ─── Scroll progress bar ───────────────────────────────────────── */
+.scroll-progress{
+  position:fixed;top:0;left:0;height:2px;background:var(--blue);z-index:9999;
+  width:0%;transition:width .1s linear;
+}
+
+/* ─── Floating particles ────────────────────────────────────────── */
+.particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.particle{
+  position:absolute;width:2px;height:2px;border-radius:50%;background:rgba(96,165,250,.4);
+  animation:particle-float linear infinite;
+}
+@keyframes particle-float{
+  0%{transform:translateY(100vh) translateX(0) scale(0)}
+  10%{transform:translateY(90vh) translateX(var(--dx,0)) scale(1)}
+  90%{transform:translateY(10vh) translateX(var(--dx2,20px)) scale(1)}
+  100%{transform:translateY(0) translateX(0) scale(0)}
+}
+
+/* ─── Responsive ────────────────────────────────────────────────── */
+@media(max-width:768px){
+  .nav-links{display:none}
+  .products-grid{grid-template-columns:1fr}
+  .pricing-cards{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr 1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .testimonials-grid{grid-template-columns:1fr}
+  .feature-row{grid-template-columns:1fr;gap:40px}
+  .feature-row.reverse .feature-visual{order:0}
+  .stat-row{grid-template-columns:repeat(2,1fr)}
+  .rule-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:480px){
+  .hero-actions{flex-direction:column;align-items:center}
+  .cta-actions{flex-direction:column;align-items:center}
+  .pricing-cards{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="scroll-progress" id="scroll-progress"></div>
+<div class="bg-mesh"><div class="orb3"></div></div>
+<div class="grid-bg"></div>
+<div class="particles" id="particles"></div>
+
+<!-- ══ NAVIGATION ════════════════════════════════════════════════════════ -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <img src="/static/Intel.jpeg" alt="Intel Web Security">
+      <span>Intel Web Security</span>
+    </a>
+    <div class="nav-links">
+      <a href="#products">Products</a>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#about">About</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn-nav-ghost" onclick="window.location='/login'">Sign in</button>
+      <button class="btn-nav-cta" onclick="window.location='/signup'">Start for free</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="tag"><span class="dot"></span>AI-Powered Security Intelligence</span>
+  </div>
+  <h1 class="hero-headline">
+    Protect your
+    <span class="hero-rotate-wrap">
+      <span class="hero-rotate-words">
+        <span>web assets</span>
+        <span>applications</span>
+        <span>APIs &amp; data</span>
+        <span>users online</span>
+      </span>
+    </span>
+    <span class="line2">with one platform</span>
+  </h1>
+  <p class="hero-sub">
+    Real-time threat detection, WAF protection, malware scanning, and AI-driven security analytics — unified in a single intelligence platform.
+  </p>
+  <div class="hero-actions">
+    <button class="btn-hero-primary" onclick="window.location='/signup'">
+      Start for free &rarr;
+    </button>
+    <button class="btn-hero-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">
+      See live demo
+    </button>
+  </div>
+  <p class="hero-trusted">Trusted security stack</p>
+  <div class="hero-badges">
+    <span class="hero-badge">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      WAF Protection
+    </span>
+    <span class="hero-badge">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 1 21 12M4.93 4.93A10 10 0 0 0 3 12"/></svg>
+      Real-Time Monitoring
+    </span>
+    <span class="hero-badge">
+      <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+      Log Intelligence
+    </span>
+    <span class="hero-badge">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      Malware Detection
+    </span>
+    <span class="hero-badge">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      GeoIP Blocking
+    </span>
+  </div>
+
+  <!-- Dashboard Preview -->
+  <div class="dashboard-preview" id="demo-section">
+    <div class="preview-browser">
+      <div class="preview-browser-bar">
+        <div class="preview-dot r"></div>
+        <div class="preview-dot y"></div>
+        <div class="preview-dot g"></div>
+        <div class="preview-url">https://app.intelwebsecurity.io/dashboard</div>
+        <div style="width:60px;display:flex;gap:6px">
+          <div style="width:16px;height:16px;border-radius:3px;background:rgba(255,255,255,.06)"></div>
+          <div style="width:16px;height:16px;border-radius:3px;background:rgba(255,255,255,.06)"></div>
+        </div>
+      </div>
+      <!-- Tabs -->
+      <div class="slide-tabs" id="slideTabs">
+        <button class="slide-tab active" onclick="goSlide(0)">Dashboard</button>
+        <button class="slide-tab" onclick="goSlide(1)">Runtime Protection</button>
+        <button class="slide-tab" onclick="goSlide(2)">Malware Detection</button>
+        <button class="slide-tab" onclick="goSlide(3)">Log Explorer</button>
+        <button class="slide-tab" onclick="goSlide(4)">Threat Analytics</button>
+      </div>
+      <div class="slides-outer">
+        <div class="slides-track" id="slidesTrack">
+
+          <!-- SLIDE 0: Dashboard Overview -->
+          <div class="slide">
+            <div class="slide-header">
+              <div class="slide-title">
+                <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+                Security Dashboard
+              </div>
+              <div style="display:flex;align-items:center;gap:16px">
+                <div class="slide-status"><span class="sdot"></span>All Systems Operational</div>
+                <div style="font-size:10px;color:#64748b">Last updated: just now</div>
+              </div>
+            </div>
+            <div class="stat-row">
+              <div class="stat-box"><div class="sv" id="c-score">84</div><div class="sl">SECURITY SCORE</div><div class="sd">↑ +3 this week</div></div>
+              <div class="stat-box"><div class="sv">23</div><div class="sl">THREATS BLOCKED TODAY</div><div class="sd">↓ -12% vs yesterday</div></div>
+              <div class="stat-box"><div class="sv">1,247</div><div class="sl">TOTAL SCANS RUN</div><div class="sd">↑ 89 today</div></div>
+              <div class="stat-box"><div class="sv">10/10</div><div class="sl">ACTIVE WAF RULES</div><div class="sd">All rules enforced</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <div>
+                <div style="font-size:10px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Events (Last 7 Days)</div>
+                <div class="chart-area">
+                  <div class="chart-bars" id="dashBars">
+                    <div class="bar" style="height:30%"></div><div class="bar" style="height:55%"></div>
+                    <div class="bar hi" style="height:80%"></div><div class="bar" style="height:45%"></div>
+                    <div class="bar" style="height:62%"></div><div class="bar" style="height:38%"></div>
+                    <div class="bar hi" style="height:90%"></div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Recent Events</div>
+                <table class="evt-table">
+                  <thead><tr><th>Type</th><th>IP</th><th>Path</th><th>Time</th></tr></thead>
+                  <tbody>
+                    <tr><td><span class="badge-type badge-sqli">sqli</span></td><td style="font-family:monospace;font-size:10px">185.220.101.47</td><td style="font-family:monospace;font-size:10px">/api/search</td><td style="color:#64748b;font-size:10px">2m ago</td></tr>
+                    <tr><td><span class="badge-type badge-rate">rate</span></td><td style="font-family:monospace;font-size:10px">45.33.32.156</td><td style="font-family:monospace;font-size:10px">/login</td><td style="color:#64748b;font-size:10px">7m ago</td></tr>
+                    <tr><td><span class="badge-type badge-cmdi">cmdi</span></td><td style="font-family:monospace;font-size:10px">193.32.162.4</td><td style="font-family:monospace;font-size:10px">/api/exec</td><td style="color:#64748b;font-size:10px">15m ago</td></tr>
+                    <tr><td><span class="badge-type badge-tor">tor</span></td><td style="font-family:monospace;font-size:10px">176.10.99.202</td><td style="font-family:monospace;font-size:10px">/admin</td><td style="color:#64748b;font-size:10px">22m ago</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- SLIDE 1: Runtime Protection -->
+          <div class="slide">
+            <div class="slide-header">
+              <div class="slide-title">
+                <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                Runtime Protection — WAF
+              </div>
+              <div class="slide-status"><span class="sdot"></span>WAF Active — 10 Rules Enforced</div>
+            </div>
+            <div class="rule-grid">
+              <div class="rule-card"><span class="rule-name">SQL Injection</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">CMD Inject</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">Path Traversal</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">NoSQL Inject</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">Rate Limiting</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">IP Blocklist</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">Tor Exit Nodes</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">CrowdSec Feed</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">Bot Blocking</span><div class="rule-toggle"></div></div>
+              <div class="rule-card"><span class="rule-name">Geo Blocking</span><div class="rule-toggle"></div></div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Live Event Feed</div>
+            <table class="evt-table">
+              <thead><tr><th>Rule</th><th>Source IP</th><th>Path</th><th>Reason</th><th>Action</th></tr></thead>
+              <tbody>
+                <tr><td><span class="badge-type badge-sqli">sqli</span></td><td style="font-family:monospace;font-size:10px">185.220.101.47</td><td style="font-family:monospace;font-size:10px">/api/users?id=1 OR 1=1</td><td style="font-size:10px;color:#94a3b8">SQL payload in query</td><td><span class="badge-type badge-cmdi" style="background:rgba(239,68,68,.12);color:#fca5a5">BLOCKED</span></td></tr>
+                <tr><td><span class="badge-type badge-rate">rate</span></td><td style="font-family:monospace;font-size:10px">45.33.32.156</td><td style="font-family:monospace;font-size:10px">/login</td><td style="font-size:10px;color:#94a3b8">148/120 rpm</td><td><span class="badge-type badge-cmdi" style="background:rgba(239,68,68,.12);color:#fca5a5">BLOCKED</span></td></tr>
+                <tr><td><span class="badge-type badge-nosql">nosql</span></td><td style="font-family:monospace;font-size:10px">91.108.4.212</td><td style="font-family:monospace;font-size:10px">/api/search</td><td style="font-size:10px;color:#94a3b8">$where operator detected</td><td><span class="badge-type badge-cmdi" style="background:rgba(239,68,68,.12);color:#fca5a5">BLOCKED</span></td></tr>
+                <tr><td><span class="badge-type badge-ok">allow</span></td><td style="font-family:monospace;font-size:10px">8.8.8.8</td><td style="font-family:monospace;font-size:10px">/api/health</td><td style="font-size:10px;color:#94a3b8">Allowlisted IP</td><td><span class="badge-type badge-ok">PASSED</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- SLIDE 2: Malware Detection -->
+          <div class="slide">
+            <div class="slide-header">
+              <div class="slide-title">
+                <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+                Malware Detection
+              </div>
+              <div class="slide-status"><span class="sdot"></span>Scanner Active — Last scan 2h ago</div>
+            </div>
+            <div class="scan-grid">
+              <div class="scan-gauge">
+                <div class="gauge-wrap">
+                  <svg class="gauge-svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(37,99,235,.15)" stroke-width="10"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#22c55e" stroke-width="10"
+                      stroke-dasharray="226" stroke-dashoffset="32" stroke-linecap="round"
+                      transform="rotate(-90 50 50)" id="gaugeCircle" style="transition:stroke-dashoffset 1s ease"/>
+                  </svg>
+                  <div class="gauge-val">86%</div>
+                </div>
+                <div style="font-size:11px;color:#94a3b8">Clean rate</div>
+                <div style="font-size:10px;color:#22c55e;margin-top:4px">847/985 files clean</div>
+              </div>
+              <div class="stat-box" style="display:flex;flex-direction:column;justify-content:space-between">
+                <div><div class="sl" style="margin-bottom:6px">THREAT SUMMARY</div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:11px;color:#f9a8d4">Trojans</span>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <div style="width:80px;height:4px;background:rgba(255,255,255,.08);border-radius:2px">
+                        <div style="width:60%;height:100%;background:#ec4899;border-radius:2px"></div>
+                      </div>
+                      <span style="font-size:10px;color:#94a3b8">8</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:11px;color:#fca5a5">Ransomware</span>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <div style="width:80px;height:4px;background:rgba(255,255,255,.08);border-radius:2px">
+                        <div style="width:25%;height:100%;background:#ef4444;border-radius:2px"></div>
+                      </div>
+                      <span style="font-size:10px;color:#94a3b8">3</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:11px;color:#fde68a">Adware</span>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <div style="width:80px;height:4px;background:rgba(255,255,255,.08);border-radius:2px">
+                        <div style="width:15%;height:100%;background:#f59e0b;border-radius:2px"></div>
+                      </div>
+                      <span style="font-size:10px;color:#94a3b8">2</span>
+                    </div>
+                  </div>
+                </div>
+                </div>
+                <div style="font-size:10px;color:#64748b;margin-top:12px">138 quarantined files</div>
+              </div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Recent Detections</div>
+            <table class="evt-table">
+              <thead><tr><th>File</th><th>Type</th><th>Threat</th><th>Hash</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td style="font-family:monospace;font-size:10px">installer.exe</td><td><span class="badge-type badge-warn">EXE</span></td><td style="font-size:10px;color:#fca5a5">Trojan.GenericKD</td><td style="font-family:monospace;font-size:9px;color:#64748b">d41d8cd9...</td><td><span class="badge-type" style="background:rgba(239,68,68,.12);color:#fca5a5">QUARANTINED</span></td></tr>
+                <tr><td style="font-family:monospace;font-size:10px">update.bat</td><td><span class="badge-type badge-warn">SCRIPT</span></td><td style="font-size:10px;color:#fde68a">Suspicious.CMD</td><td style="font-family:monospace;font-size:9px;color:#64748b">a3f5c891...</td><td><span class="badge-type badge-warn">REVIEW</span></td></tr>
+                <tr><td style="font-family:monospace;font-size:10px">report.docx</td><td><span class="badge-type badge-ok">DOC</span></td><td style="font-size:10px;color:#86efac">Clean</td><td style="font-family:monospace;font-size:9px;color:#64748b">7f3a1290...</td><td><span class="badge-type badge-ok">CLEAN</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- SLIDE 3: Log Explorer -->
+          <div class="slide">
+            <div class="slide-header">
+              <div class="slide-title">
+                <div class="icon"><svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg></div>
+                Log Explorer
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;color:#64748b">Showing 3,891 entries</span>
+                <span class="slide-status" style="margin-left:8px"><span class="sdot"></span>Live ingestion</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+              <div style="padding:5px 12px;background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.3);border-radius:6px;font-size:10px;color:#93c5fd;font-weight:600">All Levels</div>
+              <div style="padding:5px 12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:10px;color:#fca5a5;font-weight:600">ERROR: 142</div>
+              <div style="padding:5px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:6px;font-size:10px;color:#fde68a;font-weight:600">WARN: 517</div>
+              <div style="padding:5px 12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:6px;font-size:10px;color:#86efac;font-weight:600">INFO: 3,232</div>
+            </div>
+            <div style="background:rgba(0,0,0,.4);border:1px solid rgba(37,99,235,.1);border-radius:8px;overflow:hidden">
+              <div class="log-row" style="background:rgba(0,0,0,.3);">
+                <span style="font-size:9px;color:#64748b;min-width:50px">TIME</span>
+                <span style="font-size:9px;color:#64748b;min-width:36px">MTD</span>
+                <span style="font-size:9px;color:#64748b;flex:1">PATH</span>
+                <span style="font-size:9px;color:#64748b;min-width:30px">IP</span>
+                <span style="font-size:9px;color:#64748b;min-width:30px">CODE</span>
+              </div>
+              <div class="log-row"><span class="log-time">14:32:07</span><span class="log-method">GET</span><span class="log-path">/api/dashboard/stats</span><span style="font-family:monospace;font-size:10px;color:#64748b;min-width:90px">10.0.0.1</span><span class="log-status s2">200</span></div>
+              <div class="log-row"><span class="log-time">14:32:05</span><span class="log-method post">POST</span><span class="log-path">/api/rtp/config</span><span style="font-family:monospace;font-size:10px;color:#64748b;min-width:90px">192.168.1.10</span><span class="log-status s2">200</span></div>
+              <div class="log-row"><span class="log-time">14:31:58</span><span class="log-method">GET</span><span class="log-path">/api/files</span><span style="font-family:monospace;font-size:10px;color:#64748b;min-width:90px">10.0.0.2</span><span class="log-status s2">200</span></div>
+              <div class="log-row"><span class="log-time">14:31:42</span><span class="log-method del">DEL</span><span class="log-path">/api/admin/users/testuser</span><span style="font-family:monospace;font-size:10px;color:#64748b;min-width:90px">10.0.0.1</span><span class="log-status s2">200</span></div>
+              <div class="log-row"><span class="log-time">14:31:33</span><span class="log-method post">POST</span><span class="log-path">/api/scan/run</span><span style="font-family:monospace;font-size:10px;color:#64748b;min-width:90px">185.220.101.47</span><span class="log-status s4">403</span></div>
+              <div class="log-row"><span class="log-time">14:30:51</span><span class="log-method">GET</span><span class="log-path">/api/rtp/events?limit=50</span><span style="font-family:monospace;font-size:10px;color:#64748b;min-width:90px">10.0.0.1</span><span class="log-status s2">200</span></div>
+            </div>
+          </div>
+
+          <!-- SLIDE 4: Threat Analytics -->
+          <div class="slide">
+            <div class="slide-header">
+              <div class="slide-title">
+                <div class="icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+                Threat Analytics
+              </div>
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="font-size:10px;padding:4px 10px;background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.2);border-radius:5px;color:#93c5fd;font-weight:600">Last 30 days</div>
+                <div class="slide-status"><span class="sdot"></span>Live</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <div>
+                <div style="font-size:10px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Threats by Category</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:#f9a8d4">SQL Injection</span><span style="font-size:11px;color:#94a3b8">284</span></div>
+                    <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px"><div style="width:72%;height:100%;background:linear-gradient(90deg,#ec4899,#f9a8d4);border-radius:3px"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:#fde68a">Rate Limiting</span><span style="font-size:11px;color:#94a3b8">197</span></div>
+                    <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px"><div style="width:50%;height:100%;background:linear-gradient(90deg,#f59e0b,#fde68a);border-radius:3px"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:#c4b5fd">CMD Injection</span><span style="font-size:11px;color:#94a3b8">143</span></div>
+                    <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px"><div style="width:36%;height:100%;background:linear-gradient(90deg,#7c3aed,#c4b5fd);border-radius:3px"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:#93c5fd">Bot Blocking</span><span style="font-size:11px;color:#94a3b8">96</span></div>
+                    <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px"><div style="width:24%;height:100%;background:linear-gradient(90deg,#2563eb,#93c5fd);border-radius:3px"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:#94a3b8">Tor Nodes</span><span style="font-size:11px;color:#94a3b8">41</span></div>
+                    <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px"><div style="width:10%;height:100%;background:#475569;border-radius:3px"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Top Attacker Countries</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#e2e8f0">🇷🇺 Russia</span><div style="display:flex;align-items:center;gap:6px"><div style="width:70px;height:4px;background:rgba(255,255,255,.06);border-radius:2px"><div style="width:80%;height:100%;background:rgba(239,68,68,.6);border-radius:2px"></div></div><span style="font-size:10px;color:#64748b">312</span></div></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#e2e8f0">🇨🇳 China</span><div style="display:flex;align-items:center;gap:6px"><div style="width:70px;height:4px;background:rgba(255,255,255,.06);border-radius:2px"><div style="width:65%;height:100%;background:rgba(239,68,68,.5);border-radius:2px"></div></div><span style="font-size:10px;color:#64748b">254</span></div></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#e2e8f0">🇩🇪 Germany</span><div style="display:flex;align-items:center;gap:6px"><div style="width:70px;height:4px;background:rgba(255,255,255,.06);border-radius:2px"><div style="width:45%;height:100%;background:rgba(245,158,11,.5);border-radius:2px"></div></div><span style="font-size:10px;color:#64748b">178</span></div></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#e2e8f0">🇧🇷 Brazil</span><div style="display:flex;align-items:center;gap:6px"><div style="width:70px;height:4px;background:rgba(255,255,255,.06);border-radius:2px"><div style="width:30%;height:100%;background:rgba(34,197,94,.4);border-radius:2px"></div></div><span style="font-size:10px;color:#64748b">112</span></div></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#e2e8f0">🇺🇸 United States</span><div style="display:flex;align-items:center;gap:6px"><div style="width:70px;height:4px;background:rgba(255,255,255,.06);border-radius:2px"><div style="width:22%;height:100%;background:rgba(37,99,235,.6);border-radius:2px"></div></div><span style="font-size:10px;color:#64748b">88</span></div></div>
+                </div>
+                <div style="margin-top:16px;padding:10px 12px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.15);border-radius:8px">
+                  <div style="font-size:10px;color:#64748b;margin-bottom:4px">TOTAL BLOCKED THIS MONTH</div>
+                  <div style="font-size:22px;font-weight:800;color:#fff">3,891</div>
+                  <div style="font-size:10px;color:#22c55e">↑ 23% vs last month</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /slides-track -->
+      </div>
+    </div>
+    <div class="preview-glow"></div>
+  </div>
+</section>
+
+<!-- ══ STATS BAR ══════════════════════════════════════════════════════════ -->
+<section class="stats-bar">
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-item reveal">
+      <div class="num"><span class="counter" data-target="3891">0</span><span>+</span></div>
+      <div class="lbl">Threats Blocked This Month</div>
+    </div>
+    <div class="stat-item reveal reveal-delay-1">
+      <div class="num"><span class="counter" data-target="1247">0</span></div>
+      <div class="lbl">Security Scans Completed</div>
+    </div>
+    <div class="stat-item reveal reveal-delay-2">
+      <div class="num"><span class="counter" data-target="10">0</span><span>/10</span></div>
+      <div class="lbl">WAF Rules Active 24/7</div>
+    </div>
+    <div class="stat-item reveal reveal-delay-3">
+      <div class="num"><span class="counter" data-target="99">0</span><span>.9%</span></div>
+      <div class="lbl">Platform Uptime SLA</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PRODUCTS ══════════════════════════════════════════════════════════ -->
+<section class="section" id="products">
+  <div class="container text-center">
+    <span class="section-label reveal">Product Suite</span>
+    <h2 class="section-title reveal reveal-delay-1">
+      Everything you need to<br>
+      <span class="gradient-text">defend your web infrastructure</span>
+    </h2>
+    <p class="section-sub reveal reveal-delay-2">
+      A unified platform of security tools built for modern web applications — from real-time WAF to AI-driven threat intelligence.
+    </p>
+  </div>
+  <div class="products-grid container" style="margin-top:0">
+    <div class="product-card reveal">
+      <div class="product-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div class="product-name">Runtime Protection</div>
+      <div class="product-desc">AI-powered Web Application Firewall with real-time SQL injection, command injection, NoSQL, path traversal, and bot protection rules.</div>
+      <div class="product-tags"><span class="ptag">WAF</span><span class="ptag">Rate Limiting</span><span class="ptag">Geo Blocking</span><span class="ptag">CrowdSec</span></div>
+      <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="product-card reveal reveal-delay-1">
+      <div class="product-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <div class="product-name">Malware Detection</div>
+      <div class="product-desc">Deep file scanning using VirusTotal integration and heuristic analysis to detect trojans, ransomware, and suspicious scripts before they execute.</div>
+      <div class="product-tags"><span class="ptag">VirusTotal</span><span class="ptag">Heuristics</span><span class="ptag">Quarantine</span><span class="ptag">Hash Check</span></div>
+      <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="product-card reveal reveal-delay-2">
+      <div class="product-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+      <div class="product-name">Threat Analytics</div>
+      <div class="product-desc">Visualise attack trends, identify threat sources, and drill down into incidents with interactive charts, heatmaps, and exportable reports.</div>
+      <div class="product-tags"><span class="ptag">Charts</span><span class="ptag">GeoIP</span><span class="ptag">CSV Export</span><span class="ptag">Alerts</span></div>
+      <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="product-card reveal">
+      <div class="product-icon"><svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg></div>
+      <div class="product-name">Log Explorer</div>
+      <div class="product-desc">Centralised SIEM log ingestion supporting Syslog, HEC, and direct API. Filter, search, and correlate millions of events in real time.</div>
+      <div class="product-tags"><span class="ptag">SIEM</span><span class="ptag">HEC</span><span class="ptag">Syslog</span><span class="ptag">Real-time</span></div>
+      <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="product-card reveal reveal-delay-1">
+      <div class="product-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+      <div class="product-name">Security Scanner</div>
+      <div class="product-desc">Automated vulnerability scanning powered by OWASP and CVE databases. Scan networks, web apps, and configs with one click.</div>
+      <div class="product-tags"><span class="ptag">OWASP</span><span class="ptag">CVE</span><span class="ptag">Network</span><span class="ptag">SSL Check</span></div>
+      <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="product-card reveal reveal-delay-2">
+      <div class="product-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="product-name">AI Security Assistant</div>
+      <div class="product-desc">Ask natural-language questions about your security posture. The AI assistant analyses logs, events, and scan results to give actionable guidance.</div>
+      <div class="product-tags"><span class="ptag">GPT-4o</span><span class="ptag">Claude</span><span class="ptag">Gemini</span><span class="ptag">Ollama</span></div>
+      <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FEATURES ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="features" style="padding-top:40px">
+  <div class="container">
+    <div class="feature-row reveal">
+      <div class="feature-text">
+        <span class="section-label">Runtime Protection</span>
+        <h2 class="section-title" style="font-size:clamp(24px,3vw,40px)">Block attacks<br><span class="gradient-text">before they reach your app</span></h2>
+        <ul class="feature-list">
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>10 configurable WAF rules covering every major injection vector</li>
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Real-time IP allow/blocklists with CIDR notation support</li>
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>CrowdSec community threat feed integration</li>
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Tor exit node detection and automatic blocking</li>
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Per-rule email + Slack alerting with escalation thresholds</li>
+        </ul>
+        <a href="/signup" class="btn-text">Get WAF protection free <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+      <div class="feature-visual">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:10px;font-weight:600;color:#64748b;margin-bottom:6px;letter-spacing:.4px;text-transform:uppercase">WAF Rules — All Active</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="rule-card"><span class="rule-name">SQL Inject</span><div class="rule-toggle"></div></div>
+            <div class="rule-card"><span class="rule-name">CMD Inject</span><div class="rule-toggle"></div></div>
+            <div class="rule-card"><span class="rule-name">NoSQL Inject</span><div class="rule-toggle"></div></div>
+            <div class="rule-card"><span class="rule-name">Path Traversal</span><div class="rule-toggle"></div></div>
+            <div class="rule-card"><span class="rule-name">Rate Limiting</span><div class="rule-toggle"></div></div>
+            <div class="rule-card"><span class="rule-name">Geo Blocking</span><div class="rule-toggle"></div></div>
+          </div>
+          <div style="margin-top:8px;padding:12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;display:flex;align-items:center;gap:10px">
+            <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0"></div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:#22c55e">WAF Active — 23 requests blocked today</div>
+              <div style="font-size:10px;color:#64748b;margin-top:2px">Last event: SQL injection attempt from 185.220.101.47</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-row reverse reveal">
+      <div class="feature-text">
+        <span class="section-label">Log Intelligence</span>
+        <h2 class="section-title" style="font-size:clamp(24px,3vw,40px)">Every log, every event,<br><span class="gradient-text">instantly searchable</span></h2>
+        <ul class="feature-list">
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Ingest from Syslog, HEC, direct API, or file upload</li>
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Full-text search across millions of events in milliseconds</li>
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Cloudflare, Apache, Nginx, and custom log parsers built in</li>
+          <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Export filtered results as CSV for compliance and audits</li>
+        </ul>
+        <a href="/signup" class="btn-text">Explore log intelligence <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+      <div class="feature-visual dark">
+        <div style="font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11px;line-height:1.7">
+          <div style="color:#64748b;margin-bottom:6px"># Syslog HEC endpoint</div>
+          <div><span style="color:#60a5fa">POST</span> <span style="color:#e2e8f0">/api/syslog/hec</span></div>
+          <div style="color:#64748b"># Authorization: Splunk &lt;token&gt;</div>
+          <br>
+          <div style="color:#94a3b8">{</div>
+          <div style="color:#94a3b8">&nbsp;&nbsp;<span style="color:#f9a8d4">"time"</span>: <span style="color:#86efac">1748260800</span>,</div>
+          <div style="color:#94a3b8">&nbsp;&nbsp;<span style="color:#f9a8d4">"event"</span>: {</div>
+          <div style="color:#94a3b8">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#f9a8d4">"severity"</span>: <span style="color:#fde68a">"WARN"</span>,</div>
+          <div style="color:#94a3b8">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#f9a8d4">"source"</span>: <span style="color:#fde68a">"nginx"</span>,</div>
+          <div style="color:#94a3b8">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#f9a8d4">"message"</span>: <span style="color:#fde68a">"blocked by WAF"</span></div>
+          <div style="color:#94a3b8">&nbsp;&nbsp;}</div>
+          <div style="color:#94a3b8">}</div>
+          <br>
+          <div style="color:#64748b">→ <span style="color:#22c55e">200 OK</span> · ingested in 4ms</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TESTIMONIALS ═══════════════════════════════════════════════════════ -->
+<section class="section" id="about">
+  <div class="container text-center">
+    <span class="section-label reveal">Trusted Platform</span>
+    <h2 class="section-title reveal reveal-delay-1">Security teams <span class="gradient-text">rely on us</span></h2>
+    <p class="section-sub reveal reveal-delay-2">Used by developers, security engineers, and compliance teams across the region.</p>
+  </div>
+  <div class="testimonials-grid container" style="margin-top:0">
+    <div class="testimonial-card reveal">
+      <div class="stars">★★★★★</div>
+      <div class="tq">"The WAF setup took under 5 minutes and we immediately started seeing blocked attacks. The real-time dashboard gives us instant visibility we never had before."</div>
+      <div class="ta"><div class="ta-avatar">AK</div><div><div class="ta-name">Ahmad K.</div><div class="ta-role">Lead DevSecOps, Fintech Startup</div></div></div>
+    </div>
+    <div class="testimonial-card reveal reveal-delay-1">
+      <div class="stars">★★★★★</div>
+      <div class="tq">"The AI assistant is remarkable — I asked it to analyse our last 30 days of logs and it identified 3 persistent threat actors we had completely missed."</div>
+      <div class="ta"><div class="ta-avatar">SR</div><div><div class="ta-name">Siti R.</div><div class="ta-role">Security Analyst, E-Commerce</div></div></div>
+    </div>
+    <div class="testimonial-card reveal reveal-delay-2">
+      <div class="stars">★★★★★</div>
+      <div class="tq">"We needed a SIEM that could ingest from Cloudflare and our custom apps simultaneously. Intel Web Security handles both seamlessly with the HEC endpoint."</div>
+      <div class="ta"><div class="ta-avatar">DP</div><div><div class="ta-name">Darren P.</div><div class="ta-role">CTO, SaaS Platform</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PRICING ════════════════════════════════════════════════════════════ -->
+<section class="pricing-section" id="pricing">
+  <div class="container text-center">
+    <span class="section-label reveal">Pricing</span>
+    <h2 class="section-title reveal reveal-delay-1">Simple, transparent pricing</h2>
+    <p class="section-sub reveal reveal-delay-2">Start free, upgrade when you need more power. No hidden fees, no per-seat charges.</p>
+    <div class="reveal reveal-delay-3">
+      <div class="billing-toggle" id="billingToggle">
+        <button class="billing-btn active" id="btnMonthly" onclick="setBilling('monthly')">Monthly</button>
+        <button class="billing-btn" id="btnAnnual" onclick="setBilling('annual')">
+          Annual <span class="billing-save">SAVE 25%</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="pricing-cards container" style="margin-top:0">
+
+    <!-- Basic -->
+    <div class="pricing-card reveal">
+      <div class="pricing-tier-name">Basic</div>
+      <div class="pricing-tier-desc">Core security monitoring for individuals and small teams getting started.</div>
+      <div class="pricing-orig">&nbsp;</div>
+      <div class="pricing-amount">
+        <span class="cur">Rp</span>0
+        <span class="period">/month</span>
+      </div>
+      <div style="font-size:12px;color:var(--text4);margin-top:6px">Free forever — no credit card required</div>
+      <ul class="pricing-features-list">
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Security Dashboard &amp; Secure Score</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Basic WAF (SQLi, CMDi, Path traversal)</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Log Explorer (last 7 days)</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>5 AI assistant prompts / day</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>1 Security scan / day</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Community support</li>
+      </ul>
+      <button class="btn-pricing" onclick="window.location='/signup'">Start for free</button>
+    </div>
+
+    <!-- Pro Monthly / Annual -->
+    <div class="pricing-card featured reveal reveal-delay-1">
+      <div class="pricing-badge">Most Popular</div>
+      <div class="pricing-tier-name">Pro</div>
+      <div class="pricing-tier-desc">Full platform access for security-first teams and growing businesses.</div>
+      <div class="pricing-orig" id="pricingOrig">&nbsp;</div>
+      <div class="pricing-amount" id="pricingAmount">
+        <span class="cur">Rp</span><span id="pricingNum">299.000</span>
+        <span class="period" id="pricingPer">/month</span>
+      </div>
+      <div style="font-size:12px;color:var(--text4);margin-top:6px" id="pricingSub">Billed monthly · Cancel anytime</div>
+      <ul class="pricing-features-list">
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Everything in Basic</li>
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Full WAF (10 rules inc. NoSQL, Tor, CrowdSec, Geo)</li>
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Malware Detection &amp; File Manager</li>
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Threat Analytics &amp; Incident Management</li>
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>SIEM Log Ingestion (HEC, Syslog, API)</li>
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Unlimited AI assistant prompts</li>
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Email + Slack alerting with escalation</li>
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>GRC &amp; Compliance reporting</li>
+        <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Priority support</li>
+      </ul>
+      <button class="btn-pricing primary" onclick="window.location='/signup'">Get Pro access</button>
+    </div>
+
+    <!-- Enterprise -->
+    <div class="pricing-card reveal reveal-delay-2">
+      <div class="pricing-tier-name">Enterprise</div>
+      <div class="pricing-tier-desc">Custom deployment, SLAs, and dedicated support for large organisations.</div>
+      <div class="pricing-orig">&nbsp;</div>
+      <div class="pricing-amount">
+        <span style="font-size:28px;font-weight:800">Custom</span>
+      </div>
+      <div style="font-size:12px;color:var(--text4);margin-top:6px">Contact us for a tailored quote</div>
+      <ul class="pricing-features-list">
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Everything in Pro</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>On-premise or private cloud deployment</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>SSO &amp; SAML 2.0 integration</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Custom data retention policies</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Dedicated account manager</li>
+        <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>99.99% SLA &amp; 24/7 support</li>
+      </ul>
+      <button class="btn-pricing" onclick="window.location='mailto:ngclaire75@gmail.com?subject=Enterprise Enquiry'">Contact sales</button>
+    </div>
+
+  </div>
+  <div class="pricing-footer reveal">
+    All plans include a <strong style="color:var(--text2)">14-day money-back guarantee</strong> on Pro.
+    Questions? <a href="mailto:ngclaire75@gmail.com">Talk to us</a>
+  </div>
+</section>
+
+<!-- ══ CTA BANNER ════════════════════════════════════════════════════════ -->
+<section class="cta-banner reveal">
+  <h2 class="cta-title">
+    Start protecting your web<br>
+    <span class="gradient-text">infrastructure today</span>
+  </h2>
+  <p class="cta-sub">Free forever. No credit card required. Up and running in 2 minutes.</p>
+  <div class="cta-actions">
+    <button class="btn-hero-primary" onclick="window.location='/signup'">Create free account &rarr;</button>
+    <button class="btn-hero-ghost" onclick="window.location='/login'">Sign in to dashboard</button>
+  </div>
+</section>
+
+<!-- ══ FOOTER ════════════════════════════════════════════════════════════ -->
+<footer class="footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="logo">
+        <img src="/static/Intel.jpeg" alt="Intel Web Security">
+        <span>Intel Web Security</span>
+      </div>
+      <p>AI-powered security intelligence platform for modern web infrastructure. Real-time threat detection, WAF, log analysis, and more.</p>
+    </div>
+    <div class="footer-col">
+      <h5>Products</h5>
+      <a href="#products">Runtime Protection</a>
+      <a href="#products">Malware Detection</a>
+      <a href="#products">Log Explorer</a>
+      <a href="#products">Threat Analytics</a>
+      <a href="#products">Security Scanner</a>
+      <a href="#products">AI Assistant</a>
+    </div>
+    <div class="footer-col">
+      <h5>Platform</h5>
+      <a href="/login">Sign in</a>
+      <a href="/signup">Get started</a>
+      <a href="#pricing">Pricing</a>
+      <a href="/login">Documentation</a>
+    </div>
+    <div class="footer-col">
+      <h5>Legal</h5>
+      <a href="/login">Privacy Policy</a>
+      <a href="/login">Terms of Service</a>
+      <a href="/login">Security</a>
+      <a href="mailto:ngclaire75@gmail.com">Contact us</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; 2026 Intel Web Security. All rights reserved.</span>
+    <span>Made with care for the open web.</span>
+  </div>
+</footer>
+
+<script>
+// ── Scroll Progress ──────────────────────────────────────────────────────
+(function(){
+  var bar = document.getElementById('scroll-progress');
+  window.addEventListener('scroll', function(){
+    var h = document.documentElement;
+    var pct = (h.scrollTop || document.body.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+    if (bar) bar.style.width = pct + '%';
+  }, {passive:true});
+})();
+
+// ── Navbar scroll effect ─────────────────────────────────────────────────
+(function(){
+  var nav = document.getElementById('nav');
+  window.addEventListener('scroll', function(){
+    if (window.scrollY > 50) nav.classList.add('scrolled');
+    else nav.classList.remove('scrolled');
+  }, {passive:true});
+})();
+
+// ── Particles ────────────────────────────────────────────────────────────
+(function(){
+  var container = document.getElementById('particles');
+  if (!container) return;
+  for (var i = 0; i < 30; i++) {
+    var p = document.createElement('div');
+    p.className = 'particle';
+    var x = Math.random() * 100;
+    var delay = Math.random() * 20;
+    var dur = 15 + Math.random() * 20;
+    var dx = (Math.random() - .5) * 100;
+    var dx2 = (Math.random() - .5) * 100;
+    p.style.cssText = [
+      'left:' + x + '%',
+      'animation-duration:' + dur + 's',
+      'animation-delay:-' + delay + 's',
+      '--dx:' + dx + 'px',
+      '--dx2:' + dx2 + 'px',
+      'opacity:' + (Math.random() * 0.5 + 0.2)
+    ].join(';');
+    container.appendChild(p);
+  }
+})();
+
+// ── Intersection Observer for reveal animations ──────────────────────────
+(function(){
+  var items = document.querySelectorAll('.reveal');
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        obs.unobserve(e.target);
+      }
+    });
+  }, {threshold:.12, rootMargin:'0px 0px -40px 0px'});
+  items.forEach(function(el){ obs.observe(el); });
+})();
+
+// ── Counter animation ────────────────────────────────────────────────────
+(function(){
+  function animateCounter(el) {
+    var target = parseInt(el.dataset.target, 10);
+    var duration = 1800;
+    var start = performance.now();
+    function update(now) {
+      var elapsed = now - start;
+      var progress = Math.min(elapsed / duration, 1);
+      var eased = 1 - Math.pow(1 - progress, 3);
+      var current = Math.floor(eased * target);
+      el.textContent = current.toLocaleString();
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  }
+  var obs2 = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.counter').forEach(animateCounter);
+        obs2.unobserve(e.target);
+      }
+    });
+  }, {threshold:.3});
+  var statsGrid = document.getElementById('statsGrid');
+  if (statsGrid) obs2.observe(statsGrid);
+})();
+
+// ── Dashboard Slideshow ──────────────────────────────────────────────────
+var _curSlide = 0;
+var _slideCount = 5;
+var _slideTimer;
+
+function goSlide(idx) {
+  _curSlide = idx;
+  var track = document.getElementById('slidesTrack');
+  if (track) track.style.transform = 'translateX(-' + (idx * 100) + '%)';
+  var tabs = document.querySelectorAll('.slide-tab');
+  tabs.forEach(function(t, i){ t.classList.toggle('active', i === idx); });
+  resetTimer();
+}
+
+function nextSlide() {
+  goSlide((_curSlide + 1) % _slideCount);
+}
+
+function resetTimer() {
+  clearInterval(_slideTimer);
+  _slideTimer = setInterval(nextSlide, 5000);
+}
+
+resetTimer();
+
+// ── Billing toggle ───────────────────────────────────────────────────────
+function setBilling(mode) {
+  var btnM = document.getElementById('btnMonthly');
+  var btnA = document.getElementById('btnAnnual');
+  var num  = document.getElementById('pricingNum');
+  var per  = document.getElementById('pricingPer');
+  var sub  = document.getElementById('pricingSub');
+  var orig = document.getElementById('pricingOrig');
+  btnM.classList.toggle('active', mode === 'monthly');
+  btnA.classList.toggle('active', mode === 'annual');
+  if (mode === 'annual') {
+    num.textContent  = '224.000';
+    per.textContent  = '/month';
+    orig.innerHTML   = '<s style="color:var(--text4)">Rp 299.000/month</s>';
+    sub.textContent  = 'Billed Rp 2.690.000/year · 2 months free';
+  } else {
+    num.textContent  = '299.000';
+    per.textContent  = '/month';
+    orig.innerHTML   = '&nbsp;';
+    sub.textContent  = 'Billed monthly · Cancel anytime';
+  }
+}
+
+// ── Smooth scroll for nav links ──────────────────────────────────────────
+document.querySelectorAll('.nav-links a[href^="#"]').forEach(function(a){
+  a.addEventListener('click', function(e){
+    e.preventDefault();
+    var target = document.querySelector(this.getAttribute('href'));
+    if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+});
+
+// ── Product card 3D tilt ─────────────────────────────────────────────────
+document.querySelectorAll('.product-card').forEach(function(card){
+  card.addEventListener('mousemove', function(e){
+    var r = card.getBoundingClientRect();
+    var x = (e.clientX - r.left) / r.width - .5;
+    var y = (e.clientY - r.top) / r.height - .5;
+    card.style.transform = 'translateY(-6px) rotateX(' + (-y * 6) + 'deg) rotateY(' + (x * 6) + 'deg)';
+  });
+  card.addEventListener('mouseleave', function(){
+    card.style.transform = '';
+  });
+});
+
+// ── Animate gauge on scroll ──────────────────────────────────────────────
+(function(){
+  var gc = document.getElementById('gaugeCircle');
+  if (!gc) return;
+  var triggered = false;
+  var obs = new IntersectionObserver(function(entries){
+    if (entries[0].isIntersecting && !triggered) {
+      triggered = true;
+      setTimeout(function(){ gc.style.strokeDashoffset = '32'; }, 200);
+    }
+  }, {threshold:.5});
+  obs.observe(gc);
+  gc.style.strokeDashoffset = '226';
+})();
+</script>
+</body>
+</html>

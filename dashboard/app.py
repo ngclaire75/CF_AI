@@ -4581,8 +4581,9 @@ def enrich(scan: dict, track_age: bool = False) -> dict:
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/')
-@login_required
 def index():
+    if 'user' not in session:
+        return render_template('landing.html')
     ctx = _build_template_context()
     user = session.get('user', {'username': 'admin', 'role': 'admin'})
     ctx['current_user'] = user
