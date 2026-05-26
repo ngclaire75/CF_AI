@@ -697,6 +697,227 @@ button{font-family:inherit;cursor:pointer}
 }
 
 /* ─── Responsive ────────────────────────────────────────────────── */
+/* ─── Trust Bar ────────────────────────────────────────────────── */
+.trust-section{
+  position:relative;z-index:1;
+  padding:32px 24px 40px;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(37,99,235,.04) 0%,transparent 100%);
+}
+.trust-label{
+  text-align:center;font-size:12px;font-weight:600;
+  color:var(--text4);letter-spacing:.6px;text-transform:uppercase;
+  margin-bottom:20px;
+}
+.trust-logos{
+  display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;
+}
+.trust-logo{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:10px 20px;
+  font-size:13px;font-weight:600;color:var(--text3);
+  transition:all .25s;
+}
+.trust-logo:hover{background:rgba(37,99,235,.08);border-color:rgba(37,99,235,.2);color:var(--blue3)}
+.trust-logo svg{width:16px;height:16px;opacity:.5}
+
+/* ─── How It Works ─────────────────────────────────────────────── */
+.steps-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:24px;
+  position:relative;margin-top:0;
+}
+.steps-grid::before{
+  content:'';position:absolute;top:50px;left:calc(16.67% + 20px);
+  width:calc(66.66% - 40px);height:2px;
+  background:linear-gradient(90deg,var(--blue),var(--blue3));
+  opacity:.25;z-index:0;
+}
+.step-card{
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:var(--radius2);padding:32px 28px 28px;
+  text-align:center;position:relative;z-index:1;
+  transition:all .3s;
+}
+.step-card:hover{
+  background:rgba(37,99,235,.06);border-color:var(--border2);
+  transform:translateY(-4px);box-shadow:0 12px 40px rgba(37,99,235,.15);
+}
+.step-num{
+  width:52px;height:52px;border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),var(--indigo));
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:800;color:#fff;
+  margin:0 auto 20px;
+  box-shadow:0 0 0 8px rgba(37,99,235,.12);
+}
+.step-icon-wrap{
+  width:48px;height:48px;border-radius:14px;
+  background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.2);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 16px;
+}
+.step-icon-wrap svg{width:22px;height:22px;stroke:var(--blue3);fill:none;stroke-width:2}
+.step-h{font-size:18px;font-weight:700;color:#fff;margin-bottom:10px}
+.step-p{font-size:14px;color:var(--text3);line-height:1.65}
+
+/* ─── Security Score Showcase ──────────────────────────────────── */
+.score-section{
+  background:linear-gradient(135deg,rgba(37,99,235,.08) 0%,rgba(79,70,229,.06) 100%);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.score-inner{
+  display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;
+}
+.score-visual{
+  display:flex;flex-direction:column;align-items:center;
+  gap:24px;
+}
+.score-ring-wrap{position:relative;width:200px;height:200px;margin:0 auto}
+.score-ring-wrap svg{transform:rotate(-90deg)}
+.score-ring-bg{stroke:rgba(37,99,235,.12);fill:none}
+.score-ring-fill{
+  stroke:url(#scoreGrad);fill:none;stroke-linecap:round;
+  stroke-dasharray:534;stroke-dashoffset:534;
+  transition:stroke-dashoffset 1.6s cubic-bezier(.4,0,.2,1);
+}
+.score-ring-fill.animated{stroke-dashoffset:107}
+.score-center{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;
+}
+.score-num{
+  font-size:48px;font-weight:800;
+  background:linear-gradient(135deg,#60a5fa,#2563eb);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1;
+}
+.score-label{font-size:11px;color:var(--text4);font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-top:4px}
+.score-grade{
+  padding:6px 18px;border-radius:100px;
+  background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);
+  font-size:13px;font-weight:700;color:#22c55e;
+}
+.score-bars{display:flex;flex-direction:column;gap:10px;width:100%;max-width:260px}
+.score-bar-row{display:flex;align-items:center;gap:10px}
+.score-bar-lbl{font-size:11px;color:var(--text3);width:90px;text-align:right;flex-shrink:0}
+.score-bar-track{flex:1;height:6px;background:rgba(37,99,235,.1);border-radius:3px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--blue),var(--blue3));transition:width 1.4s ease .3s;width:0}
+.score-bar-fill.animated{width:var(--w)}
+.score-bar-val{font-size:11px;color:var(--text4);width:24px;flex-shrink:0}
+
+.score-text{display:flex;flex-direction:column;gap:20px}
+.score-text h2{font-size:clamp(28px,3.5vw,44px);font-weight:800;color:#fff;line-height:1.1;letter-spacing:-1px}
+.score-text p{font-size:15px;color:var(--text3);line-height:1.7;max-width:480px}
+.score-highlights{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.score-hl{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:14px 16px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:12px;transition:all .2s;
+}
+.score-hl:hover{background:rgba(37,99,235,.06);border-color:var(--border2)}
+.score-hl-icon{
+  width:32px;height:32px;border-radius:8px;
+  background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.2);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.score-hl-icon svg{width:15px;height:15px;stroke:var(--blue3);fill:none;stroke-width:2}
+.score-hl-text strong{display:block;font-size:13px;font-weight:700;color:#fff;margin-bottom:3px}
+.score-hl-text span{font-size:12px;color:var(--text4)}
+
+/* ─── Why Choose Us ────────────────────────────────────────────── */
+.compare-section{}
+.compare-table-wrap{
+  overflow-x:auto;
+  border:1px solid var(--border);
+  border-radius:var(--radius2);
+  box-shadow:var(--shadow2);
+}
+.compare-table{width:100%;border-collapse:collapse}
+.compare-table th{
+  padding:16px 20px;font-size:12px;font-weight:700;
+  letter-spacing:.4px;text-transform:uppercase;
+  color:var(--text4);background:rgba(255,255,255,.03);
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+.compare-table th.col-us{
+  background:rgba(37,99,235,.08);color:var(--blue3);
+  border-bottom:2px solid var(--blue);
+}
+.compare-table td{
+  padding:14px 20px;font-size:13px;color:var(--text3);
+  border-bottom:1px solid rgba(255,255,255,.04);
+  vertical-align:middle;
+}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-table td.feat-name{color:var(--text2);font-weight:500}
+.compare-table td.col-us{background:rgba(37,99,235,.04);font-weight:600;color:#fff}
+.compare-table tr:hover td{background:rgba(255,255,255,.02)}
+.compare-table tr:hover td.col-us{background:rgba(37,99,235,.07)}
+.check-yes{color:#22c55e;font-size:16px}
+.check-no{color:#ef4444;font-size:16px;opacity:.6}
+.check-partial{color:#f59e0b;font-size:13px}
+
+/* ─── FAQ ──────────────────────────────────────────────────────── */
+.faq-section{}
+.faq-grid{
+  display:grid;grid-template-columns:1fr;gap:0;
+  max-width:780px;margin:0 auto;
+  border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden;
+}
+.faq-item{
+  border-bottom:1px solid var(--border);
+  transition:background .2s;
+}
+.faq-item:last-child{border-bottom:none}
+.faq-item.open{background:rgba(37,99,235,.04)}
+.faq-q{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+  padding:20px 24px;background:transparent;border:none;
+  font-size:15px;font-weight:600;color:#fff;text-align:left;
+  cursor:pointer;gap:16px;font-family:inherit;
+  transition:color .2s;
+}
+.faq-q:hover{color:var(--blue3)}
+.faq-icon{
+  width:24px;height:24px;border-radius:50%;
+  background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.2);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:all .25s;
+}
+.faq-icon svg{width:12px;height:12px;stroke:var(--blue3);fill:none;stroke-width:2.5;transition:transform .25s}
+.faq-item.open .faq-icon{background:var(--blue);border-color:var(--blue)}
+.faq-item.open .faq-icon svg{transform:rotate(45deg);stroke:#fff}
+.faq-a{
+  max-height:0;overflow:hidden;
+  transition:max-height .35s cubic-bezier(.4,0,.2,1);
+  padding:0 24px;
+}
+.faq-item.open .faq-a{max-height:300px;padding-bottom:20px}
+.faq-a p{font-size:14px;color:var(--text3);line-height:1.75}
+
+/* ─── Enhanced Testimonials ────────────────────────────────────── */
+.testimonials-slider{
+  overflow:hidden;position:relative;
+}
+.testimonials-track{
+  display:flex;gap:24px;
+  transition:transform .6s cubic-bezier(.4,0,.2,1);
+}
+.testimonial-card-v2{
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:var(--radius2);padding:28px;
+  min-width:340px;max-width:340px;
+  transition:all .3s;flex-shrink:0;
+}
+.testimonial-card-v2:hover{
+  background:rgba(37,99,235,.06);border-color:var(--border2);
+  transform:translateY(-4px);box-shadow:0 12px 40px rgba(37,99,235,.15);
+}
+
 @media(max-width:768px){
   .nav-links{display:none}
   .products-grid{grid-template-columns:1fr}
@@ -708,6 +929,10 @@ button{font-family:inherit;cursor:pointer}
   .feature-row.reverse .feature-visual{order:0}
   .stat-row{grid-template-columns:repeat(2,1fr)}
   .rule-grid{grid-template-columns:repeat(3,1fr)}
+  .steps-grid{grid-template-columns:1fr;gap:16px}
+  .steps-grid::before{display:none}
+  .score-inner{grid-template-columns:1fr;gap:40px}
+  .compare-table th,.compare-table td{padding:10px 12px;font-size:11px}
 }
 @media(max-width:480px){
   .hero-actions{flex-direction:column;align-items:center}
@@ -715,6 +940,7 @@ button{font-family:inherit;cursor:pointer}
   .pricing-cards{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:1fr}
   .stats-grid{grid-template-columns:1fr 1fr}
+  .steps-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -1102,6 +1328,39 @@ button{font-family:inherit;cursor:pointer}
   </div>
 </section>
 
+<!-- ══ TRUST BAR ═══════════════════════════════════════════════════════════ -->
+<section class="trust-section">
+  <div class="container">
+    <p class="trust-label reveal">Trusted by security teams at</p>
+    <div class="trust-logos">
+      <span class="trust-logo reveal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        FinShield Indonesia
+      </span>
+      <span class="trust-logo reveal reveal-delay-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        AsiaPay Gateway
+      </span>
+      <span class="trust-logo reveal reveal-delay-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        TechVenture SG
+      </span>
+      <span class="trust-logo reveal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        BrightStack Labs
+      </span>
+      <span class="trust-logo reveal reveal-delay-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        NexaCloud ID
+      </span>
+      <span class="trust-logo reveal reveal-delay-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        SafeNet Solutions
+      </span>
+    </div>
+  </div>
+</section>
+
 <!-- ══ PRODUCTS ══════════════════════════════════════════════════════════ -->
 <section class="section" id="products">
   <div class="container text-center">
@@ -1157,6 +1416,57 @@ button{font-family:inherit;cursor:pointer}
       <div class="product-tags"><span class="ptag">GPT-4o</span><span class="ptag">Claude</span><span class="ptag">Gemini</span><span class="ptag">Ollama</span></div>
       <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
     </div>
+  </div>
+</section>
+
+<!-- ══ HOW IT WORKS ═══════════════════════════════════════════════════════ -->
+<section class="section" id="how-it-works" style="padding-top:40px;padding-bottom:80px">
+  <div class="container text-center">
+    <span class="section-label reveal">How It Works</span>
+    <h2 class="section-title reveal reveal-delay-1">
+      Up and running in<br>
+      <span class="gradient-text">3 simple steps</span>
+    </h2>
+    <p class="section-sub reveal reveal-delay-2">
+      You don't need to be a security expert. Intel Web Security does the hard work for you — just sign up and you're protected.
+    </p>
+  </div>
+  <div class="steps-grid container" style="margin-top:0">
+
+    <div class="step-card reveal">
+      <div class="step-num">1</div>
+      <div class="step-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <h3 class="step-h">Create a free account</h3>
+      <p class="step-p">Sign up with your Gmail in under 30 seconds. No credit card, no complicated setup. Your security dashboard is ready instantly.</p>
+    </div>
+
+    <div class="step-card reveal reveal-delay-1">
+      <div class="step-num">2</div>
+      <div class="step-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      </div>
+      <h3 class="step-h">Turn on your protection</h3>
+      <p class="step-p">Enable WAF rules with one click. Our AI pre-configures the best protection for your site — you can always fine-tune later, but the defaults keep you safe right away.</p>
+    </div>
+
+    <div class="step-card reveal reveal-delay-2">
+      <div class="step-num">3</div>
+      <div class="step-icon-wrap">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <h3 class="step-h">Watch threats get blocked</h3>
+      <p class="step-p">See every blocked attack in real time on your dashboard. Our platform handles the complexity — you just see a clean, simple security report every morning.</p>
+    </div>
+
+  </div>
+
+  <div class="container text-center" style="margin-top:40px">
+    <a href="{{ '/app' if is_logged_in else '/signup' }}" class="btn-hero-primary" style="display:inline-block;padding:14px 36px">
+      {{ 'Go to Dashboard' if is_logged_in else 'Get started for free' }} &rarr;
+    </a>
+    <p style="margin-top:12px;font-size:13px;color:var(--text4)">No technical knowledge required &middot; Free forever plan available</p>
   </div>
 </section>
 
@@ -1228,6 +1538,174 @@ button{font-family:inherit;cursor:pointer}
           <div style="color:#64748b">→ <span style="color:#22c55e">200 OK</span> · ingested in 4ms</div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SECURITY SCORE SHOWCASE ════════════════════════════════════════════ -->
+<section class="section score-section">
+  <div class="container">
+    <div class="score-inner">
+
+      <div class="score-visual reveal">
+        <div class="score-ring-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#60a5fa"/>
+                <stop offset="100%" stop-color="#2563eb"/>
+              </linearGradient>
+            </defs>
+            <circle class="score-ring-bg" cx="100" cy="100" r="85" stroke-width="12"/>
+            <circle class="score-ring-fill" id="scoreRingFill" cx="100" cy="100" r="85" stroke-width="12"
+                    stroke-dasharray="534" stroke-dashoffset="534"/>
+          </svg>
+          <div class="score-center">
+            <div class="score-num" id="scoreNum">0</div>
+            <div class="score-label">Security Score</div>
+          </div>
+        </div>
+        <div class="score-grade">Excellent Protection</div>
+        <div class="score-bars">
+          <div class="score-bar-row">
+            <span class="score-bar-lbl">WAF Rules</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="--w:100%" id="sbar1"></div></div>
+            <span class="score-bar-val">10/10</span>
+          </div>
+          <div class="score-bar-row">
+            <span class="score-bar-lbl">Malware</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="--w:95%" id="sbar2"></div></div>
+            <span class="score-bar-val">95</span>
+          </div>
+          <div class="score-bar-row">
+            <span class="score-bar-lbl">Log Coverage</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="--w:88%" id="sbar3"></div></div>
+            <span class="score-bar-val">88</span>
+          </div>
+          <div class="score-bar-row">
+            <span class="score-bar-lbl">Compliance</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="--w:82%" id="sbar4"></div></div>
+            <span class="score-bar-val">82</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="score-text reveal reveal-delay-1">
+        <span class="section-label" style="align-self:flex-start">Security Intelligence</span>
+        <h2>Know exactly how<br><span class="gradient-text">protected you are</span></h2>
+        <p>Our Security Score gives you an instant, plain-English summary of your defences. No jargon — just a number from 0 to 100 and a simple breakdown of what's protecting you and what needs attention.</p>
+        <div class="score-highlights">
+          <div class="score-hl">
+            <div class="score-hl-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+            <div class="score-hl-text">
+              <strong>Real-time scoring</strong>
+              <span>Your score updates live as threats are blocked and rules are activated</span>
+            </div>
+          </div>
+          <div class="score-hl">
+            <div class="score-hl-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>
+            <div class="score-hl-text">
+              <strong>Weekly reports by email</strong>
+              <span>Get a plain-English summary of your security posture every Monday morning</span>
+            </div>
+          </div>
+          <div class="score-hl">
+            <div class="score-hl-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+            <div class="score-hl-text">
+              <strong>Actionable recommendations</strong>
+              <span>One-click fixes for anything dragging your score down — no expertise needed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ WHY CHOOSE US ══════════════════════════════════════════════════════ -->
+<section class="section compare-section">
+  <div class="container text-center">
+    <span class="section-label reveal">Why Intel Web Security</span>
+    <h2 class="section-title reveal reveal-delay-1">
+      The complete platform —<br>
+      <span class="gradient-text">not a patchwork of tools</span>
+    </h2>
+    <p class="section-sub reveal reveal-delay-2">
+      Most security solutions require 5+ separate tools and a team of experts. We give you everything in one place, for a fraction of the cost.
+    </p>
+  </div>
+  <div class="container reveal" style="margin-top:0">
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th style="width:30%">Feature</th>
+            <th class="col-us">Intel Web Security</th>
+            <th>Traditional SIEM</th>
+            <th>Basic Firewall</th>
+            <th>Manual Monitoring</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="feat-name">Real-time WAF protection</td>
+            <td class="col-us"><span class="check-yes">✓</span> <span style="font-size:11px;color:var(--blue3)">AI-powered</span></td>
+            <td><span class="check-partial">Partial</span></td>
+            <td><span class="check-yes">✓</span></td>
+            <td><span class="check-no">✗</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Malware file scanning</td>
+            <td class="col-us"><span class="check-yes">✓</span> <span style="font-size:11px;color:var(--blue3)">VirusTotal</span></td>
+            <td><span class="check-no">✗</span></td>
+            <td><span class="check-no">✗</span></td>
+            <td><span class="check-no">✗</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Log ingestion &amp; SIEM</td>
+            <td class="col-us"><span class="check-yes">✓</span></td>
+            <td><span class="check-yes">✓</span> <span style="font-size:11px;color:var(--text4)">expensive</span></td>
+            <td><span class="check-no">✗</span></td>
+            <td><span class="check-partial">Manual</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">AI security assistant</td>
+            <td class="col-us"><span class="check-yes">✓</span> <span style="font-size:11px;color:var(--blue3)">GPT-4o + Claude</span></td>
+            <td><span class="check-no">✗</span></td>
+            <td><span class="check-no">✗</span></td>
+            <td><span class="check-no">✗</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">GeoIP &amp; Tor blocking</td>
+            <td class="col-us"><span class="check-yes">✓</span></td>
+            <td><span class="check-partial">Add-on</span></td>
+            <td><span class="check-partial">Limited</span></td>
+            <td><span class="check-no">✗</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Security Score dashboard</td>
+            <td class="col-us"><span class="check-yes">✓</span> <span style="font-size:11px;color:var(--blue3)">real-time</span></td>
+            <td><span class="check-no">✗</span></td>
+            <td><span class="check-no">✗</span></td>
+            <td><span class="check-no">✗</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Free plan available</td>
+            <td class="col-us"><span class="check-yes">✓</span></td>
+            <td><span class="check-no">✗</span></td>
+            <td><span class="check-partial">Trial only</span></td>
+            <td><span class="check-yes">✓</span></td>
+          </tr>
+          <tr>
+            <td class="feat-name">Setup time</td>
+            <td class="col-us" style="color:#22c55e;font-size:13px">Under 5 minutes</td>
+            <td><span style="font-size:12px;color:var(--text4)">Days / weeks</span></td>
+            <td><span style="font-size:12px;color:var(--text4)">Hours</span></td>
+            <td><span style="font-size:12px;color:var(--text4)">Ongoing</span></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
@@ -1345,6 +1823,71 @@ button{font-family:inherit;cursor:pointer}
   <div class="pricing-footer reveal">
     All plans include a <strong style="color:var(--text2)">14-day money-back guarantee</strong> on Pro.
     Questions? <a href="mailto:ngclaire75@gmail.com">Talk to us</a>
+  </div>
+</section>
+
+<!-- ══ FAQ ════════════════════════════════════════════════════════════════ -->
+<section class="section faq-section" style="padding-bottom:80px">
+  <div class="container text-center">
+    <span class="section-label reveal">FAQ</span>
+    <h2 class="section-title reveal reveal-delay-1">
+      Common questions,<br>
+      <span class="gradient-text">plain-English answers</span>
+    </h2>
+    <p class="section-sub reveal reveal-delay-2">No jargon. No fluff. Just honest answers to the things people actually ask.</p>
+  </div>
+  <div class="container" style="margin-top:0">
+    <div class="faq-grid reveal">
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Do I need to be a tech expert to use this?
+          <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-a"><p>Not at all. Intel Web Security is built for everyone — from solo founders to enterprise security teams. Our one-click setup, plain-English dashboard, and AI assistant mean you don't need any technical background to stay protected.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          What is a WAF and why do I need one?
+          <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-a"><p>A Web Application Firewall (WAF) is like a bodyguard for your website. It stands between your app and the internet, automatically blocking hackers who try to steal your data, break your login page, or take down your site. You turn it on with one click and it works silently in the background.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Is the free plan really free? What's the catch?
+          <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-a"><p>Yes, completely free — no credit card, no trial period, no surprise charges. The free Basic plan gives you core WAF protection, a security dashboard, log explorer (7-day history), and 5 AI prompts per day. We make money when you upgrade to Pro for advanced features, not by tricking you into paying.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          How quickly can I get set up?
+          <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-a"><p>Most users are fully set up and seeing their first blocked threats within 5 minutes of signing up. Create an account, enable WAF rules with one click, and you're protected. No server configuration, no code changes, no waiting for a sales call.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          What happens when a threat is detected?
+          <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-a"><p>The attack is blocked instantly and logged to your dashboard. You'll see the attacker's IP address, what they tried to do, and when it happened — all in plain English. On the Pro plan, you also get an immediate email or Slack alert so you're always in the loop, even when you're away from the dashboard.</p></div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Can I cancel my Pro subscription anytime?
+          <span class="faq-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        </button>
+        <div class="faq-a"><p>Yes, cancel any time — no questions asked. If you cancel a monthly plan, you keep access until the end of your billing period, then drop to the free Basic plan automatically. Annual plans come with a 14-day money-back guarantee. Your data is always yours and you can export it before leaving.</p></div>
+      </div>
+
+    </div>
   </div>
 </section>
 
@@ -1575,6 +2118,54 @@ document.querySelectorAll('.product-card').forEach(function(card){
   obs.observe(gc);
   gc.style.strokeDashoffset = '226';
 })();
+
+// ── Security Score ring animation ────────────────────────────────────────
+(function(){
+  var ring = document.getElementById('scoreRingFill');
+  var numEl = document.getElementById('scoreNum');
+  var bars = [
+    document.getElementById('sbar1'),
+    document.getElementById('sbar2'),
+    document.getElementById('sbar3'),
+    document.getElementById('sbar4')
+  ];
+  if (!ring || !numEl) return;
+  var triggered = false;
+  var obs = new IntersectionObserver(function(entries){
+    if (entries[0].isIntersecting && !triggered) {
+      triggered = true;
+      // animate ring: 534 total, score 84/100 = 84% filled = offset 534*(1-0.84)=85.44
+      setTimeout(function(){
+        ring.style.strokeDashoffset = '85';
+        bars.forEach(function(b){ if(b) b.classList.add('animated'); });
+      }, 200);
+      // animate counter
+      var target = 84;
+      var duration = 1600;
+      var start = performance.now();
+      function tick(now) {
+        var p = Math.min((now - start) / duration, 1);
+        var e = 1 - Math.pow(1 - p, 3);
+        numEl.textContent = Math.floor(e * target);
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+  }, {threshold:.3});
+  obs.observe(ring);
+})();
+
+// ── FAQ accordion ────────────────────────────────────────────────────────
+function toggleFaq(btn) {
+  var item = btn.closest('.faq-item');
+  var isOpen = item.classList.contains('open');
+  // close all
+  document.querySelectorAll('.faq-item.open').forEach(function(el){
+    el.classList.remove('open');
+  });
+  // open clicked if it was closed
+  if (!isOpen) item.classList.add('open');
+}
 </script>
 </body>
 </html>
