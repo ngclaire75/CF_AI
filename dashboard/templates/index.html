@@ -4638,7 +4638,11 @@ Export Power BI
     .mld-field-select{width:100%;padding:8px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;color:var(--c1);background:var(--c11);outline:none;font-family:inherit}
     .mld-toggle-row{display:flex;align-items:center;gap:10px}
     .mld-save-alerts-btn{padding:9px 22px;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px}
-    .mld-alerts-msg{font-size:12px;color:#166534;font-weight:600;margin-left:10px}
+    .mld-alerts-msg{font-size:12px;font-weight:600;margin-left:10px}
+    /* Filter bar */
+    .mld-filter-btn{padding:5px 14px;border:1px solid var(--c8);border-radius:20px;font-size:11px;font-weight:600;color:var(--c5);background:var(--c11);cursor:pointer;font-family:inherit;transition:all .15s}
+    .mld-filter-btn:hover{background:var(--c10)}
+    .mld-filter-btn.active{background:#fef2f2;color:#991b1b;border-color:#fca5a5}
   </style>
 
   <!-- Hero -->
@@ -4650,8 +4654,10 @@ Export Power BI
         <div class="mld-badge">REAL-TIME SCANNING</div>
       </div>
       <div class="mld-stats">
-        <div><div class="mld-stat-num">Instant</div><div class="mld-stat-lbl">Alert Time</div></div>
-        <div><div class="mld-stat-num">npm · yarn · pnpm</div><div class="mld-stat-lbl">Package Managers</div></div>
+        <div><div class="mld-stat-num" id="mld-stat-scans">—</div><div class="mld-stat-lbl">Total Scans</div></div>
+        <div><div class="mld-stat-num" id="mld-stat-packages">—</div><div class="mld-stat-lbl">Packages Checked</div></div>
+        <div><div class="mld-stat-num" id="mld-stat-threats">—</div><div class="mld-stat-lbl">Threats Found</div></div>
+        <div><div class="mld-stat-num" id="mld-stat-malware" style="color:#dc2626">—</div><div class="mld-stat-lbl">Malware Detected</div></div>
       </div>
     </div>
   </div>
@@ -4740,6 +4746,33 @@ Export Power BI
           </select>
         </div>
       </div>
+      <!-- Quick single-package lookup -->
+      <div style="background:var(--c10);border:1px solid var(--c8);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Quick Package Lookup</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:2;min-width:140px">
+            <div style="font-size:10px;color:var(--c5);margin-bottom:3px">Package name</div>
+            <input id="mld-lookup-name" type="text" placeholder="e.g. ua-parser-js" style="width:100%;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;outline:none;font-family:inherit;box-sizing:border-box">
+          </div>
+          <div style="flex:1;min-width:90px">
+            <div style="font-size:10px;color:var(--c5);margin-bottom:3px">Version (optional)</div>
+            <input id="mld-lookup-ver" type="text" placeholder="0.7.29" style="width:100%;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;outline:none;font-family:inherit;box-sizing:border-box">
+          </div>
+          <div style="flex:1;min-width:110px">
+            <div style="font-size:10px;color:var(--c5);margin-bottom:3px">Ecosystem</div>
+            <select id="mld-lookup-eco" style="width:100%;padding:7px 10px;border:1px solid var(--c8);border-radius:6px;font-size:12px;outline:none;font-family:inherit">
+              <option value="npm">npm</option>
+              <option value="pypi">PyPI</option>
+              <option value="maven">Maven</option>
+              <option value="rubygems">RubyGems</option>
+              <option value="nuget">NuGet</option>
+            </select>
+          </div>
+          <button onclick="mldLookup()" style="padding:7px 16px;background:var(--c1);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">Check Package</button>
+        </div>
+        <div id="mld-lookup-result" style="margin-top:10px;display:none"></div>
+      </div>
+
       <textarea class="mld-manifest-input" id="mld-manifest" placeholder='Paste your package.json here...&#10;&#10;Example:&#10;{&#10;  "dependencies": {&#10;    "express": "^4.18.0",&#10;    "lodash": "4.17.21"&#10;  }&#10;}'></textarea>
       <div class="mld-scan-actions">
         <button class="mld-scan-btn" id="mld-scan-btn" onclick="mldScan()">Scan Dependencies</button>
@@ -4819,8 +4852,18 @@ Export Power BI
           </div>
         </div>
 
-        <button class="mld-save-alerts-btn" onclick="mldSaveAlerts()">Save Alert Settings</button>
-        <span class="mld-alerts-msg" id="mld-alerts-msg" style="display:none"></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">
+          <button class="mld-save-alerts-btn" onclick="mldSaveAlerts()">Save Settings</button>
+          <button onclick="mldTestAlert('email')" style="padding:9px 16px;background:var(--c10);border:1px solid var(--c8);border-radius:7px;font-size:12px;font-weight:600;color:var(--c2);cursor:pointer;font-family:inherit">Test Email</button>
+          <button onclick="mldTestAlert('slack')" style="padding:9px 16px;background:var(--c10);border:1px solid var(--c8);border-radius:7px;font-size:12px;font-weight:600;color:var(--c2);cursor:pointer;font-family:inherit">Test Slack</button>
+          <span class="mld-alerts-msg" id="mld-alerts-msg" style="display:none"></span>
+        </div>
+
+        <div style="margin-top:16px;padding:12px 14px;background:var(--c10);border:1px solid var(--c8);border-radius:8px;font-size:11px;color:var(--c5);line-height:1.6">
+          <strong style="color:var(--c2)">How alerts work:</strong> Each time a scan detects threats at or above your threshold,
+          an alert fires automatically in the background. Email uses the SMTP settings configured in your server <code>.env</code> file
+          (<code>SMTP_USER</code>, <code>SMTP_PASS</code>). Slack uses the webhook URL above.
+        </div>
       </div>
     </div>
   </div>
@@ -22963,7 +23006,8 @@ function dcaAiPentest() {
 }
 
 // ── Malware Detection ─────────────────────────────────────────────────────────
-var _mldScanData = null;  // last scan result for SBOM export
+var _mldScanData   = null;
+var _mldFeedLoaded = false;
 
 var _MLD_PLACEHOLDERS = {
   npm:      'Paste your package.json here…\n\nExample:\n{\n  "dependencies": {\n    "express": "^4.18.0",\n    "lodash": "4.17.21"\n  }\n}',
@@ -22979,6 +23023,19 @@ function mldUpdatePlaceholder() {
   if (ta) ta.placeholder = _MLD_PLACEHOLDERS[eco] || '';
 }
 
+function mldLoadStats() {
+  fetch('/api/mld/stats')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var set = function(id, v) { var el=document.getElementById(id); if(el) el.textContent=v; };
+      set('mld-stat-scans',    d.total_scans    != null ? d.total_scans    : '—');
+      set('mld-stat-packages', d.total_packages != null ? d.total_packages : '—');
+      set('mld-stat-threats',  d.total_findings != null ? d.total_findings : '—');
+      set('mld-stat-malware',  d.total_malware  != null ? d.total_malware  : '—');
+    })
+    .catch(function(){});
+}
+
 function mldTab(name, btn) {
   ['scanner','feed','history','alerts'].forEach(function(n) {
     var pane = document.getElementById('mld-pane-' + n);
@@ -22986,7 +23043,7 @@ function mldTab(name, btn) {
     if (pane) pane.style.display = n === name ? '' : 'none';
     if (tab)  tab.classList.toggle('active', n === name);
   });
-  if (name === 'feed')    mldLoadFeed(false);
+  if (name === 'feed'    && !_mldFeedLoaded) { _mldFeedLoaded = true; mldLoadFeed(false); }
   if (name === 'history') mldLoadHistory();
   if (name === 'alerts')  mldLoadAlerts();
 }
@@ -22994,77 +23051,98 @@ function mldTab(name, btn) {
 function _mldSevColor(sev) {
   return {CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#d97706',LOW:'#16a34a'}[sev] || '#6b7280';
 }
-
 function _mldSevBadge(sev) {
-  return '<span class="mld-sev ' + sev + '">' + sev + '</span>';
+  return '<span class="mld-sev ' + (sev||'') + '">' + (sev||'?') + '</span>';
+}
+
+function _mldRenderResults(d) {
+  var findings = d.findings || [];
+  var pkgCount = d.pkg_count || 0;
+  var malware  = findings.filter(function(f){ return f.is_malware; });
+  var critical = findings.filter(function(f){ return f.severity === 'CRITICAL'; });
+  var high     = findings.filter(function(f){ return f.severity === 'HIGH'; });
+  var other    = findings.length - critical.length - high.length;
+
+  var summary = !findings.length
+    ? '<div class="mld-result-stat clean">&#10003; ' + pkgCount + ' packages scanned — no issues found</div>'
+    : '<div class="mld-result-stat info">' + pkgCount + ' packages</div>'
+      + (malware.length  ? '<div class="mld-result-stat danger">' + malware.length + ' malware</div>' : '')
+      + (critical.length ? '<div class="mld-result-stat danger">' + critical.length + ' critical</div>' : '')
+      + (high.length     ? '<div class="mld-result-stat warn">' + high.length + ' high</div>' : '')
+      + (other > 0       ? '<div class="mld-result-stat info">' + other + ' other</div>' : '');
+
+  var filterBar = findings.length ? (
+    '<div style="display:flex;gap:6px;margin:10px 0;flex-wrap:wrap">'
+    + '<button class="mld-filter-btn active" onclick="mldFilter(\'all\',this)">All (' + findings.length + ')</button>'
+    + (malware.length  ? '<button class="mld-filter-btn" onclick="mldFilter(\'malware\',this)">Malware (' + malware.length + ')</button>' : '')
+    + (critical.length ? '<button class="mld-filter-btn" onclick="mldFilter(\'critical\',this)">Critical (' + critical.length + ')</button>' : '')
+    + (high.length     ? '<button class="mld-filter-btn" onclick="mldFilter(\'high\',this)">High (' + high.length + ')</button>' : '')
+    + '</div>'
+  ) : '';
+
+  var rows = findings.map(function(f, idx) {
+    var malBadge = f.is_malware ? '<span class="mld-malware-badge">MALWARE</span>' : '';
+    var ref      = (f.refs && f.refs[0]) ? ' <a class="mld-feed-link" href="' + f.refs[0] + '" target="_blank" rel="noopener">Advisory &#8599;</a>' : '';
+    var sev      = f.severity || 'UNKNOWN';
+    var filterCls = 'mld-row-all'
+      + (f.is_malware ? ' mld-row-malware' : '')
+      + (sev === 'CRITICAL' ? ' mld-row-critical' : '')
+      + (sev === 'HIGH'     ? ' mld-row-high'     : '');
+    return '<tr class="' + filterCls + '" data-idx="' + idx + '">'
+      + '<td style="font-weight:700;color:var(--c1);white-space:nowrap">' + (f.package||'') + malBadge + '</td>'
+      + '<td style="font-family:monospace;font-size:10px;color:var(--c5)">' + (f.version||'any') + '</td>'
+      + '<td>' + _mldSevBadge(sev) + '</td>'
+      + '<td style="font-family:monospace;font-size:10px;color:var(--c5)">' + (f.vuln_id||'') + ref + '</td>'
+      + '<td><div style="font-weight:600;font-size:11px;color:var(--c1)">' + (f.title||'')
+        + '</div>' + (f.summary ? '<div style="font-size:10px;color:var(--c5);margin-top:2px;max-width:300px">' + f.summary.substring(0,160) + '</div>' : '')
+        + '</td>'
+      + '<td style="font-size:10px;color:#166534;font-weight:600;white-space:nowrap">' + (f.fix||'') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var table = findings.length
+    ? '<table class="mld-result-table" id="mld-result-tbl"><thead><tr>'
+      + '<th>Package</th><th>Version</th><th>Severity</th><th>ID</th><th>Description</th><th>Fix</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table>'
+    : '';
+
+  return '<div class="mld-result-summary">' + summary + '</div>' + filterBar + table;
+}
+
+function mldFilter(type, btn) {
+  document.querySelectorAll('.mld-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('#mld-result-tbl tbody tr').forEach(function(tr) {
+    var show = type === 'all' || tr.classList.contains('mld-row-' + type);
+    tr.style.display = show ? '' : 'none';
+  });
 }
 
 function mldScan() {
   var manifest  = (document.getElementById('mld-manifest') || {}).value || '';
   var ecosystem = (document.getElementById('mld-ecosystem') || {}).value || 'npm';
-  var btn       = document.getElementById('mld-scan-btn');
-  var status    = document.getElementById('mld-scan-status');
-  var results   = document.getElementById('mld-scan-results');
+  var btn    = document.getElementById('mld-scan-btn');
+  var status = document.getElementById('mld-scan-status');
+  var results= document.getElementById('mld-scan-results');
   if (!manifest.trim()) { if (status) status.textContent = 'Please paste a manifest file first.'; return; }
   if (btn) btn.disabled = true;
-  if (status) status.textContent = 'Scanning…';
+  if (status) status.innerHTML = '<span style="color:var(--c5)">Scanning via OSV.dev + npm advisory API…</span>';
   if (results) results.innerHTML = '';
   document.getElementById('mld-sbom-btn').style.display = 'none';
 
   fetch('/api/mld/scan', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({manifest: manifest, ecosystem: ecosystem})
   })
   .then(function(r){ return r.json(); })
   .then(function(d) {
     if (btn) btn.disabled = false;
+    if (status) status.textContent = '';
     if (d.error) { if (status) status.textContent = 'Error: ' + d.error; return; }
     _mldScanData = d;
-    if (status) status.textContent = '';
-
-    var findings  = d.findings || [];
-    var pkgCount  = d.pkg_count || 0;
-    var malware   = findings.filter(function(f){ return f.is_malware; });
-    var critical  = findings.filter(function(f){ return f.severity === 'CRITICAL'; });
-    var high      = findings.filter(function(f){ return f.severity === 'HIGH'; });
-
-    var summary = '';
-    if (!findings.length) {
-      summary = '<div class="mld-result-stat clean">&#10003; ' + pkgCount + ' packages scanned — no issues found</div>';
-    } else {
-      summary = '<div class="mld-result-stat info">' + pkgCount + ' packages scanned</div>'
-              + (malware.length  ? '<div class="mld-result-stat danger">' + malware.length + ' malware detected</div>' : '')
-              + (critical.length ? '<div class="mld-result-stat danger">' + critical.length + ' critical</div>' : '')
-              + (high.length     ? '<div class="mld-result-stat warn">'   + high.length     + ' high</div>'     : '')
-              + (findings.length - critical.length - high.length > 0
-                  ? '<div class="mld-result-stat info">' + (findings.length - critical.length - high.length) + ' other</div>' : '');
-    }
-
-    var tableRows = '';
-    if (findings.length) {
-      tableRows = '<table class="mld-result-table"><thead><tr>'
-        + '<th>Package</th><th>Version</th><th>Severity</th>'
-        + '<th>ID</th><th>Title</th><th>Fix</th></tr></thead><tbody>';
-      findings.forEach(function(f) {
-        var malBadge = f.is_malware ? '<span class="mld-malware-badge">MALWARE</span>' : '';
-        var refs = (f.refs && f.refs[0]) ? '<br><a class="mld-feed-link" href="' + f.refs[0] + '" target="_blank" rel="noopener">Advisory</a>' : '';
-        tableRows += '<tr>'
-          + '<td style="font-weight:600;color:var(--c1)">' + (f.package || '') + malBadge + '</td>'
-          + '<td style="font-family:monospace;color:var(--c5)">' + (f.version || 'any') + '</td>'
-          + '<td>' + _mldSevBadge(f.severity || 'UNKNOWN') + '</td>'
-          + '<td style="font-family:monospace;font-size:10px;color:var(--c5)">' + (f.vuln_id || '') + refs + '</td>'
-          + '<td style="max-width:260px"><div style="font-weight:600;font-size:11px;color:var(--c1)">' + (f.title || '') + '</div>'
-            + (f.summary ? '<div style="font-size:10px;color:var(--c5);margin-top:2px">' + f.summary.substring(0,180) + '</div>' : '')
-          + '</td>'
-          + '<td style="font-size:10px;color:#166534;font-weight:600">' + (f.fix || '') + '</td>'
-          + '</tr>';
-      });
-      tableRows += '</tbody></table>';
-    }
-
-    if (results) results.innerHTML = '<div class="mld-result-summary">' + summary + '</div>' + tableRows;
-    if (findings.length) document.getElementById('mld-sbom-btn').style.display = '';
+    if (results) results.innerHTML = _mldRenderResults(d);
+    if ((d.findings||[]).length) document.getElementById('mld-sbom-btn').style.display = '';
+    mldLoadStats();
   })
   .catch(function(e) {
     if (btn) btn.disabled = false;
@@ -23072,126 +23150,166 @@ function mldScan() {
   });
 }
 
+function mldLookup() {
+  var name   = (document.getElementById('mld-lookup-name') || {}).value || '';
+  var ver    = (document.getElementById('mld-lookup-ver')  || {}).value || '';
+  var eco    = (document.getElementById('mld-lookup-eco')  || {}).value || 'npm';
+  var resDiv = document.getElementById('mld-lookup-result');
+  if (!name.trim()) return;
+  if (resDiv) { resDiv.style.display='block'; resDiv.innerHTML='<span style="font-size:11px;color:var(--c5)">Checking…</span>'; }
+  fetch('/api/mld/lookup', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name: name, version: ver, ecosystem: eco})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (!resDiv) return;
+    if (d.error) { resDiv.innerHTML='<span style="color:#dc2626;font-size:12px">'+d.error+'</span>'; return; }
+    if (d.clean) {
+      resDiv.innerHTML='<span style="color:#166534;font-size:12px;font-weight:600">&#10003; No known issues found for <strong>'+name+(ver?' '+ver:'')+'</strong></span>';
+    } else {
+      var badges = d.findings.map(function(f){
+        return '<span style="margin-right:6px">' + _mldSevBadge(f.severity)
+          + (f.is_malware?'<span class="mld-malware-badge">MALWARE</span>':'')
+          + ' <span style="font-size:11px;color:var(--c1)">' + (f.title||'').substring(0,80) + '</span></span>';
+      }).join('<br>');
+      resDiv.innerHTML = '<div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:4px">'
+        + d.findings.length + ' issue(s) found for ' + name + (ver?' '+ver:'')+'</div>' + badges;
+    }
+  })
+  .catch(function() { if (resDiv) resDiv.innerHTML='<span style="color:#dc2626;font-size:12px">Lookup failed</span>'; });
+}
+
 function mldExportSbom() {
   if (!_mldScanData) return;
   fetch('/api/mld/sbom', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({packages: _mldScanData.packages || [], findings: _mldScanData.findings || []})
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({packages: _mldScanData.packages||[], findings: _mldScanData.findings||[]})
   })
   .then(function(r){ return r.blob(); })
   .then(function(blob) {
-    var url  = URL.createObjectURL(blob);
-    var link = document.createElement('a');
-    link.href = url; link.download = 'sbom.cdx.json'; link.click();
+    var url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download='sbom.cdx.json'; a.click();
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  })
-  .catch(function(){});
+  }).catch(function(){});
 }
 
 function mldLoadFeed(force) {
   var body = document.getElementById('mld-feed-body');
-  if (body) body.innerHTML = '<div class="mld-empty">Loading…</div>';
-  fetch('/api/mld/feed' + (force ? '?refresh=1' : ''))
+  if (body) body.innerHTML='<div class="mld-empty">Loading…</div>';
+  fetch('/api/mld/feed' + (force?'?refresh=1':''))
     .then(function(r){ return r.json(); })
     .then(function(d) {
       var feed = d.feed || [];
       if (!body) return;
-      if (!feed.length) { body.innerHTML = '<div class="mld-empty">No threat feed data available.</div>'; return; }
+      if (!feed.length) { body.innerHTML='<div class="mld-empty">No threat feed data available.</div>'; return; }
       body.innerHTML = feed.map(function(item) {
-        var dot   = '<div class="mld-feed-sev-dot" style="background:' + _mldSevColor(item.severity) + '"></div>';
-        var sev   = _mldSevBadge(item.severity || 'UNKNOWN');
-        var link  = item.url ? '<a class="mld-feed-link" href="' + item.url + '" target="_blank" rel="noopener">View Advisory</a>' : '';
-        var cve   = item.cve ? '<span class="mld-feed-id">' + item.cve + '</span>' : '';
-        return '<div class="mld-feed-item">' + dot
-          + '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
-          + '<span class="mld-feed-pkg">' + (item.package || 'Unknown') + '</span>'
-          + '<span class="mld-feed-eco">' + (item.ecosystem || '') + '</span>' + sev + '</div>'
-          + '<div class="mld-feed-summary">' + (item.summary || '') + '</div>'
-          + '<div class="mld-feed-meta">'
-          + '<span class="mld-feed-id">' + (item.id || '') + '</span>'
-          + cve
-          + (item.published ? '<span class="mld-feed-date">' + item.published + '</span>' : '')
-          + link + '</div></div></div>';
+        var dot  = '<div class="mld-feed-sev-dot" style="background:'+_mldSevColor(item.severity)+'"></div>';
+        var link = item.url ? '<a class="mld-feed-link" href="'+item.url+'" target="_blank" rel="noopener">View Advisory &#8599;</a>' : '';
+        var cve  = item.cve ? '<span class="mld-feed-id">'+item.cve+'</span>' : '';
+        return '<div class="mld-feed-item">'+dot
+          +'<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+          +'<span class="mld-feed-pkg">'+(item.package||'Unknown')+'</span>'
+          +'<span class="mld-feed-eco">'+(item.ecosystem||'')+'</span>'
+          +_mldSevBadge(item.severity||'UNKNOWN')+'</div>'
+          +'<div class="mld-feed-summary">'+(item.summary||'')+'</div>'
+          +'<div class="mld-feed-meta"><span class="mld-feed-id">'+(item.id||'')+'</span>'
+          +cve+(item.published?'<span class="mld-feed-date">'+item.published+'</span>':'')
+          +link+'</div></div></div>';
       }).join('');
     })
-    .catch(function() { if (body) body.innerHTML = '<div class="mld-empty">Failed to load feed.</div>'; });
+    .catch(function(){ if(body) body.innerHTML='<div class="mld-empty">Failed to load feed.</div>'; });
 }
 
 function mldLoadHistory() {
   var body = document.getElementById('mld-history-body');
-  if (body) body.innerHTML = '<div class="mld-empty">Loading…</div>';
+  if (body) body.innerHTML='<div class="mld-empty">Loading…</div>';
   fetch('/api/mld/history')
     .then(function(r){ return r.json(); })
     .then(function(d) {
       var rows = d.history || [];
       if (!body) return;
-      if (!rows.length) { body.innerHTML = '<div class="mld-empty">No scans recorded yet.</div>'; return; }
+      if (!rows.length) { body.innerHTML='<div class="mld-empty">No scans recorded yet.</div>'; return; }
       var tbl = '<table class="mld-hist-table"><thead><tr>'
-        + '<th>Time (UTC)</th><th>User</th><th>Ecosystem</th><th>Packages</th>'
-        + '<th>Findings</th><th>Critical</th><th>Malware</th></tr></thead><tbody>';
+        +'<th>Time (UTC)</th><th>User</th><th>Ecosystem</th><th>Packages</th>'
+        +'<th>Findings</th><th>Critical</th><th>Malware</th></tr></thead><tbody>';
       rows.forEach(function(r) {
-        var ts = (r.ts || '').replace('T',' ').replace('Z','').substring(0,19);
+        var ts = (r.ts||'').replace('T',' ').replace('Z','').substring(0,19);
         tbl += '<tr>'
-          + '<td style="font-family:monospace;font-size:11px">' + ts + '</td>'
-          + '<td>' + (r.user || '') + '</td>'
-          + '<td><span class="mld-feed-eco" style="margin:0">' + (r.ecosystem || '') + '</span></td>'
-          + '<td style="text-align:center">' + (r.pkg_count || 0) + '</td>'
-          + '<td style="text-align:center">' + (r.finding_count || 0) + '</td>'
-          + '<td style="text-align:center">' + (r.critical > 0 ? '<span style="color:#dc2626;font-weight:700">' + r.critical + '</span>' : '0') + '</td>'
-          + '<td style="text-align:center">' + (r.malware > 0 ? '<span class="mld-malware-badge" style="margin:0">' + r.malware + '</span>' : '0') + '</td>'
-          + '</tr>';
+          +'<td style="font-family:monospace;font-size:11px">'+ts+'</td>'
+          +'<td>'+(r.user||'')+'</td>'
+          +'<td><span class="mld-feed-eco" style="margin:0">'+(r.ecosystem||'')+'</span></td>'
+          +'<td style="text-align:center">'+(r.pkg_count||0)+'</td>'
+          +'<td style="text-align:center">'+(r.finding_count||0)+'</td>'
+          +'<td style="text-align:center">'+(r.critical>0?'<span style="color:#dc2626;font-weight:700">'+r.critical+'</span>':'0')+'</td>'
+          +'<td style="text-align:center">'+(r.malware>0?'<span class="mld-malware-badge" style="margin:0">'+r.malware+'</span>':'0')+'</td>'
+          +'</tr>';
       });
       tbl += '</tbody></table>';
       body.innerHTML = tbl;
     })
-    .catch(function() { if (body) body.innerHTML = '<div class="mld-empty">Failed to load history.</div>'; });
+    .catch(function(){ if(body) body.innerHTML='<div class="mld-empty">Failed to load history.</div>'; });
 }
 
 function mldLoadAlerts() {
   fetch('/api/mld/alerts/config')
     .then(function(r){ return r.json(); })
     .then(function(d) {
-      var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val; };
-      var chk = function(id, val) { var el = document.getElementById(id); if (el) el.checked = !!val; };
-      chk('mld-alert-email-on',    d.email_enabled);
-      set('mld-alert-email',       d.email || '');
-      set('mld-alert-threshold',   d.threshold || 'HIGH');
-      set('mld-alert-slack',       d.slack_webhook || '');
+      var set = function(id,v){ var el=document.getElementById(id); if(el) el.value=v; };
+      var chk = function(id,v){ var el=document.getElementById(id); if(el) el.checked=!!v; };
+      chk('mld-alert-email-on',   d.email_enabled);
+      set('mld-alert-email',      d.email||'');
+      set('mld-alert-threshold',  d.threshold||'HIGH');
+      set('mld-alert-slack',      d.slack_webhook||'');
       chk('mld-alert-malware-only', d.malware_only);
-    })
-    .catch(function(){});
+    }).catch(function(){});
 }
 
 function mldSaveAlerts() {
-  var get = function(id) { var el = document.getElementById(id); return el ? el.value : ''; };
-  var chk = function(id) { var el = document.getElementById(id); return el ? el.checked : false; };
-  var cfg = {
-    email_enabled: chk('mld-alert-email-on'),
-    email:         get('mld-alert-email'),
-    threshold:     get('mld-alert-threshold'),
-    slack_webhook: get('mld-alert-slack'),
-    malware_only:  chk('mld-alert-malware-only'),
-  };
+  var get = function(id){ var el=document.getElementById(id); return el?el.value:''; };
+  var chk = function(id){ var el=document.getElementById(id); return el&&el.checked; };
+  var cfg = { email_enabled: chk('mld-alert-email-on'), email: get('mld-alert-email'),
+              threshold: get('mld-alert-threshold'), slack_webhook: get('mld-alert-slack'),
+              malware_only: chk('mld-alert-malware-only') };
   var msg = document.getElementById('mld-alerts-msg');
   fetch('/api/mld/alerts/config', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(cfg)
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg)
   })
   .then(function(r){ return r.json(); })
   .then(function(d) {
     if (msg) {
-      msg.style.display = 'inline';
-      msg.textContent   = d.ok ? 'Alert settings saved.' : ('Error: ' + (d.error || ''));
-      msg.style.color   = d.ok ? '#166534' : '#991b1b';
-      setTimeout(function(){ msg.style.display = 'none'; }, 3000);
+      msg.style.display='inline';
+      msg.textContent  = d.ok ? 'Saved.' : ('Error: '+(d.error||''));
+      msg.style.color  = d.ok ? '#166534' : '#991b1b';
+      setTimeout(function(){ msg.style.display='none'; }, 3000);
     }
-  })
-  .catch(function(){});
+  }).catch(function(){});
 }
 
-document.addEventListener('DOMContentLoaded', mldUpdatePlaceholder);
+function mldTestAlert(channel) {
+  var msg = document.getElementById('mld-alerts-msg');
+  if (msg) { msg.style.display='inline'; msg.textContent='Sending…'; msg.style.color='var(--c5)'; }
+  fetch('/api/mld/alerts/test', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({channel: channel})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (msg) {
+      msg.style.display='inline';
+      msg.textContent  = d.ok ? 'Test '+(d.channel||channel)+' sent!' : ('Failed: '+(d.error||''));
+      msg.style.color  = d.ok ? '#166534' : '#dc2626';
+      setTimeout(function(){ msg.style.display='none'; }, 4000);
+    }
+  }).catch(function(e){
+    if (msg) { msg.style.display='inline'; msg.textContent='Error: '+e; msg.style.color='#dc2626'; }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  mldUpdatePlaceholder();
+  mldLoadStats();
+});
 
 // ── Runtime Protection ────────────────────────────────────────────────────────
 var _RTP_KEYS = ['sqli','cmdi','path','rate','block','tor','crowdsec','bots','countries'];

@@ -15921,8 +15921,9 @@ def rtp_test():
 # MALWARE DETECTION MODULE
 # ══════════════════════════════════════════════════════════════════════════════
 
-_MLD_SCAN_FILE  = Path(__file__).parent.parent / 'data' / 'mld_scans.jsonl'
-_MLD_ALERT_FILE = Path(__file__).parent.parent / 'data' / 'mld_alerts.json'
+_MLD_SCAN_FILE   = Path(__file__).parent.parent / 'data' / 'mld_scans.jsonl'
+_MLD_ALERT_FILE  = Path(__file__).parent.parent / 'data' / 'mld_alerts.json'
+_MLD_SCAN_LOCK   = _threading.Lock()   # guards JSONL append
 _MLD_FEED_CACHE: dict = {'data': [], 'ts': 0.0}
 _MLD_FEED_LOCK  = _threading.Lock()
 
@@ -16018,54 +16019,106 @@ def _mld_check_known(packages: list) -> list:
     return out
 
 def _mld_osv_scan(packages: list) -> list:
+    """Query OSV.dev in chunks of 100 to handle large manifests."""
     if not packages:
         return []
-    queries = []
-    for p in packages[:100]:
-        q: dict = {'package': {'name': p['name'], 'ecosystem': p['ecosystem']}}
-        if p.get('version'):
-            q['version'] = p['version']
-        queries.append(q)
+    out = []
+    chunk_size = 100
+    for chunk_start in range(0, len(packages), chunk_size):
+        chunk = packages[chunk_start:chunk_start + chunk_size]
+        queries = []
+        for p in chunk:
+            q: dict = {'package': {'name': p['name'], 'ecosystem': p['ecosystem']}}
+            if p.get('version'):
+                q['version'] = p['version']
+            queries.append(q)
+        try:
+            payload = _json.dumps({'queries': queries}).encode()
+            req = _up_req.Request('https://api.osv.dev/v1/querybatch', data=payload,
+                                  headers={'Content-Type': 'application/json',
+                                           'User-Agent': 'cfai-mld/1.0'}, method='POST')
+            with _up_req.urlopen(req, timeout=30) as resp:
+                data = _json.loads(resp.read())
+        except Exception:
+            continue
+        for i, result in enumerate(data.get('results', [])):
+            vulns = result.get('vulns') or []
+            if not vulns:
+                continue
+            pkg = chunk[i] if i < len(chunk) else {}
+            for v in vulns:
+                db  = v.get('database_specific') or {}
+                sev = (db.get('severity') or 'MEDIUM').upper()
+                if sev not in ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW'):
+                    sev = 'MEDIUM'
+                fix = ''
+                for aff in (v.get('affected') or []):
+                    for rng in (aff.get('ranges') or []):
+                        for ev2 in (rng.get('events') or []):
+                            if 'fixed' in ev2:
+                                fix = ev2['fixed']
+                                break
+                        if fix:
+                            break
+                    if fix:
+                        break
+                vid = v.get('id', '')
+                out.append({'package': pkg.get('name', ''), 'version': pkg.get('version', ''),
+                            'ecosystem': pkg.get('ecosystem', ''), 'vuln_id': vid,
+                            'title': (v.get('summary') or '')[:120],
+                            'summary': (v.get('details') or '')[:400],
+                            'severity': sev,
+                            'is_malware': vid.startswith('MAL-') or 'malware' in (v.get('summary') or '').lower(),
+                            'fix': fix or 'See advisory', 'published': (v.get('published') or '')[:10],
+                            'refs': [(r.get('url') or '') for r in (v.get('references') or [])[:3]]})
+    return out
+
+
+def _mld_npm_audit(packages: list) -> list:
+    """Cross-reference npm packages against the npm security advisory bulk API.
+    Returns additional findings not already covered by OSV."""
+    npm_pkgs = [p for p in packages if p.get('ecosystem') == 'npm' and p.get('name')]
+    if not npm_pkgs:
+        return []
+    body: dict = {}
+    for p in npm_pkgs:
+        ver = p.get('version') or '0.0.0'
+        body.setdefault(p['name'], []).append(ver)
     try:
-        payload = _json.dumps({'queries': queries}).encode()
-        req = _up_req.Request('https://api.osv.dev/v1/querybatch', data=payload,
-                              headers={'Content-Type': 'application/json',
-                                       'User-Agent': 'cfai-mld/1.0'}, method='POST')
-        with _up_req.urlopen(req, timeout=25) as resp:
+        payload = _json.dumps(body).encode()
+        req = _up_req.Request(
+            'https://registry.npmjs.org/-/npm/v1/security/advisories/bulk',
+            data=payload,
+            headers={'Content-Type': 'application/json', 'User-Agent': 'cfai-mld/1.0'},
+            method='POST',
+        )
+        with _up_req.urlopen(req, timeout=15) as resp:
             data = _json.loads(resp.read())
     except Exception:
         return []
     out = []
-    for i, result in enumerate(data.get('results', [])):
-        vulns = result.get('vulns') or []
-        if not vulns:
+    for pkg_name, advisories in data.items():
+        if not isinstance(advisories, list):
             continue
-        pkg = packages[i] if i < len(packages) else {}
-        for v in vulns:
-            db  = v.get('database_specific') or {}
-            sev = (db.get('severity') or 'MEDIUM').upper()
-            if sev not in ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW'):
-                sev = 'MEDIUM'
-            fix = ''
-            for aff in (v.get('affected') or []):
-                for rng in (aff.get('ranges') or []):
-                    for ev in (rng.get('events') or []):
-                        if 'fixed' in ev:
-                            fix = ev['fixed']
-                            break
-                    if fix:
-                        break
-                if fix:
-                    break
-            vid = v.get('id', '')
-            out.append({'package': pkg.get('name', ''), 'version': pkg.get('version', ''),
-                        'ecosystem': pkg.get('ecosystem', ''), 'vuln_id': vid,
-                        'title': (v.get('summary') or '')[:120],
-                        'summary': (v.get('details') or '')[:400],
-                        'severity': sev,
-                        'is_malware': vid.startswith('MAL-') or 'malware' in (v.get('summary') or '').lower(),
-                        'fix': fix or 'See advisory', 'published': (v.get('published') or '')[:10],
-                        'refs': [(r.get('url') or '') for r in (v.get('references') or [])[:3]]})
+        pkg_ver = body.get(pkg_name, [''])[0]
+        for adv in advisories:
+            sev_raw = (adv.get('severity') or 'moderate').upper()
+            sev_map = {'CRITICAL': 'CRITICAL', 'HIGH': 'HIGH',
+                       'MODERATE': 'MEDIUM', 'LOW': 'LOW'}
+            sev = sev_map.get(sev_raw, 'MEDIUM')
+            out.append({
+                'package':    pkg_name,
+                'version':    pkg_ver,
+                'ecosystem':  'npm',
+                'vuln_id':    f"NPMSA-{adv.get('id', '')}",
+                'title':      (adv.get('title') or '')[:120],
+                'summary':    (adv.get('overview') or '')[:400],
+                'severity':   sev,
+                'is_malware': 'malware' in (adv.get('title') or '').lower(),
+                'fix':        adv.get('recommendation') or 'See advisory',
+                'published':  (adv.get('created') or '')[:10],
+                'refs':       [adv.get('url') or ''],
+            })
     return out
 
 def _mld_fetch_feed() -> list:
@@ -16138,25 +16191,109 @@ def _mld_save_scan(user: str, eco: str, pkg_count: int, findings: list) -> None:
            'critical': sum(1 for f in findings if f.get('severity') == 'CRITICAL'),
            'high':     sum(1 for f in findings if f.get('severity') == 'HIGH'),
            'malware':  sum(1 for f in findings if f.get('is_malware'))}
-    try:
-        _MLD_SCAN_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(_MLD_SCAN_FILE, 'a') as fh:
-            fh.write(_json.dumps(rec) + '\n')
-    except Exception:
-        pass
+    with _MLD_SCAN_LOCK:
+        try:
+            _MLD_SCAN_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(_MLD_SCAN_FILE, 'a') as fh:
+                fh.write(_json.dumps(rec) + '\n')
+        except Exception:
+            pass
 
-def _mld_load_history(limit: int = 50) -> list:
+def _mld_load_history(limit: int = 100) -> list:
     rows = []
-    try:
-        with open(_MLD_SCAN_FILE, 'r') as fh:
-            for line in fh:
-                try:
-                    rows.append(_json.loads(line))
-                except Exception:
-                    pass
-    except FileNotFoundError:
-        pass
+    with _MLD_SCAN_LOCK:
+        try:
+            with open(_MLD_SCAN_FILE, 'r') as fh:
+                for line in fh:
+                    try:
+                        rows.append(_json.loads(line))
+                    except Exception:
+                        pass
+        except FileNotFoundError:
+            pass
     return rows[-limit:][::-1]
+
+def _mld_load_alert_cfg() -> dict:
+    try:
+        with open(_MLD_ALERT_FILE, 'r') as fh:
+            return _json.load(fh)
+    except Exception:
+        return {}
+
+def _mld_maybe_alert(user: str, eco: str, pkg_count: int, findings: list) -> None:
+    """Fire email + Slack alerts if findings meet the configured threshold."""
+    if not findings:
+        return
+    cfg = _mld_load_alert_cfg()
+    if not cfg:
+        return
+    sev_rank = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
+    min_rank  = sev_rank.get(cfg.get('threshold', 'HIGH'), 3)
+    malware_only = cfg.get('malware_only', False)
+    relevant = [f for f in findings
+                if sev_rank.get(f.get('severity', 'LOW'), 0) >= min_rank
+                and (not malware_only or f.get('is_malware'))]
+    if not relevant:
+        return
+
+    n_mal = sum(1 for f in relevant if f.get('is_malware'))
+    n_crt = sum(1 for f in relevant if f.get('severity') == 'CRITICAL')
+    subject = f'[CF_AI] {len(relevant)} threat(s) found in {eco} manifest'
+
+    # ── Email ──────────────────────────────────────────────────────────────
+    if cfg.get('email_enabled') and cfg.get('email') and _SMTP_USER and _SMTP_PASS:
+        rows = ''.join(
+            f'<tr><td style="padding:6px 10px;font-weight:600">{f["package"]}</td>'
+            f'<td style="padding:6px 10px;color:#6b7280">{f.get("version","")}</td>'
+            f'<td style="padding:6px 10px"><span style="background:{"#fef2f2" if f["severity"]=="CRITICAL" else "#fff7ed"};'
+            f'color:{"#991b1b" if f["severity"]=="CRITICAL" else "#9a3412"};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">'
+            f'{f["severity"]}</span>{"&nbsp;<span style=\"background:#fef2f2;color:#991b1b;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:700\">MALWARE</span>" if f.get("is_malware") else ""}</td>'
+            f'<td style="padding:6px 10px;color:#374151;font-size:12px">{(f.get("title") or "")[:100]}</td></tr>'
+            for f in relevant[:15]
+        )
+        body = (
+            f'A dependency scan detected <strong>{len(relevant)} threat(s)</strong> in your '
+            f'<strong>{eco}</strong> manifest.<br><br>'
+            f'<strong>Summary:</strong> {pkg_count} packages scanned &nbsp;·&nbsp; '
+            f'{n_mal} malware &nbsp;·&nbsp; {n_crt} critical<br><br>'
+            f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+            f'<tr style="background:#f9fafb"><th style="padding:6px 10px;text-align:left;font-size:10px;color:#6b7280">Package</th>'
+            f'<th style="padding:6px 10px;text-align:left;font-size:10px;color:#6b7280">Version</th>'
+            f'<th style="padding:6px 10px;text-align:left;font-size:10px;color:#6b7280">Severity</th>'
+            f'<th style="padding:6px 10px;text-align:left;font-size:10px;color:#6b7280">Issue</th></tr>'
+            f'{rows}</table>'
+            + (f'<br><em>...and {len(relevant)-15} more findings</em>' if len(relevant) > 15 else '')
+            + f'<br><br>Scanned by: <strong>{user}</strong>'
+        )
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From']    = f'CF_AI Security <{_SMTP_USER}>'
+            msg['To']      = cfg['email']
+            msg.attach(MIMEText(_email_html(subject, body), 'html'))
+            with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+                srv.login(_SMTP_USER, _SMTP_PASS)
+                srv.sendmail(_SMTP_USER, cfg['email'], msg.as_string())
+        except Exception:
+            pass
+
+    # ── Slack ──────────────────────────────────────────────────────────────
+    if cfg.get('slack_webhook'):
+        lines = [f'*{subject}*',
+                 f'Ecosystem: `{eco}` | Packages: {pkg_count} | Malware: {n_mal} | Critical: {n_crt}']
+        for f in relevant[:10]:
+            tag = ' :rotating_light: *MALWARE*' if f.get('is_malware') else ''
+            lines.append(f'• `{f["package"]}` ({f.get("version","?")}) — *{f["severity"]}*{tag}: {(f.get("title") or "")[:90]}')
+        if len(relevant) > 10:
+            lines.append(f'...and {len(relevant)-10} more findings')
+        try:
+            payload = _json.dumps({'text': '\n'.join(lines)}).encode()
+            req = _up_req.Request(cfg['slack_webhook'], data=payload,
+                                  headers={'Content-Type': 'application/json'}, method='POST')
+            with _up_req.urlopen(req, timeout=6):
+                pass
+        except Exception:
+            pass
 
 
 @app.route('/api/mld/scan', methods=['POST'])
@@ -16167,18 +16304,44 @@ def mld_scan():
     ecosystem = data.get('ecosystem', 'npm').strip()
     if not manifest:
         return jsonify({'error': 'No manifest provided'}), 400
+    if len(manifest) > 500_000:
+        return jsonify({'error': 'Manifest too large (max 500 KB)'}), 400
     packages = _mld_parse_manifest(manifest, ecosystem)
     if not packages:
         return jsonify({'error': 'Could not parse any packages from the manifest. '
                                  'Make sure the ecosystem matches the file format.'}), 400
+
+    # Layer 1: known-malware DB (instant, no network)
     known     = _mld_check_known(packages)
     known_set = {f['package'].lower() for f in known}
-    osv       = [f for f in _mld_osv_scan(packages) if f['package'].lower() not in known_set]
-    findings  = known + osv
-    user      = (session.get('user') or {}).get('username', 'unknown')
+
+    # Layer 2: OSV.dev batch (all ecosystems, chunked)
+    osv_raw = _mld_osv_scan(packages)
+    osv     = [f for f in osv_raw if f['package'].lower() not in known_set]
+
+    # Layer 3: npm advisory bulk API (npm only, addtl coverage)
+    npm_raw = _mld_npm_audit(packages) if ecosystem.lower() == 'npm' else []
+    osv_npm_ids = {(f['package'].lower(), f['vuln_id']) for f in osv}
+    npm_extra = [f for f in npm_raw
+                 if (f['package'].lower(), f['vuln_id']) not in osv_npm_ids
+                 and f['package'].lower() not in known_set]
+
+    findings = known + osv + npm_extra
+    # Sort: malware first, then by severity rank descending
+    sev_rank = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
+    findings.sort(key=lambda f: (0 if f.get('is_malware') else 1,
+                                  -sev_rank.get(f.get('severity', 'LOW'), 0)))
+
+    user = (session.get('user') or {}).get('username', 'unknown')
     _mld_save_scan(user, ecosystem, len(packages), findings)
+
+    # Fire alerts in background (non-blocking)
+    _threading.Thread(
+        target=_mld_maybe_alert, args=(user, ecosystem, len(packages), findings), daemon=True
+    ).start()
+
     return jsonify({'pkg_count': len(packages), 'finding_count': len(findings),
-                    'findings': findings, 'packages': packages[:300]})
+                    'findings': findings, 'packages': packages[:500]})
 
 
 @app.route('/api/mld/feed', methods=['GET'])
@@ -16227,20 +16390,63 @@ def mld_sbom():
     return resp
 
 
+@app.route('/api/mld/stats', methods=['GET'])
+@login_required
+def mld_stats():
+    rows = _mld_load_history(limit=10000)
+    return jsonify({
+        'total_scans':    len(rows),
+        'total_packages': sum(r.get('pkg_count', 0)    for r in rows),
+        'total_findings': sum(r.get('finding_count', 0) for r in rows),
+        'total_malware':  sum(r.get('malware', 0)       for r in rows),
+        'total_critical': sum(r.get('critical', 0)      for r in rows),
+        'last_scan':      rows[0].get('ts', '') if rows else '',
+    })
+
+
+@app.route('/api/mld/lookup', methods=['POST'])
+@login_required
+def mld_lookup():
+    data      = request.get_json(silent=True) or {}
+    name      = data.get('name', '').strip()
+    version   = data.get('version', '').strip()
+    ecosystem = data.get('ecosystem', 'npm').strip()
+    if not name:
+        return jsonify({'error': 'Package name required'}), 400
+    eco_map = {'npm': 'npm', 'pypi': 'PyPI', 'python': 'PyPI',
+               'maven': 'Maven', 'rubygems': 'RubyGems', 'nuget': 'NuGet'}
+    eco_norm = eco_map.get(ecosystem.lower(), ecosystem)
+    pkg      = {'name': name, 'version': version, 'ecosystem': eco_norm}
+    known    = _mld_check_known([pkg])
+    osv      = _mld_osv_scan([pkg]) if not known else []
+    npm_adv  = _mld_npm_audit([pkg]) if eco_norm == 'npm' and not known else []
+    findings = known + osv + npm_adv
+    return jsonify({'findings': findings, 'package': pkg,
+                    'clean': len(findings) == 0})
+
+
 @app.route('/api/mld/alerts/config', methods=['GET'])
 @login_required
 def mld_alerts_get():
-    try:
-        with open(_MLD_ALERT_FILE, 'r') as fh:
-            return jsonify(_json.load(fh))
-    except Exception:
-        return jsonify({'email_enabled': False, 'email': '', 'threshold': 'HIGH'})
+    cfg = _mld_load_alert_cfg()
+    if not cfg:
+        cfg = {'email_enabled': False, 'email': '', 'threshold': 'HIGH',
+               'slack_webhook': '', 'malware_only': False}
+    return jsonify(cfg)
 
 
 @app.route('/api/mld/alerts/config', methods=['POST'])
 @login_required
 def mld_alerts_save():
     data = request.get_json(silent=True) or {}
+    # Validate email format
+    email = data.get('email', '').strip()
+    if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        return jsonify({'error': 'Invalid email address'}), 400
+    # Validate Slack webhook
+    slack = data.get('slack_webhook', '').strip()
+    if slack and not slack.startswith('https://hooks.slack.com/'):
+        return jsonify({'error': 'Slack webhook must start with https://hooks.slack.com/'}), 400
     try:
         _MLD_ALERT_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_MLD_ALERT_FILE, 'w') as fh:
@@ -16248,6 +16454,60 @@ def mld_alerts_save():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     return jsonify({'ok': True})
+
+
+@app.route('/api/mld/alerts/test', methods=['POST'])
+@login_required
+def mld_alerts_test():
+    """Send a test alert to verify email and/or Slack configuration."""
+    data    = request.get_json(silent=True) or {}
+    channel = data.get('channel', 'email')   # 'email' | 'slack'
+    cfg     = _mld_load_alert_cfg()
+    user    = (session.get('user') or {}).get('username', 'unknown')
+
+    fake_findings = [{
+        'package': 'test-package', 'version': '1.0.0', 'ecosystem': 'npm',
+        'vuln_id': 'CFAI-TEST', 'title': 'Test alert — CF_AI Malware Detection is working',
+        'summary': 'This is a test notification. Your alert configuration is correctly set up.',
+        'severity': 'CRITICAL', 'is_malware': True, 'fix': 'n/a', 'published': '', 'refs': [],
+    }]
+
+    if channel == 'slack':
+        if not cfg.get('slack_webhook'):
+            return jsonify({'error': 'No Slack webhook configured'}), 400
+        try:
+            msg = f'*[CF_AI Test Alert]* Malware Detection alerts are working correctly!\nTriggered by: {user}'
+            payload = _json.dumps({'text': msg}).encode()
+            req = _up_req.Request(cfg['slack_webhook'], data=payload,
+                                  headers={'Content-Type': 'application/json'}, method='POST')
+            with _up_req.urlopen(req, timeout=6):
+                pass
+            return jsonify({'ok': True, 'channel': 'slack'})
+        except Exception as e:
+            return jsonify({'error': f'Slack delivery failed: {e}'}), 500
+
+    else:  # email
+        if not cfg.get('email'):
+            return jsonify({'error': 'No alert email configured'}), 400
+        if not _SMTP_USER or not _SMTP_PASS:
+            return jsonify({'error': 'SMTP not configured on server (SMTP_USER/SMTP_PASS missing)'}), 500
+        try:
+            subject = '[CF_AI Test] Malware Detection alert is working'
+            body = ('This is a test alert from <strong>CF_AI Malware Detection</strong>.<br><br>'
+                    'Your email alert configuration is correctly set up. You will receive alerts '
+                    'when a dependency scan detects threats at or above your configured severity threshold.<br><br>'
+                    f'Triggered by: <strong>{user}</strong>')
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From']    = f'CF_AI Security <{_SMTP_USER}>'
+            msg['To']      = cfg['email']
+            msg.attach(MIMEText(_email_html(subject, body), 'html'))
+            with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+                srv.login(_SMTP_USER, _SMTP_PASS)
+                srv.sendmail(_SMTP_USER, cfg['email'], msg.as_string())
+            return jsonify({'ok': True, 'channel': 'email', 'to': cfg['email']})
+        except Exception as e:
+            return jsonify({'error': f'Email delivery failed: {e}'}), 500
 
 
 if __name__ == '__main__':
