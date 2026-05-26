@@ -4262,7 +4262,40 @@ Export Power BI
     .rtp-rule-badge.crowdsec{background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7}
     .rtp-rule-badge.bots{background:#fdf4ff;color:#7e22ce;border:1px solid #d8b4fe}
     .rtp-rule-badge.countries{background:#f0f9ff;color:#075985;border:1px solid #7dd3fc}
+    .rtp-rule-badge.nosql{background:#fdf4ff;color:#6b21a8;border:1px solid #d8b4fe}
     .rtp-empty-msg{padding:24px;text-align:center;color:var(--c5);font-size:12px}
+    /* ── Events action buttons ── */
+    .rtp-action-btn{padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;border:1px solid;cursor:pointer;font-family:inherit;white-space:nowrap}
+    .rtp-action-btn.allow{background:#f0fdf4;color:#166534;border-color:#86efac}
+    .rtp-action-btn.allow:hover{background:#dcfce7}
+    .rtp-action-btn.block{background:#fef2f2;color:#991b1b;border-color:#fca5a5}
+    .rtp-action-btn.block:hover{background:#fee2e2}
+    /* ── Analytics panel ── */
+    .rtp-analytics{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .rtp-analytics-inner{background:var(--c11);border:1px solid var(--c8);border-radius:10px;overflow:hidden}
+    .rtp-analytics-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--c8);flex-wrap:wrap;gap:8px}
+    .rtp-analytics-title{font-size:13px;font-weight:700;color:var(--c1)}
+    .rtp-analytics-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:0}
+    @media(max-width:900px){.rtp-analytics-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:640px){.rtp-analytics-grid{grid-template-columns:1fr}}
+    .rtp-analytics-col{padding:14px 16px;border-right:1px solid var(--c8)}
+    .rtp-analytics-col:last-child{border-right:none}
+    .rtp-analytics-sub{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c5);margin-bottom:8px}
+    .rtp-analytics-row{display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:4px}
+    .rtp-analytics-key{flex:1;color:var(--c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace}
+    .rtp-analytics-bar{height:6px;border-radius:3px;background:#2563eb;opacity:.7;flex-shrink:0;min-width:4px}
+    .rtp-analytics-val{color:var(--c5);font-size:10px;font-weight:600;flex-shrink:0;width:28px;text-align:right}
+    .rtp-trend-row{display:flex;align-items:flex-end;gap:4px;height:40px;margin-top:8px}
+    .rtp-trend-bar{flex:1;background:#2563eb;opacity:.6;border-radius:2px 2px 0 0;min-height:2px;position:relative}
+    .rtp-trend-lbl{font-size:8px;color:var(--c5);text-align:center;margin-top:3px;overflow:hidden;text-overflow:ellipsis}
+    /* ── Alerts panel ── */
+    .rtp-alerts{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .rtp-alerts-inner{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:16px 20px}
+    .rtp-alerts-title{font-size:13px;font-weight:700;color:var(--c1);margin-bottom:12px}
+    .rtp-alerts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media(max-width:700px){.rtp-alerts-grid{grid-template-columns:1fr}}
+    .rtp-alerts-section{background:var(--c10);border:1px solid var(--c8);border-radius:8px;padding:12px 14px}
+    .rtp-alerts-sh{font-size:11px;font-weight:700;color:var(--c1);margin-bottom:8px;display:flex;align-items:center;gap:8px}
     /* ── Test panel ── */
     .rtp-test-panel{padding:0 28px 18px;max-width:1300px;margin:0 auto}
     .rtp-test-inner{background:var(--c11);border:1px solid var(--c8);border-radius:10px;padding:16px 20px}
@@ -4286,7 +4319,7 @@ Export Power BI
       </div>
       <div class="rtp-stats">
         <div><div class="rtp-stat-num" id="rtp-active-count">0</div><div class="rtp-stat-lbl">Rules Active</div></div>
-        <div><div class="rtp-stat-num">9</div><div class="rtp-stat-lbl">Total Rules</div></div>
+        <div><div class="rtp-stat-num">10</div><div class="rtp-stat-lbl">Total Rules</div></div>
         <div><div class="rtp-stat-num">In-App</div><div class="rtp-stat-lbl">No External Deps</div></div>
       </div>
     </div>
@@ -4320,11 +4353,30 @@ Export Power BI
   <div class="rtp-events">
     <div class="rtp-events-inner">
       <div class="rtp-events-hdr">
-        <div class="rtp-events-title">Recent Blocked Requests</div>
-        <div class="rtp-events-sub">Auto-refreshes every 30s while active</div>
+        <div>
+          <div class="rtp-events-title">Recent Blocked Requests</div>
+          <div class="rtp-events-sub">Auto-refreshes every 30s while active</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="rtp-refresh-btn" onclick="rtpLoadAnalytics()" style="font-size:10px;padding:5px 12px">&#9656; Analytics</button>
+          <a class="rtp-refresh-btn" href="/api/rtp/events/export" style="font-size:10px;padding:5px 12px;text-decoration:none;display:inline-block">&#11015; Export CSV</a>
+        </div>
       </div>
       <div id="rtp-events-body">
         <div class="rtp-empty-msg">No blocked requests yet — protection is active.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics panel -->
+  <div class="rtp-analytics" id="rtp-analytics-wrap" style="display:none">
+    <div class="rtp-analytics-inner">
+      <div class="rtp-analytics-hdr">
+        <div class="rtp-analytics-title">Block Analytics</div>
+        <button class="rtp-refresh-btn" onclick="rtpLoadAnalytics()" style="font-size:10px;padding:5px 12px">Refresh</button>
+      </div>
+      <div class="rtp-analytics-grid" id="rtp-analytics-content">
+        <div style="padding:24px;text-align:center;color:var(--c5);font-size:12px;grid-column:1/-1">Loading analytics…</div>
       </div>
     </div>
   </div>
@@ -4417,10 +4469,16 @@ Export Power BI
           <label class="rtp-toggle"><input type="checkbox" id="rtp-cmdi" onchange="rtpToggle('cmdi',this)"><span class="rtp-slider"></span></label>
         </div>
       </div>
-      <div class="rtp-card" id="rtp-card-path">
+      <div class="rtp-card" id="rtp-card-path" style="margin-bottom:12px">
         <div class="rtp-card-hdr">
           <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-path"></div><div class="rtp-card-title">Path Traversal</div></div><div class="rtp-card-desc">Block attempts to access unauthorized files or directories by manipulating file paths (<code style="font-size:10px;background:#f1f5f9;padding:1px 4px;border-radius:3px">../../../etc/passwd</code>).</div></div>
           <label class="rtp-toggle"><input type="checkbox" id="rtp-path" onchange="rtpToggle('path',this)"><span class="rtp-slider"></span></label>
+        </div>
+      </div>
+      <div class="rtp-card" id="rtp-card-nosql">
+        <div class="rtp-card-hdr">
+          <div><div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="rtp-dot" id="rtp-dot-nosql"></div><div class="rtp-card-title">NoSQL Injection</div></div><div class="rtp-card-desc">Block MongoDB-style operator injections (<code style="font-size:10px;background:#f1f5f9;padding:1px 4px;border-radius:3px">$where</code>, <code style="font-size:10px;background:#f1f5f9;padding:1px 4px;border-radius:3px">$ne</code>, <code style="font-size:10px;background:#f1f5f9;padding:1px 4px;border-radius:3px">$regex</code>) in JSON bodies and query strings.</div></div>
+          <label class="rtp-toggle"><input type="checkbox" id="rtp-nosql" onchange="rtpToggle('nosql',this)"><span class="rtp-slider"></span></label>
         </div>
       </div>
     </div>
@@ -4454,6 +4512,13 @@ Export Power BI
           <textarea class="rtp-inp" id="rtp-block-ips" rows="3" placeholder="192.168.1.100&#10;10.0.0.0/8"></textarea>
           <div class="rtp-lbl" style="margin-top:8px">Allowlisted IPs</div>
           <textarea class="rtp-inp" id="rtp-allow-ips" rows="2" placeholder="203.0.113.0/24"></textarea>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+            <label class="rtp-toggle" style="width:32px;height:18px"><input type="checkbox" id="rtp-auto-escalate"><span class="rtp-slider"></span></label>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--c1)">Auto-escalate repeat offenders</div>
+              <div style="font-size:10px;color:var(--c5)">Auto-block IPs that trigger 5+ blocks within 60 seconds</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="rtp-card" id="rtp-card-tor">
@@ -4478,7 +4543,11 @@ Export Power BI
         </div>
         <div class="rtp-expand" id="rtp-expand-crowdsec">
           <div class="rtp-lbl">CrowdSec API Key</div>
-          <input class="rtp-inp" id="rtp-crowdsec-key" type="password" placeholder="cs_...">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="rtp-inp" id="rtp-crowdsec-key" type="password" placeholder="cs_..." style="flex:1">
+            <button class="rtp-refresh-btn" onclick="rtpTestCrowdSec(this)" style="font-size:10px;padding:5px 10px;white-space:nowrap">Test Key</button>
+          </div>
+          <div id="rtp-crowdsec-test-msg" style="font-size:10px;margin-top:4px;display:none"></div>
           <div style="font-size:10px;color:var(--c5);margin-top:4px">Get a free key at crowdsec.net — blocks 100k+ known malicious IPs</div>
         </div>
       </div>
@@ -4509,6 +4578,41 @@ Export Power BI
           <input class="rtp-inp" id="rtp-country-list" type="text" placeholder="CN, RU, KP, IR, BY">
           <div style="font-size:10px;color:var(--c5);margin-top:4px">Example: CN, RU, KP, IR — leave blank to block none</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts config -->
+  <div class="rtp-alerts">
+    <div class="rtp-alerts-inner">
+      <div class="rtp-alerts-title">WAF Block Alerts</div>
+      <div style="font-size:11px;color:var(--c5);margin-bottom:14px">Get notified when your WAF is actively blocking traffic. Alerts fire every N blocks.</div>
+      <div class="rtp-alerts-grid">
+        <div class="rtp-alerts-section">
+          <div class="rtp-alerts-sh">
+            <label class="rtp-toggle" style="width:32px;height:18px"><input type="checkbox" id="rtp-alert-email-enabled"><span class="rtp-slider"></span></label>
+            Email Alerts
+          </div>
+          <div class="rtp-lbl">Recipient email</div>
+          <input class="rtp-inp" id="rtp-alert-email-to" type="email" placeholder="security@company.com" style="margin-bottom:8px">
+          <div class="rtp-lbl">Alert threshold (blocks)</div>
+          <input class="rtp-inp" id="rtp-alert-threshold" type="number" value="10" min="1" max="10000" style="width:100px">
+          <div style="font-size:10px;color:var(--c5);margin-top:4px">Send email every N total blocks (uses SMTP settings from environment)</div>
+        </div>
+        <div class="rtp-alerts-section">
+          <div class="rtp-alerts-sh">
+            <label class="rtp-toggle" style="width:32px;height:18px"><input type="checkbox" id="rtp-alert-slack-enabled"><span class="rtp-slider"></span></label>
+            Slack Alerts
+          </div>
+          <div class="rtp-lbl">Slack webhook URL</div>
+          <input class="rtp-inp" id="rtp-alert-slack-webhook" type="password" placeholder="https://hooks.slack.com/services/…" style="margin-bottom:8px">
+          <div style="font-size:10px;color:var(--c5);margin-top:4px">Paste your Slack Incoming Webhook URL</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px">
+        <button class="rtp-save-btn" onclick="rtpSaveAlerts()" style="padding:8px 20px;font-size:12px">Save Alert Settings</button>
+        <button class="rtp-refresh-btn" onclick="rtpTestAlert(this)" style="font-size:11px;padding:7px 14px">Send Test Alert</button>
+        <span id="rtp-alerts-msg" style="font-size:11px;display:none"></span>
       </div>
     </div>
   </div>
@@ -23312,7 +23416,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ── Runtime Protection ────────────────────────────────────────────────────────
-var _RTP_KEYS = ['sqli','cmdi','path','rate','block','tor','crowdsec','bots','countries'];
+var _RTP_KEYS = ['sqli','cmdi','path','nosql','rate','block','tor','crowdsec','bots','countries'];
 var _rtpStatsTimer = null;
 
 function rtpToggle(key, cb) {
@@ -23340,13 +23444,14 @@ function _rtpCollectCfg() {
     var el = document.getElementById('rtp-' + k);
     cfg[k] = el ? el.checked : false;
   });
-  cfg.rate_limit   = (document.getElementById('rtp-rate-limit')   || {}).value || '120';
-  cfg.block_ips    = (document.getElementById('rtp-block-ips')    || {}).value || '';
-  cfg.allow_ips    = (document.getElementById('rtp-allow-ips')    || {}).value || '';
-  cfg.crowdsec_key = (document.getElementById('rtp-crowdsec-key') || {}).value || '';
-  cfg.country_list = (document.getElementById('rtp-country-list') || {}).value || '';
-  cfg.bot_cats     = Array.from(document.querySelectorAll('#rtp-expand-bots .rtp-chip.on'))
-                         .map(function(c){ return c.textContent.trim(); });
+  cfg.rate_limit    = (document.getElementById('rtp-rate-limit')    || {}).value || '120';
+  cfg.block_ips     = (document.getElementById('rtp-block-ips')     || {}).value || '';
+  cfg.allow_ips     = (document.getElementById('rtp-allow-ips')     || {}).value || '';
+  cfg.crowdsec_key  = (document.getElementById('rtp-crowdsec-key')  || {}).value || '';
+  cfg.country_list  = (document.getElementById('rtp-country-list')  || {}).value || '';
+  cfg.auto_escalate = !!(document.getElementById('rtp-auto-escalate') || {}).checked;
+  cfg.bot_cats = Array.from(document.querySelectorAll('#rtp-expand-bots .rtp-chip.on'))
+                      .map(function(c){ return c.textContent.trim(); });
   return cfg;
 }
 
@@ -23396,6 +23501,8 @@ function _rtpApplyCfg(cfg) {
     var ck = document.getElementById('rtp-crowdsec-key');
     if (ck) ck.value = cfg.crowdsec_key;
   }
+  var ae = document.getElementById('rtp-auto-escalate');
+  if (ae) ae.checked = !!cfg.auto_escalate;
   if (Array.isArray(cfg.bot_cats)) {
     document.querySelectorAll('#rtp-expand-bots .rtp-chip').forEach(function(chip) {
       chip.classList.toggle('on', cfg.bot_cats.indexOf(chip.textContent.trim()) !== -1);
@@ -23409,9 +23516,9 @@ function rtpLoad() {
     .then(function(cfg) {
       _rtpApplyCfg(cfg);
       rtpRefreshStats();
+      rtpLoadAlertsCfg();
     })
     .catch(function() {
-      // fallback to localStorage if API unavailable
       try {
         var cfg = JSON.parse(localStorage.getItem('cfai_rtp_config') || '{}');
         _rtpApplyCfg(cfg);
@@ -23421,6 +23528,10 @@ function rtpLoad() {
 
 function _rtpRuleBadge(rule) {
   return '<span class="rtp-rule-badge ' + rule + '">' + rule + '</span>';
+}
+
+function _rtpEscHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function rtpRefreshStats() {
@@ -23435,7 +23546,6 @@ function rtpRefreshStats() {
       set('rtp-active-count', d.active_rules    != null ? d.active_rules    : '—');
       var ts = document.getElementById('rtp-stats-ts');
       if (ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString();
-      // Render events table
       var body = document.getElementById('rtp-events-body');
       if (body) {
         if (!d.recent || !d.recent.length) {
@@ -23443,21 +23553,64 @@ function rtpRefreshStats() {
         } else {
           var rows = d.recent.map(function(ev) {
             var t = ev.ts ? ev.ts.replace('T',' ').replace('Z','') : '';
+            var ip = _rtpEscHtml(ev.ip || '');
             return '<tr>'
               + '<td>' + (t.substring(0,19) || '') + '</td>'
               + '<td>' + _rtpRuleBadge(ev.rule || '') + '</td>'
-              + '<td style="font-family:monospace">' + (ev.ip || '') + '</td>'
-              + '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (ev.path || '') + '</td>'
-              + '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c5)">' + (ev.reason || '') + '</td>'
+              + '<td style="font-family:monospace">' + ip + '</td>'
+              + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _rtpEscHtml(ev.path || '') + '</td>'
+              + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c5)">' + _rtpEscHtml(ev.reason || '') + '</td>'
+              + '<td style="white-space:nowrap">'
+              + '<button class="rtp-action-btn allow" onclick="rtpQuickAllow(\'' + ip + '\',this)">Allow</button> '
+              + '<button class="rtp-action-btn block" onclick="rtpQuickBlock(\'' + ip + '\',this)">Block</button>'
+              + '</td>'
               + '</tr>';
           }).join('');
           body.innerHTML = '<table class="rtp-events-table">'
-            + '<thead><tr><th>Time (UTC)</th><th>Rule</th><th>IP</th><th>Path</th><th>Reason</th></tr></thead>'
+            + '<thead><tr><th>Time (UTC)</th><th>Rule</th><th>IP</th><th>Path</th><th>Reason</th><th>Action</th></tr></thead>'
             + '<tbody>' + rows + '</tbody></table>';
         }
       }
     })
     .catch(function() {});
+}
+
+function rtpQuickAllow(ip, btn) {
+  if (btn) btn.disabled = true;
+  fetch('/api/rtp/allowlist/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ip: ip})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (btn) { btn.textContent = d.ok ? '✓ Allowed' : '✗'; btn.disabled = true; }
+    if (d.ok) {
+      var ta = document.getElementById('rtp-allow-ips');
+      if (ta && ta.value.indexOf(ip) === -1) ta.value = (ta.value ? ta.value + '\n' : '') + ip;
+    }
+  })
+  .catch(function() { if (btn) { btn.disabled = false; } });
+}
+
+function rtpQuickBlock(ip, btn) {
+  if (btn) btn.disabled = true;
+  fetch('/api/rtp/blocklist/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ip: ip})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (btn) { btn.textContent = d.ok ? '✓ Blocked' : '✗'; btn.disabled = true; }
+    if (d.ok) {
+      var ta = document.getElementById('rtp-block-ips');
+      if (ta && ta.value.indexOf(ip) === -1) ta.value = (ta.value ? ta.value + '\n' : '') + ip;
+      var cb = document.getElementById('rtp-block');
+      if (cb && !cb.checked) { cb.checked = true; rtpToggle('block', cb); }
+    }
+  })
+  .catch(function() { if (btn) { btn.disabled = false; } });
 }
 
 function rtpRefreshTor(btn) {
@@ -23473,6 +23626,26 @@ function rtpRefreshTor(btn) {
     })
     .catch(function() {
       if (status) status.textContent = 'Failed.';
+      if (btn) btn.disabled = false;
+    });
+}
+
+function rtpTestCrowdSec(btn) {
+  var msg = document.getElementById('rtp-crowdsec-test-msg');
+  if (btn) btn.disabled = true;
+  if (msg) { msg.style.display = 'block'; msg.textContent = 'Testing…'; msg.style.color = 'var(--c5)'; }
+  fetch('/api/rtp/crowdsec/test', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (msg) {
+        msg.style.display = 'block';
+        msg.textContent = d.ok ? 'Connected — API key is valid.' : ('Error: ' + (d.error || 'unknown'));
+        msg.style.color = d.ok ? '#166534' : '#991b1b';
+      }
+      if (btn) btn.disabled = false;
+    })
+    .catch(function(e) {
+      if (msg) { msg.style.display='block'; msg.textContent='Request failed: '+e; msg.style.color='#991b1b'; }
       if (btn) btn.disabled = false;
     });
 }
@@ -23506,6 +23679,123 @@ function rtpTest() {
     res.className = 'rtp-test-result blocked';
     res.textContent = 'Test error: ' + e;
   });
+}
+
+function rtpLoadAnalytics() {
+  var wrap = document.getElementById('rtp-analytics-wrap');
+  var content = document.getElementById('rtp-analytics-content');
+  if (!wrap) return;
+  wrap.style.display = 'block';
+  fetch('/api/rtp/analytics')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (!content) return;
+      var topN = d.top_ips || [], topR = d.top_rules || [], topP = d.top_paths || [], trend = d.trend || [];
+      var maxIp = topN.length ? topN[0][1] : 1;
+      var maxRule = topR.length ? topR[0][1] : 1;
+      var maxPath = topP.length ? topP[0][1] : 1;
+      var maxTrend = trend.length ? Math.max.apply(null, trend.map(function(t){return t.count;})) : 1;
+
+      function renderList(items, max) {
+        if (!items.length) return '<div style="color:var(--c5);font-size:11px;padding:4px 0">No data yet</div>';
+        return items.map(function(item) {
+          var w = Math.max(4, Math.round((item[1] / max) * 120));
+          return '<div class="rtp-analytics-row">'
+            + '<span class="rtp-analytics-key" title="' + _rtpEscHtml(item[0]) + '">' + _rtpEscHtml(item[0]) + '</span>'
+            + '<span class="rtp-analytics-bar" style="width:' + w + 'px"></span>'
+            + '<span class="rtp-analytics-val">' + item[1] + '</span>'
+            + '</div>';
+        }).join('');
+      }
+
+      var trendHtml = '';
+      if (trend.length) {
+        trendHtml = '<div class="rtp-trend-row">'
+          + trend.map(function(t) {
+            var h = Math.max(4, Math.round((t.count / maxTrend) * 40));
+            return '<div style="flex:1">'
+              + '<div class="rtp-trend-bar" style="height:' + h + 'px" title="' + t.date + ': ' + t.count + '"></div>'
+              + '<div class="rtp-trend-lbl">' + (t.date || '').slice(5) + '</div>'
+              + '</div>';
+          }).join('') + '</div>';
+      } else {
+        trendHtml = '<div style="color:var(--c5);font-size:11px;padding:4px 0">No data yet</div>';
+      }
+
+      content.innerHTML =
+        '<div class="rtp-analytics-col">'
+        + '<div class="rtp-analytics-sub">Top IPs Blocked</div>' + renderList(topN, maxIp)
+        + '</div>'
+        + '<div class="rtp-analytics-col">'
+        + '<div class="rtp-analytics-sub">Top Rules Triggered</div>' + renderList(topR, maxRule)
+        + '<div class="rtp-analytics-sub" style="margin-top:14px">Top Paths</div>' + renderList(topP, maxPath)
+        + '</div>'
+        + '<div class="rtp-analytics-col">'
+        + '<div class="rtp-analytics-sub">7-Day Trend</div>' + trendHtml
+        + '</div>';
+    })
+    .catch(function() {
+      if (content) content.innerHTML = '<div style="padding:16px;color:var(--c5);font-size:12px;grid-column:1/-1">Failed to load analytics.</div>';
+    });
+}
+
+function rtpLoadAlertsCfg() {
+  fetch('/api/rtp/alerts/config')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var set = function(id, v) { var el=document.getElementById(id); if(el && v!=null) el.value=v; };
+      var chk = function(id, v) { var el=document.getElementById(id); if(el) el.checked=!!v; };
+      chk('rtp-alert-email-enabled', d.email_enabled);
+      set('rtp-alert-email-to',      d.email_to);
+      set('rtp-alert-threshold',     d.threshold || 10);
+      chk('rtp-alert-slack-enabled', d.slack_enabled);
+      set('rtp-alert-slack-webhook', d.slack_webhook || '');
+    })
+    .catch(function() {});
+}
+
+function rtpSaveAlerts() {
+  var g = function(id) { return (document.getElementById(id) || {}); };
+  var cfg = {
+    email_enabled:  !!(g('rtp-alert-email-enabled').checked),
+    email_to:       (g('rtp-alert-email-to').value  || '').trim(),
+    threshold:      parseInt(g('rtp-alert-threshold').value || '10', 10),
+    slack_enabled:  !!(g('rtp-alert-slack-enabled').checked),
+    slack_webhook:  (g('rtp-alert-slack-webhook').value || '').trim(),
+  };
+  var msg = document.getElementById('rtp-alerts-msg');
+  fetch('/api/rtp/alerts/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(cfg)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (msg) {
+      msg.style.display = 'inline';
+      msg.textContent = d.ok ? 'Alert settings saved.' : ('Error: ' + (d.error || ''));
+      msg.style.color = d.ok ? '#166534' : '#991b1b';
+      setTimeout(function(){ msg.style.display='none'; }, 3000);
+    }
+  })
+  .catch(function() {});
+}
+
+function rtpTestAlert(btn) {
+  var msg = document.getElementById('rtp-alerts-msg');
+  if (btn) btn.disabled = true;
+  fetch('/api/rtp/alerts/test', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (btn) btn.disabled = false;
+      if (msg) {
+        msg.style.display = 'inline';
+        msg.textContent = d.ok ? 'Test alert sent!' : ('Error: ' + (d.error || ''));
+        msg.style.color = d.ok ? '#166534' : '#991b1b';
+        setTimeout(function(){ msg.style.display='none'; }, 3000);
+      }
+    })
+    .catch(function() { if (btn) btn.disabled = false; });
 }
 
 function _rtpStartAutoRefresh() {

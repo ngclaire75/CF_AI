@@ -1360,6 +1360,8 @@ def _enforce_auth():
 
 _RTP_CONFIG_FILE = Path(__file__).parent.parent / 'data' / 'rtp_config.json'
 _RTP_LOG_FILE    = Path(__file__).parent.parent / 'data' / 'rtp_blocked.jsonl'
+_RTP_ALERT_FILE  = Path(__file__).parent.parent / 'data' / 'rtp_alerts.json'
+_RTP_LOG_MAX_LINES = 50_000  # rotate after this many lines
 
 _rtp_config: dict = {}
 _rtp_config_lock  = _threading.Lock()
@@ -1384,6 +1386,14 @@ _rtp_tor_lock = _threading.Lock()
 _rtp_cs_cache: dict = {}
 _rtp_cs_lock = _threading.Lock()
 
+# Auto-escalation: track per-IP block timestamps to auto-blocklist repeat offenders
+_rtp_esc_buckets: dict = {}   # {ip: deque of float timestamps}
+_rtp_esc_lock = _threading.Lock()
+
+# Alert config cache
+_rtp_alert_cfg: dict = {}
+_rtp_alert_lock = _threading.Lock()
+
 # ── Attack detection regexes ──────────────────────────────────────────────────
 _SQLI_RE = re.compile(
     r"(?i)(?:"
@@ -1406,6 +1416,16 @@ _CMDI_RE = re.compile(
 _PATH_RE = re.compile(
     r'(?:\.\./|\.\.\\|%2e%2e[%/\\]|%252e%252e|%c0%ae%c0%ae)',
     re.IGNORECASE
+)
+_NOSQL_RE = re.compile(
+    r'(?i)(?:'
+    r'\$(?:where|ne|gt|lt|gte|lte|in|nin|regex|exists|type|mod|text|expr|jsonSchema|'
+    r'all|elemMatch|size|bitsAllSet|bitsAnySet|bitsAllClear|bitsAnyClear|'
+    r'and|or|nor|not|slice|comment|rand|natural)|'
+    r'(?:\{|\[)\s*"?\$\w+|'       # JSON operator objects like {"$gt": 0}
+    r"';\s*(?:db|collection)\.|"  # MongoDB shell injection
+    r'mapReduce|group\s*:\s*\{|this\.\w'
+    r')'
 )
 _BOT_PATTERNS: dict = {
     'SEO Crawlers':  re.compile(r'(?i)googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|ia_archiver'),
@@ -1449,6 +1469,16 @@ def _rtp_log_event(rule: str, ip: str, path: str, reason: str) -> None:
             fh.write(_json.dumps(ev) + '\n')
     except Exception:
         pass
+    # Non-blocking alert + escalation checks
+    _threading.Thread(target=_rtp_maybe_alert, args=(rule, ip, path, reason), daemon=True).start()
+    with _rtp_config_lock:
+        cfg_snap = dict(_rtp_config)
+    _threading.Thread(target=_rtp_check_escalate, args=(ip, cfg_snap), daemon=True).start()
+    # Periodic log rotation (every 1000 events)
+    with _rtp_stats_lock:
+        total = _rtp_stats['total']
+    if total % 1000 == 0:
+        _threading.Thread(target=_rtp_rotate_log, daemon=True).start()
 
 def _rtp_real_ip() -> str:
     fwd = request.headers.get('X-Forwarded-For', '')
@@ -1507,6 +1537,105 @@ def _rtp_crowdsec_blocked(ip: str, key: str) -> bool:
         _rtp_cs_cache[ip] = (blocked, _time.time())
     return blocked
 
+def _rtp_load_alert_cfg() -> dict:
+    try:
+        with open(_RTP_ALERT_FILE, 'r') as fh:
+            return _json.load(fh)
+    except Exception:
+        return {}
+
+def _rtp_save_alert_cfg(cfg: dict) -> None:
+    try:
+        _RTP_ALERT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_RTP_ALERT_FILE, 'w') as fh:
+            _json.dump(cfg, fh, indent=2)
+    except Exception:
+        pass
+
+def _rtp_send_alert(subject: str, body: str) -> None:
+    """Send RTP alert via email and/or Slack (non-blocking — call in bg thread)."""
+    with _rtp_alert_lock:
+        acfg = dict(_rtp_alert_cfg)
+    if acfg.get('email_enabled') and acfg.get('email_to') and _SMTP_USER and _SMTP_PASS:
+        try:
+            from email.mime.multipart import MIMEMultipart as _MMPart
+            from email.mime.text import MIMEText as _MMText
+            msg = _MMPart('alternative')
+            msg['Subject'] = subject
+            msg['From']    = f'CF AI WAF <{_SMTP_USER}>'
+            msg['To']      = acfg['email_to']
+            msg.attach(_MMText(_email_html(subject, body), 'html'))
+            import smtplib as _smtp
+            with _smtp.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+                srv.login(_SMTP_USER, _SMTP_PASS)
+                srv.sendmail(_SMTP_USER, acfg['email_to'], msg.as_string())
+        except Exception:
+            pass
+    if acfg.get('slack_enabled') and acfg.get('slack_webhook'):
+        try:
+            payload = _json.dumps({'text': f'*{subject}*\n{body}'}).encode()
+            req = _up_req.Request(
+                acfg['slack_webhook'],
+                data=payload,
+                headers={'Content-Type': 'application/json'},
+                method='POST',
+            )
+            with _up_req.urlopen(req, timeout=5):
+                pass
+        except Exception:
+            pass
+
+def _rtp_maybe_alert(rule: str, ip: str, path: str, reason: str) -> None:
+    """Fire alert if threshold is met (runs in bg thread)."""
+    with _rtp_alert_lock:
+        acfg = dict(_rtp_alert_cfg)
+    if not (acfg.get('email_enabled') or acfg.get('slack_enabled')):
+        return
+    threshold = int(acfg.get('threshold', 10))
+    with _rtp_stats_lock:
+        today_count = _rtp_stats['total']
+    if today_count % max(threshold, 1) == 0:
+        subj = f'[CF AI WAF] {today_count} blocks today'
+        body = (
+            f'<p>Your WAF has blocked <strong>{today_count}</strong> requests today.</p>'
+            f'<p>Latest: rule=<code>{rule}</code> ip=<code>{ip}</code> path=<code>{path}</code></p>'
+            f'<p>Reason: {reason}</p>'
+        )
+        _threading.Thread(target=_rtp_send_alert, args=(subj, body), daemon=True).start()
+
+def _rtp_check_escalate(ip: str, cfg: dict) -> None:
+    """Auto-add IP to blocklist if it triggers 5+ blocks in 60 s."""
+    if not cfg.get('auto_escalate'):
+        return
+    now = _time.time()
+    with _rtp_esc_lock:
+        bucket = _rtp_esc_buckets.setdefault(ip, _collections.deque())
+        while bucket and now - bucket[0] > 60.0:
+            bucket.popleft()
+        bucket.append(now)
+        count = len(bucket)
+    if count >= 5:
+        with _rtp_config_lock:
+            existing = _rtp_config.get('block_ips', '')
+            lines = [l for l in existing.splitlines() if l.strip()]
+            if ip not in lines:
+                lines.append(ip)
+                _rtp_config['block_ips'] = '\n'.join(lines)
+                _rtp_config['block'] = True
+                _rtp_persist(dict(_rtp_config))
+
+def _rtp_rotate_log() -> None:
+    """Keep rtp_blocked.jsonl under _RTP_LOG_MAX_LINES by dropping oldest half."""
+    try:
+        if not _RTP_LOG_FILE.exists():
+            return
+        lines = _RTP_LOG_FILE.read_text(encoding='utf-8').splitlines()
+        if len(lines) > _RTP_LOG_MAX_LINES:
+            keep = lines[len(lines) // 2:]
+            _RTP_LOG_FILE.write_text('\n'.join(keep) + '\n', encoding='utf-8')
+    except Exception:
+        pass
+
 def _rtp_scan_inputs() -> tuple:
     """Scan all request inputs for injection/traversal. Returns (rule, reason) or (None,None)."""
     candidates = list(request.args.values()) + list(request.form.values())
@@ -1527,12 +1656,18 @@ def _rtp_scan_inputs() -> tuple:
     candidates.append(request.path)
     for val in candidates:
         s = str(val)
-        if _SQLI_RE.search(s):
-            return ('sqli', f'SQLi pattern: {s[:80]}')
-        if _CMDI_RE.search(s):
-            return ('cmdi', f'CMDi pattern: {s[:80]}')
-        if _PATH_RE.search(s):
-            return ('path', f'Path traversal: {s[:80]}')
+        # Check both original and URL-decoded form to catch encoded bypass attempts
+        decoded = _up_parse.unquote(s)
+        double_decoded = _up_parse.unquote(decoded)
+        for variant in (s, decoded, double_decoded):
+            if _SQLI_RE.search(variant):
+                return ('sqli', f'SQLi pattern: {variant[:80]}')
+            if _NOSQL_RE.search(variant):
+                return ('nosql', f'NoSQL injection: {variant[:80]}')
+            if _CMDI_RE.search(variant):
+                return ('cmdi', f'CMDi pattern: {variant[:80]}')
+            if _PATH_RE.search(variant):
+                return ('path', f'Path traversal: {variant[:80]}')
     return (None, None)
 
 @app.before_request
@@ -1607,8 +1742,8 @@ def _rtp_waf():
             _rtp_log_event('rate', ip, request.path, f'{count}/{limit} rpm')
             return jsonify({'error': 'Too many requests', 'rule': 'rate'}), 429
 
-    # Injection / path traversal
-    if cfg.get('sqli') or cfg.get('cmdi') or cfg.get('path'):
+    # Injection / path traversal / NoSQL injection
+    if cfg.get('sqli') or cfg.get('cmdi') or cfg.get('path') or cfg.get('nosql'):
         rule, reason = _rtp_scan_inputs()
         if rule and cfg.get(rule):
             _rtp_log_event(rule, ip, request.path, reason)
@@ -1619,6 +1754,8 @@ def _rtp_waf():
 # Load WAF config at startup
 with _rtp_config_lock:
     _rtp_config = _rtp_load_config_from_disk()
+with _rtp_alert_lock:
+    _rtp_alert_cfg = _rtp_load_alert_cfg()
 
 # ── Auth routes ───────────────────────────────────────────────────────────────
 @app.route('/login', methods=['GET', 'POST'])
@@ -15877,7 +16014,7 @@ def rtp_stats_get():
         pass
 
     with _rtp_config_lock:
-        rule_keys    = ['sqli', 'cmdi', 'path', 'rate', 'block', 'tor', 'crowdsec', 'bots', 'countries']
+        rule_keys    = ['sqli', 'cmdi', 'path', 'nosql', 'rate', 'block', 'tor', 'crowdsec', 'bots', 'countries']
         active_count = sum(1 for k in rule_keys if _rtp_config.get(k))
 
     return jsonify({
@@ -15907,14 +16044,175 @@ def rtp_test():
     results = {}
     with _rtp_config_lock:
         cfg = dict(_rtp_config)
-    if cfg.get('sqli') and _SQLI_RE.search(payload):
-        results['sqli'] = True
-    if cfg.get('cmdi') and _CMDI_RE.search(payload):
-        results['cmdi'] = True
-    if cfg.get('path') and _PATH_RE.search(payload):
-        results['path'] = True
+    decoded = _up_parse.unquote(payload)
+    for variant in (payload, decoded, _up_parse.unquote(decoded)):
+        if cfg.get('sqli') and _SQLI_RE.search(variant):
+            results['sqli'] = True
+        if cfg.get('nosql') and _NOSQL_RE.search(variant):
+            results['nosql'] = True
+        if cfg.get('cmdi') and _CMDI_RE.search(variant):
+            results['cmdi'] = True
+        if cfg.get('path') and _PATH_RE.search(variant):
+            results['path'] = True
     blocked = bool(results)
     return jsonify({'blocked': blocked, 'matched_rules': results, 'payload': payload[:200]})
+
+
+@app.route('/api/rtp/alerts/config', methods=['GET'])
+@login_required
+def rtp_alerts_config_get():
+    with _rtp_alert_lock:
+        cfg = dict(_rtp_alert_cfg)
+    if cfg.get('slack_webhook'):
+        cfg['slack_webhook'] = cfg['slack_webhook'][:40] + '…'
+    return jsonify(cfg)
+
+
+@app.route('/api/rtp/alerts/config', methods=['POST'])
+@login_required
+def rtp_alerts_config_save():
+    data = request.get_json(silent=True) or {}
+    with _rtp_alert_lock:
+        _rtp_alert_cfg.update(data)
+        _rtp_save_alert_cfg(dict(_rtp_alert_cfg))
+    return jsonify({'ok': True})
+
+
+@app.route('/api/rtp/alerts/test', methods=['POST'])
+@login_required
+def rtp_alerts_test():
+    with _rtp_alert_lock:
+        acfg = dict(_rtp_alert_cfg)
+    if not (acfg.get('email_enabled') or acfg.get('slack_enabled')):
+        return jsonify({'ok': False, 'error': 'No alert channel enabled'})
+    _threading.Thread(
+        target=_rtp_send_alert,
+        args=('[CF AI WAF] Test alert', '<p>This is a test alert from your CF AI Runtime Protection module.</p>'),
+        daemon=True,
+    ).start()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/rtp/analytics', methods=['GET'])
+@login_required
+def rtp_analytics():
+    """Returns top IPs, top rules, top paths, and 7-day daily trend."""
+    from collections import Counter as _Counter
+    top_ips, top_rules, top_paths = _Counter(), _Counter(), _Counter()
+    daily: dict = {}
+    try:
+        with open(_RTP_LOG_FILE, 'r') as fh:
+            for line in fh:
+                try:
+                    ev = _json.loads(line)
+                    top_ips[ev.get('ip', '')] += 1
+                    top_rules[ev.get('rule', '')] += 1
+                    top_paths[ev.get('path', '')] += 1
+                    day = (ev.get('ts', '') or '')[:10]
+                    if day:
+                        daily[day] = daily.get(day, 0) + 1
+                except Exception:
+                    pass
+    except FileNotFoundError:
+        pass
+    # Keep last 7 days
+    sorted_days = sorted(daily.keys())[-7:]
+    trend = [{'date': d, 'count': daily[d]} for d in sorted_days]
+    return jsonify({
+        'top_ips':   top_ips.most_common(10),
+        'top_rules': top_rules.most_common(10),
+        'top_paths': top_paths.most_common(10),
+        'trend':     trend,
+    })
+
+
+@app.route('/api/rtp/allowlist/add', methods=['POST'])
+@login_required
+def rtp_allowlist_add():
+    ip = (request.get_json(silent=True) or {}).get('ip', '').strip()
+    if not ip:
+        return jsonify({'ok': False, 'error': 'Missing ip'})
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid IP'})
+    with _rtp_config_lock:
+        lines = [l for l in _rtp_config.get('allow_ips', '').splitlines() if l.strip()]
+        if ip not in lines:
+            lines.append(ip)
+        _rtp_config['allow_ips'] = '\n'.join(lines)
+        _rtp_persist(dict(_rtp_config))
+    return jsonify({'ok': True})
+
+
+@app.route('/api/rtp/blocklist/add', methods=['POST'])
+@login_required
+def rtp_blocklist_add():
+    ip = (request.get_json(silent=True) or {}).get('ip', '').strip()
+    if not ip:
+        return jsonify({'ok': False, 'error': 'Missing ip'})
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid IP'})
+    with _rtp_config_lock:
+        lines = [l for l in _rtp_config.get('block_ips', '').splitlines() if l.strip()]
+        if ip not in lines:
+            lines.append(ip)
+        _rtp_config['block_ips'] = '\n'.join(lines)
+        _rtp_config['block'] = True
+        _rtp_persist(dict(_rtp_config))
+    return jsonify({'ok': True})
+
+
+@app.route('/api/rtp/crowdsec/test', methods=['POST'])
+@login_required
+def rtp_crowdsec_test():
+    key = (request.get_json(silent=True) or {}).get('key', '').strip()
+    if not key:
+        with _rtp_config_lock:
+            key = _rtp_config.get('crowdsec_key', '').strip()
+    if not key:
+        return jsonify({'ok': False, 'error': 'No API key configured'})
+    test_ip = '1.1.1.1'
+    try:
+        req = _up_req.Request(
+            f'https://cti.api.crowdsec.net/v2/smoke/{test_ip}',
+            headers={'x-api-key': key, 'User-Agent': 'cfai-waf/1.0'},
+        )
+        with _up_req.urlopen(req, timeout=5) as r:
+            data = _json.loads(r.read())
+        return jsonify({'ok': True, 'status': data.get('ip_range_score', 'connected')})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)[:120]})
+
+
+@app.route('/api/rtp/events/export', methods=['GET'])
+@login_required
+def rtp_events_export():
+    """Download blocked events as CSV."""
+    import io as _io
+    import csv as _csv
+    buf = _io.StringIO()
+    writer = _csv.writer(buf)
+    writer.writerow(['timestamp', 'rule', 'ip', 'path', 'reason'])
+    try:
+        with open(_RTP_LOG_FILE, 'r') as fh:
+            for line in fh:
+                try:
+                    ev = _json.loads(line)
+                    writer.writerow([ev.get('ts',''), ev.get('rule',''), ev.get('ip',''), ev.get('path',''), ev.get('reason','')])
+                except Exception:
+                    pass
+    except FileNotFoundError:
+        pass
+    buf.seek(0)
+    today = _datetime.datetime.utcnow().strftime('%Y%m%d')
+    return Response(
+        buf.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=rtp_events_{today}.csv'},
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
