@@ -1762,33 +1762,40 @@ with _rtp_alert_lock:
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
     if session.get('user'):
-        return redirect(url_for('index'))
+        return redirect(url_for('app_dashboard'))
     error       = None
     signup_hint = False
     success     = request.args.get('verified') == '1'
     if request.method == 'POST':
         identifier = (request.form.get('username') or '').strip()
         password   = request.form.get('password') or ''
-        users      = _load_users()
-        key, user  = _find_user_by_identifier(identifier, users)
-        if user is None:
-            error       = 'No account found with that username or email.'
+        id_lower   = identifier.lower()
+        # Only the default admin may log in with a plain username.
+        # All other accounts must use their @gmail.com address.
+        if id_lower != _DEFAULT_ADMIN.lower() and not id_lower.endswith('@gmail.com'):
+            error       = 'Please sign in using your Gmail address (@gmail.com).'
             signup_hint = True
-        elif not check_password_hash(user['password'], password):
-            error = 'Incorrect password.'
-        elif not user.get('verified', True):
-            error = 'Please verify your email before logging in. Check your inbox for the verification link.'
         else:
-            session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', ''),
-                               'country': user.get('country', ''), 'currency_code': user.get('currency_code', 'USD')}
-            return redirect(url_for('index'))
+            users      = _load_users()
+            key, user  = _find_user_by_identifier(identifier, users)
+            if user is None:
+                error       = 'No account found with that Gmail address.'
+                signup_hint = True
+            elif not check_password_hash(user['password'], password):
+                error = 'Incorrect password.'
+            elif not user.get('verified', True):
+                error = 'Please verify your email before logging in. Check your inbox for the verification link.'
+            else:
+                session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', ''),
+                                   'country': user.get('country', ''), 'currency_code': user.get('currency_code', 'USD')}
+                return redirect(url_for('app_dashboard'))
     return render_template('login.html', error=error, signup_hint=signup_hint,
                            success='Account verified! You can now sign in.' if success else None)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup_page():
     if session.get('user'):
-        return redirect(url_for('index'))
+        return redirect(url_for('app_dashboard'))
     error        = None
     pending_email = None
     if request.method == 'POST':
@@ -1834,11 +1841,11 @@ def signup_page():
                         _save_users(users)
                         session['user'] = {'username': key, 'role': 'user', 'email': identifier,
                                            'country': '', 'currency_code': 'USD'}
-                        return redirect(url_for('index'))
+                        return redirect(url_for('app_dashboard'))
                 else:
                     session['user'] = {'username': key, 'role': 'user', 'email': '',
                                        'country': '', 'currency_code': 'USD'}
-                    return redirect(url_for('index'))
+                    return redirect(url_for('app_dashboard'))
     return render_template('signup.html', error=error, pending_email=pending_email)
 
 @app.route('/verify/<token>')
@@ -4582,8 +4589,17 @@ def enrich(scan: dict, track_age: bool = False) -> dict:
 
 @app.route('/')
 def index():
-    if 'user' not in session:
-        return render_template('landing.html')
+    """Public landing page — shown to all visitors regardless of auth state."""
+    user = session.get('user')
+    is_logged_in = bool(user)
+    username = user.get('username', '') if user else ''
+    return render_template('landing.html', is_logged_in=is_logged_in, current_username=username)
+
+
+@app.route('/app')
+@login_required
+def app_dashboard():
+    """Main application dashboard — requires authentication."""
     ctx = _build_template_context()
     user = session.get('user', {'username': 'admin', 'role': 'admin'})
     ctx['current_user'] = user

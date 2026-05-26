@@ -739,8 +739,13 @@ button{font-family:inherit;cursor:pointer}
       <a href="#about">About</a>
     </div>
     <div class="nav-actions">
+      {% if is_logged_in %}
+      <span style="font-size:13px;color:var(--text3);margin-right:4px">Hi, <strong style="color:#fff">{{ current_username }}</strong></span>
+      <button class="btn-nav-cta" onclick="window.location='/app'">Go to Dashboard &rarr;</button>
+      {% else %}
       <button class="btn-nav-ghost" onclick="window.location='/login'">Sign in</button>
       <button class="btn-nav-cta" onclick="window.location='/signup'">Start for free</button>
+      {% endif %}
     </div>
   </div>
 </nav>
@@ -766,12 +771,21 @@ button{font-family:inherit;cursor:pointer}
     Real-time threat detection, WAF protection, malware scanning, and AI-driven security analytics — unified in a single intelligence platform.
   </p>
   <div class="hero-actions">
+    {% if is_logged_in %}
+    <button class="btn-hero-primary" onclick="window.location='/app'">
+      Go to Dashboard &rarr;
+    </button>
+    <button class="btn-hero-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">
+      See live demo
+    </button>
+    {% else %}
     <button class="btn-hero-primary" onclick="window.location='/signup'">
       Start for free &rarr;
     </button>
     <button class="btn-hero-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">
       See live demo
     </button>
+    {% endif %}
   </div>
   <p class="hero-trusted">Trusted security stack</p>
   <div class="hero-badges">
@@ -1160,7 +1174,7 @@ button{font-family:inherit;cursor:pointer}
           <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Tor exit node detection and automatic blocking</li>
           <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Per-rule email + Slack alerting with escalation thresholds</li>
         </ul>
-        <a href="/signup" class="btn-text">Get WAF protection free <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+        <a href="{{ '/app' if is_logged_in else '/signup' }}" class="btn-text">{{ 'Open in Dashboard' if is_logged_in else 'Get WAF protection free' }} <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
       </div>
       <div class="feature-visual">
         <div style="display:flex;flex-direction:column;gap:8px">
@@ -1194,7 +1208,7 @@ button{font-family:inherit;cursor:pointer}
           <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Cloudflare, Apache, Nginx, and custom log parsers built in</li>
           <li><span class="fi"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Export filtered results as CSV for compliance and audits</li>
         </ul>
-        <a href="/signup" class="btn-text">Explore log intelligence <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+        <a href="{{ '/app' if is_logged_in else '/signup' }}" class="btn-text">{{ 'Open in Dashboard' if is_logged_in else 'Explore log intelligence' }} <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
       </div>
       <div class="feature-visual dark">
         <div style="font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11px;line-height:1.7">
@@ -1279,7 +1293,7 @@ button{font-family:inherit;cursor:pointer}
         <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>1 Security scan / day</li>
         <li><span class="check-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Community support</li>
       </ul>
-      <button class="btn-pricing" onclick="window.location='/signup'">Start for free</button>
+      <button class="btn-pricing" onclick="window.location='{{ '/app' if is_logged_in else '/signup' }}'">{{ 'Go to Dashboard' if is_logged_in else 'Start for free' }}</button>
     </div>
 
     <!-- Pro Monthly / Annual -->
@@ -1304,7 +1318,7 @@ button{font-family:inherit;cursor:pointer}
         <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>GRC &amp; Compliance reporting</li>
         <li><span class="check-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Priority support</li>
       </ul>
-      <button class="btn-pricing primary" onclick="window.location='/signup'">Get Pro access</button>
+      <button class="btn-pricing primary" onclick="window.location='{{ '/app' if is_logged_in else '/signup' }}'">{{ 'Go to Dashboard' if is_logged_in else 'Get Pro access' }}</button>
     </div>
 
     <!-- Enterprise -->
@@ -1342,8 +1356,12 @@ button{font-family:inherit;cursor:pointer}
   </h2>
   <p class="cta-sub">Free forever. No credit card required. Up and running in 2 minutes.</p>
   <div class="cta-actions">
+    {% if is_logged_in %}
+    <button class="btn-hero-primary" onclick="window.location='/app'">Go to Dashboard &rarr;</button>
+    {% else %}
     <button class="btn-hero-primary" onclick="window.location='/signup'">Create free account &rarr;</button>
     <button class="btn-hero-ghost" onclick="window.location='/login'">Sign in to dashboard</button>
+    {% endif %}
   </div>
 </section>
 
@@ -1368,8 +1386,8 @@ button{font-family:inherit;cursor:pointer}
     </div>
     <div class="footer-col">
       <h5>Platform</h5>
-      <a href="/login">Sign in</a>
-      <a href="/signup">Get started</a>
+      {% if is_logged_in %}<a href="/app">Dashboard</a>{% else %}<a href="/login">Sign in</a>{% endif %}
+      {% if not is_logged_in %}<a href="/signup">Get started</a>{% endif %}
       <a href="#pricing">Pricing</a>
       <a href="/login">Documentation</a>
     </div>
