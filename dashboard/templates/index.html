@@ -3016,7 +3016,7 @@ Export Power BI
         <div>
           <label>AI Model</label>
           <select id="cwLlmModel" class="agent-select" style="min-width:230px;">
-            <option value="">Default (from .env)</option>
+            <option value="">Default</option>
             <optgroup label="Anthropic — Claude">
               <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
               <option value="claude-opus-4-7">Claude Opus 4.7</option>
@@ -12771,18 +12771,18 @@ function startConnectScan() {
 
 // ── LLM provider / model selector ────────────────────────────────────────
 var _LLM_MODELS = {
-  anthropic:  ['Default (from .env)','claude-sonnet-4-6','claude-opus-4-7','claude-haiku-4-5-20251001','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022'],
-  openai:     ['Default (from .env)','gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-3.5-turbo','o1','o3-mini'],
-  google:     ['Default (from .env)','gemini-2.0-flash','gemini-1.5-pro','gemini-1.5-flash','gemini-2.5-pro'],
-  deepseek:   ['Default (from .env)','deepseek-chat','deepseek-reasoner'],
-  ollama:     ['Default (from .env)','llama3','llama3.1','mistral','qwen2.5','deepseek-r1','phi3'],
-  openrouter: ['Default (from .env)','openai/gpt-4o','anthropic/claude-3.5-sonnet','google/gemini-flash-1.5','meta-llama/llama-3.1-70b-instruct'],
-  deepinfra:  ['Default (from .env)','meta-llama/Meta-Llama-3.1-70B-Instruct','Qwen/Qwen2.5-72B-Instruct'],
-  bedrock:    ['Default (from .env)','anthropic.claude-3-5-sonnet-20241022-v2:0','anthropic.claude-3-haiku-20240307-v1:0'],
-  qwen:       ['Default (from .env)','qwen-max','qwen-plus','qwen-turbo','qwen2.5-72b-instruct'],
-  kimi:       ['Default (from .env)','moonshot-v1-8k','moonshot-v1-32k','moonshot-v1-128k'],
-  glm:        ['Default (from .env)','glm-4','glm-4-flash','glm-4-plus'],
-  custom:     ['Default (from .env)'],
+  anthropic:  ['Default','claude-sonnet-4-6','claude-opus-4-7','claude-haiku-4-5-20251001','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022'],
+  openai:     ['Default','gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-3.5-turbo','o1','o3-mini'],
+  google:     ['Default','gemini-2.0-flash','gemini-1.5-pro','gemini-1.5-flash','gemini-2.5-pro'],
+  deepseek:   ['Default','deepseek-chat','deepseek-reasoner'],
+  ollama:     ['Default','llama3','llama3.1','mistral','qwen2.5','deepseek-r1','phi3'],
+  openrouter: ['Default','openai/gpt-4o','anthropic/claude-3.5-sonnet','google/gemini-flash-1.5','meta-llama/llama-3.1-70b-instruct'],
+  deepinfra:  ['Default','meta-llama/Meta-Llama-3.1-70B-Instruct','Qwen/Qwen2.5-72B-Instruct'],
+  bedrock:    ['Default','anthropic.claude-3-5-sonnet-20241022-v2:0','anthropic.claude-3-haiku-20240307-v1:0'],
+  qwen:       ['Default','qwen-max','qwen-plus','qwen-turbo','qwen2.5-72b-instruct'],
+  kimi:       ['Default','moonshot-v1-8k','moonshot-v1-32k','moonshot-v1-128k'],
+  glm:        ['Default','glm-4','glm-4-flash','glm-4-plus'],
+  custom:     ['Default'],
 };
 function cwUpdateLlmModels() {
   // No-op: provider is fixed to Claude. Model options are static in the HTML.
