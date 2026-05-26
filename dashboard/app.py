@@ -434,6 +434,7 @@ app.secret_key = os.environ.get('CFAI_SECRET_KEY', 'cfai-dev-secret-change-in-pr
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE']   = os.environ.get('CFAI_HTTPS', '').lower() in ('1', 'true', 'yes')
+app.config['MAX_CONTENT_LENGTH']      = 55 * 1024 * 1024  # 55 MB (covers 50 MB file limit + overhead)
 
 # ── API Token Authentication (Bearer token for programmatic access) ──────────
 # Tokens stored in data/api_tokens.json — never in source code.
@@ -1674,7 +1675,7 @@ def _rtp_scan_inputs() -> tuple:
 def _rtp_waf():
     skip = ('/static/', '/login', '/signup', '/logout', '/verify/',
             '/api/rtp/', '/api/syslog/hec', '/api/syslog/ingest',
-            '/api/events/ingest', '/api/payment/')
+            '/api/events/ingest', '/api/payment/', '/api/files/')
     if any(request.path.startswith(p) for p in skip):
         return None
     with _rtp_config_lock:
@@ -15625,7 +15626,7 @@ def upload_user_file():
             'size':        size,
             'size_display':_fmt_filesize(size),
             'ext':         ext,
-            'uploaded_at': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S'),
+            'uploaded_at': _datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S'),
         }
         manifest = _load_fm_manifest()
         manifest.append(entry)
