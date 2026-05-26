@@ -2016,6 +2016,41 @@ def admin_verify_user(username):
     _save_users(users)
     return jsonify({'ok': True})
 
+def _send_account_deleted_email(to_email: str, username: str, admin_name: str) -> None:
+    if not to_email or not _SMTP_USER or not _SMTP_PASS:
+        return
+    try:
+        deleted_at = _datetime.datetime.utcnow().strftime('%d %B %Y at %H:%M UTC')
+        subject = 'Your Intel Web Security account has been deleted'
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 12px;">
+            Account deleted
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 16px;">
+            Your Intel Web Security account (<strong>{username}</strong>) was permanently deleted
+            by an administrator on <strong>{deleted_at}</strong>.
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 24px;">
+            All your data associated with this account has been removed from the platform.
+            If you believe this was done in error, please contact your administrator directly.
+          </p>
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:28px;line-height:1.7;">
+            If you have questions, contact
+            <a href="mailto:ngclaire75@gmail.com" class="elink"
+              style="color:#2563eb;">ngclaire75@gmail.com</a>.
+          </p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
+        msg['To']      = to_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+    except Exception:
+        pass
+
+
 @app.route('/api/admin/users/<username>', methods=['DELETE'])
 @_admin_required
 def admin_delete_user(username):
@@ -2026,8 +2061,14 @@ def admin_delete_user(username):
     users = _load_users()
     if username not in users:
         return jsonify({'error': 'User not found'}), 404
+    user_email = users[username].get('email', '')
+    admin_name = session['user']['username']
     del users[username]
     _save_users(users)
+    if user_email:
+        _threading.Thread(target=_send_account_deleted_email,
+                          args=(user_email, username, admin_name),
+                          daemon=True).start()
     return jsonify({'ok': True})
 
 # ── Account self-service ──────────────────────────────────────────────────────
