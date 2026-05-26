@@ -23823,6 +23823,21 @@ document.addEventListener('DOMContentLoaded', function() {
   var hd = document.querySelector('.cust-hd');
   if (hd) { hd.querySelectorAll('button').forEach(function(b){ b.remove(); }); }
 });
+
+// Suppress "[DOM] Password field is not contained in a form" warnings.
+// Wraps every orphan type=password input in a form with display:contents so
+// the layout is unaffected but the browser recognises each field as in a form.
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('input[type="password"]').forEach(function(inp) {
+    if (inp.closest('form')) return;
+    var f = document.createElement('form');
+    f.setAttribute('autocomplete', 'off');
+    f.style.display = 'contents';
+    f.addEventListener('submit', function(e) { e.preventDefault(); });
+    inp.parentNode.insertBefore(f, inp);
+    f.appendChild(inp);
+  });
+});
 </script>
 
 <!-- ── Cookie Consent Banner ────────────────────────────────────────────────── -->
