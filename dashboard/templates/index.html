@@ -1993,9 +1993,6 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
       <span class="sb-label">Incident Management</span>
       <span class="sb-badge" id="sb-badge-inc" style="display:none;"></span>
     </button>
-    <button class="sb-item" id="sb-priority" onclick="sbNav('priority',this)">
-      <span class="sb-label">Action Center</span>
-    </button>
     <button class="sb-item" id="sb-network" onclick="sbNav('network',this)">
       <span class="sb-label">Network Monitor</span>
     </button>
@@ -2291,7 +2288,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
         </tbody>
       </table>
       <div class="mvd-btn-row">
-        <button class="mvd-show-btn" onclick="sbNav('priority',document.getElementById('sb-priority'))">Show more</button>
+        <button class="mvd-show-btn" onclick="sbNav('scan',document.getElementById('sb-scan'))">Run a scan</button>
         <button class="mvd-show-btn outline" onclick="sbNav('vulns',document.getElementById('sb-vulns'))">Show exceptions</button>
       </div>
     </div>
@@ -2822,139 +2819,7 @@ Export Power BI
   </div><!-- /page-gsc -->
 
 
-  <!-- ══ PRIORITY ACTIONS PAGE ═════════════════════════════════════════════ -->
-  <div id="page-priority" class="page-section" style="display:none">
 
-  <!-- Quick Actions panel -->
-  <section class="section" style="margin-bottom:18px;">
-    <div class="sec-head">
-      <div>
-        <div class="sec-title">Quick Actions</div>
-        <div class="sec-desc">Apply Cloudflare protections instantly to a zone.</div>
-      </div>
-    </div>
-    <div class="card" style="padding:20px 24px;">
-      <!-- Domain selector -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
-        <label style="font-size:12px;font-weight:600;color:#3b82f6;white-space:nowrap;">Zone / Domain</label>
-        <input type="text" id="qa-domain" placeholder="yourdomain.com"
-          style="flex:1;min-width:200px;max-width:320px;background:#f8faff;border:1px solid #bfdbfe;border-radius:6px;padding:7px 12px;font-size:13px;outline:none;"
-          oninput="qaClearStatus()" />
-        <button onclick="qaLoadStatus()"
-          style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">
-          Load Status
-        </button>
-        <span id="qa-zone-tag" style="display:none;font-size:11px;background:linear-gradient(135deg,#dbeafe,#eff6ff);color:#1e3a8a;padding:3px 8px;border-radius:4px;font-weight:600;"></span>
-      </div>
-      <div id="qa-status-msg" style="display:none;font-size:12px;margin-bottom:14px;padding:8px 12px;border-radius:6px;"></div>
-
-      <!-- Under Attack Mode row -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid #dbeafe;">
-        <div>
-          <div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:3px;">Under Attack Mode</div>
-          <div style="font-size:12px;color:#3b82f6;line-height:1.5;max-width:460px;">
-            Show your site visitors a non-interactive JS challenge once your domain is active on Cloudflare.
-            Blocks most bots and scripts while letting real browsers through.
-          </div>
-          <a href="https://developers.cloudflare.com/fundamentals/reference/cloudflare-challenges/#under-attack-mode"
-            target="_blank" rel="noopener"
-            style="font-size:11px;color:#2563eb;text-decoration:none;margin-top:4px;display:inline-block;">
-            About Under Attack Mode ↗
-          </a>
-        </div>
-        <div style="flex-shrink:0;padding-top:2px;">
-          <label class="qa-toggle-wrap" title="Toggle Under Attack Mode">
-            <input type="checkbox" id="qa-uam-toggle" onchange="qaToggleAttackMode(this)" disabled />
-            <span class="qa-toggle-track"><span class="qa-toggle-thumb"></span></span>
-          </label>
-        </div>
-      </div>
-
-      <div style="padding:10px 0;border-top:1px solid #dbeafe;font-size:11px;color:#60a5fa;">
-        Requires a Cloudflare API token with <strong>Zone Settings:Edit</strong> permission.
-        <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener" style="color:#2563eb;">Manage tokens ↗</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Priority Actions -->
-  <section class="section">
-    <div class="sec-head">
-      <div>
-        <div class="sec-title">Priority Actions Required</div>
-        <div class="sec-desc">Dynamically scored from live scan evidence. Confirmed findings ranked first. Urgency tiers reflect compound vulnerability impact.</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div class="domain-filter-wrap">
-          <input type="text" id="prioDomainFilter" placeholder="Filter by domain or urgency..." oninput="filterPrioActions(this.value)">
-          <button id="prioFilterClear" onclick="clearPrioFilter()" style="display:none;" title="Clear">✕</button>
-        </div>
-        <span class="sec-count">{{ all_recs|length }} item(s)</span>
-      </div>
-    </div>
-    <div class="card">
-      {% if all_recs %}
-      <div class="scroll-panel">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:78px;">Severity</th>
-              <th style="width:190px;">Target</th>
-              <th>Finding &amp; Evidence</th>
-              <th style="width:130px;">Urgency</th>
-              <th style="width:88px;">Date</th>
-              <th style="width:72px;"></th>
-              <th style="width:100px;" title="Close site via Cloudflare until fix is applied">Lock Site</th>
-            </tr>
-          </thead>
-          <tbody id="prio-tbody">
-          {% for rec in all_recs %}
-            <tr data-target="{{ rec.target|lower }}" data-urgency="{{ rec.urgency_class|default('low') }}">
-              <td>
-                <span class="badge badge-{{ rec.risk }}">{{ rec.risk }}</span>
-                {% if rec.confirmed %}<br><span style="font-size:10px;background:#dcfce7;color:#166534;border-radius:3px;padding:1px 5px;font-weight:700;letter-spacing:.3px;margin-top:3px;display:inline-block;">CONFIRMED</span>{% endif %}
-              </td>
-              <td class="td-target" title="{{ rec.target }}">
-                {{ rec.target }}
-                <span class="maint-badge" id="maint-badge-{{ rec.target|lower|replace('.','_')|replace('/','_') }}" style="display:none;">LOCKED</span>
-              </td>
-              <td>
-                <div class="rec-text" style="font-weight:600;">
-                  {{ rec.text }}
-                  {% if rec.has_fixes %}<span class="fix-pill">Fix Available</span>{% endif %}
-                  {% if rec.cves %}<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:3px;padding:1px 5px;font-weight:700;margin-left:4px;">CVE ×{{ rec.cves|length }}</span>{% endif %}
-                </div>
-                {% if rec.evidence %}
-                <div class="rec-evidence" title="Evidence from scan output">
-                  {% for e in rec.evidence[:2] %}<span class="ev-line">{{ e[:100] }}</span>{% endfor %}
-                </div>
-                {% endif %}
-              </td>
-              <td>
-                <span class="urgency-pill urgency-{{ rec.urgency_class|default('low') }}">{{ rec.urgency|default('Advisory') }}</span>
-                {% if rec.age_label %}<br><span style="font-size:9px;color:#6b7280;margin-top:2px;display:inline-block;">{{ rec.age_label }}</span>{% endif %}
-              </td>
-              <td class="td-dim">{{ rec.date }}</td>
-              <td><button class="btn btn-sm" data-id="{{ rec.scan_id }}" onclick="openModal(+this.dataset.id)">View Fix</button></td>
-              <td>
-                <button class="btn-lock" id="lock-btn-{{ rec.target|lower|replace('.','_')|replace('/','_') }}"
-                  onclick="toggleSiteLock('{{ rec.target }}', this)">Lock</button>
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="empty">
-        <strong>No action items identified yet.</strong>
-        Run a scan to populate this section. Example: <code>agent info target.com</code>
-      </div>
-      {% endif %}
-    </div>
-  </section>
-
-  </div><!-- /page-priority -->
 
   <!-- ══ CONNECT & SCAN PAGE ════════════════════════════════════════════════ -->
   <div id="page-scan" class="page-section" style="display:none">
@@ -9459,7 +9324,6 @@ var _PAGE_TITLES = {
   'logexplorer':   'Log Explorer',
   'scan':          'Connect & Scan with Agent',
   'vulns':         'Vulnerability Overview',
-  'priority':      'Priority Actions',
   'history':       'Security Analytics',
   'pluginlogs':    'Plugin Activity Logs',
   'weaknesses':    'Weaknesses',
@@ -9490,7 +9354,7 @@ var _PAGE_TITLES = {
 };
 
 // Pages requiring Pro plan — redirect Basic users to pricing
-var _PRO_PAGES = ['scan', 'history', 'priority'];
+var _PRO_PAGES = ['scan', 'history'];
 
 // Pages always accessible to every logged-in user regardless of plan or whitelist
 // (all non-admin, non-pro pages — basic users can reach everything shown in their sidebar)
@@ -9615,7 +9479,6 @@ function sbNav(section, el) {
   if (section === 'eventtimeline') loadEventTimeline();
   if (section === 'threatanalytics') loadThreatAnalytics();
   if (section === 'securescore')   loadSecureScore();
-  if (section === 'priority')      loadMaintenanceStatus();
   if (section === 'gsc')           loadGscPage();
   if (section === 'usermgmt')      loadUserMgmt();
   if (section === 'invoices')      loadInvoices();
@@ -9774,7 +9637,6 @@ function _buildWidget(id) {
     stats: '<div class="widget-body"><div class="w-stat-grid" id="w-stats"></div></div>',
     vuln_chart: '<div class="widget-body no-pad" style="padding:12px 16px;"><canvas id="w-vuln-chart" height="160"></canvas></div>',
     top_targets: '<div class="widget-body no-pad" style="padding:8px 0;"><ul class="w-list" id="w-top-targets"></ul></div>',
-    priority_actions: '<div class="widget-body no-pad" style="padding:8px 0;max-height:200px;overflow-y:auto;"><ul class="w-list" id="w-priority"></ul></div>',
     signal_timeline: '<div class="widget-body no-pad" style="padding:12px 16px;"><canvas id="w-signal-chart" height="120"></canvas></div>',
     mitre_summary: '<div class="widget-body"><div id="w-mitre-summary"></div></div>',
     incident_status: '<div class="widget-body"><div class="w-stat-grid" id="w-inc-stats"></div></div>',
@@ -9783,7 +9645,7 @@ function _buildWidget(id) {
   };
   var titles = {
     stats:'Summary Stats', vuln_chart:'Vulnerability Severity', top_targets:'Top Targets by Risk',
-    priority_actions:'Priority Actions', signal_timeline:'Signal Timeline',
+    signal_timeline:'Signal Timeline',
     mitre_summary:'MITRE ATT&CK Coverage', incident_status:'Incident Status',
     recent_scans:'Recent Scans', agent_guide:'AI Agent Reference',
   };
@@ -10509,7 +10371,7 @@ function _applySidebarAccess() {
     'sb-chatbot':'chatbot','sb-gsc':'gsc',
     'sb-dashboard':'dashboard','sb-securescore':'securescore','sb-threatanalytics':'threatanalytics',
     'sb-incidents':'incidents','sb-signals':'signals','sb-eventtimeline':'eventtimeline','sb-mitre':'mitre',
-    'sb-priority':'priority','sb-recommendations':'recommendations','sb-remediation':'remediation',
+    'sb-recommendations':'recommendations','sb-remediation':'remediation',
     'sb-weaknesses':'weaknesses','sb-inventories':'inventories',
     'sb-observability':'observability','sb-logexplorer':'logexplorer','sb-pluginlogs':'pluginlogs','sb-network':'network',
     'sb-syslog':'syslog','sb-agents':'agents',
@@ -11237,199 +11099,6 @@ function clearTargetFilter() {
   filterTargets('');
 }
 
-/* ── Priority Actions domain filter ── */
-function filterPrioActions(val) {
-  var q = (val || '').trim().toLowerCase();
-  document.getElementById('prioFilterClear').style.display = q ? 'inline' : 'none';
-  document.querySelectorAll('#prio-tbody tr').forEach(function(r){
-    r.classList.toggle('hidden-r', q && (r.dataset.target || '').indexOf(q) === -1);
-  });
-}
-function clearPrioFilter() {
-  document.getElementById('prioDomainFilter').value = '';
-  filterPrioActions('');
-}
-
-// ── Priority Actions — Maintenance Mode (Lock Site via Cloudflare) ────────────
-var _maintDomains = {};
-
-function _domainKey(d) { return d.toLowerCase().replace(/[./]/g,'_'); }
-
-function loadMaintenanceStatus() {
-  fetch('/api/priority/maintenance/status')
-    .then(function(r){ return r.json(); })
-    .then(function(d) {
-      (d.maintenance_domains || []).forEach(function(dom) { _maintDomains[dom] = true; });
-      _updateLockUI();
-    })
-    .catch(function(){});
-}
-
-function _updateLockUI() {
-  Object.keys(_maintDomains).forEach(function(dom) {
-    var k = _domainKey(dom);
-    var btn = document.getElementById('lock-btn-' + k);
-    var badge = document.getElementById('maint-badge-' + k);
-    if (btn) {
-      btn.className = 'btn-unlock'; btn.textContent = 'Unlock';
-      btn.setAttribute('data-action', 'disable');
-    }
-    if (badge) badge.style.display = '';
-  });
-}
-
-/* ── Quick Actions — Under Attack Mode toggle ──────────────────────────── */
-var _qaZoneId   = '';
-var _qaZoneName = '';
-
-function qaClearStatus() {
-  var s = document.getElementById('qa-status-msg');
-  var t = document.getElementById('qa-zone-tag');
-  if (s) { s.style.display = 'none'; s.textContent = ''; }
-  if (t) t.style.display = 'none';
-  var tog = document.getElementById('qa-uam-toggle');
-  if (tog) { tog.checked = false; tog.disabled = true; }
-  _qaZoneId = ''; _qaZoneName = '';
-}
-
-function qaShowStatus(msg, type) {
-  var s = document.getElementById('qa-status-msg');
-  if (!s) return;
-  var styles = {
-    ok:   'background:linear-gradient(135deg,#dbeafe,#eff6ff);color:#1e3a8a;border:1px solid #93c5fd;',
-    err:  'background:linear-gradient(135deg,#172554,#1e3a8a);color:#93c5fd;border:1px solid #1e3a8a;',
-    info: 'background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e3a8a;border:1px solid #bfdbfe;',
-    warn: 'background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#dbeafe;border:1px solid #2563eb;',
-  };
-  s.style.cssText = 'display:block;font-size:12px;margin-bottom:14px;padding:8px 12px;border-radius:6px;' + (styles[type] || styles.info);
-  s.textContent = msg;
-}
-
-function _qaCleanDomain(raw) {
-  return (raw || '').trim().replace(/^https?:\/\//i, '').split('/')[0].split('?')[0].toLowerCase();
-}
-
-function qaLoadStatus() {
-  var raw    = (document.getElementById('qa-domain').value || '').trim();
-  var domain = _qaCleanDomain(raw);
-  if (!domain) { qaShowStatus('Enter a domain name first.', 'warn'); return; }
-  // Normalise the input field to just the hostname
-  document.getElementById('qa-domain').value = domain;
-  qaShowStatus('Loading…', 'info');
-  var tog = document.getElementById('qa-uam-toggle');
-  if (tog) { tog.checked = false; tog.disabled = true; }
-  fetch('/api/cloudflare/attack-mode?domain=' + encodeURIComponent(domain))
-    .then(function(r){ return r.json(); })
-    .then(function(d) {
-      if (d.error) { qaShowStatus('Error: ' + d.error, 'err'); return; }
-      _qaZoneId   = d.zone_id   || '';
-      _qaZoneName = d.zone_name || domain;
-      var tag = document.getElementById('qa-zone-tag');
-      if (tag) { tag.textContent = _qaZoneName; tag.style.display = 'inline-block'; }
-
-      // Show proxy warning — if DNS-only, toggle is useless
-      if (d.dns_only || d.proxy_warning) {
-        if (tog) { tog.checked = false; tog.disabled = true; }
-        qaShowStatus('⚠ ' + (d.proxy_warning || 'DNS is set to DNS Only — enable Proxied (orange cloud) in Cloudflare DNS settings first.'), 'warn');
-        return;
-      }
-
-      if (tog) {
-        tog.checked  = !!d.under_attack;
-        tog.disabled = false;
-      }
-      var lvl = d.security_level || 'unknown';
-      var uam = d.under_attack;
-
-      if (d.dev_mode_warning) {
-        qaShowStatus('⚠ ' + d.dev_mode_warning, 'warn');
-        return;
-      }
-      qaShowStatus(
-        'Zone: ' + _qaZoneName + ' — Security level: ' + lvl + (uam ? ' ✓ Under Attack Mode is ON' : ' — Under Attack Mode is OFF'),
-        uam ? 'warn' : 'ok'
-      );
-    })
-    .catch(function(e){ qaShowStatus('Request failed: ' + e, 'err'); });
-}
-
-function qaToggleAttackMode(chk) {
-  var domain = _qaCleanDomain(document.getElementById('qa-domain').value);
-  if (!domain) {
-    qaShowStatus('Load a domain status first.', 'warn');
-    chk.checked = !chk.checked;
-    return;
-  }
-  chk.disabled = true;
-  qaShowStatus((chk.checked ? 'Enabling' : 'Disabling') + ' Under Attack Mode…', 'info');
-  fetch('/api/cloudflare/attack-mode', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ domain: domain, enabled: chk.checked }),
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d) {
-    chk.disabled = false;
-    if (d.ok) {
-      chk.checked = !!d.enabled;
-      qaShowStatus(d.message || (d.enabled ? 'Under Attack Mode enabled.' : 'Under Attack Mode disabled.'),
-                   d.enabled ? 'warn' : 'ok');
-    } else {
-      chk.checked = !chk.checked; // revert
-      qaShowStatus('Error: ' + (d.error || 'Unknown error'), 'err');
-    }
-  })
-  .catch(function(e) {
-    chk.disabled = false;
-    chk.checked = !chk.checked;
-    qaShowStatus('Request failed: ' + e, 'err');
-  });
-}
-
-function toggleSiteLock(domain, btn) {
-  var action = (btn.getAttribute('data-action') || 'enable');
-  var msg    = action === 'enable'
-    ? 'Lock ' + domain + ' via Cloudflare?\n\nThis sets "I\'m Under Attack" mode — all visitors see a JS challenge page until you unlock.\n\nRequires CF_API_TOKEN with Zone Settings:Edit permission.'
-    : 'Unlock ' + domain + ' and restore normal Cloudflare security level?';
-  if (!confirm(msg)) return;
-
-  btn.disabled = true; btn.textContent = action === 'enable' ? 'Locking...' : 'Unlocking...';
-
-  fetch('/api/priority/maintenance', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ domain: domain, action: action,
-      reason: 'Locked from Priority Actions — security issue under investigation' })
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d) {
-    btn.disabled = false;
-    if (d.ok) {
-      if (action === 'enable') {
-        _maintDomains[domain.toLowerCase()] = true;
-        btn.className = 'btn-unlock'; btn.textContent = 'Unlock';
-        btn.setAttribute('data-action', 'disable');
-        var badge = document.getElementById('maint-badge-' + _domainKey(domain));
-        if (badge) badge.style.display = '';
-        alert(d.message);
-      } else {
-        delete _maintDomains[domain.toLowerCase()];
-        btn.className = 'btn-lock'; btn.textContent = 'Lock';
-        btn.setAttribute('data-action', 'enable');
-        var badge2 = document.getElementById('maint-badge-' + _domainKey(domain));
-        if (badge2) badge2.style.display = 'none';
-        alert(d.message);
-      }
-    } else {
-      btn.textContent = action === 'enable' ? 'Lock' : 'Unlock';
-      alert('Error: ' + (d.error || 'Unknown error'));
-    }
-  })
-  .catch(function(e) {
-    btn.disabled = false; btn.textContent = action === 'enable' ? 'Lock' : 'Unlock';
-    alert('Request failed: ' + e);
-  });
-}
 
 /* ══ REMEDIATION PAGE — sub-tab switching + SOC functions ══════════════════ */
 var _remActiveTab = 'activities';
@@ -17005,7 +16674,6 @@ var _ALL_PAGES = [
   ]},
   { group: 'Incidents & Monitoring', pages: [
     { key: 'incidents',      label: 'Incident Management' },
-    { key: 'priority',       label: 'Action Center' },
     { key: 'syslog',         label: 'System Logs' },
     { key: 'pluginlogs',     label: 'Plugin & User Activity' },
     { key: 'logexplorer',    label: 'Log Explorer' },
@@ -17039,7 +16707,7 @@ var _ALL_PAGES = [
 // Presets
 var _PAGE_PRESETS = {
   default:  ['chatbot','gsc','agents','dashboard','threatanalytics','incidents','syslog','pluginlogs','logexplorer','network','sca','dca','grc','rtp','mld','myappts','filemanager'],
-  analyst:  ['dashboard','chatbot','gsc','threatanalytics','incidents','priority','syslog','logexplorer','pluginlogs','network','history','grc'],
+  analyst:  ['dashboard','chatbot','gsc','threatanalytics','incidents','syslog','logexplorer','pluginlogs','network','history','grc'],
   readonly: ['dashboard','chatbot','logexplorer','pluginlogs'],
   all:      _ALL_PAGES.reduce(function(acc, g){ g.pages.forEach(function(p){ acc.push(p.key); }); return acc; }, []),
   none:     [],
@@ -20979,11 +20647,31 @@ function grcExport() {
       desc: 'Create, track, and resolve security incidents. Each incident has a severity level, status (open / investigating / resolved), description, and audit trail. Critical incidents appear as badges in the sidebar.',
       tips: ['Use "Edit" to update incident details or reassign severity','Set status to "Investigating" when an analyst is actively working the issue','Resolved incidents are retained for audit history — never deleted']
     },
-    priority: {
-      title: 'Action Center',
-      subtitle: 'Priority Remediations',
-      desc: 'Prioritized security actions and Cloudflare quick-apply tools. Apply Under Attack Mode, Bot Fight Mode, HTTPS enforcement, and SSL upgrades directly to your domains from this page.',
-      tips: ['Enter your Cloudflare domain and click "Load Status" to see current protection levels','Actions are applied instantly via the Cloudflare API','Scroll down to see the full AI-ranked priority recommendations list']
+    rtp: {
+      title: 'Runtime Protection',
+      subtitle: 'Always-On WAF Middleware',
+      desc: 'Embedded Web Application Firewall running inside your Flask application with zero external dependencies. Blocks SQL injection, NoSQL injection, command injection, path traversal, Tor traffic, known threat actors (CrowdSec), bots by category, country-based traffic, and rate-limit abuse — all before requests reach your database or business logic.',
+      tips: [
+        'Toggle each rule on and save — protection activates instantly with no restart needed',
+        'Enable Auto-escalate to automatically blocklist IPs that trigger 5+ blocks within 60 seconds',
+        'Use the Test Payload box to verify a specific string would be blocked before deploying changes',
+        'Click Analytics to see top blocked IPs, most-triggered rules, and a 7-day block trend',
+        'Set up email or Slack alerts so you are notified when block volume crosses your threshold',
+        'Use Allow/Block buttons on the events table to instantly manage individual IPs'
+      ]
+    },
+    mld: {
+      title: 'Malware Detection',
+      subtitle: 'Dependency & Supply Chain Security',
+      desc: 'Scans your project dependencies for malware, vulnerabilities, and compromised packages across npm, PyPI, Maven, RubyGems, and NuGet. Uses a three-layer pipeline: known-malware database (instant), OSV.dev batch API (CVE/GHSA/RUSTSEC), and npm advisory bulk API. Generates CycloneDX 1.4 SBOMs and alerts on new threats via email or Slack.',
+      tips: [
+        'Paste your package.json, requirements.txt, pom.xml, Gemfile.lock, or .csproj into the scanner and select the ecosystem',
+        'Use Quick Package Lookup to check a single package name + version instantly against all three databases',
+        'Export a CycloneDX SBOM after scanning for compliance evidence (ISO 27001, SOC 2, SLSA)',
+        'The Live Threat Feed pulls the latest malware advisories from the GitHub Advisory Database — refresh it after a supply-chain incident',
+        'Set an alert threshold in the Alerts tab so your team is notified the moment a malware package is detected in any scan',
+        'Scan History retains all past scans — compare before/after a dependency upgrade to confirm a vulnerability is resolved'
+      ]
     },
     syslog: {
       title: 'System Logs',
