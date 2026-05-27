@@ -16688,7 +16688,7 @@ waf_protect();
 
 
 # ── RTP Proxy config API ──────────────────────────────────────────────────────
-@app.route('/api/rtp/proxy/config', methods=['GET'])
+@app.route('/api/rtp/proxycfg', methods=['GET'])
 @login_required
 def rtp_proxy_config_get():
     with _rtp_config_lock:
@@ -16701,7 +16701,7 @@ def rtp_proxy_config_get():
     })
 
 
-@app.route('/api/rtp/proxy/config', methods=['POST'])
+@app.route('/api/rtp/proxycfg', methods=['POST'])
 @_admin_required
 def rtp_proxy_config_save():
     data = request.get_json(silent=True) or {}

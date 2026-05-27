@@ -23744,7 +23744,7 @@ function rtpDeploy(tab, el) {
 }
 
 function rtpDeployLoadProxy() {
-  fetch('/api/rtp/proxy/config').then(function(r){ return r.json(); }).then(function(d){
+  fetch('/api/rtp/proxycfg').then(function(r){ return r.json(); }).then(function(d){
     var inp = document.getElementById('rtp-proxy-origin');
     if (inp && d.proxy_origin) inp.value = d.proxy_origin;
     _rtpUpdateProxySection(d.proxy_enabled, d.proxy_origin);
@@ -23791,7 +23791,7 @@ function rtpSaveProxy() {
     m.className = 'rtp-dmsg err'; m.textContent = 'Please enter your origin URL.'; m.style.display = '';
     return;
   }
-  fetch('/api/rtp/proxy/config', {
+  fetch('/api/rtp/proxycfg', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({proxy_enabled: true, proxy_origin: origin})
   }).then(function(r){ return r.json(); }).then(function(d){
@@ -23811,7 +23811,7 @@ function rtpSaveProxy() {
 }
 
 function rtpDisableProxy() {
-  fetch('/api/rtp/proxy/config', {
+  fetch('/api/rtp/proxycfg', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({proxy_enabled: false})
   }).then(function(r){ return r.json(); }).then(function(d){
@@ -23842,7 +23842,7 @@ function rtpLoadSnippet(fw) {
 }
 
 function rtpDeployLoadApi() {
-  fetch('/api/rtp/proxy/config').then(function(r){ return r.json(); }).then(function(d){
+  fetch('/api/rtp/proxycfg').then(function(r){ return r.json(); }).then(function(d){
     var keyEl = document.getElementById('rtp-apikey-display');
     if (keyEl) keyEl.textContent = d.has_api_key ? d.api_key : '— not generated —';
     var ep = document.getElementById('rtp-api-endpoint');
