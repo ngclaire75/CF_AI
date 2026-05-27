@@ -5863,8 +5863,7 @@ Export Power BI
 
     <!-- Tab bar -->
     <div class="le-tab-bar">
-      <button class="le-tab active" id="le-tab-btn-ssh" onclick="leTab('ssh',this)">SSH / Access Logs</button>
-      <button class="le-tab" id="le-tab-btn-wp" onclick="leTab('wp',this)">WordPress</button>
+      <button class="le-tab active" id="le-tab-btn-wp" onclick="leTab('wp',this)">WordPress</button>
       <button class="le-tab" id="le-tab-btn-drupal" onclick="leTab('drupal',this)">Drupal</button>
       <button class="le-tab" id="le-tab-btn-joomla" onclick="leTab('joomla',this)">Joomla</button>
       <button class="le-tab" id="le-tab-btn-applog" onclick="leTab('applog',this)">App Logs (SSH)</button>
@@ -5874,29 +5873,8 @@ Export Power BI
       <button class="le-tab" id="le-tab-btn-ftp" onclick="leTab('ftp',this)">FTP</button>
     </div>
 
-    <!-- ── SSH tab ── -->
-    <div id="le-pane-ssh" class="le-tab-pane">
-      <div class="log-form">
-        <input type="text" id="le-domain" placeholder="yourdomain.com" style="max-width:240px;">
-        <input type="text" id="le-ssh-host" placeholder="SSH host (optional)" style="max-width:200px;">
-        <input type="text" id="le-ssh-user" placeholder="SSH user" style="max-width:130px;">
-        <input type="password" id="le-ssh-pass" placeholder="SSH password" style="max-width:160px;">
-        <input type="text" id="le-ssh-port" placeholder="Port (22)" style="max-width:90px;">
-        <button class="btn btn-sm" onclick="runLogExplorer()" id="le-run-btn" style="background:#0f172a;color:#fff;border-color:#0f172a;border-radius:8px;padding:7px 18px;white-space:nowrap;">Analyze Logs</button>
-      </div>
-      <div class="le-hint">Provide SSH credentials to pull real access logs from your server. Without SSH, the tool probes observable URL behaviour instead.</div>
-      <div id="le-results" style="display:none;">
-        <div class="log-timeline-wrap"><h5>Request Timeline</h5><canvas id="le-timeline-chart" height="80"></canvas></div>
-        <div class="log-timeline-wrap"><h5>Response Latency</h5><div class="latency-row" id="le-latency-row"></div></div>
-        <div class="log-explorer-grid" id="le-stats-grid"></div>
-        <div class="pattern-card" id="le-patterns-card"><h5>Threat Detections</h5><div id="le-patterns-list"><em style="color:#60a5fa;font-size:13px;">No patterns detected.</em></div></div>
-      </div>
-      <div id="le-loading" style="display:none;padding:20px;text-align:center;color:#3b82f6;">Analyzing logs…</div>
-      <div id="le-error" style="display:none;padding:16px;background:linear-gradient(135deg,#172554,#1e3a8a);border-radius:8px;color:#93c5fd;font-size:13px;"></div>
-    </div>
-
     <!-- ── WordPress Admin tab ── -->
-    <div id="le-pane-wp" class="le-tab-pane" style="display:none;">
+    <div id="le-pane-wp" class="le-tab-pane">
       <div class="le-cred-form">
         <div class="le-cred-row">
           <div><label class="le-cred-label">WordPress Site URL</label><input type="text" id="le-wp-url" class="le-cred-input" placeholder="https://yourdomain.com" autocomplete="off"></div>
@@ -10001,7 +9979,7 @@ function loadDefDashboard(silent) {
   var summaryP = fetch('/api/scans/summary?limit=500').then(function(r){return r.json();}).catch(function(){return [];});
   var recentP  = fetch('/api/scans/recent?limit=50').then(function(r){return r.json();}).catch(function(){return [];});
 
-  // Wave 1 — summary only (cached, fast): gauge, score ring, donut, sparklines
+  // Wave 1 — summary only (cached, fast): gauge, donut, sparklines
   summaryP.then(function(summary) {
     if (_currentPage !== 'dashboard') return; // navigated away before fetch completed
     ['mvd-donut-wrap','mvd-spark-wrap'].forEach(function(cls){
@@ -10009,7 +9987,6 @@ function loadDefDashboard(silent) {
     });
     _mvdRenderThreatHeader(summary);
     _mvdRenderGauge(summary);
-    _mvdRenderSecScore(summary);
     _mvdRenderDonut(summary);
     _mvdRenderSparklines(summary);
   }).catch(function(e){ console.error('Dashboard wave-1 error:', e); });
@@ -10024,24 +10001,27 @@ function loadDefDashboard(silent) {
     _hideLoadingOverlay();
   }).catch(function(e){ console.error('Dashboard wave-2 error:', e); _hideLoadingOverlay(); });
 
-  // Wave 3 — needs recent output text: recommendations, events (slowest fetch, runs last)
+  // Wave 3 — needs recent output text: recommendations, events, site scores (slowest fetch, runs last)
   recentP.then(function(recent) {
     if (_currentPage !== 'dashboard') return;
     _mvdRenderRecommendations(recent);
     _mvdRenderEvents(recent);
+    _mvdRenderSecScore(recent);
   }).catch(function(e){ console.error('Dashboard wave-3 error:', e); });
 }
 
 function _mvdCalcScore(scans) {
+  // Returns 0-100 exposure score: 0 = no known exposure, 100 = maximum exposure.
   if (!scans || !scans.length) return 0;
-  var total = 0;
+  var high = 0, med = 0, low = 0;
   scans.forEach(function(s) {
     var r = s.risk || 'INFO';
-    if (r === 'HIGH')   total += 15;
-    else if (r === 'MEDIUM') total += 5;
-    else if (r === 'LOW')    total += 2;
+    if (r === 'HIGH')        high++;
+    else if (r === 'MEDIUM') med++;
+    else if (r === 'LOW')    low++;
   });
-  return Math.max(0, Math.min(100, Math.round(100 - total/scans.length)));
+  // Weighted: all HIGH → 100, all MEDIUM → ~50, all LOW → ~17, all INFO → 0
+  return Math.min(100, Math.round((high * 3 + med * 1.5 + low * 0.5) / scans.length * (100 / 3)));
 }
 
 function _mvdRenderKPIs(stats, incStats, scans) {
@@ -10227,25 +10207,48 @@ function _mvdRenderEvents(scans) {
 }
 
 function _mvdRenderSecScore(scans) {
-  // Patterns check for CONFIRMED findings/problems only, not test descriptions.
+  // Called with recent scans that have output text. Scores based on confirmed findings.
   var CATS=[
-    {name:'SSL / TLS',      pat:/WEAK.*TLS|TLS.*1\.0.*WEAK|RC4|NULL\s+cipher|EXPORT.*cipher|no.*https|SSL.*2\.0|WP-LOG.*ssl/i,  id:'ssl',  max:25},
-    {name:'HTTP Headers',   pat:/\|\s*(High|Medium|Low)\s*\|.*[Hh]eader|WP-LOG.*missing.*header|\|\s*(High|Medium)\s*\|.*[Cc][Ss][Pp]|EXPOSED_FILE/i, id:'hdr',  max:25},
-    {name:'Authentication', pat:/CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:|APP_PASS_CREATED|WP-LOG.*login.*HIGH|WP-LOG.*credentials/i, id:'auth', max:25},
-    {name:'CMS Security',   pat:/EXPOSED_FILE\s*\|.*wp-config|WP-USER-CONFIRMED|WP-LOG.*HIGH|CREDS_FOUND_XMLRPC|CREDS_FOUND_FORM/i, id:'cms',  max:25},
+    {id:'ssl',  max:25, atype:/cryp/i,
+     bad:/WEAK.*TLS|TLS.*1\.0.*WEAK|RC4|NULL\s+cipher|EXPORT.*cipher|no.*https|SSL.*2\.0|CERT.*EXPIRED|CERT.*INVALID/i},
+    {id:'hdr',  max:25, atype:/info|recon/i,
+     bad:/\|\s*(High|Medium)\s*\|.*[Hh]eader|\|\s*(High|Medium)\s*\|.*[Cc][Ss][Pp]|missing.*hsts|missing.*x-frame|missing.*csp/i},
+    {id:'auth', max:25, atype:/athn/i,
+     bad:/CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:|APP_PASS_CREATED|default.*(password|credential)|brute.*force.*success/i},
+    {id:'cms',  max:25, atype:/wpcms|cms/i,
+     bad:/EXPOSED_FILE.*wp-config|WP-USER-CONFIRMED|WP-LOG.*HIGH|CREDS_FOUND_XMLRPC|CREDS_FOUND_FORM|wp.*plugin.*vulnerable/i},
   ];
-  var pctEl=document.getElementById('mvd-sec-pct'),ptsEl=document.getElementById('mvd-pts-text');
-  if (!scans.length) {
+  var pctEl=document.getElementById('mvd-sec-pct'), ptsEl=document.getElementById('mvd-pts-text');
+  if (!scans || !scans.length) {
     if(pctEl) pctEl.textContent='—';
-    if(ptsEl) ptsEl.textContent='— / 100 points achieved';
+    if(ptsEl) ptsEl.textContent='— / 100 — run a scan to generate scores';
+    CATS.forEach(function(c){
+      var b=document.getElementById('pb-'+c.id), n=document.getElementById('pn-'+c.id);
+      if(b) b.style.width='0%';
+      if(n) n.textContent='— / '+c.max;
+    });
     return;
   }
   var total=0;
   CATS.forEach(function(cat){
-    var issueCount=scans.filter(function(s){return cat.pat && cat.pat.test(s.output||'');}).length;
-    var pts=Math.round(cat.max*(1-Math.min(1,issueCount/scans.length)*0.7));
+    // Scans that ran this specific agent type
+    var typed=scans.filter(function(s){ return cat.atype.test(s.agent_type||''); });
+    // Scans (across all types) that produced an issue matching this category
+    var badAll=scans.filter(function(s){ return cat.bad.test(s.output||''); }).length;
+    var pts;
+    if (typed.length) {
+      // Specialized agent ran — full scoring against that pool
+      var badTyped=typed.filter(function(s){ return cat.bad.test(s.output||''); }).length;
+      pts=Math.round(cat.max*(1-Math.min(1, badTyped/typed.length)));
+    } else if (badAll > 0) {
+      // No specialized agent but issues were found via other scans
+      pts=Math.round(cat.max*(1-Math.min(1, badAll/scans.length)));
+    } else {
+      // No specialized agent and no issues found — unknown state, give partial credit
+      pts=Math.round(cat.max*0.5);
+    }
     total+=pts;
-    var bar=document.getElementById('pb-'+cat.id),num=document.getElementById('pn-'+cat.id);
+    var bar=document.getElementById('pb-'+cat.id), num=document.getElementById('pn-'+cat.id);
     if(bar) bar.style.width=Math.round(pts/cat.max*100)+'%';
     if(num) num.textContent=pts+' / '+cat.max;
   });
