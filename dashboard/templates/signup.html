@@ -148,10 +148,10 @@
     {% else %}
     <!-- ── Sign up form ── -->
     <h1>Create account</h1>
-    <p class="subtitle">Use a Gmail address for email verification, or choose a username.</p>
+    <p class="subtitle">Sign up with your Gmail address to get started.</p>
 
     <div class="alert alert-info">
-      New accounts are assigned <strong>User</strong> role. An admin can promote you to Admin after sign-up.
+      A Gmail address (@gmail.com) is required. We will send a verification email before your account is activated.
     </div>
 
     {% if error %}
@@ -160,12 +160,12 @@
 
     <form method="POST" action="/signup">
       <div class="field">
-        <label for="username">USERNAME OR GMAIL</label>
-        <input type="text" id="username" name="username"
-               placeholder="yourname  or  you@gmail.com"
-               autocomplete="username" required
-               oninput="detectType(this)">
-        <div class="hint" id="type-hint">Enter a username or a Gmail address.</div>
+        <label for="username">GMAIL ADDRESS</label>
+        <input type="email" id="username" name="username"
+               placeholder="you@gmail.com"
+               autocomplete="email" required
+               oninput="validateGmail(this)">
+        <div class="hint" id="type-hint">Must be a @gmail.com address.</div>
       </div>
       <div class="field">
         <label for="password">PASSWORD</label>
@@ -186,14 +186,17 @@
   </div>
 
   <script>
-    function detectType(el) {
-      var v = el.value;
+    function validateGmail(el) {
+      var v = el.value.toLowerCase();
       var hint = document.getElementById('type-hint');
-      if (v.indexOf('@') !== -1) {
-        hint.textContent = 'Gmail detected — we will send a verification email before you can log in.';
+      if (v && !v.endsWith('@gmail.com')) {
+        hint.textContent = 'Only @gmail.com addresses are accepted.';
+        hint.style.color = '#f87171';
+      } else if (v.endsWith('@gmail.com')) {
+        hint.textContent = 'Gmail address accepted — you will receive a verification email.';
         hint.style.color = '#60a5fa';
       } else {
-        hint.textContent = 'Username — your account will be active immediately after sign-up.';
+        hint.textContent = 'Must be a @gmail.com address.';
         hint.style.color = '#6b7280';
       }
     }

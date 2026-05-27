@@ -1675,7 +1675,8 @@ def _rtp_scan_inputs() -> tuple:
 def _rtp_waf():
     skip = ('/static/', '/login', '/signup', '/logout', '/verify/',
             '/api/rtp/', '/api/syslog/hec', '/api/syslog/ingest',
-            '/api/events/ingest', '/api/payment/', '/api/files/')
+            '/api/events/ingest', '/api/payment/', '/api/files',
+            '/api/admin/file-users')
     if any(request.path.startswith(p) for p in skip):
         return None
     with _rtp_config_lock:
@@ -1796,54 +1797,47 @@ def login_page():
 def signup_page():
     if session.get('user'):
         return redirect(url_for('app_dashboard'))
-    error        = None
+    error         = None
     pending_email = None
     if request.method == 'POST':
         identifier = (request.form.get('username') or '').strip()
         password   = request.form.get('password') or ''
         confirm    = request.form.get('confirm') or ''
-        is_email   = '@' in identifier and '.' in identifier.split('@', 1)[-1]
-        key        = identifier.lower() if is_email else identifier
+        key        = identifier.lower()
         if not identifier or not password:
-            error = 'Username/email and password are required.'
+            error = 'Gmail address and password are required.'
+        elif not key.endswith('@gmail.com'):
+            error = 'Only Gmail addresses (@gmail.com) are accepted for sign-up.'
         elif password != confirm:
             error = 'Passwords do not match.'
         elif len(password) < 6:
             error = 'Password must be at least 6 characters.'
-        elif key == _DEFAULT_ADMIN:
-            error = 'That username is reserved.'
         else:
             users = _load_users()
-            email_taken = any(v.get('email', '').lower() == identifier.lower() for v in users.values())
+            email_taken = any(v.get('email', '').lower() == key for v in users.values())
             if key in users or email_taken:
-                error = 'That username or email is already registered.'
+                error = 'An account with that Gmail address is already registered.'
             else:
-                token    = str(_uuid.uuid4())
-                verified = not is_email
+                token = str(_uuid.uuid4())
                 users[key] = {
                     'password': generate_password_hash(password),
                     'role': 'user',
-                    'email': identifier if is_email else '',
-                    'verified': verified,
-                    'verification_token': token if is_email else None,
+                    'email': identifier,
+                    'verified': False,
+                    'verification_token': token,
                     'allowed_pages': _DEFAULT_USER_PAGES[:],
                     'plan': 'basic',
                 }
                 _save_users(users)
-                if is_email:
-                    sent = _send_verification_email(identifier, token)
-                    if sent:
-                        pending_email = identifier
-                    else:
-                        # SMTP not configured — auto-verify so user isn't stuck
-                        users[key]['verified'] = True
-                        users[key]['verification_token'] = None
-                        _save_users(users)
-                        session['user'] = {'username': key, 'role': 'user', 'email': identifier,
-                                           'country': '', 'currency_code': 'USD'}
-                        return redirect(url_for('app_dashboard'))
+                sent = _send_verification_email(identifier, token)
+                if sent:
+                    pending_email = identifier
                 else:
-                    session['user'] = {'username': key, 'role': 'user', 'email': '',
+                    # SMTP not configured — auto-verify so user isn't stuck
+                    users[key]['verified'] = True
+                    users[key]['verification_token'] = None
+                    _save_users(users)
+                    session['user'] = {'username': key, 'role': 'user', 'email': identifier,
                                        'country': '', 'currency_code': 'USD'}
                     return redirect(url_for('app_dashboard'))
     return render_template('signup.html', error=error, pending_email=pending_email)
@@ -1875,7 +1869,7 @@ def resend_verification():
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('login_page'))
+    return redirect(url_for('index'))
 
 # ── RBAC decorators ───────────────────────────────────────────────────────────
 def login_required(f):
@@ -4589,11 +4583,9 @@ def enrich(scan: dict, track_age: bool = False) -> dict:
 
 @app.route('/')
 def index():
-    """Public landing page — shown to all visitors regardless of auth state."""
-    user = session.get('user')
-    is_logged_in = bool(user)
-    username = user.get('username', '') if user else ''
-    return render_template('landing.html', is_logged_in=is_logged_in, current_username=username)
+    if session.get('user'):
+        return redirect(url_for('app_dashboard'))
+    return redirect(url_for('login_page'))
 
 
 @app.route('/app')
@@ -15602,14 +15594,11 @@ _FILES_MANIFEST = os.path.join(_FILES_DIR, 'manifest.json')
 _FILES_MAX_MB   = 50
 
 _ALLOWED_EXTS = {
-    # Documents
     'pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv','rtf','odt','ods',
-    # Code
     'py','js','ts','jsx','tsx','html','htm','css','scss','sass','less',
     'php','rb','go','rs','java','kt','swift','c','cpp','h','hpp',
     'cs','vb','sh','bash','ps1','bat','sql','json','yaml','yml','toml','xml',
     'ini','env','conf','cfg','md','rst',
-    # Images / misc
     'png','jpg','jpeg','gif','svg','webp','zip','tar','gz',
 }
 
@@ -15634,6 +15623,96 @@ def _fmt_filesize(n: int) -> str:
         n /= 1024
     return f'{n:.1f} TB'
 
+def _fm_target(entry: dict) -> str:
+    """Return the username this file is assigned to."""
+    return entry.get('target_username') or entry.get('username', '')
+
+def _send_file_event_email(event: str, to_email: str, target_username: str,
+                            filename: str, old_filename: str = '', note: str = '') -> None:
+    """Send file manager notification email. event: 'upload' | 'delete' | 'rename'"""
+    if not to_email or not _SMTP_USER or not _SMTP_PASS:
+        return
+    try:
+        now = _datetime.datetime.utcnow().strftime('%d %B %Y at %H:%M UTC')
+        if event == 'upload':
+            subject = f'New file shared with you — {filename}'
+            action_line = f'A new file has been shared with your account by an administrator.'
+            detail = f'<strong>{filename}</strong>'
+            if note:
+                detail += f'<br><span style="color:#64748b;font-size:12px;">Note: {note}</span>'
+        elif event == 'delete':
+            subject = f'File removed — {filename}'
+            action_line = 'A file that was shared with your account has been removed by an administrator.'
+            detail = f'<strong>{filename}</strong>'
+        else:  # rename
+            subject = f'File renamed — {old_filename} → {filename}'
+            action_line = 'A file shared with your account has been renamed by an administrator.'
+            detail = f'<strong>{old_filename}</strong> → <strong>{filename}</strong>'
+
+        body = f"""
+          <p class="eh1" style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 12px;">
+            File {'shared' if event == 'upload' else 'update'}
+          </p>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 16px;">
+            {action_line}
+          </p>
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;
+                      padding:14px 18px;margin:0 0 20px;font-size:13px;color:#1e3a8a;">
+            {detail}
+          </div>
+          <p class="ep" style="color:#475569;font-size:13px;line-height:1.65;margin:0 0 16px;">
+            You can view and download your files by signing in to Intel Web Security
+            and navigating to <strong>My File Manager</strong>.
+          </p>
+          <p class="ep" style="color:#64748b;font-size:11px;margin-top:28px;line-height:1.7;">
+            This notification was sent on {now}. If you did not expect this,
+            please contact your administrator.
+          </p>"""
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'Intel Web Security <{_SMTP_USER}>'
+        msg['To']      = to_email
+        msg.attach(MIMEText(_email_html(subject, body), 'html'))
+        with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_SMTP_USER, to_email, msg.as_string())
+    except Exception:
+        pass
+
+def _fm_notify(event: str, entry: dict, old_filename: str = '', note: str = '') -> None:
+    """Look up the target user's email and send a file event notification in background."""
+    target = _fm_target(entry)
+    if not target:
+        return
+    try:
+        users = _load_users()
+        user_data = users.get(target, {})
+        email = user_data.get('email', '')
+        if not email:
+            return
+        import threading as _thr
+        _thr.Thread(
+            target=_send_file_event_email,
+            args=(event, email, target, entry['filename'], old_filename, note),
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
+
+
+@app.route('/api/admin/file-users', methods=['GET'])
+@_admin_required
+def admin_file_users():
+    """Return list of non-admin users suitable for the file-assign dropdown."""
+    users = _load_users()
+    result = [
+        {'username': k, 'email': v.get('email', ''), 'display': v.get('email', k)}
+        for k, v in users.items()
+        if v.get('role') != 'admin'
+    ]
+    result.sort(key=lambda x: x['display'].lower())
+    return jsonify({'users': result})
+
 
 @app.route('/api/files', methods=['GET'])
 @login_required
@@ -15642,20 +15721,28 @@ def list_user_files():
     is_admin = session['user'].get('role') == 'admin'
     entries  = _load_fm_manifest()
     if is_admin:
-        result = entries  # admin sees all
+        result = entries
     else:
-        result = [e for e in entries if e.get('username') == username]
+        result = [e for e in entries if _fm_target(e) == username]
     return jsonify({'files': sorted(result, key=lambda x: x.get('uploaded_at', ''), reverse=True)})
 
 
 @app.route('/api/files/upload', methods=['POST'])
-@login_required
+@_admin_required
 def upload_user_file():
-    username = session['user']['username']
-    files    = request.files.getlist('files')
+    target_username = (request.form.get('target_username') or '').strip()
+    note            = (request.form.get('note') or '').strip()[:300]
+    files           = request.files.getlist('files')
+
+    if not target_username:
+        return jsonify({'error': 'Please select a user to assign this file to.'}), 400
+    users = _load_users()
+    if target_username not in users:
+        return jsonify({'error': 'Selected user not found in database.'}), 400
     if not files or all(f.filename == '' for f in files):
         return jsonify({'error': 'No files provided'}), 400
 
+    uploader  = session['user']['username']
     max_bytes = _FILES_MAX_MB * 1024 * 1024
     saved     = []
     errors    = []
@@ -15666,40 +15753,41 @@ def upload_user_file():
         if ext not in _ALLOWED_EXTS:
             errors.append(f'{original}: file type .{ext} is not allowed')
             continue
-        safe     = _secure_fn(original) or 'upload'
-        file_id  = 'f-' + str(_uuid_fm.uuid4())[:12]
-        dest_dir = os.path.join(_FILES_DIR, username)
+        safe      = _secure_fn(original) or 'upload'
+        file_id   = 'f-' + str(_uuid_fm.uuid4())[:12]
+        dest_dir  = os.path.join(_FILES_DIR, target_username)
         os.makedirs(dest_dir, exist_ok=True)
         disk_name = f'{file_id}_{safe}'
         disk_path = os.path.join(dest_dir, disk_name)
-        f.seek(0, 2)
-        size = f.tell()
-        f.seek(0)
+        f.seek(0, 2); size = f.tell(); f.seek(0)
         if size > max_bytes:
             errors.append(f'{original}: exceeds {_FILES_MAX_MB} MB limit')
             continue
         f.save(disk_path)
         entry = {
-            'id':          file_id,
-            'username':    username,
-            'filename':    original,
-            'safe_name':   safe,
-            'disk_name':   disk_name,
-            'size':        size,
-            'size_display':_fmt_filesize(size),
-            'ext':         ext,
-            'uploaded_at': _datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S'),
+            'id':              file_id,
+            'uploaded_by':     uploader,
+            'target_username': target_username,
+            'filename':        original,
+            'safe_name':       safe,
+            'disk_name':       disk_name,
+            'size':            size,
+            'size_display':    _fmt_filesize(size),
+            'ext':             ext,
+            'note':            note,
+            'uploaded_at':     _datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S'),
         }
         manifest = _load_fm_manifest()
         manifest.append(entry)
         _save_fm_manifest(manifest)
         saved.append(entry)
+        _fm_notify('upload', entry, note=note)
 
     if not saved and errors:
         return jsonify({'error': errors[0], 'errors': errors}), 400
-    return jsonify({'ok': True, 'saved': len(saved),
-                    'files': saved, 'errors': errors,
-                    'message': f'{len(saved)} file(s) uploaded.' + (f' {len(errors)} skipped.' if errors else '')})
+    return jsonify({'ok': True, 'saved': len(saved), 'files': saved, 'errors': errors,
+                    'message': f'{len(saved)} file(s) uploaded to {target_username}.'
+                               + (f' {len(errors)} skipped.' if errors else '')})
 
 
 @app.route('/api/files/<file_id>/download', methods=['GET'])
@@ -15711,31 +15799,48 @@ def download_user_file(file_id):
     entry    = next((e for e in manifest if e['id'] == file_id), None)
     if not entry:
         return jsonify({'error': 'File not found'}), 404
-    if not is_admin and entry.get('username') != username:
+    if not is_admin and _fm_target(entry) != username:
         return jsonify({'error': 'Access denied'}), 403
-    disk_path = os.path.join(_FILES_DIR, entry['username'], entry['disk_name'])
+    disk_path = os.path.join(_FILES_DIR, _fm_target(entry), entry['disk_name'])
     if not os.path.exists(disk_path):
         return jsonify({'error': 'File missing from storage'}), 404
     return send_file(disk_path, as_attachment=True, download_name=entry['filename'])
 
 
-@app.route('/api/files/<file_id>', methods=['DELETE'])
-@login_required
-def delete_user_file(file_id):
-    username = session['user']['username']
-    is_admin = session['user'].get('role') == 'admin'
+@app.route('/api/files/<file_id>', methods=['PATCH'])
+@_admin_required
+def rename_user_file(file_id):
+    data     = request.get_json(silent=True) or {}
+    new_name = (data.get('filename') or '').strip()
+    if not new_name:
+        return jsonify({'error': 'New filename is required.'}), 400
     manifest = _load_fm_manifest()
     entry    = next((e for e in manifest if e['id'] == file_id), None)
     if not entry:
         return jsonify({'error': 'File not found'}), 404
-    if not is_admin and entry.get('username') != username:
-        return jsonify({'error': 'Access denied'}), 403
-    disk_path = os.path.join(_FILES_DIR, entry['username'], entry['disk_name'])
+    old_name        = entry['filename']
+    entry['filename'] = new_name
+    # Update ext if the extension changed
+    entry['ext']    = new_name.rsplit('.', 1)[-1].lower() if '.' in new_name else entry.get('ext', '')
+    _save_fm_manifest(manifest)
+    _fm_notify('rename', entry, old_filename=old_name)
+    return jsonify({'ok': True, 'message': f'Renamed to {new_name}.'})
+
+
+@app.route('/api/files/<file_id>', methods=['DELETE'])
+@_admin_required
+def delete_user_file(file_id):
+    manifest = _load_fm_manifest()
+    entry    = next((e for e in manifest if e['id'] == file_id), None)
+    if not entry:
+        return jsonify({'error': 'File not found'}), 404
+    disk_path = os.path.join(_FILES_DIR, _fm_target(entry), entry['disk_name'])
     try:
         if os.path.exists(disk_path):
             os.remove(disk_path)
     except Exception:
         pass
+    _fm_notify('delete', entry)
     manifest = [e for e in manifest if e['id'] != file_id]
     _save_fm_manifest(manifest)
     return jsonify({'ok': True, 'message': 'File deleted.'})

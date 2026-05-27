@@ -8388,10 +8388,18 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <!-- ══ MY FILE MANAGER PAGE ══════════════════════════════════════════════ -->
   <div id="page-filemanager" class="page-section" style="display:none">
   <style>
-    .fm-wrap { max-width:900px; margin:0 auto; padding:36px 24px 72px; }
+    .fm-wrap { max-width:960px; margin:0 auto; padding:36px 24px 72px; }
     .fm-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
     .fm-sub { font-size:12px; color:#60a5fa; margin-bottom:24px; line-height:1.6; }
-    .fm-upload-zone { border:2px dashed #bfdbfe; border-radius:10px; padding:32px 24px; text-align:center; cursor:pointer; transition:background .15s,border-color .15s; background:#f8faff; margin-bottom:24px; }
+    /* Upload panel (admin only) */
+    .fm-upload-panel { background:#f8faff; border:1px solid #bfdbfe; border-radius:12px; padding:24px; margin-bottom:28px; }
+    .fm-upload-panel-title { font-size:13px; font-weight:700; color:#1e3a8a; margin-bottom:16px; letter-spacing:.2px; }
+    .fm-upload-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+    .fm-field { display:flex; flex-direction:column; gap:4px; }
+    .fm-lbl { font-size:11px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:.4px; }
+    .fm-sel, .fm-inp { padding:8px 12px; border:1px solid #bfdbfe; border-radius:6px; font-size:12px; color:#0f172a; background:#fff; font-family:inherit; outline:none; -webkit-appearance:none; }
+    .fm-sel:focus, .fm-inp:focus { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.1); }
+    .fm-upload-zone { border:2px dashed #bfdbfe; border-radius:10px; padding:28px 24px; text-align:center; cursor:pointer; transition:background .15s,border-color .15s; background:#fff; }
     .fm-upload-zone:hover, .fm-upload-zone.drag-over { background:#eff6ff; border-color:#2563eb; }
     .fm-upload-hint { font-size:13px; color:#3b82f6; line-height:1.6; }
     .fm-upload-hint strong { color:#1e3a8a; }
@@ -8401,10 +8409,14 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .fm-btn:disabled { opacity:.5; cursor:not-allowed; }
     .fm-btn-outline { background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; }
     .fm-btn-outline:hover { background:#dbeafe; }
-    .fm-upload-bar { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:none; font-size:12px; color:#1e3a8a; }
+    .fm-btn-danger { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+    .fm-btn-danger:hover { background:#fecaca; }
+    .fm-upload-bar { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px 16px; margin-top:12px; display:none; font-size:12px; color:#1e3a8a; }
+    .fm-prog { width:100%; height:4px; background:#bfdbfe; border-radius:4px; margin-top:8px; overflow:hidden; display:none; }
+    .fm-prog-bar { height:100%; background:#2563eb; width:0%; transition:width .3s; border-radius:4px; }
     .fm-msg { font-size:12px; padding:10px 14px; border-radius:6px; margin-bottom:16px; display:none; }
     .fm-msg.ok  { background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; }
-    .fm-msg.err { background:#dbeafe; border:1px solid #93c5fd; color:#1d4ed8; }
+    .fm-msg.err { background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; }
     .fm-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
     .fm-search { padding:7px 12px; border:none; border-radius:6px; font-size:12px; font-family:inherit; color:#0f172a; background:#f8faff; box-shadow:0 0 0 1px #bfdbfe; outline:none; width:240px; -webkit-appearance:none; }
     .fm-search:focus { box-shadow:0 0 0 1px #2563eb; }
@@ -8418,40 +8430,66 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .fm-ext.code { background:#1e3a8a; color:#bfdbfe; border-color:#1e3a8a; }
     .fm-ext.doc  { background:#2563eb; color:#fff; border-color:#2563eb; }
     .fm-ext.img  { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
-    .fm-name { font-weight:600; color:#0f172a; word-break:break-all; max-width:260px; }
+    .fm-name { font-weight:600; color:#0f172a; word-break:break-all; max-width:220px; }
+    .fm-note { font-size:10px; color:#94a3b8; margin-top:2px; }
     .fm-size { color:#3b82f6; white-space:nowrap; }
     .fm-date { color:#60a5fa; white-space:nowrap; }
     .fm-user { color:#3b82f6; font-size:11px; }
-    .fm-actions { display:flex; gap:6px; white-space:nowrap; }
-    .fm-dl-btn  { padding:5px 12px; border:none; border-radius:4px; background:#2563eb; color:#fff; font-size:11px; font-weight:700; cursor:pointer; }
+    .fm-actions { display:flex; gap:5px; white-space:nowrap; flex-wrap:wrap; }
+    .fm-dl-btn  { padding:5px 11px; border:none; border-radius:4px; background:#2563eb; color:#fff; font-size:11px; font-weight:700; cursor:pointer; }
     .fm-dl-btn:hover { opacity:.85; }
-    .fm-del-btn { padding:5px 12px; border:1px solid #93c5fd; border-radius:4px; background:#dbeafe; color:#1d4ed8; font-size:11px; font-weight:700; cursor:pointer; }
-    .fm-del-btn:hover { opacity:.85; }
+    .fm-ren-btn { padding:5px 11px; border:1px solid #bfdbfe; border-radius:4px; background:#eff6ff; color:#1e3a8a; font-size:11px; font-weight:700; cursor:pointer; }
+    .fm-ren-btn:hover { background:#dbeafe; }
+    .fm-del-btn { padding:5px 11px; border:1px solid #fca5a5; border-radius:4px; background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700; cursor:pointer; }
+    .fm-del-btn:hover { background:#fecaca; }
     .fm-empty { text-align:center; color:#93c5fd; font-size:13px; padding:48px 0; }
-    .fm-prog { width:100%; height:4px; background:#bfdbfe; border-radius:4px; margin-top:8px; overflow:hidden; display:none; }
-    .fm-prog-bar { height:100%; background:#2563eb; width:0%; transition:width .3s; border-radius:4px; }
-    @media(max-width:640px){ .fm-table th:nth-child(3),.fm-table td:nth-child(3),
+    .fm-info-box { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 18px; margin-bottom:24px; font-size:12px; color:#1e3a8a; line-height:1.6; }
+    @media(max-width:640px){ .fm-upload-row{grid-template-columns:1fr;}
+      .fm-table th:nth-child(3),.fm-table td:nth-child(3),
       .fm-table th:nth-child(4),.fm-table td:nth-child(4) { display:none; } }
   </style>
   <div class="fm-wrap">
-    <div class="fm-title">My File Manager</div>
-    <div class="fm-sub">Upload, view, and manage your files. Supported formats: PDF, Office documents, source code, images, and more. Max 50 MB per file.</div>
+    <div class="fm-title">File Manager</div>
 
-    <!-- Upload zone -->
-    <div class="fm-upload-zone" id="fmDropZone"
-         onclick="document.getElementById('fmFileInput').click()"
-         ondragover="event.preventDefault();this.classList.add('drag-over')"
-         ondragleave="this.classList.remove('drag-over')"
-         ondrop="fmHandleDrop(event)">
-      <input type="file" id="fmFileInput" multiple style="display:none" onchange="fmHandleFiles(this.files)">
-      <div class="fm-upload-hint"><strong>Click to browse</strong> or drag and drop files here</div>
-      <div class="fm-upload-sub">PDF, DOCX, XLSX, Python, JS, PHP, HTML, SQL, ZIP, images and more</div>
+    {% if current_user.role == 'admin' %}
+    <!-- ── Admin: upload panel ── -->
+    <div class="fm-sub">Upload files and assign them to specific user accounts. Only the assigned user can see and download their files.</div>
+    <div class="fm-upload-panel">
+      <div class="fm-upload-panel-title">Upload &amp; Assign File</div>
+      <div class="fm-upload-row">
+        <div class="fm-field">
+          <label class="fm-lbl" for="fm-target-user">Assign to User</label>
+          <select class="fm-sel" id="fm-target-user">
+            <option value="">— loading users —</option>
+          </select>
+        </div>
+        <div class="fm-field">
+          <label class="fm-lbl" for="fm-note">Note (optional)</label>
+          <input class="fm-inp" id="fm-note" type="text" maxlength="300" placeholder="e.g. Q1 security report">
+        </div>
+      </div>
+      <div class="fm-upload-zone" id="fmDropZone"
+           onclick="document.getElementById('fmFileInput').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="fmHandleDrop(event)">
+        <input type="file" id="fmFileInput" multiple style="display:none" onchange="fmHandleFiles(this.files)">
+        <div class="fm-upload-hint"><strong>Click to browse</strong> or drag and drop files here</div>
+        <div class="fm-upload-sub">PDF, DOCX, XLSX, Python, JS, PHP, HTML, SQL, ZIP, images &mdash; max 50 MB</div>
+      </div>
+      <div class="fm-upload-bar" id="fm-upload-bar">
+        <span id="fm-upload-status">Uploading...</span>
+        <div class="fm-prog"><div class="fm-prog-bar" id="fm-prog-bar"></div></div>
+      </div>
     </div>
+    {% else %}
+    <!-- ── Regular user: info box ── -->
+    <div class="fm-sub">Files shared with your account by an administrator appear below. You can download any file assigned to you.</div>
+    <div class="fm-info-box">
+      Files are uploaded and assigned to your account by an admin. You will receive an email notification whenever a file is shared, renamed, or removed.
+    </div>
+    {% endif %}
 
-    <div class="fm-upload-bar" id="fm-upload-bar">
-      <span id="fm-upload-status">Uploading...</span>
-      <div class="fm-prog"><div class="fm-prog-bar" id="fm-prog-bar"></div></div>
-    </div>
     <div class="fm-msg" id="fm-msg"></div>
 
     <!-- Toolbar -->
@@ -8470,7 +8508,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <th>Type</th>
         <th>Size</th>
         <th>Uploaded</th>
-        {% if current_user.role == 'admin' %}<th>Owner</th>{% endif %}
+        {% if current_user.role == 'admin' %}<th>Assigned To</th>{% endif %}
         <th>Actions</th>
       </tr></thead>
       <tbody id="fm-tbody"><tr><td colspan="6" class="fm-empty">Loading files...</td></tr></tbody>
@@ -21551,6 +21589,21 @@ function grcExport() {
   var _DOC_EXTS  = ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv','rtf','odt','ods'];
   var _IMG_EXTS  = ['png','jpg','jpeg','gif','svg','webp'];
 
+  function _fmLoadUsers() {
+    if (!_isAdmin) return;
+    fetch('/api/admin/file-users').then(function(r){ return r.json(); }).then(function(d){
+      var sel = document.getElementById('fm-target-user');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">— select a user —</option>';
+      (d.users || []).forEach(function(u){
+        var opt = document.createElement('option');
+        opt.value = u.username;
+        opt.textContent = u.display || u.username;
+        sel.appendChild(opt);
+      });
+    }).catch(function(){});
+  }
+
   function _fmExtClass(ext) {
     ext = (ext||'').toLowerCase();
     if (_CODE_EXTS.indexOf(ext) !== -1) return 'code';
@@ -21573,32 +21626,41 @@ function grcExport() {
     }).catch(function(){
       tbody.innerHTML = '<tr><td colspan="6" class="fm-empty">Failed to load files.</td></tr>';
     });
+    if (_isAdmin) _fmLoadUsers();
   };
 
   function fmRender(files) {
-    var tbody  = document.getElementById('fm-tbody');
-    var countEl= document.getElementById('fm-count');
+    var tbody   = document.getElementById('fm-tbody');
+    var countEl = document.getElementById('fm-count');
     if (!tbody) return;
     if (countEl) countEl.textContent = files.length + ' file' + (files.length === 1 ? '' : 's');
     if (!files.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="fm-empty">No files uploaded yet. Drag and drop files above to get started.</td></tr>';
+      var emptyMsg = _isAdmin
+        ? 'No files yet. Upload a file above and assign it to a user.'
+        : 'No files have been shared with your account yet.';
+      tbody.innerHTML = '<tr><td colspan="6" class="fm-empty">' + emptyMsg + '</td></tr>';
       return;
     }
-    var cols = _isAdmin ? 6 : 5;
     tbody.innerHTML = files.map(function(f) {
       var ext      = _fmEsc(f.ext || '');
       var extClass = _fmExtClass(f.ext);
       var dateStr  = f.uploaded_at ? f.uploaded_at.replace('T',' ').slice(0,16) + ' UTC' : '';
-      var ownerCol = _isAdmin ? '<td class="fm-user">'+_fmEsc(f.username||'')+'</td>' : '';
+      var target   = f.target_username || f.username || '';
+      var ownerCol = _isAdmin ? '<td class="fm-user">'+_fmEsc(target)+'</td>' : '';
+      var noteHtml = (f.note && _isAdmin) ? '<div class="fm-note">'+_fmEsc(f.note)+'</div>' : '';
+      var adminBtns = _isAdmin
+        ? '<button class="fm-ren-btn" onclick="fmRename(\''+_fmEsc(f.id)+'\',\''+_fmEsc(f.filename)+'\')">Rename</button>'
+          + '<button class="fm-del-btn" onclick="fmDelete(\''+_fmEsc(f.id)+'\',\''+_fmEsc(f.filename)+'\')">Delete</button>'
+        : '';
       return '<tr>'
-        + '<td><div class="fm-name" title="'+_fmEsc(f.filename)+'">'+_fmEsc(f.filename)+'</div></td>'
+        + '<td><div class="fm-name" title="'+_fmEsc(f.filename)+'">'+_fmEsc(f.filename)+'</div>'+noteHtml+'</td>'
         + '<td><span class="fm-ext '+extClass+'">'+ext+'</span></td>'
         + '<td class="fm-size">'+_fmEsc(f.size_display||'')+'</td>'
         + '<td class="fm-date">'+_fmEsc(dateStr)+'</td>'
         + ownerCol
         + '<td><div class="fm-actions">'
           + '<button class="fm-dl-btn" onclick="fmDownload(\''+_fmEsc(f.id)+'\')">Download</button>'
-          + '<button class="fm-del-btn" onclick="fmDelete(\''+_fmEsc(f.id)+'\',\''+_fmEsc(f.filename)+'\')">Delete</button>'
+          + adminBtns
         + '</div></td>'
         + '</tr>';
     }).join('');
@@ -21609,7 +21671,7 @@ function grcExport() {
     var filtered = q ? _fmData.filter(function(f){
       return (f.filename||'').toLowerCase().indexOf(q) !== -1
           || (f.ext||'').toLowerCase().indexOf(q) !== -1
-          || (f.username||'').toLowerCase().indexOf(q) !== -1;
+          || (f.target_username||f.username||'').toLowerCase().indexOf(q) !== -1;
     }) : _fmData;
     fmRender(filtered);
   };
@@ -21623,38 +21685,53 @@ function grcExport() {
 
   window.fmHandleFiles = function(files) {
     if (!files || !files.length) return;
-    var bar    = document.getElementById('fm-upload-bar');
-    var status = document.getElementById('fm-upload-status');
-    var prog   = document.getElementById('fm-prog-bar');
+    var target = (document.getElementById('fm-target-user') || {}).value || '';
+    if (!target) {
+      var msgEl = document.getElementById('fm-msg');
+      msgEl.className = 'fm-msg err';
+      msgEl.textContent = 'Please select a user to assign this file to before uploading.';
+      msgEl.style.display = '';
+      return;
+    }
+    var bar      = document.getElementById('fm-upload-bar');
+    var status   = document.getElementById('fm-upload-status');
+    var prog     = document.getElementById('fm-prog-bar');
     var progWrap = document.querySelector('.fm-prog');
-    var msgEl  = document.getElementById('fm-msg');
+    var msgEl    = document.getElementById('fm-msg');
     if (bar)    { bar.style.display = ''; }
-    if (status) { status.textContent = 'Uploading ' + files.length + ' file(s)...'; }
-    if (prog)   { prog.style.width = '20%'; progWrap.style.display = ''; }
+    if (status) { status.textContent = 'Uploading ' + files.length + ' file(s) to ' + target + '...'; }
+    if (prog)   { prog.style.width = '20%'; if (progWrap) progWrap.style.display = ''; }
     if (msgEl)  { msgEl.style.display = 'none'; }
 
     var fd = new FormData();
     for (var i = 0; i < files.length; i++) fd.append('files', files[i]);
+    fd.append('target_username', target);
+    var noteVal = (document.getElementById('fm-note') || {}).value || '';
+    if (noteVal) fd.append('note', noteVal);
 
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/files/upload');
     xhr.upload.onprogress = function(e) {
-      if (e.lengthComputable && prog) {
-        prog.style.width = Math.round(e.loaded / e.total * 90) + '%';
-      }
+      if (e.lengthComputable && prog) prog.style.width = Math.round(e.loaded / e.total * 90) + '%';
     };
     xhr.onload = function() {
       if (prog) prog.style.width = '100%';
       setTimeout(function(){
         if (bar) bar.style.display = 'none';
-        if (prog) { prog.style.width = '0%'; progWrap.style.display = 'none'; }
+        if (prog) { prog.style.width = '0%'; if (progWrap) progWrap.style.display = 'none'; }
       }, 600);
       try {
         var d = JSON.parse(xhr.responseText);
         msgEl.className = 'fm-msg ' + (d.ok ? 'ok' : 'err');
         msgEl.textContent = d.message || d.error || (d.ok ? 'Uploaded.' : 'Error.');
         msgEl.style.display = '';
-        if (d.ok) loadFileManager();
+        if (d.ok) {
+          var noteEl = document.getElementById('fm-note');
+          if (noteEl) noteEl.value = '';
+          var fInput = document.getElementById('fmFileInput');
+          if (fInput) fInput.value = '';
+          loadFileManager();
+        }
       } catch(ex) {
         msgEl.className = 'fm-msg err';
         msgEl.textContent = 'Upload failed.';
@@ -21674,8 +21751,27 @@ function grcExport() {
     window.location.href = '/api/files/' + encodeURIComponent(fileId) + '/download';
   };
 
+  window.fmRename = function(fileId, currentName) {
+    var newName = prompt('Rename file:', currentName);
+    if (!newName || newName === currentName) return;
+    fetch('/api/files/' + encodeURIComponent(fileId), {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({filename: newName})
+    }).then(function(r){ return r.json(); }).then(function(d){
+      var msgEl = document.getElementById('fm-msg');
+      msgEl.className = 'fm-msg ' + (d.ok ? 'ok' : 'err');
+      msgEl.textContent = d.message || d.error || (d.ok ? 'Renamed.' : 'Error.');
+      msgEl.style.display = '';
+      if (d.ok) loadFileManager();
+    }).catch(function(){
+      var msgEl = document.getElementById('fm-msg');
+      msgEl.className = 'fm-msg err'; msgEl.textContent = 'Request failed.'; msgEl.style.display = '';
+    });
+  };
+
   window.fmDelete = function(fileId, filename) {
-    if (!confirm('Delete "' + filename + '"? This cannot be undone.')) return;
+    if (!confirm('Delete "' + filename + '"?\n\nThe assigned user will be notified by email. This cannot be undone.')) return;
     fetch('/api/files/' + encodeURIComponent(fileId), {method: 'DELETE'})
       .then(function(r){ return r.json(); })
       .then(function(d){
