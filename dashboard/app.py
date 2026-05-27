@@ -1671,69 +1671,47 @@ def _rtp_scan_inputs() -> tuple:
                 return ('path', f'Path traversal: {variant[:80]}')
     return (None, None)
 
-@app.before_request
-def _rtp_waf():
-    skip = ('/static/', '/login', '/signup', '/logout', '/verify/',
-            '/api/rtp/', '/api/syslog/hec', '/api/syslog/ingest',
-            '/api/events/ingest', '/api/payment/', '/api/files',
-            '/api/admin/file-users')
-    if any(request.path.startswith(p) for p in skip):
-        return None
-    with _rtp_config_lock:
-        cfg = dict(_rtp_config)
-    if not cfg:
-        return None
-
+def _rtp_check_current_request(cfg: dict) -> tuple:
+    """Run all WAF checks on the current Flask request context.
+    Returns (rule_name, reason) if blocked, (None, None) if allowed."""
     ip = _rtp_real_ip()
     ua = request.headers.get('User-Agent', '')
 
-    # Allowlist — skip all checks for trusted IPs
     allow_list = [x for x in cfg.get('allow_ips', '').splitlines() if x.strip()]
     if allow_list and _rtp_ip_in_list(ip, allow_list):
-        return None
+        return None, None
 
-    # Blocklist
     if cfg.get('block'):
         block_list = [x for x in cfg.get('block_ips', '').splitlines() if x.strip()]
         if block_list and _rtp_ip_in_list(ip, block_list):
-            _rtp_log_event('block', ip, request.path, 'IP blocklist')
-            return jsonify({'error': 'Access denied', 'rule': 'block'}), 403
+            return 'block', 'IP blocklist'
 
-    # Tor exit nodes
     if cfg.get('tor'):
         _rtp_refresh_tor()
         if ip in _rtp_tor_nodes:
-            _rtp_log_event('tor', ip, request.path, 'Tor exit node')
-            return jsonify({'error': 'Access denied', 'rule': 'tor'}), 403
+            return 'tor', 'Tor exit node'
 
-    # CrowdSec
     if cfg.get('crowdsec'):
         key = cfg.get('crowdsec_key', '').strip()
         if key and _rtp_crowdsec_blocked(ip, key):
-            _rtp_log_event('crowdsec', ip, request.path, 'CrowdSec threat feed')
-            return jsonify({'error': 'Access denied', 'rule': 'crowdsec'}), 403
+            return 'crowdsec', 'CrowdSec threat feed'
 
-    # Country blocking
     if cfg.get('countries'):
         blocked_cc = [c.strip().upper() for c in cfg.get('country_list', '').split(',') if c.strip()]
         if blocked_cc:
             cc = _geoip_detail(ip).get('country_code', '')
             if cc and cc.upper() in blocked_cc:
-                _rtp_log_event('countries', ip, request.path, f'Country: {cc}')
-                return jsonify({'error': 'Access denied', 'rule': 'countries'}), 403
+                return 'countries', f'Country: {cc}'
 
-    # Bot blocking
     if cfg.get('bots') and ua:
         enabled = cfg.get('bot_cats', [])
         for cat, pat in _BOT_PATTERNS.items():
             if cat in enabled and pat.search(ua):
-                _rtp_log_event('bots', ip, request.path, f'Bot ({cat})')
-                return jsonify({'error': 'Access denied', 'rule': 'bots'}), 403
+                return 'bots', f'Bot ({cat})'
 
-    # Rate limiting
     if cfg.get('rate'):
         limit = int(cfg.get('rate_limit', 120))
-        now   = _time.time()
+        now = _time.time()
         with _rtp_rate_lock:
             bucket = _rtp_rate_buckets.setdefault(ip, _collections.deque())
             while bucket and now - bucket[0] > 60.0:
@@ -1741,16 +1719,35 @@ def _rtp_waf():
             bucket.append(now)
             count = len(bucket)
         if count > limit:
-            _rtp_log_event('rate', ip, request.path, f'{count}/{limit} rpm')
-            return jsonify({'error': 'Too many requests', 'rule': 'rate'}), 429
+            return 'rate', f'{count}/{limit} rpm'
 
-    # Injection / path traversal / NoSQL injection
     if cfg.get('sqli') or cfg.get('cmdi') or cfg.get('path') or cfg.get('nosql'):
         rule, reason = _rtp_scan_inputs()
         if rule and cfg.get(rule):
-            _rtp_log_event(rule, ip, request.path, reason)
-            return jsonify({'error': 'Request blocked', 'rule': rule}), 403
+            return rule, reason
 
+    return None, None
+
+
+@app.before_request
+def _rtp_waf():
+    skip = ('/static/', '/login', '/signup', '/logout', '/verify/',
+            '/api/rtp/', '/api/syslog/hec', '/api/syslog/ingest',
+            '/api/events/ingest', '/api/payment/', '/api/files',
+            '/api/admin/file-users', '/rtp/proxy')
+    if any(request.path.startswith(p) for p in skip):
+        return None
+    with _rtp_config_lock:
+        cfg = dict(_rtp_config)
+    if not cfg:
+        return None
+    ip = _rtp_real_ip()
+    rule, reason = _rtp_check_current_request(cfg)
+    if rule:
+        _rtp_log_event(rule, ip, request.path, reason)
+        status = 429 if rule == 'rate' else 403
+        msg    = 'Too many requests' if rule == 'rate' else 'Request blocked'
+        return jsonify({'error': msg, 'rule': rule}), status
     return None
 
 # Load WAF config at startup
@@ -16141,6 +16138,568 @@ def rtp_events_export():
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename=rtp_events_{today}.csv'},
     )
+
+
+# ── RTP Reverse Proxy ─────────────────────────────────────────────────────────
+_RTP_HOP_BY_HOP = frozenset({
+    'connection','keep-alive','proxy-authenticate','proxy-authorization',
+    'te','trailers','transfer-encoding','upgrade',
+    'content-encoding',  # let requests handle this
+})
+
+_RTP_BLOCK_PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>403 — Request Blocked</title>
+<style>
+  body{{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        background:#0f172a;color:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh}}
+  .card{{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:48px 40px;
+         max-width:460px;text-align:center}}
+  .shield{{font-size:48px;margin-bottom:16px}}
+  h1{{font-size:22px;font-weight:800;color:#f1f5f9;margin:0 0 10px}}
+  p{{font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 8px}}
+  .badge{{display:inline-block;background:#1e3a8a;color:#93c5fd;font-size:11px;
+          font-weight:700;padding:4px 12px;border-radius:20px;margin-top:16px;letter-spacing:.3px}}
+</style></head>
+<body>
+  <div class="card">
+    <div class="shield">🛡️</div>
+    <h1>{status_text}</h1>
+    <p>Your request was blocked by Intel Web Security Runtime Protection.</p>
+    <p>Rule: <strong>{rule}</strong> &nbsp;·&nbsp; IP: {ip}</p>
+    <div class="badge">INTEL WEB SECURITY WAF</div>
+  </div>
+</body></html>"""
+
+@app.route('/rtp/proxy', defaults={'path': ''}, methods=['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'])
+@app.route('/rtp/proxy/<path:path>', methods=['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'])
+def rtp_proxy(path):
+    """WAF reverse proxy — forwards traffic to configured origin after inspection."""
+    with _rtp_config_lock:
+        cfg = dict(_rtp_config)
+
+    if not cfg.get('proxy_enabled'):
+        return Response(
+            '<h2>502 — Proxy not enabled</h2><p>Enable proxy mode in the Runtime Protection settings.</p>',
+            status=502, content_type='text/html')
+
+    origin = (cfg.get('proxy_origin') or '').rstrip('/')
+    if not origin:
+        return Response(
+            '<h2>502 — No origin configured</h2><p>Set an origin URL in Runtime Protection settings.</p>',
+            status=502, content_type='text/html')
+
+    ip = _rtp_real_ip()
+
+    # Run WAF checks on the incoming request
+    rule, reason = _rtp_check_current_request(cfg)
+    if rule:
+        _rtp_log_event(rule, ip, f'[proxy] /{path}', reason)
+        status = 429 if rule == 'rate' else 403
+        status_text = 'Too Many Requests' if rule == 'rate' else 'Forbidden'
+        page = _RTP_BLOCK_PAGE.format(status_text=status_text, rule=rule, ip=ip)
+        return Response(page, status=status, content_type='text/html')
+
+    # Build target URL
+    qs = request.query_string.decode('utf-8', errors='replace')
+    target = f"{origin}/{path}" + (f'?{qs}' if qs else '')
+
+    # Build forwarded headers
+    fwd_hdrs = {k: v for k, v in request.headers
+                if k.lower() not in _RTP_HOP_BY_HOP and k.lower() != 'host'}
+    fwd_hdrs['X-Forwarded-For']  = ip
+    fwd_hdrs['X-Forwarded-Host'] = request.host
+    fwd_hdrs['X-Real-IP']        = ip
+    fwd_hdrs['Host']             = origin.split('//', 1)[-1].split('/')[0]
+
+    try:
+        body = request.get_data()
+        upstream = _requests.request(
+            method=request.method,
+            url=target,
+            headers=fwd_hdrs,
+            data=body,
+            allow_redirects=False,
+            timeout=30,
+            stream=True,
+            verify=True,
+        )
+        resp_hdrs = [(k, v) for k, v in upstream.raw.headers.items()
+                     if k.lower() not in _RTP_HOP_BY_HOP]
+        return Response(
+            upstream.iter_content(chunk_size=4096),
+            status=upstream.status_code,
+            headers=resp_hdrs,
+        )
+    except _requests.exceptions.ConnectionError:
+        return Response('<h2>502 — Cannot reach origin</h2>'
+                        f'<p>Could not connect to <code>{origin}</code>. Check the origin URL.</p>',
+                        status=502, content_type='text/html')
+    except _requests.exceptions.Timeout:
+        return Response('<h2>504 — Origin timeout</h2>', status=504, content_type='text/html')
+    except Exception as exc:
+        return Response(f'<h2>502 — Proxy error</h2><p>{str(exc)[:200]}</p>',
+                        status=502, content_type='text/html')
+
+
+# ── RTP API Key management ────────────────────────────────────────────────────
+@app.route('/api/rtp/apikey', methods=['POST'])
+@_admin_required
+def rtp_generate_apikey():
+    """Generate (or regenerate) the RTP external API key."""
+    import uuid as _uid
+    key = 'rtp-' + str(_uid.uuid4()).replace('-', '')[:24]
+    with _rtp_config_lock:
+        _rtp_config['api_key'] = key
+        _rtp_persist(dict(_rtp_config))
+    return jsonify({'ok': True, 'api_key': key})
+
+
+# ── RTP External Check API ────────────────────────────────────────────────────
+@app.route('/api/rtp/check', methods=['POST'])
+def rtp_external_check():
+    """External WAF check endpoint. POST JSON: {api_key, ip, ua, path, params, body}
+    Returns {blocked, rule, reason}. No session auth — uses api_key."""
+    data = request.get_json(silent=True) or {}
+    with _rtp_config_lock:
+        cfg_key = _rtp_config.get('api_key', '')
+    if not cfg_key or data.get('api_key') != cfg_key:
+        return jsonify({'error': 'Invalid or missing api_key'}), 401
+
+    with _rtp_config_lock:
+        cfg = dict(_rtp_config)
+
+    check_ip   = str(data.get('ip') or '0.0.0.0')
+    check_ua   = str(data.get('ua') or '')
+    check_path = str(data.get('path') or '/')
+    # Build candidate values to scan
+    params = data.get('params') or {}
+    body   = data.get('body') or ''
+    candidates = list(params.values()) + [str(body), check_path] if params else [str(body), check_path]
+
+    # IP allow/block checks
+    allow_list = [x for x in cfg.get('allow_ips', '').splitlines() if x.strip()]
+    if allow_list and _rtp_ip_in_list(check_ip, allow_list):
+        return jsonify({'blocked': False, 'rule': None, 'reason': None})
+
+    if cfg.get('block'):
+        block_list = [x for x in cfg.get('block_ips', '').splitlines() if x.strip()]
+        if block_list and _rtp_ip_in_list(check_ip, block_list):
+            _rtp_log_event('block', check_ip, check_path, 'IP blocklist [ext]')
+            return jsonify({'blocked': True, 'rule': 'block', 'reason': 'IP blocklist'})
+
+    if cfg.get('tor'):
+        _rtp_refresh_tor()
+        if check_ip in _rtp_tor_nodes:
+            _rtp_log_event('tor', check_ip, check_path, 'Tor exit node [ext]')
+            return jsonify({'blocked': True, 'rule': 'tor', 'reason': 'Tor exit node'})
+
+    if cfg.get('bots') and check_ua:
+        enabled = cfg.get('bot_cats', [])
+        for cat, pat in _BOT_PATTERNS.items():
+            if cat in enabled and pat.search(check_ua):
+                _rtp_log_event('bots', check_ip, check_path, f'Bot ({cat}) [ext]')
+                return jsonify({'blocked': True, 'rule': 'bots', 'reason': f'Bot ({cat})'})
+
+    # Injection scan on provided candidates
+    import urllib.parse as _up
+    for val in candidates:
+        s = str(val)
+        for variant in (s, _up.unquote(s), _up.unquote(_up.unquote(s))):
+            if cfg.get('sqli') and _SQLI_RE.search(variant):
+                _rtp_log_event('sqli', check_ip, check_path, f'SQLi [ext]: {variant[:80]}')
+                return jsonify({'blocked': True, 'rule': 'sqli', 'reason': f'SQL injection pattern'})
+            if cfg.get('nosql') and _NOSQL_RE.search(variant):
+                _rtp_log_event('nosql', check_ip, check_path, f'NoSQL [ext]')
+                return jsonify({'blocked': True, 'rule': 'nosql', 'reason': 'NoSQL injection pattern'})
+            if cfg.get('cmdi') and _CMDI_RE.search(variant):
+                _rtp_log_event('cmdi', check_ip, check_path, f'CMDi [ext]')
+                return jsonify({'blocked': True, 'rule': 'cmdi', 'reason': 'Command injection pattern'})
+            if cfg.get('path') and _PATH_RE.search(variant):
+                _rtp_log_event('path', check_ip, check_path, f'Path traversal [ext]')
+                return jsonify({'blocked': True, 'rule': 'path', 'reason': 'Path traversal pattern'})
+
+    return jsonify({'blocked': False, 'rule': None, 'reason': None})
+
+
+# ── RTP Snippet Generator ─────────────────────────────────────────────────────
+@app.route('/api/rtp/snippet', methods=['GET'])
+@login_required
+def rtp_snippet():
+    """Return a self-contained WAF middleware snippet for the requested framework."""
+    framework = request.args.get('framework', 'flask').lower()
+    with _rtp_config_lock:
+        cfg  = dict(_rtp_config)
+    api_key = cfg.get('api_key', '<YOUR_API_KEY>')
+    host    = request.host_url.rstrip('/')
+
+    snippets = {
+        'flask': f'''# ─────────────────────────────────────────────────────────────────────────────
+# Intel Web Security — Runtime Protection Middleware (Flask)
+# Drop this into your Flask application file. No external dependencies needed.
+# ─────────────────────────────────────────────────────────────────────────────
+import re, time, collections, ipaddress
+from flask import request, jsonify
+
+_WAF_SQLI  = re.compile(r"(?i)(?:'[\\s]*(?:or|and)[\\s]+'|\\b(?:select|union|insert|update|delete|drop|alter|truncate|declare|exec(?:ute)?|cast|convert|xp_\\w+|sp_\\w+)\\b|;\\s*(?:drop|delete|truncate|insert|update|create|alter)\\b|\\d\\s*=\\s*\\d|0x[0-9a-f]+|\\bwaitfor\\s+delay\\b|\\bsleep\\s*\\(|\\bload_file\\b|\\binto\\s+outfile\\b|--[\\s\\S]|/\\*[\\s\\S]*?\\*/)")
+_WAF_CMDI  = re.compile(r'(?:[;&|`]|\\$\\(|\\$\\{{|%0a|%0d)[\\s\\S]{{0,40}}(?:ls|cat|rm|wget|curl|bash|sh|python3?|perl|ruby|nc|netcat|chmod|chown|id|whoami|uname|passwd|/etc/|/bin/|/usr/)', re.IGNORECASE)
+_WAF_PATH  = re.compile(r'(?:\\.\\./ |\\.\\.\\\\ |%2e%2e[%/\\\\]|%252e%252e|%c0%ae%c0%ae)', re.IGNORECASE)
+_WAF_NOSQL = re.compile(r'(?i)(?:\\$(?:where|ne|gt|lt|gte|lte|in|nin|regex|exists|type|mod|text|expr|and|or|nor|not)|(?:\\{{|\\[)\\s*"?\\$\\w+)')
+_WAF_RATE  = {{}}   # {{ip: deque}}
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+WAF_SQLI       = True   # Block SQL injection
+WAF_CMDI       = True   # Block command injection
+WAF_PATH       = True   # Block path traversal
+WAF_NOSQL      = True   # Block NoSQL injection
+WAF_RATE_LIMIT = 120    # Max requests/min/IP  (0 = disabled)
+WAF_BLOCK_IPS  = []     # e.g. ['1.2.3.4', '10.0.0.0/8']
+WAF_ALLOW_IPS  = []     # Trusted IPs that bypass all checks
+
+def _waf_ip_in(ip, entries):
+    try:
+        addr = ipaddress.ip_address(ip)
+        for e in entries:
+            if not e.strip(): continue
+            if '/' in e:
+                if addr in ipaddress.ip_network(e.strip(), strict=False): return True
+            elif addr == ipaddress.ip_address(e.strip()): return True
+    except ValueError:
+        pass
+    return False
+
+@app.before_request
+def waf_protect():
+    import urllib.parse as _p
+    ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
+    if _waf_ip_in(ip, WAF_ALLOW_IPS): return
+    if _waf_ip_in(ip, WAF_BLOCK_IPS): return 'Forbidden', 403
+    if WAF_RATE_LIMIT:
+        now = time.time()
+        b = _WAF_RATE.setdefault(ip, collections.deque())
+        while b and now - b[0] > 60: b.popleft()
+        b.append(now)
+        if len(b) > WAF_RATE_LIMIT: return {{'error': 'Rate limit exceeded'}}, 429
+    candidates = list(request.args.values()) + list(request.form.values())
+    try:
+        j = request.get_json(silent=True, force=True)
+        if isinstance(j, dict): candidates += [str(v) for v in j.values()]
+    except Exception: pass
+    try:
+        raw = request.get_data(as_text=True)
+        if raw and len(raw) < 8192: candidates.append(raw)
+    except Exception: pass
+    candidates.append(request.path)
+    for val in candidates:
+        s = str(val)
+        for v in (s, _p.unquote(s), _p.unquote(_p.unquote(s))):
+            if WAF_SQLI  and _WAF_SQLI.search(v):  return {{'error':'blocked','rule':'sqli'}},  403
+            if WAF_NOSQL and _WAF_NOSQL.search(v): return {{'error':'blocked','rule':'nosql'}}, 403
+            if WAF_CMDI  and _WAF_CMDI.search(v):  return {{'error':'blocked','rule':'cmdi'}},  403
+            if WAF_PATH  and _WAF_PATH.search(v):  return {{'error':'blocked','rule':'path'}},  403
+''',
+
+        'django': f'''# ─────────────────────────────────────────────────────────────────────────────
+# Intel Web Security — Runtime Protection Middleware (Django)
+# Add 'myapp.middleware.WafMiddleware' to settings.MIDDLEWARE (first position).
+# ─────────────────────────────────────────────────────────────────────────────
+import re, time, collections, ipaddress
+from django.http import JsonResponse
+
+_WAF_SQLI  = re.compile(r"(?i)(?:'[\\s]*(?:or|and)[\\s]+'|\\b(?:select|union|insert|update|delete|drop|alter|truncate|declare|exec(?:ute)?|cast|convert)\\b|;\\s*(?:drop|delete|insert|update)\\b|--[\\s\\S]|/\\*[\\s\\S]*?\\*/)")
+_WAF_CMDI  = re.compile(r'(?:[;&|`]|\\$\\(|%0a)[\\s\\S]{{0,40}}(?:ls|cat|rm|wget|curl|bash|sh|python3?|id|whoami|/etc/)', re.IGNORECASE)
+_WAF_PATH  = re.compile(r'(?:\\.\\./ |\\.\\.\\\\ |%2e%2e[%/\\\\]|%252e%252e)', re.IGNORECASE)
+_WAF_NOSQL = re.compile(r'(?i)(?:\\$(?:where|ne|gt|lt|gte|lte|in|nin|regex)|(?:\\{{|\\[)\\s*"?\\$\\w+)')
+_WAF_RATE  = {{}}
+
+WAF_SQLI       = True
+WAF_CMDI       = True
+WAF_PATH       = True
+WAF_NOSQL      = True
+WAF_RATE_LIMIT = 120
+WAF_BLOCK_IPS  = []
+WAF_ALLOW_IPS  = []
+
+class WafMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        import urllib.parse as _p
+        ip = (request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR') or '').split(',')[0].strip()
+        if self._ip_in(ip, WAF_ALLOW_IPS):
+            return self.get_response(request)
+        if self._ip_in(ip, WAF_BLOCK_IPS):
+            return JsonResponse({{'error': 'Forbidden'}}, status=403)
+        if WAF_RATE_LIMIT:
+            now = time.time()
+            b = _WAF_RATE.setdefault(ip, collections.deque())
+            while b and now - b[0] > 60: b.popleft()
+            b.append(now)
+            if len(b) > WAF_RATE_LIMIT:
+                return JsonResponse({{'error': 'Rate limit exceeded'}}, status=429)
+        candidates = list(request.GET.values()) + list(request.POST.values()) + [request.path]
+        try:
+            import json
+            body = json.loads(request.body)
+            if isinstance(body, dict): candidates += [str(v) for v in body.values()]
+        except Exception: pass
+        for val in candidates:
+            s = str(val)
+            for v in (s, _p.unquote(s)):
+                if WAF_SQLI  and _WAF_SQLI.search(v):  return JsonResponse({{'error':'blocked','rule':'sqli'}},  status=403)
+                if WAF_NOSQL and _WAF_NOSQL.search(v): return JsonResponse({{'error':'blocked','rule':'nosql'}}, status=403)
+                if WAF_CMDI  and _WAF_CMDI.search(v):  return JsonResponse({{'error':'blocked','rule':'cmdi'}},  status=403)
+                if WAF_PATH  and _WAF_PATH.search(v):  return JsonResponse({{'error':'blocked','rule':'path'}},  status=403)
+        return self.get_response(request)
+
+    @staticmethod
+    def _ip_in(ip, entries):
+        try:
+            addr = ipaddress.ip_address(ip)
+            for e in entries:
+                if not e.strip(): continue
+                if '/' in e:
+                    if addr in ipaddress.ip_network(e.strip(), strict=False): return True
+                elif addr == ipaddress.ip_address(e.strip()): return True
+        except ValueError: pass
+        return False
+''',
+
+        'fastapi': f'''# ─────────────────────────────────────────────────────────────────────────────
+# Intel Web Security — Runtime Protection Middleware (FastAPI)
+# Add waf_middleware to your FastAPI app using app.middleware("http").
+# ─────────────────────────────────────────────────────────────────────────────
+import re, time, collections, ipaddress
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+
+_WAF_SQLI  = re.compile(r"(?i)(?:'[\\s]*(?:or|and)[\\s]+'|\\b(?:select|union|insert|update|delete|drop|alter|truncate|declare|exec(?:ute)?)\\b|;\\s*(?:drop|delete|insert|update)\\b|--[\\s\\S]|/\\*[\\s\\S]*?\\*/)")
+_WAF_CMDI  = re.compile(r'(?:[;&|`]|\\$\\(|%0a)[\\s\\S]{{0,40}}(?:ls|cat|rm|wget|curl|bash|sh|python3?|id|whoami|/etc/)', re.IGNORECASE)
+_WAF_PATH  = re.compile(r'(?:\\.\\./ |\\.\\.\\\\ |%2e%2e[%/\\\\]|%252e%252e)', re.IGNORECASE)
+_WAF_NOSQL = re.compile(r'(?i)(?:\\$(?:where|ne|gt|lt|gte|lte|in|nin|regex)|(?:\\{{|\\[)\\s*"?\\$\\w+)')
+_WAF_RATE  = {{}}
+
+WAF_SQLI       = True
+WAF_CMDI       = True
+WAF_PATH       = True
+WAF_NOSQL      = True
+WAF_RATE_LIMIT = 120
+
+class WafMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        import urllib.parse as _p
+        ip = (request.headers.get('x-forwarded-for') or request.client.host or '').split(',')[0].strip()
+        if WAF_RATE_LIMIT:
+            now = time.time()
+            b = _WAF_RATE.setdefault(ip, collections.deque())
+            while b and now - b[0] > 60: b.popleft()
+            b.append(now)
+            if len(b) > WAF_RATE_LIMIT:
+                return JSONResponse({{'error': 'Rate limit exceeded'}}, status_code=429)
+        candidates = list(request.query_params.values()) + [request.url.path]
+        try:
+            body = await request.body()
+            if body and len(body) < 8192:
+                candidates.append(body.decode('utf-8', errors='replace'))
+        except Exception: pass
+        for val in candidates:
+            s = str(val)
+            for v in (s, _p.unquote(s)):
+                if WAF_SQLI  and _WAF_SQLI.search(v):  return JSONResponse({{'error':'blocked','rule':'sqli'}},  status_code=403)
+                if WAF_NOSQL and _WAF_NOSQL.search(v): return JSONResponse({{'error':'blocked','rule':'nosql'}}, status_code=403)
+                if WAF_CMDI  and _WAF_CMDI.search(v):  return JSONResponse({{'error':'blocked','rule':'cmdi'}},  status_code=403)
+                if WAF_PATH  and _WAF_PATH.search(v):  return JSONResponse({{'error':'blocked','rule':'path'}},  status_code=403)
+        return await call_next(request)
+
+# Register: app.add_middleware(WafMiddleware)
+''',
+
+        'express': f'''// ─────────────────────────────────────────────────────────────────────────────
+// Intel Web Security — Runtime Protection Middleware (Node.js / Express)
+// Usage: app.use(require('./waf-middleware'));
+// ─────────────────────────────────────────────────────────────────────────────
+'use strict';
+const WAF_SQLI  = /(?:\'\\s*(?:or|and)\\s*\'|\\b(?:select|union|insert|update|delete|drop|alter|truncate|declare|exec(?:ute)?)\\b|;\\s*(?:drop|delete|insert|update)\\b|--[\\s\\S]|\\/\\*[\\s\\S]*?\\*\\/)/i;
+const WAF_CMDI  = /(?:[;&|`]|\\$\\(|%0a)[\\s\\S]{{0,40}}(?:ls|cat|rm|wget|curl|bash|sh|python|id|whoami|\\/etc\\/)/i;
+const WAF_PATH  = /(?:\\.\\.\\/|\\.\\.\\\\ |%2e%2e[%\\/\\\\]|%252e%252e)/i;
+const WAF_NOSQL = /(?:\\$(?:where|ne|gt|lt|gte|lte|in|nin|regex|exists)|(?:\\{{|\\[)\\s*"?\\$\\w+)/i;
+
+const rateBuckets = new Map();
+const RATE_LIMIT  = 120; // req/min/IP
+
+function ipInList(ip, list) {{
+  return list.some(e => e && ip === e.trim());
+}}
+
+function scan(values) {{
+  for (const val of values) {{
+    const s = String(val || '');
+    const candidates = [s];
+    try {{ candidates.push(decodeURIComponent(s)); }} catch(e) {{}}
+    for (const v of candidates) {{
+      if (WAF_SQLI.test(v))  return 'sqli';
+      if (WAF_NOSQL.test(v)) return 'nosql';
+      if (WAF_CMDI.test(v))  return 'cmdi';
+      if (WAF_PATH.test(v))  return 'path';
+    }}
+  }}
+  return null;
+}}
+
+module.exports = function wafMiddleware(req, res, next) {{
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  // Rate limiting
+  const now = Date.now();
+  if (!rateBuckets.has(ip)) rateBuckets.set(ip, []);
+  const bucket = rateBuckets.get(ip).filter(t => now - t < 60000);
+  bucket.push(now);
+  rateBuckets.set(ip, bucket);
+  if (bucket.length > RATE_LIMIT) return res.status(429).json({{error:'Rate limit exceeded'}});
+  // Injection scan
+  const candidates = [
+    ...Object.values(req.query || {{}}),
+    ...Object.values(req.body  || {{}}),
+    req.path,
+    typeof req.body === 'string' ? req.body : '',
+  ];
+  const rule = scan(candidates);
+  if (rule) return res.status(403).json({{error:'Request blocked', rule}});
+  next();
+}};
+''',
+
+        'php': f'''<?php
+// ─────────────────────────────────────────────────────────────────────────────
+// Intel Web Security — Runtime Protection (PHP)
+// Include this file at the top of your index.php / wp-config.php.
+// ─────────────────────────────────────────────────────────────────────────────
+define('WAF_SQLI',  true);
+define('WAF_CMDI',  true);
+define('WAF_PATH',  true);
+define('WAF_NOSQL', true);
+define('WAF_RATE',  120);   // max requests/min/IP (0 = disabled)
+$_WAF_BLOCK_IPS = [];       // e.g. ['1.2.3.4']
+$_WAF_ALLOW_IPS = [];       // trusted IPs that bypass checks
+
+$_WAF_SQLI  = "/(?:'[\\\\s]*(?:or|and)[\\\\s]+'|\\\\b(?:select|union|insert|update|delete|drop|alter|truncate|declare|exec(?:ute)?|cast|convert)\\\\b|;\\\\s*(?:drop|delete|truncate|insert|update)\\\\b|--[\\\\s\\\\S]|\\/\\\\*[\\\\s\\\\S]*?\\\\*\\/)/i";
+$_WAF_CMDI  = "/(?:[;&|`]|\\\\$\\\\(|%0a|%0d)[\\\\s\\\\S]{{0,40}}(?:ls|cat|rm|wget|curl|bash|sh|python|id|whoami|\\/etc\\/)/i";
+$_WAF_PATH  = "/(?:\\.\\.\\/|\\.\\.\\\\\\\\ |%2e%2e[%\\/\\\\\\\\]|%252e%252e)/i";
+$_WAF_NOSQL = "/(?:\\\\\\$(?:where|ne|gt|lt|gte|lte|in|nin|regex)|(?:\\\\{{|\\\\[)\\\\s*\"?\\\\\\$\\\\w+)/i";
+
+function _waf_ip_check($ip, $list) {{
+    return in_array($ip, array_map('trim', $list));
+}}
+
+function _waf_scan($values) {{
+    global $_WAF_SQLI, $_WAF_CMDI, $_WAF_PATH, $_WAF_NOSQL;
+    foreach ($values as $val) {{
+        $s  = (string)$val;
+        $d1 = urldecode($s);
+        $d2 = urldecode($d1);
+        foreach ([$s, $d1, $d2] as $v) {{
+            if (WAF_SQLI  && preg_match($_WAF_SQLI,  $v)) return 'sqli';
+            if (WAF_NOSQL && preg_match($_WAF_NOSQL, $v)) return 'nosql';
+            if (WAF_CMDI  && preg_match($_WAF_CMDI,  $v)) return 'cmdi';
+            if (WAF_PATH  && preg_match($_WAF_PATH,  $v)) return 'path';
+        }}
+    }}
+    return null;
+}}
+
+function waf_protect() {{
+    global $_WAF_BLOCK_IPS, $_WAF_ALLOW_IPS;
+    $ip = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '')[0]);
+    if (_waf_ip_check($ip, $_WAF_ALLOW_IPS)) return;
+    if (_waf_ip_check($ip, $_WAF_BLOCK_IPS)) {{ http_response_code(403); die(json_encode(['error'=>'Forbidden'])); }}
+
+    // Rate limiting via APCu (optional — remove if APCu unavailable)
+    if (WAF_RATE > 0 && function_exists('apcu_fetch')) {{
+        $key = 'waf_rate_' . md5($ip);
+        $cnt = (int)apcu_fetch($key);
+        if ($cnt >= WAF_RATE) {{ http_response_code(429); die(json_encode(['error'=>'Rate limit exceeded'])); }}
+        apcu_store($key, $cnt + 1, 60);
+    }}
+
+    $candidates = array_merge(
+        array_values($_GET),
+        array_values($_POST),
+        [$_SERVER['REQUEST_URI']]
+    );
+    $body = file_get_contents('php://input');
+    if ($body && strlen($body) < 8192) $candidates[] = $body;
+
+    $rule = _waf_scan($candidates);
+    if ($rule) {{ http_response_code(403); die(json_encode(['error'=>'Request blocked','rule'=>$rule])); }}
+}}
+
+waf_protect();
+''',
+    }
+
+    # Laravel snippet reuses PHP with a middleware wrapper note
+    snippets['laravel'] = (
+        "<?php\n// Laravel Middleware — Intel Web Security Runtime Protection\n"
+        "// 1. Save this file as app/Http/Middleware/WafMiddleware.php\n"
+        "// 2. Register in app/Http/Kernel.php: \\App\\Http\\Middleware\\WafMiddleware::class\n\n"
+        "namespace App\\Http\\Middleware;\n\nuse Closure;\nuse Illuminate\\Http\\Request;\n\n"
+        "class WafMiddleware {\n"
+        "    // Paste the WAF patterns and _waf_scan() function from the PHP snippet here,\n"
+        "    // then call the check in handle():\n\n"
+        "    public function handle(Request $request, Closure $next) {\n"
+        "        $candidates = array_merge(\n"
+        "            array_values($request->query()),\n"
+        "            array_values($request->post()),\n"
+        "            [$request->path()]\n"
+        "        );\n"
+        "        // ... (paste _waf_scan logic here) ...\n"
+        "        return $next($request);\n"
+        "    }\n}\n"
+        "\n// Full PHP patterns available in the 'PHP' snippet tab.\n"
+    )
+    snippets['wordpress'] = (
+        "<?php\n// WordPress WAF — Intel Web Security Runtime Protection\n"
+        "// Add to your theme's functions.php or a must-use plugin (wp-content/mu-plugins/waf.php)\n\n"
+        "// Paste the full PHP snippet (from the PHP tab) above this line,\n"
+        "// then hook it into WordPress:\n\n"
+        "add_action('init', function() {\n"
+        "    waf_protect(); // waf_protect() is defined in the PHP snippet\n"
+        "}, 1); // priority 1 = runs very early\n"
+        "\n// Alternatively, paste the PHP snippet directly into wp-config.php before the 'ABSPATH' line.\n"
+    )
+
+    fw = framework if framework in snippets else 'flask'
+    code = snippets[fw]
+    return Response(code, content_type='text/plain; charset=utf-8',
+                    headers={{'Content-Disposition': f'inline; filename="waf_{fw}.snippet"'}})
+
+
+# ── RTP Proxy config API ──────────────────────────────────────────────────────
+@app.route('/api/rtp/proxy/config', methods=['GET'])
+@login_required
+def rtp_proxy_config_get():
+    with _rtp_config_lock:
+        cfg = dict(_rtp_config)
+    return jsonify({{
+        'proxy_enabled': cfg.get('proxy_enabled', False),
+        'proxy_origin':  cfg.get('proxy_origin', ''),
+        'api_key':       '••••' + cfg.get('api_key', '')[-4:] if cfg.get('api_key') else '',
+        'has_api_key':   bool(cfg.get('api_key')),
+    }})
+
+
+@app.route('/api/rtp/proxy/config', methods=['POST'])
+@_admin_required
+def rtp_proxy_config_save():
+    data = request.get_json(silent=True) or {{}}
+    with _rtp_config_lock:
+        if 'proxy_enabled' in data:
+            _rtp_config['proxy_enabled'] = bool(data['proxy_enabled'])
+        if 'proxy_origin' in data:
+            _rtp_config['proxy_origin'] = str(data['proxy_origin']).strip().rstrip('/')
+        _rtp_persist(dict(_rtp_config))
+    return jsonify({{'ok': True}})
 
 
 # ══════════════════════════════════════════════════════════════════════════════

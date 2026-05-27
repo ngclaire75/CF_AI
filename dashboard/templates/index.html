@@ -4250,6 +4250,144 @@ Export Power BI
     </div>
   </div>
 
+  <!-- ── Deploy section ─────────────────────────────────────────────────── -->
+  <style>
+    .rtp-deploy{padding:0 28px 18px;max-width:1300px;margin:0 auto}
+    .rtp-deploy-inner{background:var(--c11);border:2px solid #2563eb;border-radius:12px;overflow:hidden}
+    .rtp-deploy-hdr{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:16px 22px;display:flex;align-items:center;gap:12px}
+    .rtp-deploy-title{font-size:14px;font-weight:800;color:#fff}
+    .rtp-deploy-sub{font-size:11px;color:#93c5fd;margin-top:2px}
+    .rtp-deploy-badge{font-size:9px;font-weight:700;background:rgba(255,255,255,.15);color:#fff;padding:2px 8px;border-radius:20px;letter-spacing:.4px;text-transform:uppercase}
+    .rtp-dtabs{display:flex;gap:0;border-bottom:1px solid var(--c8);background:var(--c10)}
+    .rtp-dtab{padding:11px 18px;font-size:12px;font-weight:600;color:var(--c5);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+    .rtp-dtab.active{color:#2563eb;border-bottom-color:#2563eb;background:var(--c11)}
+    .rtp-dtab:hover:not(.active){color:var(--c2)}
+    .rtp-dpanel{display:none;padding:20px 22px}
+    .rtp-dpanel.active{display:block}
+    .rtp-dfield{margin-bottom:14px}
+    .rtp-dlbl{font-size:10px;font-weight:700;color:var(--c2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+    .rtp-dinp{width:100%;padding:8px 12px;border:1px solid var(--c8);border-radius:6px;font-size:12px;font-family:monospace;color:var(--c1);background:#fff;outline:none;box-sizing:border-box}
+    .rtp-dinp:focus{border-color:#2563eb}
+    .rtp-drow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .rtp-dbtn{padding:8px 18px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+    .rtp-dbtn:hover{opacity:.9}
+    .rtp-dbtn-sm{padding:6px 14px;font-size:11px;background:var(--c10);color:var(--c2);border:1px solid var(--c8);border-radius:5px;cursor:pointer;font-family:inherit;white-space:nowrap}
+    .rtp-dbtn-sm:hover{background:var(--c8)}
+    .rtp-dbtn-green{background:linear-gradient(135deg,#166534,#16a34a)}
+    .rtp-dinfo{background:var(--c10);border:1px solid var(--c8);border-radius:8px;padding:12px 14px;font-size:11px;color:var(--c2);line-height:1.6}
+    .rtp-dinfo code{background:var(--c8);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:10px}
+    .rtp-dmsg{font-size:11px;padding:7px 12px;border-radius:5px;display:none;margin-top:8px}
+    .rtp-dmsg.ok{background:#f0fdf4;border:1px solid #86efac;color:#166534}
+    .rtp-dmsg.err{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b}
+    .rtp-endpoint-box{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:#60a5fa;word-break:break-all;margin:8px 0}
+    .rtp-fw-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+    .rtp-fw-btn{padding:5px 14px;border:1px solid var(--c8);border-radius:20px;font-size:11px;font-weight:600;color:var(--c2);cursor:pointer;background:var(--c11);transition:all .15s;font-family:inherit}
+    .rtp-fw-btn:hover,.rtp-fw-btn.sel{background:#2563eb;border-color:#2563eb;color:#fff}
+    .rtp-snippet-box{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;font-family:monospace;font-size:11px;color:#e2e8f0;white-space:pre;overflow-x:auto;max-height:360px;overflow-y:auto;line-height:1.5}
+    .rtp-apikey-box{display:flex;gap:8px;align-items:center;background:var(--c10);border:1px solid var(--c8);border-radius:6px;padding:9px 12px;font-family:monospace;font-size:12px;color:var(--c1)}
+    .rtp-apikey-val{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .rtp-steps{counter-reset:step;display:flex;flex-direction:column;gap:10px}
+    .rtp-step{display:flex;gap:12px;align-items:flex-start;font-size:12px;color:var(--c2);line-height:1.6}
+    .rtp-step-num{width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  </style>
+  <div class="rtp-deploy">
+    <div class="rtp-deploy-inner">
+      <div class="rtp-deploy-hdr">
+        <div>
+          <div class="rtp-deploy-title">Deploy Runtime Protection to Your Application</div>
+          <div class="rtp-deploy-sub">Three ways to protect your own site or API — choose the method that fits your stack.</div>
+        </div>
+        <div class="rtp-deploy-badge">New</div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="rtp-dtabs">
+        <div class="rtp-dtab active" onclick="rtpDeploy('proxy',this)">Reverse Proxy</div>
+        <div class="rtp-dtab" onclick="rtpDeploy('snippet',this)">Embed Snippet</div>
+        <div class="rtp-dtab" onclick="rtpDeploy('api',this)">External API</div>
+      </div>
+
+      <!-- Panel: Reverse Proxy -->
+      <div class="rtp-dpanel active" id="rtp-dp-proxy">
+        <div class="rtp-dinfo" style="margin-bottom:16px">
+          <strong>How it works:</strong> Point your site's DNS or Nginx upstream to this CF_AI server.
+          All traffic passes through the WAF before reaching your origin server — zero code changes needed.
+          CF_AI proxies the clean request to your origin and returns the response to the user.
+        </div>
+        <div class="rtp-dfield">
+          <div class="rtp-dlbl">Your origin server URL</div>
+          <div class="rtp-drow">
+            <input class="rtp-dinp" id="rtp-proxy-origin" type="url" placeholder="https://your-site.com" style="flex:1">
+            <button class="rtp-dbtn" onclick="rtpSaveProxy()">Save &amp; Enable</button>
+            <button class="rtp-dbtn-sm" onclick="rtpDisableProxy()">Disable</button>
+          </div>
+          <div class="rtp-dmsg" id="rtp-proxy-msg"></div>
+        </div>
+        <div id="rtp-proxy-active-section" style="display:none">
+          <div class="rtp-dlbl" style="margin-top:4px">Your WAF Proxy Endpoint (send traffic here)</div>
+          <div class="rtp-endpoint-box" id="rtp-proxy-endpoint"></div>
+          <div class="rtp-dlbl">Nginx upstream config</div>
+          <div class="rtp-snippet-box" id="rtp-nginx-snippet"></div>
+          <button class="rtp-dbtn-sm" style="margin-top:8px" onclick="rtpCopy('rtp-nginx-snippet')">Copy Nginx Config</button>
+        </div>
+        <div class="rtp-steps" style="margin-top:16px">
+          <div class="rtp-step"><div class="rtp-step-num">1</div><span>Enter your origin server URL above and click <strong>Save &amp; Enable</strong>.</span></div>
+          <div class="rtp-step"><div class="rtp-step-num">2</div><span>Point your domain's DNS A record or Nginx upstream to this CF_AI server.</span></div>
+          <div class="rtp-step"><div class="rtp-step-num">3</div><span>All incoming traffic is WAF-filtered before reaching your origin — blocked events appear in the log above.</span></div>
+        </div>
+      </div>
+
+      <!-- Panel: Embed Snippet -->
+      <div class="rtp-dpanel" id="rtp-dp-snippet">
+        <div class="rtp-dinfo" style="margin-bottom:14px">
+          <strong>Self-contained middleware</strong> — copy and paste into your application. No external dependencies.
+          Uses the same attack detection patterns as this dashboard. Works entirely offline.
+        </div>
+        <div class="rtp-dlbl">Select your framework</div>
+        <div class="rtp-fw-grid">
+          <button class="rtp-fw-btn sel" onclick="rtpSelectFw('flask',this)">Flask</button>
+          <button class="rtp-fw-btn" onclick="rtpSelectFw('django',this)">Django</button>
+          <button class="rtp-fw-btn" onclick="rtpSelectFw('fastapi',this)">FastAPI</button>
+          <button class="rtp-fw-btn" onclick="rtpSelectFw('express',this)">Express (Node.js)</button>
+          <button class="rtp-fw-btn" onclick="rtpSelectFw('php',this)">PHP</button>
+          <button class="rtp-fw-btn" onclick="rtpSelectFw('laravel',this)">Laravel</button>
+          <button class="rtp-fw-btn" onclick="rtpSelectFw('wordpress',this)">WordPress</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="rtp-dlbl" style="margin:0">Generated snippet</div>
+          <button class="rtp-dbtn-sm" onclick="rtpCopy('rtp-snippet-code')">Copy Code</button>
+        </div>
+        <div class="rtp-snippet-box" id="rtp-snippet-code">Loading…</div>
+      </div>
+
+      <!-- Panel: External API -->
+      <div class="rtp-dpanel" id="rtp-dp-api">
+        <div class="rtp-dinfo" style="margin-bottom:14px">
+          <strong>Any language, any framework.</strong> Your app sends a quick POST to this server before processing each request.
+          CF_AI checks the payload against all active WAF rules and returns <code>{{"blocked": true/false}}</code>.
+          Events are logged in the blocked-requests feed above.
+        </div>
+        <div class="rtp-dfield">
+          <div class="rtp-dlbl">API Key</div>
+          <div class="rtp-apikey-box">
+            <div class="rtp-apikey-val" id="rtp-apikey-display">— not generated —</div>
+            <button class="rtp-dbtn-sm" onclick="rtpGenApiKey()">Generate New Key</button>
+            <button class="rtp-dbtn-sm" onclick="rtpCopy('rtp-apikey-display')">Copy</button>
+          </div>
+          <div class="rtp-dmsg" id="rtp-apikey-msg"></div>
+        </div>
+        <div class="rtp-dfield">
+          <div class="rtp-dlbl">Check endpoint</div>
+          <div class="rtp-endpoint-box" id="rtp-api-endpoint"></div>
+        </div>
+        <div class="rtp-dlbl">Example (Python requests)</div>
+        <div class="rtp-snippet-box" id="rtp-api-snippet"></div>
+        <button class="rtp-dbtn-sm" style="margin-top:8px" onclick="rtpCopy('rtp-api-snippet')">Copy Example</button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Feature info cards -->
   <div class="rtp-feat-row">
     <div class="rtp-feat-card">
@@ -23292,6 +23430,8 @@ function rtpLoad() {
       _rtpApplyCfg(cfg);
       rtpRefreshStats();
       rtpLoadAlertsCfg();
+      rtpDeployLoadProxy();
+      rtpLoadSnippet('flask');
     })
     .catch(function() {
       try {
@@ -23584,6 +23724,193 @@ function _rtpStartAutoRefresh() {
       _rtpStatsTimer = null;
     }
   }, 30000);
+}
+
+// ── Deploy section ────────────────────────────────────────────────────────────
+var _rtpCurFw = 'flask';
+
+function rtpDeploy(tab, el) {
+  document.querySelectorAll('.rtp-dtab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.rtp-dpanel').forEach(function(p){ p.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  var panel = document.getElementById('rtp-dp-' + tab);
+  if (panel) panel.classList.add('active');
+  if (tab === 'proxy')   rtpDeployLoadProxy();
+  if (tab === 'snippet') rtpLoadSnippet(_rtpCurFw);
+  if (tab === 'api')     rtpDeployLoadApi();
+}
+
+function rtpDeployLoadProxy() {
+  fetch('/api/rtp/proxy/config').then(function(r){ return r.json(); }).then(function(d){
+    var inp = document.getElementById('rtp-proxy-origin');
+    if (inp && d.proxy_origin) inp.value = d.proxy_origin;
+    _rtpUpdateProxySection(d.proxy_enabled, d.proxy_origin);
+  }).catch(function(){});
+}
+
+function _rtpUpdateProxySection(enabled, origin) {
+  var sec = document.getElementById('rtp-proxy-active-section');
+  if (!sec) return;
+  if (enabled && origin) {
+    sec.style.display = '';
+    var host = window.location.origin;
+    var ep   = host + '/rtp/proxy/';
+    var epEl = document.getElementById('rtp-proxy-endpoint');
+    if (epEl) epEl.textContent = ep;
+    var nginx = document.getElementById('rtp-nginx-snippet');
+    if (nginx) nginx.textContent =
+      '# Nginx — put this in your server {} block\n' +
+      '# Replace "your-domain.com" with your actual domain\n\n' +
+      'upstream cfai_waf {\n' +
+      '    server ' + window.location.host + ';\n' +
+      '}\n\n' +
+      'server {\n' +
+      '    listen 80;\n' +
+      '    server_name your-domain.com;\n\n' +
+      '    location / {\n' +
+      '        proxy_pass http://cfai_waf/rtp/proxy/;\n' +
+      '        proxy_set_header Host              $host;\n' +
+      '        proxy_set_header X-Real-IP         $remote_addr;\n' +
+      '        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;\n' +
+      '        proxy_set_header X-Forwarded-Proto $scheme;\n' +
+      '        proxy_read_timeout 30s;\n' +
+      '    }\n' +
+      '}\n';
+  } else {
+    sec.style.display = 'none';
+  }
+}
+
+function rtpSaveProxy() {
+  var origin = (document.getElementById('rtp-proxy-origin') || {}).value || '';
+  if (!origin) {
+    var m = document.getElementById('rtp-proxy-msg');
+    m.className = 'rtp-dmsg err'; m.textContent = 'Please enter your origin URL.'; m.style.display = '';
+    return;
+  }
+  fetch('/api/rtp/proxy/config', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({proxy_enabled: true, proxy_origin: origin})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    var m = document.getElementById('rtp-proxy-msg');
+    if (d.ok) {
+      m.className = 'rtp-dmsg ok'; m.textContent = 'Proxy enabled. Traffic to /rtp/proxy/ is now WAF-protected.';
+      _rtpUpdateProxySection(true, origin);
+    } else {
+      m.className = 'rtp-dmsg err'; m.textContent = d.error || 'Error saving.';
+    }
+    m.style.display = '';
+    setTimeout(function(){ m.style.display='none'; }, 5000);
+  }).catch(function(){
+    var m = document.getElementById('rtp-proxy-msg');
+    m.className='rtp-dmsg err'; m.textContent='Request failed.'; m.style.display='';
+  });
+}
+
+function rtpDisableProxy() {
+  fetch('/api/rtp/proxy/config', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({proxy_enabled: false})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok) {
+      _rtpUpdateProxySection(false, '');
+      var m = document.getElementById('rtp-proxy-msg');
+      m.className='rtp-dmsg ok'; m.textContent='Proxy disabled.'; m.style.display='';
+      setTimeout(function(){ m.style.display='none'; }, 3000);
+    }
+  }).catch(function(){});
+}
+
+function rtpSelectFw(fw, el) {
+  _rtpCurFw = fw;
+  document.querySelectorAll('.rtp-fw-btn').forEach(function(b){ b.classList.remove('sel'); });
+  if (el) el.classList.add('sel');
+  rtpLoadSnippet(fw);
+}
+
+function rtpLoadSnippet(fw) {
+  var box = document.getElementById('rtp-snippet-code');
+  if (!box) return;
+  box.textContent = 'Loading…';
+  fetch('/api/rtp/snippet?framework=' + encodeURIComponent(fw))
+    .then(function(r){ return r.text(); })
+    .then(function(t){ box.textContent = t; })
+    .catch(function(){ box.textContent = 'Failed to load snippet.'; });
+}
+
+function rtpDeployLoadApi() {
+  fetch('/api/rtp/proxy/config').then(function(r){ return r.json(); }).then(function(d){
+    var keyEl = document.getElementById('rtp-apikey-display');
+    if (keyEl) keyEl.textContent = d.has_api_key ? d.api_key : '— not generated —';
+    var ep = document.getElementById('rtp-api-endpoint');
+    if (ep) ep.textContent = window.location.origin + '/api/rtp/check';
+    _rtpUpdateApiSnippet(d.has_api_key ? d.api_key : '<YOUR_API_KEY>');
+  }).catch(function(){});
+}
+
+function _rtpUpdateApiSnippet(key) {
+  var box = document.getElementById('rtp-api-snippet');
+  if (!box) return;
+  var host = window.location.origin;
+  box.textContent =
+    'import requests\n\n' +
+    'WAF_URL = "' + host + '/api/rtp/check"\n' +
+    'WAF_KEY = "' + key + '"  # keep this secret\n\n' +
+    'def waf_check(ip, ua, path, params=None, body=""):\n' +
+    '    resp = requests.post(WAF_URL, json={\n' +
+    '        "api_key": WAF_KEY,\n' +
+    '        "ip":      ip,\n' +
+    '        "ua":      ua,\n' +
+    '        "path":    path,\n' +
+    '        "params":  params or {},\n' +
+    '        "body":    body,\n' +
+    '    }, timeout=2)\n' +
+    '    result = resp.json()\n' +
+    '    return result.get("blocked", False), result.get("rule")\n\n' +
+    '# Example usage in a Flask route:\n' +
+    '# blocked, rule = waf_check(request.remote_addr, request.user_agent.string,\n' +
+    '#                            request.path, dict(request.args), request.get_data(as_text=True))\n' +
+    '# if blocked:\n' +
+    '#     return {"error": "blocked", "rule": rule}, 403\n';
+}
+
+function rtpGenApiKey() {
+  fetch('/api/rtp/apikey', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var m = document.getElementById('rtp-apikey-msg');
+      if (d.ok && d.api_key) {
+        var keyEl = document.getElementById('rtp-apikey-display');
+        if (keyEl) keyEl.textContent = d.api_key;
+        _rtpUpdateApiSnippet(d.api_key);
+        m.className='rtp-dmsg ok'; m.textContent='New API key generated — save it somewhere safe.'; m.style.display='';
+        setTimeout(function(){ m.style.display='none'; }, 5000);
+      } else {
+        m.className='rtp-dmsg err'; m.textContent=d.error||'Error.'; m.style.display='';
+      }
+    }).catch(function(){
+      var m = document.getElementById('rtp-apikey-msg');
+      m.className='rtp-dmsg err'; m.textContent='Request failed.'; m.style.display='';
+    });
+}
+
+function rtpCopy(elId) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  var text = el.textContent || el.innerText || '';
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function(){
+      var orig = el.style.outline;
+      el.style.outline = '2px solid #22c55e';
+      setTimeout(function(){ el.style.outline = orig; }, 1000);
+    }).catch(function(){});
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
