@@ -16684,7 +16684,7 @@ waf_protect();
     fw = framework if framework in snippets else 'flask'
     code = snippets[fw]
     return Response(code, content_type='text/plain; charset=utf-8',
-                    headers={{'Content-Disposition': f'inline; filename="waf_{fw}.snippet"'}})
+                    headers={'Content-Disposition': f'inline; filename="waf_{fw}.snippet"'})
 
 
 # ── RTP Proxy config API ──────────────────────────────────────────────────────
@@ -16693,25 +16693,25 @@ waf_protect();
 def rtp_proxy_config_get():
     with _rtp_config_lock:
         cfg = dict(_rtp_config)
-    return jsonify({{
+    return jsonify({
         'proxy_enabled': cfg.get('proxy_enabled', False),
         'proxy_origin':  cfg.get('proxy_origin', ''),
         'api_key':       '••••' + cfg.get('api_key', '')[-4:] if cfg.get('api_key') else '',
         'has_api_key':   bool(cfg.get('api_key')),
-    }})
+    })
 
 
 @app.route('/api/rtp/proxy/config', methods=['POST'])
 @_admin_required
 def rtp_proxy_config_save():
-    data = request.get_json(silent=True) or {{}}
+    data = request.get_json(silent=True) or {}
     with _rtp_config_lock:
         if 'proxy_enabled' in data:
             _rtp_config['proxy_enabled'] = bool(data['proxy_enabled'])
         if 'proxy_origin' in data:
             _rtp_config['proxy_origin'] = str(data['proxy_origin']).strip().rstrip('/')
         _rtp_persist(dict(_rtp_config))
-    return jsonify({{'ok': True}})
+    return jsonify({'ok': True})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
