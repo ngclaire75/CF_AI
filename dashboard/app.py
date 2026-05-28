@@ -1790,26 +1790,25 @@ def login_page():
         identifier = (request.form.get('username') or '').strip()
         password   = request.form.get('password') or ''
         id_lower   = identifier.lower()
-        # Only the default admin and demo account may log in with a plain username.
-        # All other accounts must use their @gmail.com address.
-        _plain_allowed = {_DEFAULT_ADMIN.lower(), _DEMO_ACCOUNT.lower(), _AUDIT_ACCOUNT.lower()}
-        if id_lower not in _plain_allowed and not id_lower.endswith('@gmail.com'):
+        # Admin-assigned accounts (plain usernames already in the DB) may log in
+        # without a Gmail address. Self-registered accounts always use @gmail.com.
+        users     = _load_users()
+        key, user = _find_user_by_identifier(identifier, users)
+        if not id_lower.endswith('@gmail.com') and user is None:
+            # Not a Gmail address and no matching account — reject with Gmail hint
             error       = 'Please sign in using your Gmail address (@gmail.com).'
             signup_hint = True
+        elif user is None:
+            error       = 'No account found with that address.'
+            signup_hint = True
+        elif not check_password_hash(user['password'], password):
+            error = 'Incorrect password.'
+        elif not user.get('verified', True):
+            error = 'Please verify your email before logging in. Check your inbox for the verification link.'
         else:
-            users      = _load_users()
-            key, user  = _find_user_by_identifier(identifier, users)
-            if user is None:
-                error       = 'No account found with that Gmail address.'
-                signup_hint = True
-            elif not check_password_hash(user['password'], password):
-                error = 'Incorrect password.'
-            elif not user.get('verified', True):
-                error = 'Please verify your email before logging in. Check your inbox for the verification link.'
-            else:
-                session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', ''),
-                                   'country': user.get('country', ''), 'currency_code': user.get('currency_code', 'USD')}
-                return redirect(url_for('app_dashboard'))
+            session['user'] = {'username': key, 'role': user['role'], 'email': user.get('email', ''),
+                               'country': user.get('country', ''), 'currency_code': user.get('currency_code', 'USD')}
+            return redirect(url_for('app_dashboard'))
     return render_template('login.html', error=error, signup_hint=signup_hint,
                            success='Account verified! You can now sign in.' if success else None)
 
