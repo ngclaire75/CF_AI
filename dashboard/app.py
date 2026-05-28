@@ -951,6 +951,9 @@ _DEFAULT_ADMIN_PASS = 'admin123'
 _DEMO_ACCOUNT = 'demo'
 _DEMO_ACCOUNT_PASS = 'demo123'
 
+_AUDIT_ACCOUNT = 'auditcheck'
+_AUDIT_ACCOUNT_PASS = 'auditing101'
+
 _DEFAULT_USER_PAGES = [
     'chatbot', 'gsc', 'filescan', 'agents', 'dashboard', 'threatanalytics',
     'incidents', 'syslog', 'pluginlogs', 'logexplorer', 'network',
@@ -1177,6 +1180,14 @@ def _load_users() -> dict:
     if _DEMO_ACCOUNT not in users:
         users[_DEMO_ACCOUNT] = {
             'password': generate_password_hash(_DEMO_ACCOUNT_PASS),
+            'role': 'user', 'email': '', 'verified': True, 'verification_token': None,
+            'allowed_pages': _DEFAULT_USER_PAGES[:], 'plan': 'basic', 'ai_credits': 0,
+        }
+        changed = True
+    # Ensure audit account always exists
+    if _AUDIT_ACCOUNT not in users:
+        users[_AUDIT_ACCOUNT] = {
+            'password': generate_password_hash(_AUDIT_ACCOUNT_PASS),
             'role': 'user', 'email': '', 'verified': True, 'verification_token': None,
             'allowed_pages': _DEFAULT_USER_PAGES[:], 'plan': 'basic', 'ai_credits': 0,
         }
@@ -1781,7 +1792,7 @@ def login_page():
         id_lower   = identifier.lower()
         # Only the default admin and demo account may log in with a plain username.
         # All other accounts must use their @gmail.com address.
-        _plain_allowed = {_DEFAULT_ADMIN.lower(), _DEMO_ACCOUNT.lower()}
+        _plain_allowed = {_DEFAULT_ADMIN.lower(), _DEMO_ACCOUNT.lower(), _AUDIT_ACCOUNT.lower()}
         if id_lower not in _plain_allowed and not id_lower.endswith('@gmail.com'):
             error       = 'Please sign in using your Gmail address (@gmail.com).'
             signup_hint = True
