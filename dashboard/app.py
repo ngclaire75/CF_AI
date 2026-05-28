@@ -1376,6 +1376,11 @@ def _enforce_auth():
     u = session['user']
     if request.path.startswith('/api/admin/') and u.get('role') != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
+    # Runtime Protection and Malware Detection are admin-only.
+    # /api/rtp/check is the external WAF check endpoint — authenticated by api_key, not session.
+    _rtp_mld = request.path.startswith('/api/rtp/') or request.path.startswith('/api/mld/')
+    if _rtp_mld and request.path != '/api/rtp/check' and u.get('role') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RUNTIME PROTECTION — WAF middleware

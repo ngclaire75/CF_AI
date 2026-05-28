@@ -2028,12 +2028,14 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
     <button class="sb-item" id="sb-grc" onclick="sbNav('grc',this)">
       <span class="sb-label">Risk Management & Audit Control</span>
     </button>
+    {% if current_user.role == 'admin' %}
     <button class="sb-item" id="sb-rtp" onclick="sbNav('rtp',this)">
       <span class="sb-label">Runtime Protection</span>
     </button>
     <button class="sb-item" id="sb-mld" onclick="sbNav('mld',this)">
       <span class="sb-label">Malware Detection</span>
     </button>
+    {% endif %}
 
     {% if current_user.role == 'admin' %}
     <div class="sb-divider"></div>
@@ -4026,6 +4028,7 @@ Export Power BI
 
   </div><!-- /page-dca -->
 
+  {% if current_user.role == 'admin' %}
   <!-- ══ RUNTIME PROTECTION PAGE ══════════════════════════════════════════════ -->
   <div id="page-rtp" class="page-section" style="display:none">
   <style>
@@ -4967,6 +4970,7 @@ Export Power BI
   </div>
 
   </div><!-- /page-mld -->
+  {% endif %}
 
   <!-- ══ SCAN HISTORY PAGE ══════════════════════════════════════════════════ -->
   <div id="page-history" class="page-section" style="display:none">
