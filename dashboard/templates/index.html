@@ -10589,18 +10589,42 @@ function _mvdRenderEvents(scans) {
   }).join('');
 }
 
+/* Shared secure-score category definitions */
+var _SS_CATS = [
+  {id:'ssl',  max:25, atype:/cryp/i,
+   bad:/WEAK.*TLS|TLS.*1\.0.*WEAK|RC4|NULL\s+cipher|EXPORT.*cipher|no.*https|SSL.*2\.0|CERT.*EXPIRED|CERT.*INVALID/i},
+  {id:'hdr',  max:25, atype:/info|recon/i,
+   bad:/\|\s*(High|Medium)\s*\|.*[Hh]eader|\|\s*(High|Medium)\s*\|.*[Cc][Ss][Pp]|missing.*hsts|missing.*x-frame|missing.*csp/i},
+  {id:'auth', max:25, atype:/athn/i,
+   bad:/CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:|APP_PASS_CREATED|default.*(password|credential)|brute.*force.*success/i},
+  {id:'cms',  max:25, atype:/wpcms|cms/i,
+   bad:/EXPOSED_FILE.*wp-config|WP-USER-CONFIRMED|WP-LOG.*HIGH|CREDS_FOUND_XMLRPC|CREDS_FOUND_FORM|wp.*plugin.*vulnerable/i},
+];
+
+/* Returns the 0–100 secure score for a given array of scans (pure, no DOM side-effects) */
+function _mvdCalcSecScoreVal(scans) {
+  if (!scans || !scans.length) return 0;
+  var total = 0;
+  _SS_CATS.forEach(function(cat) {
+    var typed  = scans.filter(function(s){ return cat.atype.test(s.agent_type||''); });
+    var badAll = scans.filter(function(s){ return cat.bad.test(s.output||''); }).length;
+    var pts;
+    if (typed.length) {
+      var badTyped = typed.filter(function(s){ return cat.bad.test(s.output||''); }).length;
+      pts = Math.round(cat.max * (1 - Math.min(1, badTyped/typed.length)));
+    } else if (badAll > 0) {
+      pts = Math.round(cat.max * (1 - Math.min(1, badAll/scans.length)));
+    } else {
+      pts = Math.round(cat.max * 0.5);
+    }
+    total += pts;
+  });
+  return total;
+}
+
 function _mvdRenderSecScore(scans) {
   // Called with recent scans that have output text. Scores based on confirmed findings.
-  var CATS=[
-    {id:'ssl',  max:25, atype:/cryp/i,
-     bad:/WEAK.*TLS|TLS.*1\.0.*WEAK|RC4|NULL\s+cipher|EXPORT.*cipher|no.*https|SSL.*2\.0|CERT.*EXPIRED|CERT.*INVALID/i},
-    {id:'hdr',  max:25, atype:/info|recon/i,
-     bad:/\|\s*(High|Medium)\s*\|.*[Hh]eader|\|\s*(High|Medium)\s*\|.*[Cc][Ss][Pp]|missing.*hsts|missing.*x-frame|missing.*csp/i},
-    {id:'auth', max:25, atype:/athn/i,
-     bad:/CREDS_FOUND|FOUND_DB_USER:|FOUND_ENV_USER:|APP_PASS_CREATED|default.*(password|credential)|brute.*force.*success/i},
-    {id:'cms',  max:25, atype:/wpcms|cms/i,
-     bad:/EXPOSED_FILE.*wp-config|WP-USER-CONFIRMED|WP-LOG.*HIGH|CREDS_FOUND_XMLRPC|CREDS_FOUND_FORM|wp.*plugin.*vulnerable/i},
-  ];
+  var CATS = _SS_CATS;
   var pctEl=document.getElementById('mvd-sec-pct'), ptsEl=document.getElementById('mvd-pts-text');
   if (!scans || !scans.length) {
     if(pctEl) pctEl.textContent='—';
@@ -10686,10 +10710,8 @@ function _mvdRenderSparklines(scans) {
   if (!dates.length) return;
   var labels=dates.map(function(d){var dt=new Date(d);return (dt.getMonth()+1)+'/'+(dt.getDate());});
   var s1=dates.map(function(d){return _mvdCalcScore(byDate[d]);});
-  var s2=dates.map(function(d){
-    var arr=byDate[d];
-    return Math.round(arr.filter(function(s){return s.risk !== 'HIGH';}).length/arr.length*100);
-  });
+  /* FIX: use the same formula as the score panel — not just "% non-HIGH scans" */
+  var s2=dates.map(function(d){return _mvdCalcSecScoreVal(byDate[d]);});
   var sparkOpts={
     responsive:true,maintainAspectRatio:false,
     layout:{padding:{top:8,bottom:0,left:0,right:4}},
@@ -10710,6 +10732,21 @@ function _mvdRenderSparklines(scans) {
       options:sparkOpts
     });
   });
+
+  /* Also populate the optional add-on score history chart */
+  var addonCanvas = document.getElementById('addon-score-chart');
+  if (addonCanvas && window.Chart) {
+    if (window._mvdAddonScoreChart) { try{window._mvdAddonScoreChart.destroy();}catch(e){} }
+    window._mvdAddonScoreChart = new Chart(addonCanvas, {
+      type:'line',
+      data:{labels:labels,datasets:[{
+        data:s2,borderColor:'#22c55e',
+        backgroundColor:'rgba(34,197,94,0.08)',fill:true,
+        pointBackgroundColor:'#22c55e',pointBorderColor:'#fff',pointBorderWidth:1
+      }]},
+      options:sparkOpts
+    });
+  }
 }
 
 function _mvdRenderRemediation(incidents, scans) {
