@@ -14,28 +14,28 @@
 /* ── Reset ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-body{font-family:'Inter',system-ui,sans-serif;background:#08090e;color:#f2f2f7;line-height:1.6;overflow-x:hidden}
+body{font-family:'Inter',system-ui,sans-serif;background:#ffffff;color:#1a1f2e;line-height:1.6;overflow-x:hidden}
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 img{display:block;max-width:100%}
 
 /* ── Variables ── */
 :root{
-  --bg:       #08090e;
-  --bg1:      #0d0f17;
-  --bg2:      #12141f;
-  --bg3:      #1a1d2e;
-  --line:     rgba(255,255,255,.07);
-  --line2:    rgba(255,255,255,.12);
+  --bg:       #ffffff;
+  --bg1:      #f8f9fb;
+  --bg2:      #f1f3f6;
+  --bg3:      #e8ecf0;
+  --line:     rgba(0,0,0,.09);
+  --line2:    rgba(0,0,0,.14);
   --blue:     #2563eb;
   --blue-lt:  #3b82f6;
   --blue-glow:rgba(37,99,235,.35);
-  --text:     #f2f2f7;
-  --text2:    #aeaeb2;
-  --text3:    #6e6e73;
-  --green:    #30d158;
-  --orange:   #ff9f0a;
-  --red:      #ff453a;
+  --text:     #1a1f2e;
+  --text2:    #57606a;
+  --text3:    #8b949e;
+  --green:    #16a34a;
+  --orange:   #d97706;
+  --red:      #dc2626;
   --r:        12px;
   --r2:       20px;
 }
@@ -43,7 +43,7 @@ img{display:block;max-width:100%}
 /* ── Scrollbar ── */
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:#1c1c3a;border-radius:3px}
+::-webkit-scrollbar-thumb{background:#d0d7de;border-radius:3px}
 
 /* ── Scroll progress ── */
 #sp{position:fixed;top:0;left:0;height:2px;width:0;z-index:9999;
@@ -54,16 +54,12 @@ img{display:block;max-width:100%}
 .bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
 .bg-radial{position:absolute;border-radius:50%;pointer-events:none}
 .bg-r1{width:900px;height:900px;
-  background:radial-gradient(ellipse,rgba(37,99,235,.06) 0%,transparent 65%);
+  background:radial-gradient(ellipse,rgba(37,99,235,.04) 0%,transparent 65%);
   top:-300px;left:50%;transform:translateX(-50%)}
 .bg-r2{width:500px;height:500px;
-  background:radial-gradient(ellipse,rgba(37,99,235,.04) 0%,transparent 70%);
+  background:radial-gradient(ellipse,rgba(37,99,235,.03) 0%,transparent 70%);
   bottom:-100px;right:-100px}
-.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:
-    linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
-  background-size:72px 72px}
+.bg-grid{display:none}
 
 /* ── Animations ── */
 @keyframes fadeUp{
@@ -106,7 +102,7 @@ img{display:block;max-width:100%}
   transition:background .35s ease, border-color .35s ease
 }
 .nav.scrolled{
-  background:rgba(8,9,14,.82);
+  background:rgba(255,255,255,.92);
   backdrop-filter:blur(20px) saturate(160%);
   -webkit-backdrop-filter:blur(20px) saturate(160%);
   border-bottom:1px solid var(--line)
@@ -126,14 +122,14 @@ img{display:block;max-width:100%}
   padding:6px 12px;border-radius:8px;font-size:14px;font-weight:500;
   color:var(--text3);transition:color .2s ease, background .2s ease
 }
-.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.nav-links a:hover{color:var(--text);background:rgba(0,0,0,.05)}
 .nav-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .btn-ghost{
   padding:7px 18px;border-radius:8px;font-size:13px;font-weight:600;
   color:var(--text2);border:1px solid var(--line2);background:transparent;
   transition:all .2s ease
 }
-.btn-ghost:hover{color:var(--text);background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.2)}
+.btn-ghost:hover{color:var(--text);background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.15)}
 .btn-primary{
   padding:7px 20px;border-radius:8px;font-size:13px;font-weight:600;
   background:var(--blue);color:#fff;border:none;
@@ -157,13 +153,13 @@ img{display:block;max-width:100%}
 .hero-badge{
   display:inline-flex;align-items:center;gap:7px;
   background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.25);
-  color:#93c5fd;font-size:11px;font-weight:600;letter-spacing:.5px;
+  color:#344054;font-size:11px;font-weight:600;letter-spacing:.5px;
   text-transform:uppercase;padding:5px 14px;border-radius:100px;
   margin-bottom:32px;
   animation:fadeUp .7s cubic-bezier(.22,1,.36,1) both
 }
 .hero-badge-dot{
-  width:6px;height:6px;border-radius:50%;background:#60a5fa;
+  width:6px;height:6px;border-radius:50%;background:#16a34a;
   animation:pulse 2s ease infinite
 }
 .hero-title{
@@ -173,7 +169,7 @@ img{display:block;max-width:100%}
   animation:fadeUp .8s cubic-bezier(.22,1,.36,1) .08s both
 }
 .hero-title-accent{
-  background:linear-gradient(135deg,#60a5fa 0%,#3b82f6 50%,#818cf8 100%);
+  background:linear-gradient(135deg,#2563eb 0%,#4f46e5 50%,#7c3aed 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text
 }
 .hero-sub{
@@ -200,89 +196,16 @@ img{display:block;max-width:100%}
   box-shadow:0 12px 36px rgba(37,99,235,.45)
 }
 .btn-cta-secondary{
-  background:rgba(255,255,255,.07);color:var(--text);
+  background:rgba(0,0,0,.05);color:var(--text);
   border:1px solid var(--line2)
 }
-.btn-cta-secondary:hover{background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.2)}
+.btn-cta-secondary:hover{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.15)}
 
 .hero-note{
   font-size:12px;color:var(--text3);margin-top:14px;letter-spacing:.2px;
   animation:fadeUp .8s cubic-bezier(.22,1,.36,1) .32s both
 }
 
-/* ── Dashboard mockup ── */
-.mockup-wrap{
-  position:relative;z-index:1;
-  width:100%;max-width:1040px;margin:64px auto 0;
-  animation:fadeUp 1s cubic-bezier(.22,1,.36,1) .4s both
-}
-.mockup-glow{
-  position:absolute;bottom:-60px;left:50%;transform:translateX(-50%);
-  width:70%;height:80px;
-  background:radial-gradient(ellipse,rgba(37,99,235,.25) 0%,transparent 70%);
-  filter:blur(24px);pointer-events:none
-}
-.mockup-browser{
-  background:#0d1627;
-  border:1px solid rgba(37,99,235,.18);
-  border-radius:14px;overflow:hidden;
-  box-shadow:0 40px 100px rgba(0,0,0,.65), 0 0 0 1px rgba(37,99,235,.06)
-}
-.mockup-bar{
-  background:#111927;padding:11px 16px;
-  display:flex;align-items:center;gap:8px;
-  border-bottom:1px solid rgba(37,99,235,.1)
-}
-.m-dot{width:11px;height:11px;border-radius:50%}
-.m-dot.r{background:#ff453a}.m-dot.y{background:#ff9f0a}.m-dot.g{background:#30d158}
-.m-url{
-  flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
-  border-radius:6px;padding:4px 12px;font-size:11px;color:var(--text3);
-  margin:0 14px;font-weight:400
-}
-
-/* Slide tabs inside mockup */
-.slide-tabs{
-  display:flex;gap:0;border-bottom:1px solid rgba(37,99,235,.1);
-  background:#0d1525;overflow-x:auto;scrollbar-width:none
-}
-.slide-tabs::-webkit-scrollbar{display:none}
-.slide-tab{
-  padding:9px 18px;font-size:11px;font-weight:600;color:var(--text3);
-  background:transparent;border:none;border-bottom:2px solid transparent;
-  white-space:nowrap;transition:color .2s ease, border-color .2s ease
-}
-.slide-tab:hover{color:var(--text2)}
-.slide-tab.active{color:#60a5fa;border-bottom-color:#60a5fa;background:rgba(37,99,235,.04)}
-.slides-outer{overflow:hidden}
-.slides-track{display:flex;transition:transform .6s cubic-bezier(.4,0,.2,1)}
-.slide{min-width:100%;padding:20px;background:linear-gradient(180deg,#0a1527 0%,#060c17 100%)}
-
-/* Slide content */
-.slide-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(37,99,235,.1)}
-.slide-label{font-size:12px;font-weight:700;color:var(--text);letter-spacing:-.1px}
-.slide-live{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--green);letter-spacing:.3px}
-.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease infinite}
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-.kpi{background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.12);border-radius:9px;padding:12px 14px}
-.kpi-v{font-size:20px;font-weight:800;color:var(--text);line-height:1}
-.kpi-l{font-size:9px;color:var(--text3);margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:.3px}
-.kpi-d{font-size:10px;color:var(--green);margin-top:2px;font-weight:600}
-.chart-area{background:rgba(0,0,0,.28);border:1px solid rgba(37,99,235,.08);border-radius:9px;padding:14px;height:120px;display:flex;align-items:flex-end;gap:5px}
-.bar{flex:1;border-radius:3px 3px 0 0;background:rgba(37,99,235,.38);border:1px solid rgba(37,99,235,.3);transform-origin:bottom;animation:barIn .6s cubic-bezier(.22,1,.36,1) both}
-.bar.hi{background:rgba(37,99,235,.72);border-color:rgba(37,99,235,.6)}
-.evt-rows{display:flex;flex-direction:column;gap:1px;margin-top:2px}
-.evt-r{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;font-size:10px;color:var(--text2);border:1px solid transparent}
-.evt-r.sqli{background:rgba(255,69,58,.05);border-color:rgba(255,69,58,.1)}
-.evt-r.ok{background:rgba(48,209,88,.04);border-color:rgba(48,209,88,.08)}
-.evt-r.warn{background:rgba(255,159,10,.05);border-color:rgba(255,159,10,.1)}
-.etype{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;min-width:34px;text-align:center}
-.etype.sql{background:rgba(255,69,58,.12);color:#fca5a5}
-.etype.get{background:rgba(37,99,235,.12);color:#93c5fd}
-.etype.rate{background:rgba(255,159,10,.12);color:#fde68a}
-.epath{flex:1;font-family:'SF Mono','Courier New',monospace;font-size:9px;color:var(--text3)}
-.estatus{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700}
-.s2{background:rgba(48,209,88,.1);color:#86efac}.s4{background:rgba(255,69,58,.1);color:#fca5a5}
 
 /* ════════════════════════════════════════
    STATS BAR
@@ -308,7 +231,7 @@ img{display:block;max-width:100%}
 .section-center{text-align:center;max-width:640px;margin:0 auto}
 .eyebrow{
   display:inline-block;font-size:11px;font-weight:600;letter-spacing:.6px;
-  text-transform:uppercase;color:#60a5fa;
+  text-transform:uppercase;color:#2563eb;
   background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.2);
   padding:4px 12px;border-radius:100px;margin-bottom:16px
 }
@@ -321,7 +244,7 @@ img{display:block;max-width:100%}
   max-width:580px;margin:0 auto
 }
 .accent{
-  background:linear-gradient(135deg,#60a5fa,#818cf8);
+  background:linear-gradient(135deg,#2563eb,#7c3aed);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text
 }
 
@@ -441,7 +364,7 @@ img{display:block;max-width:100%}
   color:var(--text3);border:none;background:transparent;transition:all .2s ease
 }
 .ptoggle-btn.active{background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.35)}
-.pricing-tier{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#60a5fa;margin-bottom:8px}
+.pricing-tier{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#2563eb;margin-bottom:8px}
 .pricing-price{margin-bottom:4px}
 .pricing-price .cur{font-size:20px;font-weight:700;color:var(--text2);vertical-align:top;margin-top:10px;display:inline-block}
 .pricing-price .amount{font-size:56px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-3px}
@@ -453,7 +376,7 @@ img{display:block;max-width:100%}
   font-size:14px;color:var(--text2);line-height:1.5
 }
 .pfeat-dot{width:18px;height:18px;border-radius:50%;background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.25);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center}
-.pfeat-dot::after{content:'';display:block;width:6px;height:6px;border-radius:50%;background:#60a5fa}
+.pfeat-dot::after{content:'';display:block;width:6px;height:6px;border-radius:50%;background:#16a34a}
 .pricing-note{font-size:11px;color:var(--text3);margin-top:14px;line-height:1.5}
 
 /* ════════════════════════════════════════
@@ -468,7 +391,7 @@ img{display:block;max-width:100%}
   font-size:15px;font-weight:600;color:var(--text);
   transition:color .2s ease
 }
-.faq-q:hover{color:#60a5fa}
+.faq-q:hover{color:#1a1f2e}
 .faq-chevron{
   width:20px;height:20px;border-radius:50%;background:var(--bg2);
   border:1px solid var(--line2);flex-shrink:0;
@@ -482,7 +405,7 @@ img{display:block;max-width:100%}
   transition:border-color .2s ease
 }
 .faq-item.open .faq-chevron{transform:rotate(180deg);background:rgba(37,99,235,.15)}
-.faq-item.open .faq-chevron::after{border-color:#60a5fa}
+.faq-item.open .faq-chevron::after{border-color:#1f2328}
 .faq-a{
   max-height:0;overflow:hidden;
   transition:max-height .4s cubic-bezier(.4,0,.2,1), padding .3s ease
@@ -500,7 +423,7 @@ img{display:block;max-width:100%}
 .cta-glow{
   position:absolute;top:-100px;left:50%;transform:translateX(-50%);
   width:600px;height:400px;
-  background:radial-gradient(ellipse,rgba(37,99,235,.13) 0%,transparent 70%);
+  background:radial-gradient(ellipse,rgba(37,99,235,.07) 0%,transparent 70%);
   filter:blur(40px);pointer-events:none
 }
 .cta-box{
@@ -526,10 +449,10 @@ img{display:block;max-width:100%}
 }
 .btn-cta-lg.primary:hover{background:#1d4ed8;transform:translateY(-2px);box-shadow:0 12px 40px rgba(37,99,235,.5)}
 .btn-cta-lg.ghost{
-  background:rgba(255,255,255,.06);color:var(--text);
+  background:rgba(0,0,0,.05);color:var(--text);
   border:1px solid var(--line2)
 }
-.btn-cta-lg.ghost:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)}
+.btn-cta-lg.ghost:hover{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.15)}
 
 /* ════════════════════════════════════════
    FOOTER
@@ -615,7 +538,7 @@ footer{
   <div class="bg-radial bg-r1"></div>
   <div class="bg-radial bg-r2"></div>
 </div>
-<div class="bg-grid"></div>
+
 
 <!-- ══════════════════════════════════════
      NAV
@@ -661,128 +584,7 @@ footer{
   </div>
   <p class="hero-note">No credit card required &nbsp;·&nbsp; 14-day free trial &nbsp;·&nbsp; Cancel anytime</p>
 
-  <!-- Dashboard mockup -->
-  <div class="mockup-wrap" id="demo-section">
-    <div class="mockup-browser">
-      <div class="mockup-bar">
-        <div class="m-dot r"></div>
-        <div class="m-dot y"></div>
-        <div class="m-dot g"></div>
-        <div class="m-url">app.intelwebsecurity.com/dashboard</div>
-      </div>
-      <div class="slide-tabs" id="slideTabs">
-        <button class="slide-tab active" onclick="goSlide(0)">Dashboard</button>
-        <button class="slide-tab" onclick="goSlide(1)">Runtime Protection</button>
-        <button class="slide-tab" onclick="goSlide(2)">Malware Detection</button>
-        <button class="slide-tab" onclick="goSlide(3)">Threat Analytics</button>
-        <button class="slide-tab" onclick="goSlide(4)">Log Explorer</button>
-      </div>
-      <div class="slides-outer">
-        <div class="slides-track" id="slidesTrack">
-          <!-- Slide 0: Dashboard -->
-          <div class="slide">
-            <div class="slide-head">
-              <span class="slide-label">Security Overview</span>
-              <span class="slide-live"><span class="live-dot"></span> Live</span>
-            </div>
-            <div class="kpi-row">
-              <div class="kpi"><div class="kpi-v">2,847</div><div class="kpi-l">Threats Blocked</div><div class="kpi-d">+12% today</div></div>
-              <div class="kpi"><div class="kpi-v">99.8%</div><div class="kpi-l">Uptime</div><div class="kpi-d">Last 30 days</div></div>
-              <div class="kpi"><div class="kpi-v">14ms</div><div class="kpi-l">Avg Response</div><div class="kpi-d">-3ms vs last week</div></div>
-              <div class="kpi"><div class="kpi-v">0</div><div class="kpi-l">Critical Gaps</div><div class="kpi-d">All patched</div></div>
-            </div>
-            <div class="chart-area" style="margin-bottom:14px">
-              <div class="bar hi" style="height:72%;animation-delay:.05s"></div>
-              <div class="bar" style="height:45%;animation-delay:.1s"></div>
-              <div class="bar hi" style="height:88%;animation-delay:.15s"></div>
-              <div class="bar" style="height:55%;animation-delay:.2s"></div>
-              <div class="bar hi" style="height:92%;animation-delay:.25s"></div>
-              <div class="bar" style="height:38%;animation-delay:.3s"></div>
-              <div class="bar" style="height:65%;animation-delay:.35s"></div>
-              <div class="bar hi" style="height:80%;animation-delay:.4s"></div>
-              <div class="bar" style="height:50%;animation-delay:.45s"></div>
-              <div class="bar hi" style="height:75%;animation-delay:.5s"></div>
-              <div class="bar" style="height:42%;animation-delay:.55s"></div>
-              <div class="bar hi" style="height:95%;animation-delay:.6s"></div>
-            </div>
-          </div>
-          <!-- Slide 1: Runtime Protection -->
-          <div class="slide">
-            <div class="slide-head">
-              <span class="slide-label">Runtime Protection — Live Events</span>
-              <span class="slide-live"><span class="live-dot"></span> Active</span>
-            </div>
-            <div class="evt-rows">
-              <div class="evt-r sqli"><span class="etype sql">SQLi</span><span class="epath">/wp-login.php?user=admin&amp;pass=1 OR 1=1</span><span class="estatus s4">403</span></div>
-              <div class="evt-r ok"><span class="etype get">GET</span><span class="epath">/api/products?page=1&amp;limit=20</span><span class="estatus s2">200</span></div>
-              <div class="evt-r sqli"><span class="etype sql">SQLi</span><span class="epath">/search?q='; DROP TABLE users; --</span><span class="estatus s4">400</span></div>
-              <div class="evt-r warn"><span class="etype rate">RATE</span><span class="epath">185.220.101.x — 1200 req/min</span><span class="estatus s4">429</span></div>
-              <div class="evt-r ok"><span class="etype get">GET</span><span class="epath">/assets/main.css</span><span class="estatus s2">200</span></div>
-              <div class="evt-r sqli"><span class="etype sql">XSS</span><span class="epath">/comment?body=&lt;script&gt;alert(1)&lt;/script&gt;</span><span class="estatus s4">403</span></div>
-            </div>
-          </div>
-          <!-- Slide 2: Malware Detection -->
-          <div class="slide">
-            <div class="slide-head">
-              <span class="slide-label">Malware Detection — Scan Results</span>
-              <span class="slide-live"><span class="live-dot"></span> Clean</span>
-            </div>
-            <div class="kpi-row">
-              <div class="kpi"><div class="kpi-v">4,212</div><div class="kpi-l">Files Scanned</div></div>
-              <div class="kpi"><div class="kpi-v">0</div><div class="kpi-l">Threats Found</div><div class="kpi-d">All clear</div></div>
-              <div class="kpi"><div class="kpi-v">3</div><div class="kpi-l">Quarantined</div><div class="kpi-d">Last 30 days</div></div>
-              <div class="kpi"><div class="kpi-v">99.9%</div><div class="kpi-l">Accuracy</div></div>
-            </div>
-            <div class="evt-rows">
-              <div class="evt-r ok"><span class="etype get">SCAN</span><span class="epath">wp-content/plugins/woocommerce/includes/*.php — 234 files</span><span class="estatus s2">CLEAN</span></div>
-              <div class="evt-r ok"><span class="etype get">SCAN</span><span class="epath">wp-content/themes/astra/assets/*.js — 48 files</span><span class="estatus s2">CLEAN</span></div>
-              <div class="evt-r warn"><span class="etype rate">WARN</span><span class="epath">wp-content/uploads/2024/cache_cfg.php — obfuscated</span><span class="estatus s4">QUAR</span></div>
-            </div>
-          </div>
-          <!-- Slide 3: Threat Analytics -->
-          <div class="slide">
-            <div class="slide-head">
-              <span class="slide-label">Threat Analytics — 30 Day View</span>
-              <span class="slide-live"><span class="live-dot"></span> Updated</span>
-            </div>
-            <div class="kpi-row">
-              <div class="kpi"><div class="kpi-v">18,420</div><div class="kpi-l">Total Events</div><div class="kpi-d">+8% vs last month</div></div>
-              <div class="kpi"><div class="kpi-v">94</div><div class="kpi-l">Unique Attackers</div></div>
-              <div class="kpi"><div class="kpi-v">7</div><div class="kpi-l">Countries Blocked</div></div>
-              <div class="kpi"><div class="kpi-v">A+</div><div class="kpi-l">Security Grade</div><div class="kpi-d">Top 5%</div></div>
-            </div>
-            <div class="chart-area">
-              <div class="bar" style="height:40%;animation-delay:.05s"></div>
-              <div class="bar hi" style="height:65%;animation-delay:.1s"></div>
-              <div class="bar" style="height:35%;animation-delay:.15s"></div>
-              <div class="bar hi" style="height:82%;animation-delay:.2s"></div>
-              <div class="bar" style="height:48%;animation-delay:.25s"></div>
-              <div class="bar hi" style="height:90%;animation-delay:.3s"></div>
-              <div class="bar" style="height:55%;animation-delay:.35s"></div>
-              <div class="bar hi" style="height:78%;animation-delay:.4s"></div>
-              <div class="bar" style="height:43%;animation-delay:.45s"></div>
-              <div class="bar hi" style="height:70%;animation-delay:.5s"></div>
-            </div>
-          </div>
-          <!-- Slide 4: Log Explorer -->
-          <div class="slide">
-            <div class="slide-head">
-              <span class="slide-label">Log Explorer — HTTP Access Logs</span>
-              <span class="slide-live"><span class="live-dot"></span> Streaming</span>
-            </div>
-            <div class="evt-rows">
-              <div class="evt-r ok"><span style="font-family:monospace;font-size:9px;color:var(--text3);min-width:68px">14:22:01</span><span class="etype get">GET</span><span class="epath">/api/v1/users/me — Mozilla/5.0 Chrome</span><span class="estatus s2">200</span></div>
-              <div class="evt-r sqli"><span style="font-family:monospace;font-size:9px;color:var(--text3);min-width:68px">14:22:03</span><span class="etype sql">POST</span><span class="epath">/wp-login.php — Suspicious UA, blocked</span><span class="estatus s4">403</span></div>
-              <div class="evt-r ok"><span style="font-family:monospace;font-size:9px;color:var(--text3);min-width:68px">14:22:05</span><span class="etype get">GET</span><span class="epath">/shop/checkout — Googlebot/2.1</span><span class="estatus s2">200</span></div>
-              <div class="evt-r warn"><span style="font-family:monospace;font-size:9px;color:var(--text3);min-width:68px">14:22:07</span><span class="etype rate">PUT</span><span class="epath">/api/admin/settings — Unauthenticated</span><span class="estatus s4">401</span></div>
-              <div class="evt-r ok"><span style="font-family:monospace;font-size:9px;color:var(--text3);min-width:68px">14:22:09</span><span class="etype get">GET</span><span class="epath">/products?category=electronics&amp;sort=price</span><span class="estatus s2">200</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="mockup-glow"></div>
-  </div>
+
 </section>
 
 <!-- ══════════════════════════════════════
