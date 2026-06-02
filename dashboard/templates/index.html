@@ -2009,10 +2009,142 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 /* Secure-score ring value: keep blue accent */
 .ss-ring-val { color: #2563eb !important; }
 
-/* ── Section titles hidden — already shown in topbar ── */
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT — minimal, consistent gaps on every page
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Section titles are in the topbar — hide content-area headers */
 .sec-hd  { display: none !important; }
 .sec-sub { display: none !important; }
 .mvd-page-title { display: none !important; }
+
+/* Tight, consistent gap: below topbar = 6px, right of sidebar = 8px */
+.wrap { padding: 6px 8px 16px !important; max-width: none !important; }
+@media (max-width: 900px) { .wrap { padding: 6px 8px 16px !important; } }
+@media (max-width: 600px) { .wrap { padding: 4px 6px 12px !important; } }
+
+/* Remove bottom margin on section openers so cards sit tight */
+.mvd-filter-bar { padding-top: 6px !important; padding-bottom: 8px !important; }
+
+/* Full opacity on every content child */
+.page-content *, .card *, .kpi-card * { opacity: 1 !important; }
+input::placeholder, textarea::placeholder { opacity: 1 !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTONS — replace all blue text/bg on non-primary buttons
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Secondary buttons: neutral grey, dark text */
+.btn-secondary,
+.btn-topbar:not(.primary),
+.pt-btn:not(.pt-btn-primary),
+.pt2-btn:not(.pt2-btn-primary),
+.mdef-toolbar-btn:not(.primary),
+.pci-hdr-btn:not(.pciprimary),
+.gf-rec-dash,
+.sca-fix-btn,
+.tab-filter-btn,
+.mvd-improve-btn,
+.fix-tab:not(.active),
+.copy-btn { color: #24292f !important; background: #f6f8fa !important; border-color: #d0d7de !important; }
+
+.btn-secondary:hover,
+.btn-topbar:not(.primary):hover,
+.pt-btn:not(.pt-btn-primary):hover { background: #eaeef2 !important; }
+
+/* Secondary button active state (selected tab-like): keep distinct but not blue */
+.fix-tab.active { background: #24292f !important; color: #fff !important; border-color: #24292f !important; }
+.copy-btn:hover { background: #eaeef2 !important; }
+
+/* Primary / CTA buttons: keep blue (appropriate for call-to-action) */
+.btn-primary, .btn-topbar.primary,
+.pt-btn-primary, .pt2-btn-primary,
+.mdef-toolbar-btn.primary,
+.pci-hdr-btn.pciprimary,
+.btn-connect,
+.btn-cve { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+
+.btn-primary:hover, .btn-topbar.primary:hover,
+.pt-btn-primary:hover, .pt2-btn-primary:hover,
+.btn-connect:hover,
+.btn-cve:hover { background: #1d4ed8 !important; border-color: #1d4ed8 !important; }
+
+/* Danger buttons: red */
+.btn-danger { background: #dc2626 !important; color: #fff !important; border-color: #dc2626 !important; }
+.btn-danger:hover { background: #b91c1c !important; }
+
+/* Active tab pills and auth tabs */
+.pt-auth-tab:not(.active), .lang-btn:not(.active) { background: #f6f8fa !important; color: #24292f !important; border-color: #d0d7de !important; }
+.pt-auth-tab.active, .lang-btn.active { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+
+/* Agent toggle */
+.agent-toggle.on { background: #f0fdf4 !important; color: #15803d !important; border-color: #86efac !important; }
+
+/* Chat user bubble keeps blue (it's the user's own message — intentional) */
+.chat-msg.user .chat-bubble { background: #2563eb !important; color: #fff !important; }
+
+/* ── Severity colour icons on buttons/text ── */
+.sca-engine-badge { color: #24292f !important; background: #f6f8fa !important; border-color: #d0d7de !important; }
+.sca-hero-stat-num { color: #1f2328 !important; }
+.sca-subtitle { color: #57606a !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   SEVERITY BADGES — full semantic palette
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Critical → red */
+.sev-critical, td .status-critical, td .badge-crit,
+.sev-critical-bg, .badge-red, .badge-danger,
+.badge-crit, .badge-CRITICAL { background: #dc2626 !important; color: #fff !important; }
+
+/* High → orange */
+.sev-high, .sev-high-badge, .sev-high-bg,
+td .status-high, .badge-high, .badge-HIGH { background: #f97316 !important; color: #fff !important; }
+
+/* Medium → amber */
+.sev-medium, .sev-medium-bg, .badge-warning,
+.badge-amber, .badge-med, .badge-MEDIUM { background: #f59e0b !important; color: #fff !important; }
+
+/* Low → green */
+.sev-low, .sev-low-bg, .badge-success,
+.badge-green, .badge-low, .badge-LOW { background: #15803d !important; color: #fff !important; }
+
+/* Info → teal */
+.badge-info, .badge-INFO { background: #0ea5e9 !important; color: #fff !important; }
+
+/* Severity bar fills */
+.vsev-bar-fill.sev-critical { background: #dc2626 !important; }
+.vsev-bar-fill.sev-high     { background: #f97316 !important; }
+.vsev-bar-fill.sev-medium   { background: #f59e0b !important; }
+.vsev-bar-fill.sev-low      { background: #15803d !important; }
+
+/* PCI severity labels */
+.pci-sev-crit { background: #dc2626 !important; color: #fff !important; }
+.pci-sev-high { background: #f97316 !important; color: #fff !important; }
+.pci-sev-low  { background: #f0fdf4 !important; color: #15803d !important; border-color: #86efac !important; }
+.pci-bar-c  { background: #dc2626 !important; }
+.pci-bar-h  { background: #f97316 !important; }
+.pci-bar-m  { background: #f59e0b !important; }
+.pci-bar-l  { background: #15803d !important; }
+
+/* Pentest finding card severity borders */
+.pt2-finding-card.sev-critical { border-left-color: #dc2626 !important; }
+.pt2-finding-card.sev-high     { border-left-color: #f97316 !important; }
+.pt2-finding-card.sev-medium   { border-left-color: #f59e0b !important; }
+.pt2-finding-card.sev-low      { border-left-color: #15803d !important; }
+
+/* KPI top-border accent: use a subtle neutral instead of blue */
+.ta-kpi-item { border-top-color: #d0d7de !important; }
+
+/* Threat badge */
+.mvd-threat-badge { background: #f6f8fa !important; color: #1f2328 !important; }
+
+/* ── Misc remaining blue text → dark ── */
+.legal-highlight { color: #57606a !important; }
+.sca-vuln-name   { color: #1f2328 !important; }
+.rpt-sec h3      { color: #1f2328 !important; }
+.inc-expand-field label { color: #57606a !important; }
+.grc-score       { color: #2563eb !important; }
 
 /* ── ALL content text: black / dark grey, full opacity ── */
 .page-content *       { opacity: 1; }
