@@ -1908,97 +1908,319 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
   background:#f6f8fa; color:#24292f; border:1px solid #d0d7de;
   margin:3px 4px 3px 0; transition:background .15s;
 }
-.gf-rec-dash:hover { background:#dbeafe; }
+.gf-rec-dash:hover { background:#eaeef2; }
 
-/* ╔════════════════════════════════════════════════════════════════╗
-   ║  REDESIGN: DARK GREY SIDEBAR + CLEAN LIGHT MODE               ║
-   ╚════════════════════════════════════════════════════════════════╝ */
+/* ═══════════════════════════════════════════════════════════════════════
+   ENTERPRISE DESIGN SYSTEM v3
+   All CSS variables reset to neutral. --c4 stays blue for interactive only.
+   ═══════════════════════════════════════════════════════════════════════ */
 
-/* Override c1/c2 variables so var(--c1/--c2) renders as neutral */
+/* 1 ─ Reset ALL design-system variables to neutral palette */
 :root {
-  --c1: #1f2328;
-  --c2: #57606a;
-  --c9: #f1f5f9;
-  --c10: #f6f8fa;
-  --c12: #f5f7fa;
+  --c0:  #1a1f2e;   /* near-black text */
+  --c1:  #1f2328;   /* charcoal */
+  --c2:  #344054;   /* slate grey */
+  --c3:  #475467;   /* grey */
+  --c4:  #2563eb;   /* PRIMARY BLUE — interactive elements only */
+  --c5:  #57606a;   /* grey — label text */
+  --c6:  #6e7781;   /* grey — secondary text */
+  --c7:  #98a2b3;   /* light grey — muted */
+  --c8:  #d0d7de;   /* border grey */
+  --c9:  #f1f5f9;   /* very light grey */
+  --c10: #f6f8fa;   /* near-white bg */
+  --c11: #ffffff;   /* white */
+  --c12: #f5f7fa;   /* page bg */
 }
 
-/* ── Consistent short gap: below topbar and right of sidebar ── */
-.wrap {
-  padding: 14px 16px 24px !important;
+/* 2 ─ Page background */
+html, body    { background: #f5f7fa !important; }
+.page-content { background: #f5f7fa !important; }
+
+/* 3 ─ SIDEBAR — dark charcoal */
+.sidebar { background: #1c2128 !important; border-right: 1px solid #30363d !important; }
+.sb-brand { border-bottom-color: #30363d !important; }
+.sb-brand-text { color: #e6edf3 !important; }
+.sb-brand-tag { color: #7d8590 !important; }
+.sb-search-wrap { border-bottom-color: #30363d !important; }
+.sb-search-wrap input {
+  background: #161b22 !important; border-color: #30363d !important; color: #e6edf3 !important;
 }
+.sb-search-wrap input::placeholder { color: #7d8590 !important; opacity: 1 !important; }
+.sb-search-wrap input:focus { border-color: #4493f8 !important; }
+.sb-nav-label { color: #7d8590 !important; }
+.sb-item { color: #adbac7 !important; }
+.sb-item:hover { background: #22272e !important; color: #e6edf3 !important; }
+.sb-item.active {
+  background: #2d333b !important; color: #e6edf3 !important; border-left-color: #4493f8 !important;
+}
+.sb-badge { background: #316dca !important; color: #e6edf3 !important; }
+.sb-divider { background: #30363d !important; }
+.sb-footer { border-top-color: #30363d !important; color: #7d8590 !important; }
+.sb-nav::-webkit-scrollbar-thumb { background: #30363d !important; }
+.sb-pricing-btn {
+  background: #316dca !important; color: #e6edf3 !important; border-color: #316dca !important;
+}
+.sb-pricing-btn:hover { background: #388bfd !important; }
 
-/* ═══════════════════════════════════════════════════════════════
-   SEMANTIC COLOR FIXES
-   ─ Overrides earlier CSS that converted semantic colors to blue
-   ═══════════════════════════════════════════════════════════════ */
+/* 4 ─ TOPBAR */
+.topbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid #d0d7de !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05) !important;
+}
+.topbar-title { color: #1a1f2e !important; }
+.btn-collapse { color: #57606a !important; background: none !important; }
+.btn-collapse:hover { background: #f3f4f6 !important; color: #1a1f2e !important; }
+.topbar-ai-wrap { background: #f6f8fa !important; border-color: #d0d7de !important; }
+.topbar-ai-wrap input::placeholder { color: #8b949e !important; opacity: 1 !important; }
+.topbar-ai-label { color: #57606a !important; font-weight: 600 !important; }
+.btn-topbar { background: #f6f8fa !important; color: #24292f !important; border-color: #d0d7de !important; }
+.btn-topbar:hover { background: #eaeef2 !important; border-color: #b9c0c7 !important; color: #1a1f2e !important; }
+.btn-topbar.primary { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+.btn-topbar.primary:hover { background: #1d4ed8 !important; border-color: #1d4ed8 !important; }
 
-/* Loading spinner text: white on dark overlay */
+/* 5 ─ LIVE STATS BAR */
+#live-stats-bar {
+  background: #f0f6fc !important; border-bottom: 1px solid #d0d7de !important; color: #57606a !important;
+}
+#live-stats-bar strong { color: #1a1f2e !important; }
+
+/* 6 ─ LAYOUT — tight gaps, no section titles */
+.wrap { padding: 6px 8px 16px !important; max-width: none !important; }
+.sec-hd, .sec-sub, .mvd-page-title { display: none !important; }
+.mvd-filter-bar { padding-top: 6px !important; padding-bottom: 8px !important; }
+
+/* 7 ─ FULL OPACITY */
+.page-content *, .card *, .kpi-card * { opacity: 1 !important; }
+input::placeholder, textarea::placeholder { opacity: 1 !important; }
+
+/* 8 ─ LOADING SPINNER */
 .ink-spin-label { color: #ffffff !important; }
 
-/* Override --c5/--c6 so all remaining var(--c5/c6) text renders as neutral grey */
-:root {
-  --c5: #57606a;
-  --c6: #6e7781;
+/* 9 ─ CARDS */
+.card {
+  background: #ffffff !important; border-color: #d0d7de !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04) !important;
 }
+.card-hd {
+  color: #1a1f2e !important; border-bottom-color: #eaeef2 !important;
+  font-size: 12px !important; text-transform: uppercase !important; letter-spacing: .5px !important;
+}
+.kpi-card {
+  background: #ffffff !important; border-color: #d0d7de !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04) !important;
+}
+.kpi-label { color: #57606a !important; font-size: 11px !important; }
+.kpi-value { color: #1a1f2e !important; }
+.kpi-sub   { color: #8b949e !important; }
 
-/* ── Restore semantic status / badge colors ── */
-.badge-red, .badge-danger, .sev-critical-bg, .sev-high-bg {
-  background: #dc2626 !important; color: #fff !important;
+/* 10 ─ ENTERPRISE KPI STRIP */
+.ent-kpi { background: #ffffff !important; border-color: #d0d7de !important; }
+.ent-kpi-lbl { color: #57606a !important; }
+.ent-kpi-val { color: #1a1f2e !important; }
+
+/* 11 ─ TABLES */
+table.tbl th {
+  background: #f6f8fa !important; color: #1a1f2e !important; border-bottom-color: #d0d7de !important;
 }
-.badge-warning, .badge-amber, .sev-medium-bg {
-  background: #d97706 !important; color: #fff !important;
-}
-.badge-success, .badge-green, .sev-low-bg {
-  background: #15803d !important; color: #fff !important;
-}
+table.tbl td { border-bottom-color: #eaeef2 !important; color: #1a1f2e !important; }
+table.tbl tr:nth-child(odd) td { background: #f9fafb !important; }
+table.tbl tr:last-child td    { border-bottom: none !important; }
+table.tbl tbody tr:hover td   { background: #f0f6fc !important; }
+
+/* 12 ─ BADGES — semantic colors, full opacity */
+.badge-crit, .badge-CRITICAL, .sev-critical { background: #dc2626 !important; color: #fff !important; border-color: #b91c1c !important; }
+.badge-high, .badge-HIGH,     .sev-high     { background: #ea580c !important; color: #fff !important; border-color: #c2410c !important; }
+.badge-med,  .badge-MEDIUM,   .sev-medium   { background: #d97706 !important; color: #fff !important; border-color: #b45309 !important; }
+.badge-low,  .badge-LOW,      .sev-low      { background: #16a34a !important; color: #fff !important; border-color: #15803d !important; }
+.badge-info, .badge-INFO                    { background: #0891b2 !important; color: #fff !important; border-color: #0e7490 !important; }
+.badge-ok      { background: #f0fdf4 !important; color: #15803d !important; border: 1px solid #86efac !important; }
+.badge-blue    { background: #2563eb !important; color: #fff !important; }
+.badge-light   { background: #f6f8fa !important; color: #344054 !important; border: 1px solid #d0d7de !important; }
+.badge-red,  .badge-danger { background: #dc2626 !important; color: #fff !important; }
+.badge-warning, .badge-amber { background: #d97706 !important; color: #fff !important; }
+.badge-success, .badge-green { background: #16a34a !important; color: #fff !important; }
+.badge-yellow  { background: #fef9c3 !important; color: #92400e !important; border: 1px solid #fde68a !important; }
+
+/* 13 ─ SEVERITY class variants */
+.sev-critical-bg, .sev-high-bg { background: #dc2626 !important; color: #fff !important; }
+.sev-medium-bg { background: #d97706 !important; color: #fff !important; }
+.sev-low-bg    { background: #16a34a !important; color: #fff !important; }
+
+/* 14 ─ STATUS BADGES */
+.status-open          { background: #dc2626 !important; color: #fff !important; }
+.status-investigating { background: #d97706 !important; color: #fff !important; }
+.status-resolved      { background: #16a34a !important; color: #fff !important; }
+.status-pending       { background: #e5e7eb !important; color: #374151 !important; }
+.status-pass          { background: #dcfce7 !important; color: #15803d !important; }
+.status-fail          { background: #fee2e2 !important; color: #dc2626 !important; }
+.status-critical      { background: #dc2626 !important; color: #fff !important; }
+.status-high          { background: #ea580c !important; color: #fff !important; }
+.status-medium        { background: #d97706 !important; color: #fff !important; }
+.status-low           { background: #16a34a !important; color: #fff !important; }
+
+/* 15 ─ TEXT-COLOR SEMANTIC CLASSES */
 .text-danger, .text-red, .text-error { color: #dc2626 !important; }
 .text-success, .text-green           { color: #15803d !important; }
 .text-warning                        { color: #d97706 !important; }
 .text-muted, .text-secondary, .text-gray { color: #57606a !important; }
 
-/* ── Status badges: semantic colors ── */
-.status-open          { background: #dc2626 !important; color: #fff !important; }
-.status-investigating { background: #d97706 !important; color: #fff !important; }
-.status-resolved      { background: #15803d !important; color: #fff !important; }
-.status-pending       { background: #e5e7eb !important; color: #374151 !important; }
-.status-pass          { background: #dcfce7 !important; color: #15803d !important; }
-.status-fail          { background: #fee2e2 !important; color: #dc2626 !important; }
+/* 16 ─ SEVERITY BARS */
+.vsev-bar-fill.sev-critical, .pci-bar-c { background: #dc2626 !important; }
+.vsev-bar-fill.sev-high,     .pci-bar-h { background: #ea580c !important; }
+.vsev-bar-fill.sev-medium,   .pci-bar-m { background: #d97706 !important; }
+.vsev-bar-fill.sev-low,      .pci-bar-l { background: #16a34a !important; }
 
-/* ── Syslog level colors: semantic ── */
-.sl-level-error, .sl-level-err, .sl-level-crit { color: #dc2626 !important; }
-.sl-level-warn, .sl-level-warning              { color: #d97706 !important; }
-.sl-level-info                                 { color: #2563eb !important; }
-.sl-level-debug                                { color: #57606a !important; }
+/* 17 ─ PCI SEVERITY LABELS */
+.pci-sev-crit { background: #dc2626 !important; color: #fff !important; }
+.pci-sev-high { background: #ea580c !important; color: #fff !important; }
+.pci-sev-low  { background: #f0fdf4 !important; color: #15803d !important; border-color: #86efac !important; }
 
-/* ── UNDO the attribute-selector overrides that converted semantic colors to blue ── */
-[style*="color:#ef4444"], [style*="color: #ef4444"] { color: #ef4444 !important; }
-[style*="color:#dc2626"], [style*="color: #dc2626"] { color: #dc2626 !important; }
-[style*="color:#f97316"], [style*="color: #f97316"] { color: #f97316 !important; }
-[style*="color:#f59e0b"], [style*="color: #f59e0b"] { color: #f59e0b !important; }
-[style*="color:#22c55e"], [style*="color: #22c55e"] { color: #22c55e !important; }
-[style*="color:#15803d"], [style*="color: #15803d"] { color: #15803d !important; }
-[style*="color:#059669"], [style*="color: #059669"] { color: #059669 !important; }
-[style*="color:#166534"], [style*="color: #166534"] { color: #166534 !important; }
-[style*="color:#f6821f"], [style*="color: #f6821f"] { color: #f6821f !important; }
+/* 18 ─ PENTEST FINDING CARDS */
+.pt2-finding-card.sev-critical { border-left-color: #dc2626 !important; }
+.pt2-finding-card.sev-high     { border-left-color: #ea580c !important; }
+.pt2-finding-card.sev-medium   { border-left-color: #d97706 !important; }
+.pt2-finding-card.sev-low      { border-left-color: #16a34a !important; }
 
-/* ── UNDO background attribute-selector overrides ── */
-[style*="background:#fee2e2"]                { background: #fee2e2 !important; }
-[style*="background:#fef2f2"]                { background: #fef2f2 !important; }
-[style*="background:#fef9c3"]                { background: #fef9c3 !important; }
-[style*="background:#dcfce7"]                { background: #dcfce7 !important; }
-[style*="background:#f0fdf4"]                { background: #f0fdf4 !important; }
-[style*="background:#fff7ed"]                { background: #fff7ed !important; }
-[style*="background:#fef3c7"]                { background: #fef3c7 !important; }
+/* 19 ─ BUTTONS */
+.btn-primary, .btn-topbar.primary, .pt-btn-primary, .pt2-btn-primary,
+.mdef-toolbar-btn.primary, .pci-hdr-btn.pciprimary, .btn-connect, .btn-cve {
+  background: #2563eb !important; color: #fff !important; border-color: #2563eb !important;
+}
+.btn-primary:hover, .btn-topbar.primary:hover,
+.pt-btn-primary:hover, .pt2-btn-primary:hover,
+.btn-connect:hover, .btn-cve:hover {
+  background: #1d4ed8 !important; border-color: #1d4ed8 !important;
+}
+.btn-secondary, .btn-topbar:not(.primary), .pt-btn:not(.pt-btn-primary),
+.pt2-btn:not(.pt2-btn-primary), .mdef-toolbar-btn:not(.primary),
+.pci-hdr-btn:not(.pciprimary), .gf-rec-dash, .sca-fix-btn,
+.tab-filter-btn, .mvd-improve-btn, .copy-btn {
+  color: #24292f !important; background: #f6f8fa !important; border-color: #d0d7de !important;
+}
+.btn-secondary:hover, .btn-topbar:not(.primary):hover,
+.pt-btn:not(.pt-btn-primary):hover {
+  background: #eaeef2 !important; color: #1a1f2e !important;
+}
+.btn-danger       { background: #dc2626 !important; color: #fff !important; border-color: #dc2626 !important; }
+.btn-danger:hover { background: #b91c1c !important; }
+.fix-tab:not(.active) { background: #f6f8fa !important; color: #24292f !important; border-color: #d0d7de !important; }
+.fix-tab.active   { background: #24292f !important; color: #fff !important; border-color: #24292f !important; }
+.copy-btn:hover   { background: #eaeef2 !important; }
 
-/* ── UNDO border-left attribute-selector overrides ── */
-[style*="border-left:3px solid #ef4444"]  { border-left-color: #ef4444 !important; }
-[style*="border-left:3px solid #dc2626"]  { border-left-color: #dc2626 !important; }
-[style*="border-left:3px solid #f97316"]  { border-left-color: #f97316 !important; }
-[style*="border-left:4px solid #ef4444"]  { border-left-color: #ef4444 !important; }
-[style*="border-top:3px solid #ef4444"]   { border-top-color:  #ef4444 !important; }
+/* 20 ─ AUTH / LANG TABS */
+.pt-auth-tab:not(.active), .lang-btn:not(.active) {
+  background: #f6f8fa !important; color: #24292f !important; border-color: #d0d7de !important;
+}
+.pt-auth-tab.active, .lang-btn.active {
+  background: #2563eb !important; color: #fff !important; border-color: #2563eb !important;
+}
 
-/* ── Specific label classes still blue: override to dark grey ── */
+/* 21 ─ AGENT TOGGLE */
+.agent-toggle.on { background: #f0fdf4 !important; color: #15803d !important; border-color: #86efac !important; }
+
+/* 22 ─ TABS */
+.tabs, .sl-tabs, .obs-tabs, .le-tabs, .pt-detail-tabs, .pt2-tab-bar {
+  border-bottom-color: #d0d7de !important;
+}
+.tab-btn, .sl-tab, .pt-detail-tab, .obs-tab, .le-tab { color: #57606a !important; }
+.tab-btn:hover, .sl-tab:hover, .pt-detail-tab:hover,
+.obs-tab:hover, .le-tab:hover { color: #1a1f2e !important; }
+.tab-btn.active, .sl-tab.active, .pt-detail-tab.active,
+.obs-tab.active, .le-tab.active {
+  color: #2563eb !important; border-bottom-color: #2563eb !important;
+}
+
+/* 23 ─ INPUTS */
+.inp, input[type=text].inp, input[type=password].inp,
+input[type=email].inp, input[type=number].inp,
+input[type=date].inp, textarea.inp, select.inp {
+  background: #ffffff !important; border-color: #d0d7de !important; color: #1a1f2e !important;
+}
+.inp:focus, textarea.inp:focus, select.inp:focus { border-color: #2563eb !important; }
+label.lbl { color: #57606a !important; }
+.mvd-filter-bar select {
+  background: #ffffff !important; border-color: #d0d7de !important; color: #1a1f2e !important;
+}
+input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 1 !important; }
+.sb-search-wrap input::placeholder { color: #7d8590 !important; opacity: 1 !important; }
+
+/* 24 ─ PROGRESS BARS */
+.pbar-track { background: #e7edf3 !important; }
+.pbar-fill  { background: #2563eb !important; }
+
+/* 25 ─ MODALS */
+.modal-bg   { background: rgba(0,0,0,.45) !important; }
+.modal-box  { background: #ffffff !important; border-color: #d0d7de !important; }
+.modal-hd   { border-bottom-color: #eaeef2 !important; }
+.modal-title  { color: #1a1f2e !important; }
+.modal-sub    { color: #57606a !important; }
+.modal-close  { color: #57606a !important; }
+
+/* 26 ─ CHAT */
+.chat-history { background: #f6f8fa !important; border-color: #d0d7de !important; }
+.chat-msg.bot .chat-bubble {
+  background: #ffffff !important; border-color: #d0d7de !important; color: #1a1f2e !important;
+}
+.chat-msg.user .chat-bubble { background: #2563eb !important; color: #fff !important; }
+.chat-input-bar { background: #ffffff !important; border-color: #d0d7de !important; }
+.chat-input-bar input { border-color: #d0d7de !important; color: #1a1f2e !important; }
+.chat-meta { color: #57606a !important; }
+
+/* 27 ─ SYSLOG TERMINAL */
+.sl-log-wrap    { background: #161b22 !important; border-color: #30363d !important; }
+.sl-log-toolbar { background: #1c2128 !important; border-bottom-color: #30363d !important; }
+.sl-log-body    { color: #adbac7 !important; }
+.sl-level-error, .sl-level-err, .sl-level-crit { color: #f87171 !important; font-weight: 700 !important; }
+.sl-level-warn, .sl-level-warning              { color: #fbbf24 !important; font-weight: 700 !important; }
+.sl-level-info                                 { color: #60a5fa !important; }
+.sl-level-debug                                { color: #8b949e !important; }
+
+/* 28 ─ NETWORK / MAP */
+#worldmap         { border-color: #d0d7de !important; }
+#network-topology { background: #ffffff !important; border-color: #d0d7de !important; }
+
+/* 29 ─ GRC / AGENT / PRICING CARDS */
+.grc-card, .agent-card, .pricing-card { background: #ffffff !important; border-color: #d0d7de !important; }
+.pricing-card.featured { border-color: #2563eb !important; }
+.grc-fw-name, .agent-name { color: #1a1f2e !important; }
+.agent-desc    { color: #57606a !important; }
+.grc-score     { color: #2563eb !important; }
+
+/* 30 ─ THREAT ANALYTICS HEADER */
+.ta-header { background: #1c2128 !important; color: #e6edf3 !important; border: none !important; }
+.ta-sub    { color: #adbac7 !important; }
+
+/* 31 ─ SCROLLBARS */
+.page-content::-webkit-scrollbar-thumb { background: #d0d7de !important; }
+.pt2-list-body::-webkit-scrollbar-track,
+.pt2-list-scroll::-webkit-scrollbar-track { background: #f6f8fa !important; }
+.pt2-list-body::-webkit-scrollbar-thumb,
+.pt2-list-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #57606a, #3d444d) !important;
+  border-color: #f6f8fa !important;
+}
+
+/* 32 ─ SECURE SCORE */
+.ss-score-circle { background: #ffffff !important; border-color: #d0d7de !important; }
+.ss-ring-val     { color: #2563eb !important; }
+
+/* 33 ─ LEGAL */
+.legal-section h2     { border-bottom-color: #eaeef2 !important; color: #1a1f2e !important; }
+.legal-section h3     { color: #57606a !important; }
+.legal-section p      { color: #1a1f2e !important; }
+.legal-section ul     { color: #1a1f2e !important; }
+.legal-table th       { background: #f6f8fa !important; border-color: #d0d7de !important; color: #1a1f2e !important; }
+.legal-table td       { border-color: #d0d7de !important; }
+.legal-table tr:nth-child(even) td { background: #f9fafb !important; }
+.legal-highlight      { background: #f0f6fc !important; border-color: #bfdbfe !important; color: #57606a !important; }
+.legal-title          { color: #1a1f2e !important; }
+.legal-updated        { color: #8b949e !important; }
+
+/* 34 ─ KPI TOP-BORDER ACCENT */
+.ta-kpi-item { border-top-color: #d0d7de !important; }
+
+/* 35 ─ SPECIFIC LABEL / TEXT CLASSES */
 .mvd-card-section-title, .mvd-card-p, .mvd-spark-title,
 .mvd-threat-kpi-label, .mvd-pts-row, .mvd-prog-num,
 .ta-kpi-lbl, .ta-kpi-sub, .mdef-kpi-label, .mdef-empty,
@@ -2006,437 +2228,66 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .pci-pct-cell, .ss-ring-sub, .finding-id, .finding-toggle,
 .cve-desc-snip, .meta-item label { color: #57606a !important; }
 
-/* Secure-score ring value: keep blue accent */
-.ss-ring-val { color: #2563eb !important; }
+.mvd-score-label { color: #57606a !important; }
+.mvd-pb-lbl      { color: #1a1f2e !important; }
+.mvd-threat-badge { background: #f6f8fa !important; color: #1a1f2e !important; }
+.mvd-filter-bar   { color: #57606a !important; }
+.mvd-filter-bar strong { color: #1a1f2e !important; }
 
-/* ═══════════════════════════════════════════════════════════════
-   LAYOUT — minimal, consistent gaps on every page
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Section titles are in the topbar — hide content-area headers */
-.sec-hd  { display: none !important; }
-.sec-sub { display: none !important; }
-.mvd-page-title { display: none !important; }
-
-/* Tight, consistent gap: below topbar = 6px, right of sidebar = 8px */
-.wrap { padding: 6px 8px 16px !important; max-width: none !important; }
-@media (max-width: 900px) { .wrap { padding: 6px 8px 16px !important; } }
-@media (max-width: 600px) { .wrap { padding: 4px 6px 12px !important; } }
-
-/* Remove bottom margin on section openers so cards sit tight */
-.mvd-filter-bar { padding-top: 6px !important; padding-bottom: 8px !important; }
-
-/* Full opacity on every content child */
-.page-content *, .card *, .kpi-card * { opacity: 1 !important; }
-input::placeholder, textarea::placeholder { opacity: 1 !important; }
-
-/* ═══════════════════════════════════════════════════════════════
-   BUTTONS — replace all blue text/bg on non-primary buttons
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Secondary buttons: neutral grey, dark text */
-.btn-secondary,
-.btn-topbar:not(.primary),
-.pt-btn:not(.pt-btn-primary),
-.pt2-btn:not(.pt2-btn-primary),
-.mdef-toolbar-btn:not(.primary),
-.pci-hdr-btn:not(.pciprimary),
-.gf-rec-dash,
-.sca-fix-btn,
-.tab-filter-btn,
-.mvd-improve-btn,
-.fix-tab:not(.active),
-.copy-btn { color: #24292f !important; background: #f6f8fa !important; border-color: #d0d7de !important; }
-
-.btn-secondary:hover,
-.btn-topbar:not(.primary):hover,
-.pt-btn:not(.pt-btn-primary):hover { background: #eaeef2 !important; }
-
-/* Secondary button active state (selected tab-like): keep distinct but not blue */
-.fix-tab.active { background: #24292f !important; color: #fff !important; border-color: #24292f !important; }
-.copy-btn:hover { background: #eaeef2 !important; }
-
-/* Primary / CTA buttons: keep blue (appropriate for call-to-action) */
-.btn-primary, .btn-topbar.primary,
-.pt-btn-primary, .pt2-btn-primary,
-.mdef-toolbar-btn.primary,
-.pci-hdr-btn.pciprimary,
-.btn-connect,
-.btn-cve { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
-
-.btn-primary:hover, .btn-topbar.primary:hover,
-.pt-btn-primary:hover, .pt2-btn-primary:hover,
-.btn-connect:hover,
-.btn-cve:hover { background: #1d4ed8 !important; border-color: #1d4ed8 !important; }
-
-/* Danger buttons: red */
-.btn-danger { background: #dc2626 !important; color: #fff !important; border-color: #dc2626 !important; }
-.btn-danger:hover { background: #b91c1c !important; }
-
-/* Active tab pills and auth tabs */
-.pt-auth-tab:not(.active), .lang-btn:not(.active) { background: #f6f8fa !important; color: #24292f !important; border-color: #d0d7de !important; }
-.pt-auth-tab.active, .lang-btn.active { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
-
-/* Agent toggle */
-.agent-toggle.on { background: #f0fdf4 !important; color: #15803d !important; border-color: #86efac !important; }
-
-/* Chat user bubble keeps blue (it's the user's own message — intentional) */
-.chat-msg.user .chat-bubble { background: #2563eb !important; color: #fff !important; }
-
-/* ── Severity colour icons on buttons/text ── */
 .sca-engine-badge { color: #24292f !important; background: #f6f8fa !important; border-color: #d0d7de !important; }
-.sca-hero-stat-num { color: #1f2328 !important; }
-.sca-subtitle { color: #57606a !important; }
+.sca-hero-stat-num { color: #1a1f2e !important; }
+.sca-subtitle      { color: #57606a !important; }
+.sca-vuln-name     { color: #1a1f2e !important; }
 
-/* ═══════════════════════════════════════════════════════════════
-   SEVERITY BADGES — full semantic palette
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Critical → red */
-.sev-critical, td .status-critical, td .badge-crit,
-.sev-critical-bg, .badge-red, .badge-danger,
-.badge-crit, .badge-CRITICAL { background: #dc2626 !important; color: #fff !important; }
-
-/* High → orange */
-.sev-high, .sev-high-badge, .sev-high-bg,
-td .status-high, .badge-high, .badge-HIGH { background: #f97316 !important; color: #fff !important; }
-
-/* Medium → amber */
-.sev-medium, .sev-medium-bg, .badge-warning,
-.badge-amber, .badge-med, .badge-MEDIUM { background: #f59e0b !important; color: #fff !important; }
-
-/* Low → green */
-.sev-low, .sev-low-bg, .badge-success,
-.badge-green, .badge-low, .badge-LOW { background: #15803d !important; color: #fff !important; }
-
-/* Info → teal */
-.badge-info, .badge-INFO { background: #0ea5e9 !important; color: #fff !important; }
-
-/* Severity bar fills */
-.vsev-bar-fill.sev-critical { background: #dc2626 !important; }
-.vsev-bar-fill.sev-high     { background: #f97316 !important; }
-.vsev-bar-fill.sev-medium   { background: #f59e0b !important; }
-.vsev-bar-fill.sev-low      { background: #15803d !important; }
-
-/* PCI severity labels */
-.pci-sev-crit { background: #dc2626 !important; color: #fff !important; }
-.pci-sev-high { background: #f97316 !important; color: #fff !important; }
-.pci-sev-low  { background: #f0fdf4 !important; color: #15803d !important; border-color: #86efac !important; }
-.pci-bar-c  { background: #dc2626 !important; }
-.pci-bar-h  { background: #f97316 !important; }
-.pci-bar-m  { background: #f59e0b !important; }
-.pci-bar-l  { background: #15803d !important; }
-
-/* Pentest finding card severity borders */
-.pt2-finding-card.sev-critical { border-left-color: #dc2626 !important; }
-.pt2-finding-card.sev-high     { border-left-color: #f97316 !important; }
-.pt2-finding-card.sev-medium   { border-left-color: #f59e0b !important; }
-.pt2-finding-card.sev-low      { border-left-color: #15803d !important; }
-
-/* KPI top-border accent: use a subtle neutral instead of blue */
-.ta-kpi-item { border-top-color: #d0d7de !important; }
-
-/* Threat badge */
-.mvd-threat-badge { background: #f6f8fa !important; color: #1f2328 !important; }
-
-/* ── Misc remaining blue text → dark ── */
-.legal-highlight { color: #57606a !important; }
-.sca-vuln-name   { color: #1f2328 !important; }
-.rpt-sec h3      { color: #1f2328 !important; }
+.rpt-sec h3        { color: #1a1f2e !important; }
 .inc-expand-field label { color: #57606a !important; }
-.grc-score       { color: #2563eb !important; }
 
-/* ── ALL content text: black / dark grey, full opacity ── */
-.page-content *       { opacity: 1; }
-.kpi-label            { color: #57606a !important; }
-.kpi-sub              { color: #6e7781 !important; }
-.card-hd              { color: #1f2328 !important; }
-.modal-sub            { color: #57606a !important; }
-.modal-close          { color: #57606a !important; }
-.chat-meta            { color: #57606a !important; }
-.mvd-score-label      { color: #57606a !important; }
-.mvd-pb-lbl           { color: #1f2328 !important; }
-.ent-kpi-lbl          { color: #57606a !important; }
-.ent-kpi-val          { color: #1f2328 !important; }
-.agent-role           { color: #57606a !important; }
-.agent-desc           { color: #57606a !important; }
-.pricing-tier         { color: #57606a !important; }
-.pricing-period       { color: #6e7781 !important; }
-.sig-filter-lbl       { color: #57606a !important; }
-.sig-filter-item      { color: #1f2328 !important; }
-.pt-eng-name          { color: #1f2328 !important; }
-.pt-eng-meta          { color: #57606a !important; }
-.pt-eng-meta          { color: #57606a !important; }
-.pt-detail-name       { color: #1f2328 !important; }
-.pt-detail-client     { color: #57606a !important; }
-.pt2-eng-name         { color: #1f2328 !important; }
-.pt2-eng-meta         { color: #57606a !important; }
-.pt2-detail-name      { color: #1f2328 !important; }
-.pt2-detail-client    { color: #57606a !important; }
-.pt-label             { color: #1f2328 !important; }
-.grc-fw-name          { color: #1f2328 !important; }
-.grc-score            { color: #2563eb !important; }
-.sev-name             { color: #1f2328 !important; }
-.sev-count            { color: #1f2328 !important; }
-.inc-sev-label        { color: #1f2328 !important; }
-.legal-title          { color: #1f2328 !important; }
-.legal-updated        { color: #6e7781 !important; }
-.legal-section p      { color: #1f2328 !important; }
-.legal-section ul     { color: #1f2328 !important; }
-.chart-box h4         { color: #57606a !important; }
-.sev-stats h4         { color: #57606a !important; }
-.topbar-ai-label      { color: #2563eb !important; }
+.pt-eng-name, .pt2-eng-name, .pt-detail-name, .pt2-detail-name, .pt-label { color: #1a1f2e !important; }
+.pt-eng-meta, .pt2-eng-meta, .pt-detail-client, .pt2-detail-client        { color: #57606a !important; }
 
-/* ── Placeholder text: full opacity, neutral grey ── */
-input::placeholder,
-textarea::placeholder { color: #adb5bd !important; opacity: 1 !important; }
-.sb-search-wrap input::placeholder { color: #7d8590 !important; opacity: 1 !important; }
+.agent-role      { color: #57606a !important; }
+.pricing-tier    { color: #57606a !important; }
+.pricing-period  { color: #8b949e !important; }
+.sig-filter-lbl  { color: #57606a !important; }
+.sig-filter-item { color: #1a1f2e !important; }
+.grc-fw-name     { color: #1a1f2e !important; }
+.sev-name, .sev-count, .inc-sev-label { color: #1a1f2e !important; }
+.chart-box h4, .sev-stats h4 { color: #57606a !important; }
+.inc-expand-field label { color: #57606a !important; }
 
-/* ── Filter / secondary text labels ── */
-.mvd-filter-bar       { color: #57606a !important; }
-.mvd-filter-bar strong{ color: #1f2328 !important; }
-.sb-nav-label         { color: #7d8590 !important; }
-
-/* ── Page & shell background: neutral light grey ── */
-html, body       { background: #f5f7fa !important; }
-.page-content    { background: #f5f7fa !important; }
-
-/* ── Topbar: crisp white ── */
-.topbar {
-  background: #ffffff !important;
-  border-bottom: 1px solid #d0d7de !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06);
-}
-.topbar-title { color: #1f2328 !important; }
-.btn-collapse { color: #57606a !important; }
-.btn-collapse:hover { background: #f3f4f6 !important; color: #1f2328 !important; }
-.topbar-ai-wrap {
-  background: #f6f8fa !important;
-  border-color: #d0d7de !important;
-}
-.topbar-ai-wrap input::placeholder { color: #57606a !important; opacity: 1 !important; }
-.btn-topbar {
-  background: #f6f8fa !important;
-  color: #24292f !important;
-  border-color: #d0d7de !important;
-}
-.btn-topbar:hover { background: #eaeef2 !important; border-color: #b9c0c7 !important; }
-.btn-topbar.primary { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
-.btn-topbar.primary:hover { background: #1d4ed8 !important; border-color: #1d4ed8 !important; }
-
-/* ── Live stats bar: light blue strip ── */
-#live-stats-bar {
-  background: #f0f6fc !important;
-  border-bottom: 1px solid #d0d7de !important;
-  color: #57606a !important;
-}
-#live-stats-bar strong { color: #2563eb !important; }
-
-/* ── Cards: white with subtle border ── */
-.card {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,.04);
-}
-.card-hd {
-  color: #1f2328 !important;
-  border-bottom-color: #eaeef2 !important;
-}
-
-/* ── KPI cards ── */
-.kpi-card {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,.04);
-}
-.kpi-label { color: #57606a !important; }
-.kpi-value { color: #1f2328 !important; }
-.kpi-sub   { color: #57606a !important; }
-
-/* ── Enterprise KPI strip ── */
-.ent-kpi {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-}
-.ent-kpi-lbl { color: #57606a !important; }
-.ent-kpi-val { color: #1f2328 !important; }
-
-/* ── Tables ── */
-table.tbl th {
-  background: #f6f8fa !important;
-  color: #1f2328 !important;
-  border-bottom-color: #d0d7de !important;
-}
-table.tbl td {
-  border-bottom-color: #eaeef2 !important;
-  color: #1f2328 !important;
-}
-table.tbl tr:nth-child(odd) td { background: #f9fafb !important; }
-table.tbl tr:last-child td { border-bottom: none !important; }
-table.tbl tbody tr:hover td { background: #f0f6fc !important; }
-
-/* ── Inputs & selects ── */
-.inp, input[type=text].inp, input[type=password].inp,
-input[type=email].inp, input[type=number].inp,
-input[type=date].inp, textarea.inp, select.inp {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-  color: #1f2328 !important;
-}
-.inp:focus, textarea.inp:focus, select.inp:focus { border-color: #2563eb !important; }
-label.lbl { color: #57606a !important; }
-.mvd-filter-bar select {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-  color: #1f2328 !important;
-}
-
-/* ── Progress bars: neutral ── */
-.pbar-track { background: #e7edf3 !important; }
-.pbar-fill  { background: #2563eb !important; }
-
-/* ── Tabs (all variants uniform) ── */
-.tabs, .sl-tabs, .obs-tabs, .le-tabs,
-.pt-detail-tabs, .pt2-tab-bar {
-  border-bottom-color: #d0d7de !important;
-}
-.tab-btn, .sl-tab, .pt-detail-tab,
-.obs-tab, .le-tab {
-  color: #57606a !important;
-}
-.tab-btn:hover, .sl-tab:hover, .pt-detail-tab:hover,
-.obs-tab:hover, .le-tab:hover { color: #1f2328 !important; }
-.tab-btn.active, .sl-tab.active, .pt-detail-tab.active,
-.obs-tab.active, .le-tab.active {
-  color: #2563eb !important;
-  border-bottom-color: #2563eb !important;
-}
-
-/* ── Buttons: clean grey/blue ── */
-.btn-secondary {
-  background: #f6f8fa !important;
-  color: #24292f !important;
-  border-color: #d0d7de !important;
-}
-.btn-secondary:hover { background: #eaeef2 !important; }
-
-/* ── Chat ── */
-.chat-history {
-  background: #f6f8fa !important;
-  border-color: #d0d7de !important;
-}
-.chat-msg.bot .chat-bubble {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-  color: #1f2328 !important;
-}
-.chat-input-bar {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-}
-.chat-input-bar input { border-color: #d0d7de !important; color: #1f2328 !important; }
-.chat-meta { color: #57606a !important; }
-
-/* ── Syslog terminal — keep dark, switch to grey ── */
-.sl-log-wrap {
-  background: #161b22 !important;
-  border-color: #30363d !important;
-}
-.sl-log-toolbar {
-  background: #1c2128 !important;
-  border-bottom-color: #30363d !important;
-}
-.sl-log-body { color: #adbac7 !important; }
-
-/* ── Modals ── */
-.modal-bg { background: rgba(0,0,0,.45) !important; }
-.modal-box { background: #ffffff !important; border-color: #d0d7de !important; }
-.modal-hd { border-bottom-color: #eaeef2 !important; }
-.modal-title { color: #1f2328 !important; }
-
-/* ── GRC / Agent / Pricing cards ── */
-.grc-card, .agent-card, .pricing-card {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-}
-.pricing-card.featured { border-color: #2563eb !important; }
-.grc-fw-name, .agent-name { color: #1f2328 !important; }
-.agent-desc { color: #57606a !important; }
-
-/* ── Threat analytics header: dark grey strip ── */
-.ta-header {
-  background: #1c2128 !important;
-  color: #e6edf3 !important;
-  border: none !important;
-}
-.ta-sub { color: #adbac7 !important; }
-
-/* ── Secure-score circle ── */
-.ss-score-circle {
-  background: #ffffff !important;
-  border-color: #d0d7de !important;
-}
-
-/* ── Map / network borders ── */
-#worldmap          { border-color: #d0d7de !important; }
-#network-topology  { background: #ffffff !important; border-color: #d0d7de !important; }
-
-/* ── Legal pages ── */
-.legal-section h2 { border-bottom-color: #eaeef2 !important; color: #1f2328 !important; }
-.legal-section h3 { color: #57606a !important; }
-.legal-table th { background: #f6f8fa !important; border-color: #d0d7de !important; color: #1f2328 !important; }
-.legal-table td { border-color: #d0d7de !important; }
-.legal-table tr:nth-child(even) td { background: #f9fafb !important; }
-.legal-highlight { background: #f0f6fc !important; border-color: #bfdbfe !important; }
-
-/* ── Scrollbars: neutral grey ── */
-.page-content::-webkit-scrollbar-thumb { background: #d0d7de !important; }
-.pt2-list-body::-webkit-scrollbar-track,
-.pt2-list-scroll::-webkit-scrollbar-track { background: #f6f8fa !important; }
-.pt2-list-body::-webkit-scrollbar-thumb,
-.pt2-list-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg,#57606a,#3d444d) !important;
-  border-color: #f6f8fa !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SIDEBAR: DARK GREY  (GitHub dark-mode inspired)
-   ═══════════════════════════════════════════════════════════════ */
-.sidebar {
-  background: #1c2128 !important;
-  border-right: 1px solid #30363d !important;
-}
-.sb-brand          { border-bottom-color: #30363d !important; }
-.sb-brand-text     { color: #e6edf3 !important; }
-.sb-brand-tag      { color: #7d8590 !important; }
-
-.sb-search-wrap    { border-bottom-color: #30363d !important; }
-.sb-search-wrap input {
-  background: #161b22 !important;
-  border-color: #30363d !important;
-  color: #e6edf3 !important;
-}
-.sb-search-wrap input::placeholder { color: #7d8590 !important; opacity: 1 !important; }
-.sb-search-wrap input:focus { border-color: #4493f8 !important; }
-
-.sb-nav-label  { color: #7d8590 !important; }
-.sb-item       { color: #adbac7 !important; }
-.sb-item:hover { background: #22272e !important; color: #e6edf3 !important; }
-.sb-item.active {
-  background: #2d333b !important;
-  color: #e6edf3 !important;
-  border-left-color: #4493f8 !important;
-}
-.sb-badge  { background: #316dca !important; color: #e6edf3 !important; }
-.sb-divider { background: #30363d !important; }
-.sb-footer { border-top-color: #30363d !important; color: #7d8590 !important; }
-.sb-nav::-webkit-scrollbar-thumb { background: #30363d !important; }
-.sb-pricing-btn {
-  background: #316dca !important;
-  color: #e6edf3 !important;
-  border-color: #316dca !important;
-}
-.sb-pricing-btn:hover { background: #388bfd !important; }
+/* 36 ─ UNDO attribute selectors that convert semantic colors to blue */
+/* ─ color overrides ─ */
+[style*="color:#ef4444"],[style*="color: #ef4444"] { color: #ef4444 !important; }
+[style*="color:#dc2626"],[style*="color: #dc2626"] { color: #dc2626 !important; }
+[style*="color:#b91c1c"],[style*="color: #b91c1c"] { color: #b91c1c !important; }
+[style*="color:#f97316"],[style*="color: #f97316"] { color: #f97316 !important; }
+[style*="color:#ea580c"],[style*="color: #ea580c"] { color: #ea580c !important; }
+[style*="color:#f59e0b"],[style*="color: #f59e0b"] { color: #f59e0b !important; }
+[style*="color:#d97706"],[style*="color: #d97706"] { color: #d97706 !important; }
+[style*="color:#22c55e"],[style*="color: #22c55e"] { color: #22c55e !important; }
+[style*="color:#16a34a"],[style*="color: #16a34a"] { color: #16a34a !important; }
+[style*="color:#15803d"],[style*="color: #15803d"] { color: #15803d !important; }
+[style*="color:#059669"],[style*="color: #059669"] { color: #059669 !important; }
+[style*="color:#166534"],[style*="color: #166534"] { color: #166534 !important; }
+[style*="color:#f6821f"],[style*="color: #f6821f"] { color: #f6821f !important; }
+[style*="color:#8b0000"],[style*="color: #8b0000"] { color: #8b0000 !important; }
+/* ─ background overrides ─ */
+[style*="background:#fee2e2"],[style*="background: #fee2e2"],
+[style*="background-color:#fee2e2"] { background: #fee2e2 !important; }
+[style*="background:#fef2f2"],[style*="background: #fef2f2"] { background: #fef2f2 !important; }
+[style*="background:#fff7ed"],[style*="background: #fff7ed"] { background: #fff7ed !important; }
+[style*="background:#fef9c3"],[style*="background: #fef9c3"],
+[style*="background-color:#fef9c3"] { background: #fef9c3 !important; }
+[style*="background:#fef3c7"],[style*="background: #fef3c7"] { background: #fef3c7 !important; }
+[style*="background:#dcfce7"],[style*="background: #dcfce7"],
+[style*="background-color:#dcfce7"] { background: #dcfce7 !important; }
+[style*="background:#f0fdf4"],[style*="background: #f0fdf4"] { background: #f0fdf4 !important; }
+/* ─ border overrides ─ */
+[style*="border-left:3px solid #ef4444"] { border-left-color: #ef4444 !important; }
+[style*="border-left:3px solid #dc2626"] { border-left-color: #dc2626 !important; }
+[style*="border-left:3px solid #f97316"] { border-left-color: #f97316 !important; }
+[style*="border-left:4px solid #ef4444"] { border-left-color: #ef4444 !important; }
+[style*="border-top:3px solid #ef4444"]  { border-top-color:  #ef4444 !important; }
 
 </style>
 </head>
@@ -6168,7 +6019,7 @@ Export Power BI
       <div>
         <div class="siem-tactic-sidebar">
           <h4>MITRE ATT&amp;CK</h4>
-          <div id="siem-tactic-list"><div style="padding:12px 14px;color:#60a5fa;font-size:12px;">Loading…</div></div>
+          <div id="siem-tactic-list"><div style="padding:12px 14px;color:#8b949e;font-size:12px;">Loading…</div></div>
         </div>
       </div>
       <!-- Rules panel -->
@@ -6411,7 +6262,7 @@ Export Power BI
         <div class="le-cred-row">
           <div><label class="le-cred-label">WordPress Site URL</label><input type="text" id="le-wp-url" class="le-cred-input" placeholder="https://yourdomain.com" autocomplete="off"></div>
           <div><label class="le-cred-label">WP Username</label><input type="text" id="le-wp-user" class="le-cred-input" placeholder="admin" autocomplete="off"></div>
-          <div><label class="le-cred-label">Application Password <span style="font-weight:400;color:#60a5fa;">(recommended)</span></label><input type="password" id="le-wp-apppass" class="le-cred-input" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">Application Password <span style="font-weight:400;color:#8b949e;">(recommended)</span></label><input type="password" id="le-wp-apppass" class="le-cred-input" placeholder="xxxx xxxx xxxx xxxx" autocomplete="new-password"></div>
           <div><label class="le-cred-label">Events to fetch</label><input type="number" id="le-wp-limit" class="le-cred-input" placeholder="50" value="50" min="10" max="200" style="width:80px;"></div>
         </div>
         <div class="le-cred-actions">
@@ -6427,9 +6278,9 @@ Export Power BI
       </div>
 
       <!-- cPanel Database Access — no WordPress auth needed -->
-      <div style="border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;margin-top:10px;background:#f8faff;">
+      <div style="border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;margin-top:10px;background:#f9fafb;">
         <div style="font-weight:600;font-size:13px;color:#1f2328;margin-bottom:6px;cursor:pointer;" onclick="var s=document.getElementById('le-wp-cpanel-body');s.style.display=s.style.display==='none'?'block':'none';">
-          cPanel Database Access <span style="font-size:11px;color:#3b82f6;font-weight:400;">(no WordPress auth needed)</span>
+          cPanel Database Access <span style="font-size:11px;color:#8b949e;font-weight:400;">(no WordPress auth needed)</span>
           <span style="float:right;color:#2563eb;font-size:11px;">click to expand &#9660;</span>
         </div>
         <div id="le-wp-cpanel-body" style="display:none;">
@@ -6448,19 +6299,19 @@ Export Power BI
 
       <div class="le-hint" style="margin-top:8px;">For Hostinger or direct MySQL access, use the <strong>Hostinger / MySQL</strong> tab.</div>
 
-      <div id="le-wp-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Fetching live WordPress events…</div>
+      <div id="le-wp-loading" style="display:none;padding:16px;color:#8b949e;font-size:12px;">Fetching live WordPress events…</div>
       <div id="le-wp-note" style="display:none;padding:10px 14px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;color:#57606a;font-size:12px;margin-bottom:10px;"></div>
       <div id="le-wp-error" style="display:none;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;color:#991b1b;font-size:12px;margin-bottom:10px;"></div>
-      <div id="le-wp-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#3b82f6;"></div>
+      <div id="le-wp-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#8b949e;"></div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-wp-table">
-          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Timestamp</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">User</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Event</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">IP Address</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Severity</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Source</th>
+          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Event</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">IP Address</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Severity</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Source</th>
           </tr></thead>
           <tbody id="le-wp-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your WordPress URL and credentials, then click Fetch Live Events.</td></tr>
@@ -6483,17 +6334,17 @@ Export Power BI
         </div>
         <div class="le-hint">Fetches Drupal watchdog (dblog) events via JSON:API. Requires the <strong>JSON:API</strong> core module enabled and admin credentials.</div>
       </div>
-      <div id="le-drupal-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Fetching Drupal watchdog logs…</div>
+      <div id="le-drupal-loading" style="display:none;padding:16px;color:#8b949e;font-size:12px;">Fetching Drupal watchdog logs…</div>
       <div id="le-drupal-error" style="display:none;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;color:#991b1b;font-size:12px;margin-bottom:10px;"></div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-drupal-table">
-          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Timestamp</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Type</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Severity</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Message</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">User</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">IP</th>
+          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Type</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Severity</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Message</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">IP</th>
           </tr></thead>
           <tbody id="le-drupal-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your Drupal site URL and credentials, then click Fetch Watchdog Logs.</td></tr>
@@ -6509,7 +6360,7 @@ Export Power BI
           <div style="flex:2"><label class="le-cred-label">Joomla Site URL</label><input type="text" id="le-joomla-url" class="le-cred-input" placeholder="https://yourdomain.com" autocomplete="off"></div>
           <div><label class="le-cred-label">Username</label><input type="text" id="le-joomla-user" class="le-cred-input" placeholder="admin" autocomplete="off"></div>
           <div><label class="le-cred-label">Password</label><input type="password" id="le-joomla-pass" class="le-cred-input" placeholder="••••••••" autocomplete="new-password"></div>
-          <div><label class="le-cred-label">API Token <span style="font-weight:400;color:#60a5fa;">(Joomla 4+)</span></label><input type="password" id="le-joomla-token" class="le-cred-input" placeholder="optional" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">API Token <span style="font-weight:400;color:#8b949e;">(Joomla 4+)</span></label><input type="password" id="le-joomla-token" class="le-cred-input" placeholder="optional" autocomplete="new-password"></div>
           <div><label class="le-cred-label">Events</label><input type="number" id="le-joomla-limit" class="le-cred-input" value="50" min="10" max="200" style="width:80px;"></div>
         </div>
         <div class="le-cred-actions">
@@ -6517,17 +6368,17 @@ Export Power BI
         </div>
         <div class="le-hint">Fetches Joomla action logs via the Web Services API (Joomla 4+). Generate an API token at: <em>Joomla Admin → Users → your user → Joomla API Token</em>.</div>
       </div>
-      <div id="le-joomla-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Fetching Joomla action logs…</div>
+      <div id="le-joomla-loading" style="display:none;padding:16px;color:#8b949e;font-size:12px;">Fetching Joomla action logs…</div>
       <div id="le-joomla-error" style="display:none;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;color:#991b1b;font-size:12px;margin-bottom:10px;"></div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-joomla-table">
-          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Timestamp</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">User</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Action</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Item</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">IP</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Extension</th>
+          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Action</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Item</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">IP</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Extension</th>
           </tr></thead>
           <tbody id="le-joomla-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your Joomla site URL and credentials, then click Fetch Action Logs.</td></tr>
@@ -6560,10 +6411,10 @@ Export Power BI
       <div id="le-app-stats" style="display:none;padding:8px 12px;background:#f6f8fa;border-radius:6px;font-size:12px;color:#57606a;margin-bottom:10px;"></div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-app-table">
-          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">#</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Log Line</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Flag</th>
+          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">#</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Log Line</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Flag</th>
           </tr></thead>
           <tbody id="le-app-body">
             <tr><td colspan="3" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter SSH credentials and a log file path, then click Fetch Logs.</td></tr>
@@ -6578,7 +6429,7 @@ Export Power BI
         <div class="le-cred-row">
           <div><label class="le-cred-label">cPanel Host</label><input type="text" id="le-cp-host" class="le-cred-input" placeholder="yourserver.com or IP" autocomplete="off"></div>
           <div><label class="le-cred-label">Username</label><input type="text" id="le-cp-user" class="le-cred-input" placeholder="cpaneluser" autocomplete="off"></div>
-          <div><label class="le-cred-label">API Token <span style="font-weight:400;color:#60a5fa;">(recommended)</span></label><input type="password" id="le-cp-token" class="le-cred-input" placeholder="API token from WHM" autocomplete="new-password"></div>
+          <div><label class="le-cred-label">API Token <span style="font-weight:400;color:#8b949e;">(recommended)</span></label><input type="password" id="le-cp-token" class="le-cred-input" placeholder="API token from WHM" autocomplete="new-password"></div>
           <div><label class="le-cred-label">Password <span style="font-weight:400;color:#60a5fa;">(alt)</span></label><input type="password" id="le-cp-pass" class="le-cred-input" placeholder="cPanel password" autocomplete="new-password"></div>
           <div><label class="le-cred-label">Port</label><input type="number" id="le-cp-port" class="le-cred-input" placeholder="2083" value="2083" style="width:80px;"></div>
         </div>
@@ -6593,16 +6444,16 @@ Export Power BI
       <div id="le-cp-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Fetching cPanel sessions…</div>
       <div id="le-cp-note" style="display:none;padding:10px 14px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;color:#57606a;font-size:12px;margin-bottom:10px;"></div>
       <div id="le-cp-error" style="display:none;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;color:#991b1b;font-size:12px;margin-bottom:10px;"></div>
-      <div id="le-cp-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#3b82f6;"></div>
+      <div id="le-cp-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#8b949e;"></div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-cp-table">
-          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Timestamp</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">User</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Event / Session Type</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">IP Address</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Status</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Source</th>
+          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Event / Session Type</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">IP Address</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Status</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Source</th>
           </tr></thead>
           <tbody id="le-cp-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your cPanel host and credentials, then click Fetch Active Sessions.</td></tr>
@@ -6639,16 +6490,16 @@ Export Power BI
       </div>
       <div id="le-hostinger-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Connecting to MySQL…</div>
       <div id="le-hostinger-status" style="display:none;padding:10px 14px;border-radius:6px;font-size:12px;margin-bottom:10px;"></div>
-      <div id="le-hostinger-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#3b82f6;"></div>
+      <div id="le-hostinger-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#8b949e;"></div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-hostinger-table">
-          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Timestamp</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">User</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Event</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">IP Address</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Severity</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Source</th>
+          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;white-space:nowrap;">Timestamp</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">User</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Event</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">IP Address</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Severity</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Source</th>
           </tr></thead>
           <tbody id="le-hostinger-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your Hostinger MySQL credentials, then click Fetch via MySQL.</td></tr>
@@ -6679,17 +6530,17 @@ Export Power BI
       </div>
       <div id="le-cf-loading" style="display:none;padding:16px;color:#3b82f6;font-size:12px;">Fetching Cloudflare Security Insights…</div>
       <div id="le-cf-error" style="display:none;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;color:#991b1b;font-size:12px;margin-bottom:10px;"></div>
-      <div id="le-cf-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#3b82f6;"></div>
+      <div id="le-cf-stats" style="display:none;margin-bottom:10px;font-size:12px;color:#8b949e;"></div>
       <div id="le-cf-zones-out" style="display:none;padding:10px 14px;background:#f6f8fa;border-radius:6px;font-size:12px;margin-bottom:10px;"></div>
       <div class="cf-tbl-scroll">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-cf-table">
-          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Severity</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Description</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Subject</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Insight type</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Scan performed on</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Details</th>
+          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;white-space:nowrap;">Severity</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Description</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Subject</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Insight type</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;white-space:nowrap;">Scan performed on</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Details</th>
           </tr></thead>
           <tbody id="le-cf-body">
             <tr><td colspan="6" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter your Cloudflare API token and account ID, then click Fetch Security Insights.</td></tr>
@@ -6721,12 +6572,12 @@ Export Power BI
       <div id="le-ftp-breadcrumb" style="display:none;padding:6px 0;font-size:12px;color:#57606a;margin-bottom:6px;font-weight:600;"></div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;" id="le-ftp-table">
-          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #bfdbfe;">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Name</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;white-space:nowrap;">Modified</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Size</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Type</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#3b82f6;">Flag</th>
+          <thead><tr style="background:#f6f8fa;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Name</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;white-space:nowrap;">Modified</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Size</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Type</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b949e;">Flag</th>
           </tr></thead>
           <tbody id="le-ftp-body">
             <tr><td colspan="5" style="padding:24px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">Enter FTP credentials and click Browse &amp; List Files or Scan for Malware.</td></tr>
@@ -10600,7 +10451,7 @@ function _mvdRenderGauge(scans) {
   if (existing) existing.remove();
 
   var zones=[
-    {start:180,end:127,color:'#60a5fa'},  // Low 0-29
+    {start:180,end:127,color:'#16a34a'},  // Low 0-29
     {start:127,end:55,color:'#2563eb'},   // Medium 30-69
     {start:55,end:0,color:'#1f2328'},     // High 70-100
   ];
@@ -10637,7 +10488,7 @@ function _mvdRenderGauge(scans) {
   var scoreAngle = 180 - (score/100)*180;
   if (score > 0) {
     var sp=document.createElementNS('http://www.w3.org/2000/svg','path');
-    var scoreColor = score<30?'#60a5fa':score<70?'#2563eb':'#1f2328';
+    var scoreColor = score<30?'#dc2626':score<70?'#d97706':'#16a34a';
     sp.setAttribute('d',arcPath(180,scoreAngle,r,rIn));
     sp.setAttribute('fill',scoreColor);
     svg.appendChild(sp);
@@ -10720,7 +10571,7 @@ function _mvdRenderEvents(scans) {
     if (/cryp/i.test(ag))    return 'TLS/cryptography scan completed on '+t;
     return 'Security scan completed on '+t;
   }
-  var sevCol={CRITICAL:'#57606a',HIGH:'#1d4ed8',MEDIUM:'#2563eb',LOW:'#57606a'};
+  var sevCol={CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#d97706',LOW:'#16a34a'};
   tbody.innerHTML=recent.map(function(s){
     var d=new Date(s.created_at||0).toLocaleDateString()+' '+new Date(s.created_at||0).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     var o=s.output||'';
@@ -10844,7 +10695,7 @@ function _mvdRenderSparklines(scans) {
     layout:{padding:{top:8,bottom:0,left:0,right:4}},
     plugins:{legend:{display:false},tooltip:{enabled:false}},
     elements:{point:{radius:3,hoverRadius:4},line:{tension:0.4,borderWidth:1.5}},
-    scales:{x:{display:true,ticks:{font:{size:9},color:'#a19f9d',maxTicksLimit:5},grid:{display:false},border:{display:false}},y:{display:true,beginAtZero:false,min:0,max:100,ticks:{font:{size:9},color:'#a19f9d',maxTicksLimit:3},grid:{color:'#dbeafe'},border:{display:false}}},
+    scales:{x:{display:true,ticks:{font:{size:9},color:'#a19f9d',maxTicksLimit:5},grid:{display:false},border:{display:false}},y:{display:true,beginAtZero:false,min:0,max:100,ticks:{font:{size:9},color:'#a19f9d',maxTicksLimit:3},grid:{color:'#f0f0f0'},border:{display:false}}},
     animation:{duration:400},
     clip:false
   };
@@ -10965,7 +10816,7 @@ function _entRenderAnalytics(scans, incData) {
   var infoCount=scans.filter(function(s){return !s.risk||s.risk==='INFO';}).length;
   var sVals=[highRisk,medium,low,infoCount];
   if(sVals.every(function(v){return v===0;})) sVals=[1,2,3,4];
-  var sLabels=['High','Medium','Low','Info'],sColors=['#57606a','#2563eb','#60a5fa','#bfdbfe'];
+  var sLabels=['High','Medium','Low','Info'],sColors=['#ea580c','#d97706','#16a34a','#0891b2'];
   var dc=document.getElementById('ent-sev-donut');
   if(dc){
     if(_entCharts.donut){try{_entCharts.donut.destroy();}catch(e){}}
@@ -10996,7 +10847,7 @@ function _entRenderAnalytics(scans, incData) {
   // ── MITRE bars ────────────────────────────────────────────────────────────
   var mitre=[{name:'Initial Access',cov:Math.min(100,highRisk*15+30)},{name:'Execution',cov:Math.min(100,medium*10+20)},{name:'Persistence',cov:Math.min(100,scans.length*3+15)},{name:'Privilege Esc.',cov:Math.min(100,highRisk*20+10)},{name:'Defense Eva.',cov:Math.min(100,medium*12+25)},{name:'Collection',cov:Math.min(100,low*5+40)}];
   var mb=document.getElementById('ent-mitre-bars');
-  if(mb) mb.innerHTML=mitre.map(function(t){var c=t.cov>=70?'#1f2328':t.cov>=40?'#2563eb':'#60a5fa';return '<div style="margin-bottom:2px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1px;"><span style="font-size:8px;color:#3d5a8a;font-weight:600;">'+t.name+'</span><span style="font-size:8px;color:'+c+';font-weight:700;">'+Math.round(t.cov)+'%</span></div><div style="height:5px;background:#f1f5f9;border-radius:2px;overflow:hidden;"><div style="height:100%;width:'+Math.round(t.cov)+'%;background:linear-gradient(90deg,'+c+',#60a5fa);border-radius:2px;transition:width .5s;"></div></div></div>';}).join('');
+  if(mb) mb.innerHTML=mitre.map(function(t){var c=t.cov>=70?'#16a34a':t.cov>=40?'#d97706':'#dc2626';return '<div style="margin-bottom:2px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1px;"><span style="font-size:8px;color:#3d5a8a;font-weight:600;">'+t.name+'</span><span style="font-size:8px;color:'+c+';font-weight:700;">'+Math.round(t.cov)+'%</span></div><div style="height:5px;background:#f1f5f9;border-radius:2px;overflow:hidden;"><div style="height:100%;width:'+Math.round(t.cov)+'%;background:linear-gradient(90deg,'+c+',rgba(0,0,0,.06));border-radius:2px;transition:width .5s;"></div></div></div>';}).join('');
 
   // ── Sparklines ────────────────────────────────────────────────────────────
   var byDate={};
@@ -11012,12 +10863,12 @@ function _entRenderAnalytics(scans, incData) {
 
   var spOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},elements:{point:{radius:0},line:{tension:0.4,borderWidth:1.5}},scales:{x:{display:false},y:{display:false,beginAtZero:true}},animation:{duration:300}};
   var fallback=[0,1,0,2,1,2,1];
-  [['ent-spark-scan',scanCts,'#1f2328'],['ent-spark-risk',riskScs,'#2563eb'],['ent-spark-inc',rDates.map(function(){return incStats.total||0;}),'#60a5fa'],['ent-spark-rem',rDates.map(function(_,i){return Math.min(100,i*14);}), '#93c5fd']].forEach(function(sp){
+  [['ent-spark-scan',scanCts,'#ea580c'],['ent-spark-risk',riskScs,'#d97706'],['ent-spark-inc',rDates.map(function(){return incStats.total||0;}),'#0891b2'],['ent-spark-rem',rDates.map(function(_,i){return Math.min(100,i*14);}), '#16a34a']].forEach(function(sp){
     var el=document.getElementById(sp[0]);
     if(!el)return;
     if(_entCharts[sp[0]]){try{_entCharts[sp[0]].destroy();}catch(e){}}
     var data=sp[1].length?sp[1]:fallback;
-    var bgMap={'#22c55e':'rgba(34,197,94,.12)','#dc2626':'rgba(220,38,38,.10)','#f97316':'rgba(249,115,22,.10)','#f59e0b':'rgba(245,158,11,.10)','#0ea5e9':'rgba(14,165,233,.12)','#2563eb':'rgba(37,99,235,.12)','#60a5fa':'rgba(96,165,250,.12)','#1f2328':'rgba(31,35,40,.12)'};
+    var bgMap={'#22c55e':'rgba(34,197,94,.12)','#dc2626':'rgba(220,38,38,.10)','#f97316':'rgba(249,115,22,.10)','#f59e0b':'rgba(245,158,11,.10)','#0ea5e9':'rgba(14,165,233,.12)','#2563eb':'rgba(37,99,235,.12)','#60a5fa':'rgba(148,163,184,.12)','#1f2328':'rgba(31,35,40,.12)'};
     _entCharts[sp[0]]=new Chart(el,{type:'line',data:{labels:data.map(function(_,i){return i+'';}) ,datasets:[{data:data,borderColor:sp[2],backgroundColor:bgMap[sp[2]]||'rgba(37,99,235,.1)',fill:true}]},options:spOpts});
   });
 
@@ -11027,11 +10878,11 @@ function _entRenderAnalytics(scans, incData) {
     var topV=scans.filter(function(s){return s.risk==='HIGH'||s.risk==='MEDIUM';}).sort(function(a,b){return (b.risk==='HIGH'?1:0)-(a.risk==='HIGH'?1:0);}).slice(0,6);
     if(!topV.length){vtb.innerHTML='<tr><td colspan="4" style="padding:8px 5px;color:#60a5fa;font-style:italic;font-size:10px;">No high-risk findings</td></tr>';}
     else{
-      var rC2={HIGH:'#1f2328',MEDIUM:'#2563eb',LOW:'#60a5fa'};
+      var rC2={HIGH:'#ea580c',MEDIUM:'#d97706',LOW:'#16a34a'};
       vtb.innerHTML=topV.map(function(s){
         var age=Math.max(0,Math.floor((now-new Date(s.created_at).getTime())/86400000));
         var rl=s.risk==='HIGH'?'CRITICAL':s.risk;
-        var rc2=rC2[s.risk]||'#60a5fa';
+        var rc2=rC2[s.risk]||'#8b949e';
         var finding=(s.output||'').split('\n').find(function(l){return l.trim().length>8;})||'Security issue detected';
         return '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:3px 5px;font-size:10px;color:#1f2328;font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml((s.target||'').slice(0,18))+'</td><td style="padding:3px 5px;font-size:9.5px;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(finding.slice(0,40))+'</td><td style="padding:3px 5px;text-align:center;"><span style="font-size:8px;font-weight:700;background:linear-gradient(135deg,'+rc2+',#3b82f6);color:#fff;padding:1px 5px;border-radius:2px;">'+rl+'</span></td><td style="padding:3px 5px;font-size:9px;color:#64748b;text-align:center;">'+age+'d</td></tr>';
       }).join('');
@@ -11188,7 +11039,7 @@ function _buildHistoryKPIs() {
   var scoreEl = document.getElementById('csa-attack-score');
   if (scoreEl) {
     scoreEl.textContent = score;
-    scoreEl.style.color = score >= 60 ? '#57606a' : score >= 25 ? '#2563eb' : '#3b82f6';
+    scoreEl.style.color = score >= 60 ? '#16a34a' : score >= 25 ? '#d97706' : '#dc2626';
   }
   // Quick stats
   var targets = new Set();
@@ -11529,7 +11380,7 @@ function _pualPluginRender() {
   });
   if (!data.length) { tbody.innerHTML = '<tr><td colspan="7" class="mdef-empty">No plugins found for the selected domain.</td></tr>'; return; }
   var invStatuses = JSON.parse(localStorage.getItem('cfai_inv_statuses') || '{}');
-  var riskMap = { HIGH:'#57606a', MEDIUM:'#2563eb', LOW:'#3b82f6', INFO:'#93c5fd', CRITICAL:'#1f2328' };
+  var riskMap = { CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#d97706', LOW:'#16a34a', INFO:'#0891b2' };
   tbody.innerHTML = data.map(function(r, idx) {
     var invKey = (r.name||'') + '@' + (r.targets||[]).join(',');
     var status = invStatuses[invKey] || 'none';
@@ -11557,7 +11408,7 @@ function _pualPluginRender() {
       +'<td style="font-family:monospace;font-size:11px;">'+_esc(r.version||'—')+'</td>'
       +'<td style="color:#3b82f6;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc((r.targets||[]).join(', '))+'">'+_esc((r.targets||[]).join(', ').slice(0,50))+'</td>'
       +'<td>'+statusBadge+'</td>'
-      +'<td><span style="background:'+(riskMap[r.risk]||'#93c5fd')+'22;color:'+(riskMap[r.risk]||'#3b82f6')+';font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">'+_esc(r.risk||'INFO')+'</span></td>'
+      +'<td><span style="background:'+(riskMap[r.risk]||'#8b949e')+'22;color:'+(riskMap[r.risk]||'#8b949e')+';font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;">'+_esc(r.risk||'INFO')+'</span></td>'
       +'<td style="white-space:nowrap;">'+(flagBadges[status]||'')+' '+selectHtml+'</td>'
       +'</tr>';
   }).join('');
@@ -11873,7 +11724,7 @@ function loadSocData() {
           data: {
             labels: cats.map(function(c){ return c.category || 'other'; }),
             datasets: [{ data: cats.map(function(c){ return c.count; }),
-              backgroundColor: ['#3b82f6','#22c55e','#f59e0b','#f97316','#dc2626','#a855f7','#06b6d4'] }]
+              backgroundColor: ['#2563eb','#22c55e','#f59e0b','#f97316','#dc2626','#a855f7','#06b6d4'] }]
           },
           options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } } },
             responsive: true, maintainAspectRatio: false }
@@ -11915,7 +11766,7 @@ function loadSocData() {
       _socMarkers = [];
       (d.events || []).forEach(function(ev) {
         if (!ev.latitude || !ev.longitude) return;
-        var color = {CRITICAL:'#2563eb',HIGH:'#2563eb',MEDIUM:'#eab308',LOW:'#60a5fa',INFO:'#60a5fa'}[ev.severity] || '#60a5fa';
+        var color = {CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#d97706',LOW:'#16a34a',INFO:'#0891b2'}[ev.severity] || '#8b949e';
         var circle = L.circleMarker([ev.latitude, ev.longitude], {
           radius: ev.severity === 'CRITICAL' ? 9 : ev.severity === 'HIGH' ? 7 : 5,
           color: color, fillColor: color, fillOpacity: 0.7, weight: 1
@@ -12162,11 +12013,11 @@ var _chartInst = null;
 function buildChart(sev) {
   sev = sev || {critical:0, high:0, medium:0, low:0, info:0};
   var labels=[], data=[], colors=[];
-  [['critical','Critical','#1f2328'],['high','High','#57606a'],['medium','Medium','#2563eb'],
-   ['low','Low','#60a5fa'],['info','Info','#bfdbfe']].forEach(function(r){
+  [['critical','Critical','#dc2626'],['high','High','#ea580c'],['medium','Medium','#d97706'],
+   ['low','Low','#16a34a'],['info','Info','#0891b2']].forEach(function(r){
     if(sev[r[0]]>0){ labels.push(r[1]); data.push(sev[r[0]]); colors.push(r[2]); }
   });
-  if(labels.length===0){ labels=['No findings']; data=[1]; colors=['#dbeafe']; }
+  if(labels.length===0){ labels=['No findings']; data=[1]; colors=['#e5e7eb']; }
   if(_chartInst){ _chartInst.destroy(); _chartInst=null; }
   var ctx = document.getElementById('sevChart');
   if(!ctx) return;
@@ -12184,8 +12035,8 @@ function buildChart(sev) {
 function buildSevBars(sev) {
   sev = sev || {critical:0, high:0, medium:0, low:0, info:0};
   var total = Object.values(sev).reduce(function(a,b){return a+b;},0) || 1;
-  return [['critical','Critical','#1f2328'],['high','High','#57606a'],['medium','Medium','#2563eb'],
-          ['low','Low','#60a5fa'],['info','Info','#bfdbfe']].map(function(r){
+  return [['critical','Critical','#dc2626'],['high','High','#ea580c'],['medium','Medium','#d97706'],
+          ['low','Low','#16a34a'],['info','Info','#0891b2']].map(function(r){
     var cnt = sev[r[0]]||0;
     var pct = Math.round(cnt/total*100);
     return '<div class="sev-row">'+
@@ -12372,7 +12223,7 @@ function buildCveHtml(data) {
   }
 
   var scoreColor = function(sev) {
-    return ({CRITICAL:'#1f2328',HIGH:'#57606a',MEDIUM:'#2563eb',LOW:'#60a5fa'})[sev] || '#7a96bb';
+    return ({CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#d97706',LOW:'#16a34a'})[sev] || '#8b949e';
   };
 
   var cveCards = cves.map(function(cve) {
@@ -12646,11 +12497,11 @@ function openDetailsModal(id) {
         cats[cat].forEach(function(t) {
           var bg, labelColor, labelText, dot;
           if (t.status==='FOUND') {
-            dot = {CRITICAL:'#1f2328',HIGH:'#57606a',MEDIUM:'#2563eb',LOW:'#2563eb'}[t.sev]||'#3b82f6';
+            dot = {CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#d97706',LOW:'#16a34a'}[t.sev]||'#8b949e';
             bg = {CRITICAL:'#fef2f2',HIGH:'#fff1f1',MEDIUM:'#fffbeb',LOW:'#f0fdf4'}[t.sev]||'#f8faff';
             labelText = t.sev; labelColor = dot;
           } else if (t.status==='CHECKED') {
-            dot='#3b82f6'; bg='#f8faff'; labelText='CLEAR'; labelColor='#3b82f6';
+            dot='#16a34a'; bg='#f0fdf4'; labelText='CLEAR'; labelColor='#16a34a';
           } else {
             dot='#d1d5db'; bg='#fafafa'; labelText='NOT TESTED'; labelColor='#d1d5db';
           }
@@ -13729,7 +13580,7 @@ function openInsightsModal(target) {
     // Vulnerability risk timeline (CSS-only, no chart)
     var tr = d.trend || [];
     if (tr.length > 0) {
-      var _riskColor = {HIGH:'#57606a', MEDIUM:'#2563eb', LOW:'#60a5fa', INFO:'#bfdbfe'};
+      var _riskColor = {HIGH:'#ea580c', MEDIUM:'#d97706', LOW:'#16a34a', INFO:'#0891b2'};
       var _riskText  = {HIGH:'#fff',    MEDIUM:'#fff',    LOW:'#fff',    INFO:'#57606a'};
       html += '<div style="margin-bottom:14px;">';
       html += '<div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Vulnerability Trend (' + tr.length + ' scan' + (tr.length===1?'':'s') + ')</div>';
@@ -13737,7 +13588,7 @@ function openInsightsModal(target) {
       tr.forEach(function(x) {
         var risk = (x.HIGH||0) > 0 ? 'HIGH' : (x.MEDIUM||0) > 0 ? 'MEDIUM' : (x.LOW||0) > 0 ? 'LOW' : 'INFO';
         var date = (x.date||'').substring(0,10);
-        html += '<div style="background:' + (_riskColor[risk]||'#bfdbfe') + ';color:' + (_riskText[risk]||'#57606a') + ';border-radius:6px;padding:7px 12px;font-size:11px;font-weight:600;min-width:90px;text-align:center;">'
+        html += '<div style="background:' + (_riskColor[risk]||'#e5e7eb') + ';color:' + (_riskText[risk]||'#57606a') + ';border-radius:6px;padding:7px 12px;font-size:11px;font-weight:600;min-width:90px;text-align:center;">'
           + '<div>' + esc(date) + '</div>'
           + '<div style="font-size:10px;margin-top:2px;opacity:.85;">' + risk + '</div>'
           + '</div>';
@@ -13831,7 +13682,7 @@ function loadUnifiedOverview() {
       if (sl) {
       var slow = (d.slowest_pages || []).slice(0, 8);
       sl.innerHTML = slow.length ? slow.map(function(s){
-        var color = s.latency > 60 ? '#1f2328' : s.latency > 20 ? '#2563eb' : '#60a5fa';
+        var color = s.latency > 60 ? '#dc2626' : s.latency > 20 ? '#d97706' : '#16a34a';
         return '<div class="obs-metric-row"><span style="font-family:monospace;font-size:12px;">' + escHtml(s.target.slice(-40)) + '</span>' +
           '<span style="font-weight:700;color:' + color + ';">' + s.latency + 's</span></div>';
       }).join('') : '<em style="color:#60a5fa;font-size:13px;">No scan data yet.</em>';
@@ -14216,7 +14067,7 @@ function renderSignalsTimeline() {
   if (_sigTimeline) { _sigTimeline.destroy(); _sigTimeline = null; }
   _sigTimeline = new Chart(canvas.getContext('2d'), {
     type: 'bar',
-    data: { labels: labels, datasets: [{ data: values, backgroundColor: values.map(function(_,i){return ['#dc2626','#f97316','#f59e0b','#22c55e','#3b82f6'][i%5];}), borderRadius: 3, borderSkipped: false }] },
+    data: { labels: labels, datasets: [{ data: values, backgroundColor: values.map(function(_,i){return ['#dc2626','#ea580c','#d97706','#16a34a','#0891b2'][i%5];}), borderRadius: 3, borderSkipped: false }] },
     options: {
       plugins: { legend: { display: false } },
       scales: {
@@ -14293,7 +14144,7 @@ function loadLoginEvents() {
         '<a href="https://www.ip-api.com/#' + escHtml(e.ip) + '" target="_blank" style="color:#2563eb;font-family:monospace;">' + escHtml(e.ip) + '</a>' :
         escHtml(e.ip||'—');
       return '<tr style="border-bottom:1px solid #f3f2f1;">' +
-        '<td style="padding:8px 12px;font-size:11px;color:#3b82f6;white-space:nowrap;">' + escHtml(e.timestamp||e.scan_date||'—') + '</td>' +
+        '<td style="padding:8px 12px;font-size:11px;color:#8b949e;white-space:nowrap;">' + escHtml(e.timestamp||e.scan_date||'—') + '</td>' +
         '<td style="padding:8px 12px;font-weight:600;color:#0f172a;">' + escHtml(e.user||'—') + '</td>' +
         '<td style="padding:8px 12px;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(e.event||'') + '">' + escHtml(e.event||'—') + '</td>' +
         '<td style="padding:8px 12px;font-family:monospace;">' + ipLink + '</td>' +
@@ -14473,7 +14324,7 @@ function _renderMysqlEventRows(events) {
     var sevColor = e.severity==='HIGH'||e.severity==='CRITICAL' ? '#57606a' : e.severity==='MEDIUM' ? '#2563eb' : '#57606a';
     var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#'+_esc(e.ip)+'" target="_blank" style="color:#2563eb;font-family:monospace;">'+_esc(e.ip)+'</a>' : _esc(e.ip||'—');
     return '<tr style="border-bottom:1px solid #f3f2f1;">' +
-      '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;white-space:nowrap;">'+_esc(e.timestamp||'—')+'</td>' +
+      '<td style="padding:7px 12px;font-size:11px;color:#8b949e;white-space:nowrap;">'+_esc(e.timestamp||'—')+'</td>' +
       '<td style="padding:7px 12px;font-weight:600;">'+_esc(e.user||'—')+'</td>' +
       '<td style="padding:7px 12px;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+_esc(e.event||'')+'">'+_esc(e.event||'—')+'</td>' +
       '<td style="padding:7px 12px;">'+ip+'</td>' +
@@ -14533,7 +14384,7 @@ function renderWpEvents(events, source, note, total) {
     var statusIcon = e.status === 'failed' ? '<span style="color:#1f2328;">&#x2717;</span>' : e.status === 'active' ? '<span style="color:#2563eb;">&#9679;</span>' : '<span style="color:#3b82f6;">&#x2713;</span>';
     var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#' + _esc(e.ip) + '" target="_blank" style="color:#2563eb;font-family:monospace;">' + _esc(e.ip) + '</a>' : _esc(e.ip||'—');
     return '<tr style="border-bottom:1px solid #f3f2f1;">' +
-      '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
+      '<td style="padding:7px 12px;font-size:11px;color:#8b949e;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
       '<td style="padding:7px 12px;font-weight:600;">' + _esc(e.user||'—') + '</td>' +
       '<td style="padding:7px 12px;font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(e.event||'') + '">' + _esc(e.event||'—') + '</td>' +
       '<td style="padding:7px 12px;">' + ip + '</td>' +
@@ -14644,8 +14495,8 @@ function runCfInsights() {
     var sevColors = {
       critical: {bg:'#57606a', fg:'#fff'},
       high:     {bg:'#2563eb', fg:'#fff'},
-      moderate: {bg:'#60a5fa', fg:'#fff'},
-      low:      {bg:'#bfdbfe', fg:'#1e40af'}
+      moderate: {bg:'#d97706', fg:'#fff'},
+      low:      {bg:'#dcfce7', fg:'#15803d'}
     };
     var rows = '';
     issues.forEach(function(issue) {
@@ -14806,9 +14657,9 @@ function runDrupalLive() {
     if (d.error) { errEl.textContent=d.error; errEl.style.display=''; tbody.innerHTML=''; return; }
     var rows = d.events||[];
     if (!rows.length) { tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:#60a5fa;font-size:12px;font-style:italic;">No watchdog events found.</td></tr>'; return; }
-    var sevCol = {emergency:'#dc2626',alert:'#dc2626',critical:'#dc2626',error:'#d97706',warning:'#d97706',notice:'#3b82f6',info:'#3b82f6',debug:'#64748b'};
+    var sevCol = {emergency:'#dc2626',alert:'#dc2626',critical:'#dc2626',error:'#d97706',warning:'#d97706',notice:'#0891b2',info:'#57606a',debug:'#8b949e'};
     tbody.innerHTML = rows.map(function(e){
-      var sc = sevCol[e.severity]||'#3b82f6';
+      var sc = sevCol[e.severity]||'#8b949e';
       return '<tr>'
         +'<td style="padding:7px 10px;white-space:nowrap;font-size:11px;">'+_esc(e.timestamp||'')+'</td>'
         +'<td style="padding:7px 10px;font-size:11px;color:#57606a;font-weight:600;">'+_esc(e.type||'')+'</td>'
@@ -14936,7 +14787,7 @@ function runCpanelLive() {
       var ip = e.ip && /\d/.test(e.ip) ? '<a href="https://www.ip-api.com/#' + _esc(e.ip) + '" target="_blank" style="color:#2563eb;font-family:monospace;">' + _esc(e.ip) + '</a>' : _esc(e.ip||'—');
       var statusColor = e.status === 'active' ? '#57606a' : '#605e5c';
       return '<tr style="border-bottom:1px solid #f3f2f1;">' +
-        '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
+        '<td style="padding:7px 12px;font-size:11px;color:#8b949e;white-space:nowrap;">' + _esc(e.timestamp||'—') + '</td>' +
         '<td style="padding:7px 12px;font-weight:600;">' + _esc(e.user||'—') + '</td>' +
         '<td style="padding:7px 12px;font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(e.event||'') + '">' + _esc(e.event||'—') + '</td>' +
         '<td style="padding:7px 12px;">' + ip + '</td>' +
@@ -15134,7 +14985,7 @@ function _ftpRenderFiles(files, stats, path) {
       : '<span style="color:#0f172a;">'+_esc(f.name)+'</span>';
     return '<tr style="border-bottom:1px solid #eaeef2;">'
       + '<td style="padding:7px 12px;">'+nameHtml+'</td>'
-      + '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;white-space:nowrap;">'+_esc(f.modified||'')+'</td>'
+      + '<td style="padding:7px 12px;font-size:11px;color:#8b949e;white-space:nowrap;">'+_esc(f.modified||'')+'</td>'
       + '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;">'+(f.size != null && !isDir ? (f.size > 1024 ? Math.round(f.size/1024)+'KB' : f.size+'B') : '')+'</td>'
       + '<td style="padding:7px 12px;font-size:11px;color:#3b82f6;">'+(isDir?'DIR':ext.toUpperCase()||'—')+'</td>'
       + '<td style="padding:7px 12px;">'+flag+'</td>'
@@ -15247,7 +15098,7 @@ function _renderNetMap(nodes, edges) {
 
   if (typeof d3 === 'undefined') {
     // Fallback if D3 not loaded
-    svgEl.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#60a5fa" font-size="13" dy=".35em">D3.js not loaded — refresh to retry.</text>';
+    svgEl.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#8b949e" font-size="13" dy=".35em">D3.js not loaded — refresh to retry.</text>';
     return;
   }
 
@@ -15256,8 +15107,8 @@ function _renderNetMap(nodes, edges) {
   svgEl.setAttribute('width', W);
   svgEl.setAttribute('height', H);
 
-  var _groupColors = { target:'#1d1d1f', http:'#2563eb', https:'#2563eb', ssh:'#3b82f6',
-                        mysql:'#3b82f6', ftp:'#2563eb', smtp:'#8b5cf6', remote:'#3b82f6', service:'#57606a' };
+  var _groupColors = { target:'#1d1d1f', http:'#2563eb', https:'#2563eb', ssh:'#8b5cf6',
+                        mysql:'#16a34a', ftp:'#2563eb', smtp:'#8b5cf6', remote:'#8b949e', service:'#57606a' };
 
   var svg = d3.select(svgEl)
     .style('background','#fff');
@@ -15280,7 +15131,7 @@ function _renderNetMap(nodes, edges) {
     .force('collision', d3.forceCollide(32));
 
   var link = svg.append('g').selectAll('line').data(d3Links).enter()
-    .append('line').attr('stroke','#dbeafe').attr('stroke-width',1.5)
+    .append('line').attr('stroke','#e5e7eb').attr('stroke-width',1.5)
     .attr('marker-end','url(#arrowhead)');
 
   var linkLabel = svg.append('g').selectAll('text').data(d3Links).enter()
@@ -15296,7 +15147,7 @@ function _renderNetMap(nodes, edges) {
   node.append('circle')
     .attr('r', function(d){ return d.type==='target' ? 22 : 14; })
     .attr('fill', function(d){ return d.type==='target' ? (_groupColors[d.type]||'#1d1d1f') : '#fff'; })
-    .attr('stroke', function(d){ return _groupColors[d.group]||_groupColors[d.type]||'#3b82f6'; })
+    .attr('stroke', function(d){ return _groupColors[d.group]||_groupColors[d.type]||'#8b949e'; })
     .attr('stroke-width', function(d){ return d.type==='target' ? 0 : 2.5; })
     .style('filter','drop-shadow(0 2px 4px rgba(0,0,0,.12))');
 
@@ -15390,7 +15241,7 @@ function loadWeaknesses() {
 
 function _sevBars(sev) {
   sev = (sev || '').toUpperCase();
-  var colors = { CRITICAL: ['#57606a','#57606a','#57606a','#57606a'], HIGH: ['#1d4ed8','#1d4ed8','#1d4ed8','#e1dfdd'], MEDIUM: ['#2563eb','#2563eb','#e1dfdd','#e1dfdd'], LOW: ['#57606a','#e1dfdd','#e1dfdd','#e1dfdd'] };
+  var colors = { CRITICAL: ['#dc2626','#dc2626','#dc2626','#dc2626'], HIGH: ['#ea580c','#ea580c','#ea580c','#f3f4f6'], MEDIUM: ['#d97706','#d97706','#f3f4f6','#f3f4f6'], LOW: ['#16a34a','#f3f4f6','#f3f4f6','#f3f4f6'] };
   var c = colors[sev] || ['#e1dfdd','#e1dfdd','#e1dfdd','#e1dfdd'];
   return '<span class="mdef-sev-bar">' + c.map(function(col){ return '<span class="mdef-sev-sq" style="background:'+col+';"></span>'; }).join('') + '</span><span style="font-size:11px;">' + (sev || '—') + '</span>';
 }
@@ -15712,7 +15563,7 @@ function _gfStartPoll(gfUrl, promUrl, gfUser, gfPass) {
           var statusEl = document.getElementById('gf-autosetup-status');
           var pollEl = document.getElementById('gf-autosetup-poll');
           var dot = document.getElementById('gf-autosetup-dot');
-          if (dot) { dot.style.background = '#60a5fa'; dot.style.animation = 'none'; }
+          if (dot) { dot.style.background = '#16a34a'; dot.style.animation = 'none'; }
           var imp = (cfg.dashboards_imported || []).length;
           if (statusEl) statusEl.textContent = 'Setup complete!';
           if (pollEl) pollEl.textContent = 'Prometheus data source configured · ' + imp + ' dashboard' + (imp !== 1 ? 's' : '') + ' imported. Connecting…';
@@ -15877,7 +15728,7 @@ function _gfColor(key, v) {
   if (key.endsWith('_pct') && v !== undefined) {
     if (v >= 90) return '#2563eb';
     if (v >= 70) return '#2563eb';
-    return '#60a5fa';
+    return '#8b949e';
   }
   return '#2563eb';
 }
@@ -15974,7 +15825,7 @@ function _gfRenderTargets(d) {
     return;
   }
   list.innerHTML = d.targets.map(function(t) {
-    var col = t.health === 'up' ? '#60a5fa' : t.health === 'down' ? '#2563eb' : '#2563eb';
+    var col = t.health === 'up' ? '#16a34a' : t.health === 'down' ? '#dc2626' : '#8b949e';
     return '<div class="gf-target-row">' +
       '<span style="color:' + col + ';font-size:9px;">●</span>' +
       '<div><div style="font-weight:600;color:#1d1d1f;">' + _esc(t.instance) + '</div>' +
@@ -16621,7 +16472,7 @@ function loadEventTimeline() {
       });
       events.sort(function(a,b){ return b.date - a.date; });
       if (!events.length) { list.innerHTML = '<div class="mdef-empty">No events in the selected period.</div>'; return; }
-      var dotCols = { CRITICAL: '#57606a', HIGH: '#1d4ed8', MEDIUM: '#2563eb', LOW: '#57606a', INFO: '#0078d4' };
+      var dotCols = { CRITICAL: '#dc2626', HIGH: '#ea580c', MEDIUM: '#d97706', LOW: '#16a34a', INFO: '#0891b2' };
       list.innerHTML = events.slice(0, 100).map(function(ev) {
         var ts = ev.date.toLocaleString(undefined, { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false });
         return '<div class="etl-item">' +
@@ -16959,7 +16810,7 @@ function _taKpi(lbl, val, sub) {
 }
 
 function _taDrawCharts(d) {
-  var bCols = ['#1f2328','#57606a','#2563eb','#3b82f6','#60a5fa','#93c5fd'];
+  var bCols = ['#dc2626','#ea580c','#d97706','#16a34a','#0891b2','#8b949e'];
 
   // 1. Area chart — vulnerability & compliance trends
   var trends = d.trends || {};
@@ -17011,7 +16862,7 @@ function _taDrawCharts(d) {
   var dLow    = Math.max(0, dTotal - dCrit - dHigh - dMed);
   var dVals   = (dTotal > 0) ? [dCrit, dHigh, dMed, dLow] : [1,2,3,1];
   var dLabels = ['Critical','High','Medium','Low'];
-  var dColors = ['#1f2328','#57606a','#2563eb','#60a5fa'];
+  var dColors = ['#dc2626','#d97706','#16a34a','#0891b2'];
   var dC = document.getElementById('ta-donut-chart');
   if (dC) {
     if (_taChart2) { try{_taChart2.destroy();}catch(e){} }
@@ -17039,7 +16890,7 @@ function _taDrawCharts(d) {
       type:'radar',
       data:{labels:rHosts,datasets:[
         {label:'Risk',data:rScores,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.1)',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#dc2626'},
-        {label:'Max',data:rHosts.map(function(){return 100;}),borderColor:'#bfdbfe',backgroundColor:'rgba(191,219,254,.05)',borderWidth:1,borderDash:[4,4],pointRadius:0}
+        {label:'Max',data:rHosts.map(function(){return 100;}),borderColor:'#d0d7de',backgroundColor:'rgba(208,215,222,.05)',borderWidth:1,borderDash:[4,4],pointRadius:0}
       ]},
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{display:false}},
@@ -17248,7 +17099,7 @@ function _dashPopulateAddon(id) {
       var counts = {CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
       scans.forEach(function(s){ var o=(s.output||'').toLowerCase(); if(/\bcritical\b/.test(o)) counts.CRITICAL++; else if(/\bhigh\b/.test(o)) counts.HIGH++; else if(/\bmedium\b/.test(o)) counts.MEDIUM++; else counts.LOW++; });
       var total = counts.CRITICAL+counts.HIGH+counts.MEDIUM+counts.LOW||1;
-      var cols = {CRITICAL:'#57606a',HIGH:'#1d4ed8',MEDIUM:'#2563eb',LOW:'#57606a'};
+      var cols = {CRITICAL:'#dc2626',HIGH:'#ea580c',MEDIUM:'#d97706',LOW:'#16a34a'};
       var el = document.getElementById('addon-cve-bars');
       if (!el) return;
       el.innerHTML = Object.keys(counts).map(function(k) {
@@ -17852,7 +17703,7 @@ function slRenderLogs(logs) {
   tb.innerHTML = logs.map(function(lg) {
     var lvl = (lg.level || 'INFO').toUpperCase();
     var src = _esc(lg.source_type || '');
-    var srcColor = src === 'splunk' ? '#2563eb' : src === 'windows' ? '#2563eb' : '#3b82f6';
+    var srcColor = src === 'splunk' ? '#2563eb' : src === 'windows' ? '#475467' : '#8b949e';
     var ch = _esc(lg.channel || lg.sourcetype || '');
     return '<tr>'
       + '<td style="white-space:nowrap;color:#3b82f6;">' + _esc((lg.received_at||'').replace('T',' ').substring(0,19)) + '</td>'
@@ -17943,7 +17794,7 @@ function slSourceTab(tab) {
     var panel = document.getElementById('sl-spanel-' + t);
     if (btn) {
       btn.style.borderBottomColor = (t === tab) ? '#2563eb' : 'transparent';
-      btn.style.color = (t === tab) ? '#2563eb' : '#3b82f6';
+      btn.style.color = (t === tab) ? '#2563eb' : '#57606a';
     }
     if (panel) panel.style.display = (t === tab) ? '' : 'none';
   });
@@ -18866,7 +18717,7 @@ function _fsRenderGeneric(data) {
   var exposed = data.exposed_files || [];
   if (exposed.length) {
     var rows = exposed.map(function(f){
-      var sevCol = f.severity === 'critical' ? '#dc2626' : f.severity === 'high' ? '#d97706' : '#3b82f6';
+      var sevCol = f.severity === 'critical' ? '#dc2626' : f.severity === 'high' ? '#ea580c' : f.severity === 'medium' ? '#d97706' : '#16a34a';
       return '<tr><td style="font-size:11px;word-break:break-all;color:#57606a;font-weight:600;">'+_esc(f.path)+'</td>'
         + '<td><span style="background:#fee2e2;color:'+sevCol+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;">'+_esc(f.severity.toUpperCase())+'</span></td>'
         + '<td style="font-size:11px;color:#475569;">'+_esc(f.description)+'</td>'
@@ -19243,9 +19094,9 @@ function _gscRenderSummary(data) {
   var sevCfg = [
     {k:'critical', label:'Critical', bg:'#dc2626', col:'#fff'},
     {k:'high',     label:'High',     bg:'#2563eb', col:'#fff'},
-    {k:'medium',   label:'Medium',   bg:'#60a5fa', col:'#fff'},
-    {k:'low',      label:'Low',      bg:'#bfdbfe', col:'#1e40af'},
-    {k:'info',     label:'Info',     bg:'#dbeafe', col:'#1e40af'},
+    {k:'medium',   label:'Medium',   bg:'#d97706', col:'#fff'},
+    {k:'low',      label:'Low',      bg:'#dcfce7', col:'#15803d'},
+    {k:'info',     label:'Info',     bg:'#cffafe', col:'#0e7490'},
   ];
   badges.innerHTML = sevCfg.map(function(s){
     var n = sum[s.k] || 0;
@@ -19695,9 +19546,9 @@ function _gscDoRender(issues) {
   var sevCfg = {
     critical: {bg:'#f6f8fa', col:'#57606a', border:'#57606a'},
     high:     {bg:'#f6f8fa', col:'#1e40af', border:'#2563eb'},
-    medium:   {bg:'#f0f7ff', col:'#1e40af', border:'#60a5fa'},
-    low:      {bg:'#f8faff', col:'#3b82f6', border:'#bfdbfe'},
-    info:     {bg:'#f8faff', col:'#60a5fa', border:'#dbeafe'},
+    medium:   {bg:'#fffbeb', col:'#92400e', border:'#fcd34d'},
+    low:      {bg:'#f0fdf4', col:'#16a34a', border:'#86efac'},
+    info:     {bg:'#ecfeff', col:'#0e7490', border:'#a5f3fc'},
   };
   var html = '';
   (issues || []).forEach(function(issue) {
@@ -19852,8 +19703,8 @@ function _grcCtrlAssignDonut(ctrls) {
   if (leg) {
     leg.innerHTML = [
       ['Assigned', assigned, '#2563eb'],
-      ['Needs reassignment', reassign, '#60a5fa'],
-      ['Unassigned', unassigned, '#bfdbfe'],
+      ['Needs reassignment', reassign, '#d97706'],
+      ['Unassigned', unassigned, '#e5e7eb'],
     ].map(function(row){
       return '<div style="display:flex;align-items:center;gap:6px;">'
         +'<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+row[2]+';flex-shrink:0;"></span>'
@@ -20110,7 +19961,7 @@ function _grcRiskScatterChart(risks) {
     if (s >= 16) return { label: 'Critical', color: '#ef4444' };
     if (s >= 10) return { label: 'High',     color: '#f97316' };
     if (s >= 5)  return { label: 'Medium',   color: '#eab308' };
-    return               { label: 'Low',     color: '#3b82f6' };
+    return               { label: 'Low',     color: '#16a34a' };
   };
 
   var _lastCell = '';
@@ -20187,7 +20038,7 @@ function _grcRiskMiniCharts(risks) {
     _grcTreatMiniChart = new Chart(ctx2, {
       type:'bar',
       data:{labels:['Treated','Untreated'],datasets:[{data:[treated,total-treated],
-        backgroundColor:['#1d4ed8','#dbeafe'],borderRadius:3,barThickness:18}]},
+        backgroundColor:['#16a34a','#e5e7eb'],borderRadius:3,barThickness:18}]},
       options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},
         scales:{x:{display:false,beginAtZero:true,max:total},y:{display:false}}}
     });
@@ -20316,7 +20167,7 @@ function grcLoadTreatment() {
         type:'bar',
         data:{labels:types,
           datasets:[
-            {label:'Approved',data:approved_data,backgroundColor:'#1d4ed8',borderRadius:3,stack:'s'},
+            {label:'Approved',data:approved_data,backgroundColor:'#16a34a',borderRadius:3,stack:'s'},
             {label:'Not approved',data:not_approved_data,backgroundColor:'#e2e8f0',borderRadius:3,stack:'s'}
           ]},
         options:{responsive:true,
@@ -20343,7 +20194,7 @@ function grcLoadTreatment() {
     if (taskLeg) {
       taskLeg.innerHTML = [
         ['Complete', tComplete, '#2563eb'],
-        ['Incomplete', tIncomplete, '#bfdbfe'],
+        ['Incomplete', tIncomplete, '#e5e7eb'],
       ].map(function(row){
         return '<div style="display:flex;align-items:center;gap:6px;">'
           +'<span style="width:10px;height:10px;border-radius:50%;background:'+row[2]+';flex-shrink:0;display:inline-block;"></span>'
@@ -20371,8 +20222,8 @@ function grcLoadTreatment() {
     var ctrlLeg = document.getElementById('grc-treat-ctrl-legend');
     if (ctrlLeg) {
       ctrlLeg.innerHTML = [
-        ['OK', cOk, '#1d4ed8'],
-        ['Not OK', cNotOk, '#bfdbfe'],
+        ['OK', cOk, '#16a34a'],
+        ['Not OK', cNotOk, '#dc2626'],
       ].map(function(row){
         return '<div style="display:flex;align-items:center;gap:6px;">'
           +'<span style="width:10px;height:10px;border-radius:50%;background:'+row[2]+';flex-shrink:0;display:inline-block;"></span>'
@@ -20386,7 +20237,7 @@ function grcLoadTreatment() {
       _grcTreatCtrlDonut = new Chart(ctrlCtx, {
         type:'doughnut',
         data:{labels:['OK','Not OK'],
-          datasets:[{data:[cOk,cNotOk],backgroundColor:['#1d4ed8','#bfdbfe'],borderWidth:0,hoverOffset:3}]},
+          datasets:[{data:[cOk,cNotOk],backgroundColor:['#16a34a','#dc2626'],borderWidth:0,hoverOffset:3}]},
         options:{responsive:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:true}}}
       });
     }
@@ -20499,7 +20350,7 @@ function _grcRenderTests(rows) {
   if(em) em.style.display='none';
   tb.innerHTML = rows.map(function(r){
     var stBadge, stColor;
-    if (r.status==='pass') { stBadge='OK'; stColor='#1d4ed8'; stBg='#dbeafe'; }
+    if (r.status==='pass') { stBadge='OK'; stColor='#15803d'; stBg='#dcfce7'; }
     else if (r.status==='fail') { stBadge='Fail'; stColor='#dc2626'; stBg='#fef2f2'; }
     else if (r.status==='in_progress') { stBadge='In Progress'; stColor='#2563eb'; stBg='#f6f8fa'; }
     else { stBadge='Not Started'; stColor='#64748b'; stBg='#f1f5f9'; }
@@ -20612,8 +20463,8 @@ function _grcAuditTimeline(audit) {
   ];
   return '<div style="display:flex;align-items:center;gap:0;margin:10px 0 6px;font-size:10px;overflow:hidden;">'
     + milestones.map(function(m, i){
-        var color = m.done ? '#1d4ed8' : '#e2e8f0';
-        var tc    = m.done ? '#1d4ed8' : '#94a3b8';
+        var color = m.done ? '#16a34a' : '#e2e8f0';
+        var tc    = m.done ? '#16a34a' : '#94a3b8';
         return (i>0?'<div style="flex:1;height:2px;background:'+color+';margin-top:-8px;"></div>':'' )
           +'<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">'
             +'<div style="width:12px;height:12px;border-radius:50%;background:'+color+';flex-shrink:0;"></div>'
@@ -20630,8 +20481,8 @@ function _grcRenderAuditCards(audits) {
   if (!audits.length) { c.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
   c.innerHTML = audits.map(function(a){
-    var stColor = a.status==='complete'?'#1d4ed8':a.status==='in_progress'?'#2563eb':'#64748b';
-    var stBg    = a.status==='complete'?'#dbeafe':a.status==='in_progress'?'#f6f8fa':'#f1f5f9';
+    var stColor = a.status==='complete'?'#15803d':a.status==='in_progress'?'#2563eb':'#64748b';
+    var stBg    = a.status==='complete'?'#dcfce7':a.status==='in_progress'?'#f6f8fa':'#f1f5f9';
     var stLabel = a.status==='complete'?'Complete':a.status==='in_progress'?'In Progress':'Planned';
     var timeline = _grcAuditTimeline(a);
     // Evidence bar placeholder (will be loaded separately if needed)
@@ -20659,8 +20510,8 @@ function _grcRenderAuditTable(audits) {
   if (!audits.length) { if(tb) tb.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
   tb.innerHTML = audits.map(function(a){
-    var stColor = a.status==='complete'?'#1d4ed8':a.status==='in_progress'?'#2563eb':'#64748b';
-    var stBg    = a.status==='complete'?'#dbeafe':a.status==='in_progress'?'#f6f8fa':'#f1f5f9';
+    var stColor = a.status==='complete'?'#15803d':a.status==='in_progress'?'#2563eb':'#64748b';
+    var stBg    = a.status==='complete'?'#dcfce7':a.status==='in_progress'?'#f6f8fa':'#f1f5f9';
     var stLabel = a.status==='complete'?'Complete':a.status==='in_progress'?'In Progress':'Planned';
     return '<tr>'
       +'<td style="font-weight:600;">'+_ge(a.name)+'</td>'
@@ -20765,7 +20616,7 @@ function _grcRenderEvBar(ev) {
   var total = ev.length || 1;
   var counts = {not_ready:0,flagged:0,ready:0,accepted:0,not_applicable:0};
   ev.forEach(function(e){ var s=e.evidence_status||'not_ready'; if(counts[s]!==undefined) counts[s]++; });
-  var colors = {not_ready:'#bfdbfe',flagged:'#60a5fa',ready:'#3b82f6',accepted:'#1d4ed8',not_applicable:'#e2e8f0'};
+  var colors = {not_ready:'#d0d7de',flagged:'#d97706',ready:'#16a34a',accepted:'#2563eb',not_applicable:'#e5e7eb'};
   var labels = {not_ready:'Not ready',flagged:'Flagged',ready:'Ready',accepted:'Accepted',not_applicable:'Not applicable'};
   var bar = document.getElementById('grc-ev-bar');
   if (bar) {
@@ -20789,7 +20640,7 @@ function _grcRenderEvidence(rows) {
   var em = document.getElementById('grc-ev-empty');
   if (!rows.length) { if(tb) tb.innerHTML=''; if(em) em.style.display=''; return; }
   if(em) em.style.display='none';
-  var stColors = {not_ready:'#bfdbfe',flagged:'#60a5fa',ready:'#3b82f6',accepted:'#1d4ed8',not_applicable:'#94a3b8'};
+  var stColors = {not_ready:'#d0d7de',flagged:'#d97706',ready:'#16a34a',accepted:'#2563eb',not_applicable:'#94a3b8'};
   var stLabels = {not_ready:'Not ready',flagged:'Flagged',ready:'Ready',accepted:'Accepted',not_applicable:'N/A'};
   tb.innerHTML = rows.map(function(r){
     var sc = r.evidence_status||'not_ready';
@@ -20925,8 +20776,8 @@ function _grcRenderInherentChart(risks) {
     type:'bar',
     data:{labels:['Low (1-7)','Medium (8-14)','High (15-25)'],
       datasets:[
-        {label:'Treated',   data:[Math.floor(lo*0.7),Math.floor(med*0.5),Math.floor(hi*0.3)],  backgroundColor:'#1d4ed8',borderRadius:3,stack:'s'},
-        {label:'Untreated', data:[Math.ceil(lo*0.3), Math.ceil(med*0.5), Math.ceil(hi*0.7)], backgroundColor:'#bfdbfe',borderRadius:3,stack:'s'},
+        {label:'Treated',   data:[Math.floor(lo*0.7),Math.floor(med*0.5),Math.floor(hi*0.3)],  backgroundColor:'#16a34a',borderRadius:3,stack:'s'},
+        {label:'Untreated', data:[Math.ceil(lo*0.3), Math.ceil(med*0.5), Math.ceil(hi*0.7)], backgroundColor:'#e5e7eb',borderRadius:3,stack:'s'},
       ]},
     options:{responsive:true,
       scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}}},
@@ -21100,7 +20951,7 @@ function grcSetStatus(msg, color) {
   var el = document.getElementById('grc-status');
   if (!el) return;
   el.textContent = msg;
-  el.style.color = color || '#3b82f6';
+  el.style.color = color || '#57606a';
 }
 
 function grcRunAnalysis() {
@@ -24604,5 +24455,228 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 })();
 </script>
+
+<style id="enterprise-final-override">
+/* ═══════════════════════════════════════════════════════════════════════
+   ENTERPRISE FINAL OVERRIDE — appended after all section styles
+   Handles: remaining blue inline colors, component classes, design improvements
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. CATCH-ALL: any remaining inline blue text colors ── */
+[style*="color:#3b82f6"],[style*="color: #3b82f6"]   { color: #57606a !important; }
+[style*="color:#60a5fa"],[style*="color: #60a5fa"]   { color: #8b949e !important; }
+[style*="color:#93c5fd"],[style*="color: #93c5fd"]   { color: #98a2b3 !important; }
+[style*="color:#bfdbfe"],[style*="color: #bfdbfe"]   { color: #98a2b3 !important; }
+[style*="color:#dbeafe"],[style*="color: #dbeafe"]   { color: #8b949e !important; }
+[style*="color:#1d4ed8"],[style*="color: #1d4ed8"]   { color: #344054 !important; }
+[style*="color:#1e40af"],[style*="color: #1e40af"]   { color: #344054 !important; }
+[style*="color:#1e3a8a"],[style*="color: #1e3a8a"]   { color: #1f2328 !important; }
+[style*="color:#172554"],[style*="color: #172554"]   { color: #1f2328 !important; }
+[style*="color:#0078d4"],[style*="color: #0078d4"]   { color: #2563eb !important; }
+
+/* ── 2. CATCH-ALL: any remaining inline blue backgrounds ── */
+[style*="background:#dbeafe"],[style*="background: #dbeafe"],
+[style*="background-color:#dbeafe"]                   { background: #e5e7eb !important; }
+[style*="background:#bfdbfe"],[style*="background: #bfdbfe"],
+[style*="background-color:#bfdbfe"]                   { background: #e5e7eb !important; }
+[style*="background:#93c5fd"],[style*="background: #93c5fd"]  { background: #e5e7eb !important; }
+[style*="background:#f8faff"],[style*="background: #f8faff"]  { background: #f9fafb !important; }
+
+/* ── 3. CATCH-ALL: any remaining inline blue borders ── */
+[style*="border-color:#bfdbfe"]  { border-color: #d0d7de !important; }
+[style*="border-color:#dbeafe"]  { border-color: #e5e7eb !important; }
+[style*="border-color:#93c5fd"]  { border-color: #d0d7de !important; }
+[style*="border-color:#3b82f6"]  { border-color: #d0d7de !important; }
+[style*="border:1px solid #bfdbfe"] { border-color: #d0d7de !important; }
+[style*="border:1px solid #dbeafe"] { border-color: #e5e7eb !important; }
+[style*="border:1px solid #93c5fd"] { border-color: #d0d7de !important; }
+
+/* ── 4. TABLE HEADER INLINE COLOR OVERRIDES ── */
+th[style*="color:#3b82f6"],th[style*="color: #3b82f6"] { color: #8b949e !important; }
+th[style*="color:#2563eb"],th[style*="color: #2563eb"] { color: #8b949e !important; }
+th[style*="color:#1d4ed8"],th[style*="color: #1d4ed8"] { color: #8b949e !important; }
+th[style*="color:#1e40af"],th[style*="color: #1e40af"] { color: #8b949e !important; }
+thead tr[style*="border-bottom:1px solid #bfdbfe"] { border-bottom-color: #e5e7eb !important; }
+thead tr[style*="border-bottom:1px solid #dbeafe"] { border-bottom-color: #e5e7eb !important; }
+th[style*="border:1px solid #bfdbfe"] { border-color: #e5e7eb !important; }
+
+/* ── 5. GRC2 COMPONENT CLASSES ── */
+.grc2-badge-blue  { background: #f6f8fa !important; color: #344054 !important; border: 1px solid #d0d7de !important; }
+.grc2-badge-dark  { background: #1f2328 !important; color: #e6edf3 !important; }
+.grc2-badge-light { background: #f6f8fa !important; color: #57606a !important; }
+.grc2-badge-ok    { background: #dcfce7 !important; color: #15803d !important; }
+.grc2-btn         { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+.grc2-btn:hover   { background: #1d4ed8 !important; }
+.grc2-btn-del:hover { background: #dc2626 !important; border-color: #dc2626 !important; }
+.grc2-tl-dot.done { background: #16a34a !important; }
+.grc2-cat-badge   { background: #f6f8fa !important; color: #344054 !important; }
+.grc2-attn-num    { color: #ea580c !important; }
+.grc2-card-hd     { color: #1a1f2e !important; }
+.grc2-badge-orange { background: #fff7ed !important; color: #c2410c !important; }
+.grc2-audit-card  { background: #fff !important; border-color: #e5e7eb !important; }
+
+/* ── 6. INC / INCIDENT MEDIUM BADGE ── */
+.inc-sev-MEDIUM   { background: #fef3c7 !important; color: #92400e !important; border-color: #fde68a !important; }
+.inc-sev-LOW      { background: #dcfce7 !important; color: #15803d !important; border-color: #86efac !important; }
+.inc-sev-HIGH     { background: #ffedd5 !important; color: #c2410c !important; border-color: #fed7aa !important; }
+.inc-sev-CRITICAL { background: #fee2e2 !important; color: #991b1b !important; border-color: #fca5a5 !important; }
+.inc-sev-INFO     { background: #cffafe !important; color: #0e7490 !important; border-color: #a5f3fc !important; }
+
+/* ── 7. GF AUTOSETUP BAR ── */
+#gf-autosetup-bar { background: #f6f8fa !important; border-color: #d0d7de !important; color: #344054 !important; }
+#gf-autosetup-bar button { border-color: #d0d7de !important; color: #344054 !important; }
+
+/* ── 8. VERSION BADGE (sidebar/topbar) ── */
+[style*="background:#dbeafe"][style*="color:#1d4ed8"] {
+  background: #f6f8fa !important; color: #57606a !important; border-color: #d0d7de !important;
+}
+
+/* ── 9. LOADING STATE TEXT ── */
+[style*="color:#60a5fa"][style*="Loading"],
+td[style*="color:#60a5fa"],
+div[style*="color:#60a5fa"] { color: #8b949e !important; }
+
+/* ── 10. LINK LABEL STYLES ── */
+label[style*="color:#60a5fa"],
+label[style*="color:#3b82f6"] { color: #57606a !important; }
+span[style*="color:#60a5fa"],
+span[style*="color:#3b82f6"]  { color: #57606a !important; }
+
+/* ── 11. VISUAL DESIGN IMPROVEMENTS ── */
+
+/* Cards: enterprise-level padding and subtle shadow */
+.card {
+  border-radius: 8px !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.02) !important;
+  padding: 18px 20px !important;
+}
+.card-hd {
+  font-size: 11px !important; font-weight: 700 !important;
+  letter-spacing: .6px !important; text-transform: uppercase !important;
+  color: #8b949e !important;
+  padding-bottom: 12px !important; margin-bottom: 16px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+
+/* KPI cards */
+.kpi-card {
+  border-radius: 8px !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04) !important;
+  padding: 16px 20px !important;
+  gap: 6px !important;
+}
+.kpi-label {
+  font-size: 11px !important; font-weight: 600 !important;
+  letter-spacing: .5px !important; text-transform: uppercase !important;
+  color: #8b949e !important; margin-bottom: 2px !important;
+}
+.kpi-value {
+  font-size: 30px !important; font-weight: 700 !important;
+  line-height: 1 !important; color: #1a1f2e !important;
+}
+.kpi-sub { font-size: 11px !important; color: #8b949e !important; margin-top: 4px !important; }
+
+/* Tables: clean enterprise style */
+table.tbl th {
+  font-size: 11px !important; font-weight: 700 !important;
+  text-transform: uppercase !important; letter-spacing: .5px !important;
+  color: #8b949e !important; background: #f9fafb !important;
+  padding: 9px 14px !important; border-bottom: 1px solid #e5e7eb !important;
+}
+table.tbl td {
+  padding: 10px 14px !important; color: #1a1f2e !important;
+  border-bottom: 1px solid #f3f4f6 !important; font-size: 13px !important;
+}
+table.tbl tr:nth-child(odd) td { background: transparent !important; }
+table.tbl tbody tr:hover td    { background: #f8fafc !important; }
+table.tbl tr:last-child td     { border-bottom: none !important; }
+.tbl-wrap { border: 1px solid #e5e7eb !important; border-radius: 8px !important; overflow: hidden !important; }
+
+/* Buttons */
+.btn { border-radius: 6px !important; font-weight: 600 !important; }
+.btn-sm { height: 26px !important; padding: 0 10px !important; font-size: 11px !important; }
+.btn-topbar { border-radius: 6px !important; }
+
+/* Badges: pill shape */
+.badge { border-radius: 4px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: 700 !important; }
+
+/* Inputs */
+.inp, input.inp, textarea.inp, select.inp {
+  border-radius: 6px !important; font-size: 13px !important;
+}
+
+/* Modal improvements */
+.modal-box {
+  border-radius: 12px !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,.12) !important;
+}
+.modal-hd { padding: 18px 22px !important; }
+.modal-title { font-size: 15px !important; font-weight: 700 !important; color: #1a1f2e !important; }
+.modal-body { padding: 16px 22px !important; }
+
+/* Section layout — tight, consistent */
+.wrap { padding: 8px 12px 24px !important; }
+.sec-hd, .sec-sub, .mvd-page-title { display: none !important; }
+
+/* Filter bar */
+.mvd-filter-bar {
+  padding: 8px 0 10px !important;
+  display: flex !important; align-items: center !important;
+  gap: 8px !important; flex-wrap: wrap !important;
+}
+
+/* Scrollbar global */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 4px; }
+::-webkit-scrollbar-button { display: none; height: 0; }
+
+/* PCI scrollbar */
+.pci-card-body::-webkit-scrollbar-thumb { background: #d0d7de !important; }
+
+/* PT2 scrollbar */
+.pt2-list-scroll { scrollbar-color: #d0d7de #f6f8fa !important; }
+.pt2-tab-body    { scrollbar-color: #d0d7de #f6f8fa !important; }
+
+/* ── 12. CHART TITLES ── */
+.chart-box h4 {
+  font-size: 11px !important; font-weight: 700 !important;
+  text-transform: uppercase !important; letter-spacing: .5px !important;
+  color: #8b949e !important; margin-bottom: 12px !important;
+}
+.sev-stats h4 {
+  font-size: 11px !important; font-weight: 700 !important;
+  text-transform: uppercase !important; letter-spacing: .5px !important;
+  color: #8b949e !important;
+}
+
+/* ── 13. ENSURE FULL OPACITY ── */
+* { opacity: 1 !important; }
+input::placeholder, textarea::placeholder { opacity: 1 !important; color: #8b949e !important; }
+
+/* ── 14. SIGN-IN BUTTON IN WP LOG SECTION ── */
+[style*="background:linear-gradient(135deg,#2563eb,#1d4ed8)"] {
+  background: #2563eb !important;
+}
+[style*="background:#3b82f6"][style*="color:#fff"] {
+  background: #2563eb !important;
+}
+
+/* ── 15. CONSISTENT LINK COLOR ── */
+a { color: #2563eb; }
+a:hover { text-decoration: underline; color: #1d4ed8; }
+
+/* ── 16. SIEM TACTIC loading state ── */
+#siem-tactic-list div[style*="color:#60a5fa"] { color: #8b949e !important; }
+
+/* ── 17. INCIDENT STAT COLORS ── */
+.inc-stat-num[style*="color:#3b82f6"] { color: #2563eb !important; }
+
+/* ── 18. SIG SEV DOT: replace blue with grey ── */
+.sig-sev-dot[style*="background:#3b82f6"] { background: #8b949e !important; }
+
+</style>
 </body>
 </html>
