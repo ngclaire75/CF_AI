@@ -273,7 +273,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 .ink-spin-ring { width: 48px; height: 48px;
   border: 3px solid rgba(37,99,235,0.25); border-top-color: #3b82f6;
   border-radius: 50%; animation: spin .75s linear infinite; }
-.ink-spin-label { margin-top: 18px; font-size: 13px; color: #93c5fd; font-weight: 600; letter-spacing: 0.3px; }
+.ink-spin-label { margin-top: 18px; font-size: 13px; color: #ffffff; font-weight: 600; letter-spacing: 0.3px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes _overlayIn { from { opacity: 0; } to { opacity: 1; } }
 
@@ -1927,6 +1927,87 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .wrap {
   padding: 14px 16px 24px !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SEMANTIC COLOR FIXES
+   ─ Overrides earlier CSS that converted semantic colors to blue
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Loading spinner text: white on dark overlay */
+.ink-spin-label { color: #ffffff !important; }
+
+/* Override --c5/--c6 so all remaining var(--c5/c6) text renders as neutral grey */
+:root {
+  --c5: #57606a;
+  --c6: #6e7781;
+}
+
+/* ── Restore semantic status / badge colors ── */
+.badge-red, .badge-danger, .sev-critical-bg, .sev-high-bg {
+  background: #dc2626 !important; color: #fff !important;
+}
+.badge-warning, .badge-amber, .sev-medium-bg {
+  background: #d97706 !important; color: #fff !important;
+}
+.badge-success, .badge-green, .sev-low-bg {
+  background: #15803d !important; color: #fff !important;
+}
+.text-danger, .text-red, .text-error { color: #dc2626 !important; }
+.text-success, .text-green           { color: #15803d !important; }
+.text-warning                        { color: #d97706 !important; }
+.text-muted, .text-secondary, .text-gray { color: #57606a !important; }
+
+/* ── Status badges: semantic colors ── */
+.status-open          { background: #dc2626 !important; color: #fff !important; }
+.status-investigating { background: #d97706 !important; color: #fff !important; }
+.status-resolved      { background: #15803d !important; color: #fff !important; }
+.status-pending       { background: #e5e7eb !important; color: #374151 !important; }
+.status-pass          { background: #dcfce7 !important; color: #15803d !important; }
+.status-fail          { background: #fee2e2 !important; color: #dc2626 !important; }
+
+/* ── Syslog level colors: semantic ── */
+.sl-level-error, .sl-level-err, .sl-level-crit { color: #dc2626 !important; }
+.sl-level-warn, .sl-level-warning              { color: #d97706 !important; }
+.sl-level-info                                 { color: #2563eb !important; }
+.sl-level-debug                                { color: #57606a !important; }
+
+/* ── UNDO the attribute-selector overrides that converted semantic colors to blue ── */
+[style*="color:#ef4444"], [style*="color: #ef4444"] { color: #ef4444 !important; }
+[style*="color:#dc2626"], [style*="color: #dc2626"] { color: #dc2626 !important; }
+[style*="color:#f97316"], [style*="color: #f97316"] { color: #f97316 !important; }
+[style*="color:#f59e0b"], [style*="color: #f59e0b"] { color: #f59e0b !important; }
+[style*="color:#22c55e"], [style*="color: #22c55e"] { color: #22c55e !important; }
+[style*="color:#15803d"], [style*="color: #15803d"] { color: #15803d !important; }
+[style*="color:#059669"], [style*="color: #059669"] { color: #059669 !important; }
+[style*="color:#166534"], [style*="color: #166534"] { color: #166534 !important; }
+[style*="color:#f6821f"], [style*="color: #f6821f"] { color: #f6821f !important; }
+
+/* ── UNDO background attribute-selector overrides ── */
+[style*="background:#fee2e2"]                { background: #fee2e2 !important; }
+[style*="background:#fef2f2"]                { background: #fef2f2 !important; }
+[style*="background:#fef9c3"]                { background: #fef9c3 !important; }
+[style*="background:#dcfce7"]                { background: #dcfce7 !important; }
+[style*="background:#f0fdf4"]                { background: #f0fdf4 !important; }
+[style*="background:#fff7ed"]                { background: #fff7ed !important; }
+[style*="background:#fef3c7"]                { background: #fef3c7 !important; }
+
+/* ── UNDO border-left attribute-selector overrides ── */
+[style*="border-left:3px solid #ef4444"]  { border-left-color: #ef4444 !important; }
+[style*="border-left:3px solid #dc2626"]  { border-left-color: #dc2626 !important; }
+[style*="border-left:3px solid #f97316"]  { border-left-color: #f97316 !important; }
+[style*="border-left:4px solid #ef4444"]  { border-left-color: #ef4444 !important; }
+[style*="border-top:3px solid #ef4444"]   { border-top-color:  #ef4444 !important; }
+
+/* ── Specific label classes still blue: override to dark grey ── */
+.mvd-card-section-title, .mvd-card-p, .mvd-spark-title,
+.mvd-threat-kpi-label, .mvd-pts-row, .mvd-prog-num,
+.ta-kpi-lbl, .ta-kpi-sub, .mdef-kpi-label, .mdef-empty,
+.mdef-detail-field-label, .pci-empty, .pci-card-count,
+.pci-pct-cell, .ss-ring-sub, .finding-id, .finding-toggle,
+.cve-desc-snip, .meta-item label { color: #57606a !important; }
+
+/* Secure-score ring value: keep blue accent */
+.ss-ring-val { color: #2563eb !important; }
 
 /* ── Section titles hidden — already shown in topbar ── */
 .sec-hd  { display: none !important; }
@@ -10777,7 +10858,7 @@ function _entRenderAnalytics(scans, incData) {
   var rc=document.getElementById('ent-attack-radar');
   if(rc){
     if(_entCharts.radar){try{_entCharts.radar.destroy();}catch(e){}}
-    _entCharts.radar=new Chart(rc,{type:'radar',data:{labels:['SSL/TLS','HTTP','Auth','CMS','DNS','Ports'],datasets:[{label:'Current',data:[rData.ssl,rData.http,rData.auth,rData.cms,rData.dns,rData.ports],borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.15)',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#2563eb'},{label:'Target',data:[90,90,90,90,90,90],borderColor:'#bfdbfe',backgroundColor:'rgba(191,219,254,.05)',borderWidth:1,borderDash:[4,4],pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:'#e2e8f0'},pointLabels:{font:{size:7},color:'#57606a'}}},animation:{duration:500}}});
+    _entCharts.radar=new Chart(rc,{type:'radar',data:{labels:['SSL/TLS','HTTP','Auth','CMS','DNS','Ports'],datasets:[{label:'Current',data:[rData.ssl,rData.http,rData.auth,rData.cms,rData.dns,rData.ports],borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,.12)',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#0ea5e9'},{label:'Target',data:[90,90,90,90,90,90],borderColor:'#d1d5db',backgroundColor:'rgba(209,213,219,.04)',borderWidth:1,borderDash:[4,4],pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:'#e2e8f0'},pointLabels:{font:{size:7},color:'#57606a'}}},animation:{duration:500}}});
   }
 
   // ── MITRE bars ────────────────────────────────────────────────────────────
@@ -10804,7 +10885,7 @@ function _entRenderAnalytics(scans, incData) {
     if(!el)return;
     if(_entCharts[sp[0]]){try{_entCharts[sp[0]].destroy();}catch(e){}}
     var data=sp[1].length?sp[1]:fallback;
-    var bgMap={'#1f2328':'rgba(23,37,84,.12)','#2563eb':'rgba(37,99,235,.12)','#60a5fa':'rgba(96,165,250,.12)','#93c5fd':'rgba(147,197,253,.12)'};
+    var bgMap={'#22c55e':'rgba(34,197,94,.12)','#dc2626':'rgba(220,38,38,.10)','#f97316':'rgba(249,115,22,.10)','#f59e0b':'rgba(245,158,11,.10)','#0ea5e9':'rgba(14,165,233,.12)','#2563eb':'rgba(37,99,235,.12)','#60a5fa':'rgba(96,165,250,.12)','#1f2328':'rgba(31,35,40,.12)'};
     _entCharts[sp[0]]=new Chart(el,{type:'line',data:{labels:data.map(function(_,i){return i+'';}) ,datasets:[{data:data,borderColor:sp[2],backgroundColor:bgMap[sp[2]]||'rgba(37,99,235,.1)',fill:true}]},options:spOpts});
   });
 
@@ -14799,8 +14880,8 @@ function _renderLeTimeline(tl) {
   _leTimelineChart = new Chart(canvas.getContext('2d'), {
     type: 'bar',
     data: { labels: labels, datasets: [
-      { label: 'Requests', data: totals, backgroundColor: 'rgba(37,99,235,.7)', borderRadius: 3, order: 2 },
-      { label: 'Errors',   data: errors, backgroundColor: 'rgba(30,58,138,.85)', borderRadius: 3, order: 1 },
+      { label: 'Requests', data: totals, backgroundColor: 'rgba(59,130,246,.75)', borderRadius: 3, order: 2 },
+      { label: 'Errors',   data: errors, backgroundColor: 'rgba(239,68,68,.8)', borderRadius: 3, order: 1 },
     ]},
     options: {
       plugins: { legend: { labels: { font: { size: 11, family: '-apple-system,sans-serif' } } } },
@@ -16760,7 +16841,7 @@ function _taDrawCharts(d) {
       type:'line',
       data:{labels:aLabels,datasets:[
         {label:'Vulnerabilities',data:aVuln,borderColor:'#1f2328',backgroundColor:'rgba(23,37,84,.18)',fill:true,tension:0.4,borderWidth:2,pointRadius:2,pointBackgroundColor:'#1f2328'},
-        {label:'Compliance',data:aComp,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.1)',fill:true,tension:0.4,borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#2563eb'}
+        {label:'Compliance',data:aComp,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.08)',fill:true,tension:0.4,borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#22c55e'}
       ]},
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{display:false},tooltip:{bodyFont:{size:9},titleFont:{size:9}}},
@@ -16778,7 +16859,7 @@ function _taDrawCharts(d) {
       type:'line',
       data:{labels:aLabels,datasets:[
         {label:'Vulnerabilities',data:aVuln,borderColor:'#1f2328',backgroundColor:'rgba(23,37,84,.18)',fill:true,tension:0.4,borderWidth:2,pointRadius:2,pointBackgroundColor:'#1f2328'},
-        {label:'Compliance',data:aComp,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.1)',fill:true,tension:0.4,borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#2563eb'}
+        {label:'Compliance',data:aComp,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.08)',fill:true,tension:0.4,borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#22c55e'}
       ]},
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{display:false},tooltip:{bodyFont:{size:9},titleFont:{size:9}}},
@@ -16825,7 +16906,7 @@ function _taDrawCharts(d) {
     _taChart3 = new Chart(rC, {
       type:'radar',
       data:{labels:rHosts,datasets:[
-        {label:'Risk',data:rScores,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.15)',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#2563eb'},
+        {label:'Risk',data:rScores,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.1)',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#dc2626'},
         {label:'Max',data:rHosts.map(function(){return 100;}),borderColor:'#bfdbfe',backgroundColor:'rgba(191,219,254,.05)',borderWidth:1,borderDash:[4,4],pointRadius:0}
       ]},
       options:{responsive:true,maintainAspectRatio:false,
@@ -19654,7 +19735,7 @@ function _grcCtrlAssignDonut(ctrls) {
     type:'doughnut',
     data:{labels:['Assigned','Needs reassignment','Unassigned'],
       datasets:[{data:[assigned,reassign,unassigned],
-        backgroundColor:['#2563eb','#60a5fa','#bfdbfe'],borderWidth:0,hoverOffset:3}]},
+        backgroundColor:['#22c55e','#f59e0b','#dc2626'],borderWidth:0,hoverOffset:3}]},
     options:{responsive:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{enabled:true}}}
   });
 }
@@ -19964,7 +20045,7 @@ function _grcRiskMiniCharts(risks) {
     _grcProgChart = new Chart(ctx1, {
       type:'bar',
       data:{labels:['Approved','Pending'],datasets:[{data:[approved,total-approved],
-        backgroundColor:['#2563eb','#dbeafe'],borderRadius:3,barThickness:18}]},
+        backgroundColor:['#22c55e','#e5e7eb'],borderRadius:3,barThickness:18}]},
       options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},
         scales:{x:{display:false,beginAtZero:true,max:total},y:{display:false}}}
     });
@@ -20144,7 +20225,7 @@ function grcLoadTreatment() {
       _grcTreatTaskDonut = new Chart(taskCtx, {
         type:'doughnut',
         data:{labels:['Complete','Incomplete'],
-          datasets:[{data:[tComplete,tIncomplete],backgroundColor:['#2563eb','#bfdbfe'],borderWidth:0,hoverOffset:3}]},
+          datasets:[{data:[tComplete,tIncomplete],backgroundColor:['#22c55e','#e5e7eb'],borderWidth:0,hoverOffset:3}]},
         options:{responsive:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:true}}}
       });
     }
@@ -20732,7 +20813,7 @@ function _grcRenderCtrlComplianceChart(controls) {
   _grcCtrlCompChart = new Chart(ctx, {
     type:'bar',
     data:{labels:labels,
-      datasets:[{label:'Compliance %',data:data,backgroundColor:'#2563eb',borderRadius:4}]},
+      datasets:[{label:'Compliance %',data:data,backgroundColor:'#22c55e',borderRadius:4}]},
     options:{responsive:true,plugins:{legend:{display:false}},
       scales:{y:{beginAtZero:true,max:100,ticks:{callback:function(v){ return v+'%'; }}}}}
   });
