@@ -178,7 +178,7 @@ table.tbl tbody tr:hover td { background: var(--c10); }
   font-size: 11px; font-weight: 700; letter-spacing: .3px; }
 .badge-crit, .badge-CRITICAL { background: #dc2626; color: #fff; border: 1px solid #b91c1c; }
 .badge-high, .badge-HIGH     { background: #1f2328; color: #fff; border: 1px solid #d0d7de; }
-.badge-med,  .badge-MEDIUM   { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+.badge-med,  .badge-MEDIUM   { background: #dbeafe; color:#344054; border: 1px solid #93c5fd; }
 .badge-low,  .badge-LOW      { background: #60a5fa; color: #fff; border: 1px solid #3b82f6; }
 .badge-info, .badge-INFO     { background: #93c5fd; color: #fff; border: 1px solid #60a5fa; }
 .badge-ok    { background: var(--c9); color: var(--c2); }
@@ -271,7 +271,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
   display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 99999;
   animation: _overlayIn 0.12s ease 0s both; }
 .ink-spin-ring { width: 48px; height: 48px;
-  border: 3px solid rgba(37,99,235,0.25); border-top-color: #1f2328;
+  border: 3px solid rgba(255,255,255,0.2); border-top-color: #ffffff;
   border-radius: 50%; animation: spin .75s linear infinite; }
 .ink-spin-label { margin-top: 18px; font-size: 13px; color: #ffffff; font-weight: 600; letter-spacing: 0.3px; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -415,7 +415,7 @@ label.lbl { display: block; font-size: 11px; font-weight: 700; color: var(--c2);
 .legal-table td { padding: 8px 12px; border: 1px solid var(--c8); color: var(--c0); vertical-align: top; }
 .legal-table tr:nth-child(even) td { background: var(--c12); }
 .legal-highlight { background: var(--c10); border: 1px solid var(--c8); border-radius: 6px; padding: 12px 16px; margin-bottom: 14px; font-size: 13px; color: var(--c3); }
-.legal-nav-back { font-size: 12px; color: var(--c4); cursor: pointer; margin-bottom: 20px; display: inline-block; }
+.legal-nav-back { font-size: 12px; color: #344054; cursor: pointer; margin-bottom: 20px; display: inline-block; }
 .legal-nav-back:hover { text-decoration: underline; }
 .lang-switch { display: flex; gap: 6px; margin-bottom: 16px; }
 .lang-btn { height: 26px; padding: 0 12px; border-radius: 3px;
@@ -783,7 +783,7 @@ input.mdef-filter-input { width:200px; }
 .pt2-list-scroll::-webkit-scrollbar-track { background:#f6f8fa; border-radius:6px; }
 .pt2-list-scroll::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#57606a,#3d444d); border-radius:6px; border:1px solid #f6f8fa; }
 .pt2-list-scroll::-webkit-scrollbar-thumb:hover { background:linear-gradient(180deg,#1f2328,#1e40af); }
-.pt2-list-scroll { scrollbar-width:thin; scrollbar-color:#3b82f6 #f6f8fa; }
+.pt2-list-scroll { scrollbar-width:thin; scrollbar-color:#57606a #f6f8fa; }
 .pt2-eng-item { padding:10px 16px; cursor:pointer; border-bottom:1px solid var(--c9);
   transition:background .12s; }
 .pt2-eng-item:hover { background:var(--c10); }
@@ -805,7 +805,7 @@ input.mdef-filter-input { width:200px; }
   transition:color .12s, border-color .12s; }
 .pt2-tab:hover { color:var(--c3); }
 .pt2-tab.active { color:var(--c4); border-bottom-color:var(--c4); }
-.pt2-tab-body { flex:1; overflow-y:auto; padding:16px 20px; scrollbar-width:thin; scrollbar-color:#3b82f6 #f6f8fa; }
+.pt2-tab-body { flex:1; overflow-y:auto; padding:16px 20px; scrollbar-width:thin; scrollbar-color:#57606a #f6f8fa; }
 .pt2-tab-body::-webkit-scrollbar { width:6px; }
 .pt2-tab-body::-webkit-scrollbar-track { background:#f6f8fa; border-radius:6px; }
 .pt2-tab-body::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#57606a,#3d444d); border-radius:6px; border:1px solid #f6f8fa; }
@@ -836,7 +836,7 @@ input.mdef-filter-input { width:200px; }
   font-size:10px; font-weight:700; letter-spacing:.3px; }
 .inc-sev-CRITICAL { background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
 .inc-sev-HIGH     { background:#fff7ed; color:#c2410c; border:1px solid #fdba74; }
-.inc-sev-MEDIUM   { background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+.inc-sev-MEDIUM   { background:#dbeafe; color:#344054; border:1px solid #93c5fd; }
 .inc-sev-LOW      { background:#f0fdf4; color:#15803d; border:1px solid #86efac; }
 .inc-sev-INFO     { background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; }
 
@@ -963,7 +963,7 @@ td .status-medium { background:var(--c4) !important; color:var(--c11) !important
 td .status-low { background:var(--c6) !important; color:var(--c11) !important; }
 
 /* PCI config status indicators — subtle colored text, no jarring backgrounds */
-.pci-cfg-g, .pci-cfg-pass { color:#1e40af; font-weight:700; }
+.pci-cfg-g, .pci-cfg-pass { color:#344054; font-weight:700; }
 .pci-cfg-y, .pci-cfg-warn { color:#6366f1; font-weight:700; }
 .pci-cfg-r, .pci-cfg-fail { color:#dc2626; font-weight:700; }
 
@@ -1067,7 +1067,7 @@ td .status-low { background:var(--c6) !important; color:var(--c11) !important; }
 /* PCI severity badges */
 .pci-sev-crit { display:inline-block; background:#1c2128; color:#dbeafe; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; }
 .pci-sev-high { display:inline-block; background: #1f2328; color:#f6f8fa; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; }
-.pci-sev-med  { display:inline-block; background:#dbeafe; color:#1e40af; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; border:1px solid #bfdbfe; }
+.pci-sev-med  { display:inline-block; background:#dbeafe; color:#344054; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; border:1px solid #bfdbfe; }
 .pci-sev-low  { display:inline-block; background:#f6f8fa; color: #344054; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700; border:1px solid #bfdbfe; }
 /* PCI bar charts */
 .pci-bar-wrap { display:flex; height:8px; background:#e8f0fb; border-radius:4px; overflow:hidden; width:100%; min-width:50px; }
@@ -1132,7 +1132,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .topbar { height:44px !important; }
 .main-shell { min-height: 0; }
 .topbar-role-admin { color: #344054; }
-.topbar-role-user  { color: #3b82f6; }
+.topbar-role-user  { color:#57606a; }
 :root { --topbar-h: 44px; }
 
 /* Sidebar tighter */
@@ -1292,8 +1292,8 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .pt2-finding-card.sev-critical { border-left-color:#dc2626 !important; background:var(--c11) !important; color:var(--c0) !important; }
 .pt2-finding-card.sev-high     { border-left-color:#f97316 !important; background:var(--c11) !important; color:var(--c0) !important; }
 .pt2-finding-card.sev-medium   { border-left-color: #344054 !important; background:var(--c11) !important; color:var(--c0) !important; }
-.pt2-finding-card.sev-low      { border-left-color:#60a5fa !important; background:var(--c11) !important; color:var(--c0) !important; }
-.pt2-finding-card.sev-informational { border-left-color:#bfdbfe !important; background:var(--c11) !important; color:var(--c0) !important; }
+.pt2-finding-card.sev-low      { border-left-color:#8b949e !important; background:var(--c11) !important; color:var(--c0) !important; }
+.pt2-finding-card.sev-informational { border-left-color:#8b949e !important; background:var(--c11) !important; color:var(--c0) !important; }
 .pt2-finding-section { margin-top:10px; }
 .pt2-finding-section-label { font-size:10px; font-weight:700; text-transform:uppercase;
   letter-spacing:.5px; color:var(--c5); margin-bottom:4px; }
@@ -1617,7 +1617,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 
 /* status chips */
 .st-ok  { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;
-  background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+  background:#dbeafe; color:#344054; border:1px solid #93c5fd; }
 .st-err { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;
   background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
 .st-int { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;
@@ -1634,7 +1634,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .rec-text  { font-size:12px; color:var(--c0); line-height:1.5; }
 .rec-agent { font-size:11px; color:var(--c5); }
 .fix-pill  { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:4px;
-  background:#dbeafe; color:#1e40af; font-size:10px; font-weight:700; }
+  background:#dbeafe; color:#344054; font-size:10px; font-weight:700; }
 .rec-evidence { margin-top:5px; display:flex; flex-direction:column; gap:2px; }
 .ev-line { font-size:10px; color:#57606a; background:#f6f8fa; border-left:2px solid #d0d7de;
   padding:2px 6px; border-radius:0 3px 3px 0; font-family:monospace; white-space:nowrap;
@@ -1647,8 +1647,8 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .urgency-low      { background:#f0fdf4; color:#166534; }
 /* remediation card evidence block */
 .rem-evidence-block { margin:8px 0 4px; padding:8px 10px; background:#f0f7ff;
-  border-left:3px solid #3b82f6; border-radius:0 4px 4px 0; }
-.rem-evidence-title { font-size:10px; font-weight:700; color:#1e40af; text-transform:uppercase;
+  border-left:3px solid #d0d7de; border-radius:0 4px 4px 0; }
+.rem-evidence-title { font-size:10px; font-weight:700; color:#344054; text-transform:uppercase;
   letter-spacing:.5px; margin-bottom:4px; }
 .rem-evidence-line  { font-size:11px; color:#0f172a; font-family:monospace; padding:1px 0;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
@@ -1730,7 +1730,7 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .connect-status { margin-top:8px; font-size:12px; }
 .cs-error { color:#991b1b; }
 .live-output { background:var(--c0); border-radius:0; padding:12px 14px; font-family:var(--mono);
-  font-size:11px; color:#93c5fd; line-height:1.7; flex:1; overflow-y:auto;
+  font-size:11px; color:#8b949e; line-height:1.7; flex:1; overflow-y:auto;
   display:block; white-space:pre-wrap; word-break:break-word; }
 .live-output::-webkit-scrollbar { width:4px; }
 .live-output::-webkit-scrollbar-thumb { background:var(--c2); }
@@ -1739,13 +1739,13 @@ table.tbl td { padding:7px 10px !important; font-size:12px !important; }
 .ll-high   { color:#fdba74; font-weight:700; }
 .ll-med    { color:#fde68a; font-weight:600; }
 .ll-low    { color:#86efac; font-weight:500; }
-.ll-info   { color:#93c5fd; }
+.ll-info   { color:#8b949e; }
 .ll-sep    { color:#334155; letter-spacing:.5px; }
 .ll-hdr    { color:#e2e8f0; font-weight:700; letter-spacing:.3px; }
-.ll-bullet { color:#bfdbfe; padding-left:4px; }
+.ll-bullet { color:#8b949e; padding-left:4px; }
 .ll-code   { color:#67e8f9; font-size:10.5px; }
 .ll-apierr { display:block; background:linear-gradient(90deg,#1e3a5f 0%,#1e3a5f44 100%);
-             border-left:3px solid #3b82f6; color:#93c5fd; padding:5px 10px;
+             border-left:3px solid #d0d7de; color:#8b949e; padding:5px 10px;
              border-radius:0 4px 4px 0; margin:3px 0; font-weight:600; }
 
 /* ── SCANNER WORKSPACE ──────────────────────────────────────────────────── */
@@ -2173,7 +2173,7 @@ input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 
 .sl-log-body    { color: #adbac7 !important; }
 .sl-level-error, .sl-level-err, .sl-level-crit { color: #f87171 !important; font-weight: 700 !important; }
 .sl-level-warn, .sl-level-warning              { color: #fbbf24 !important; font-weight: 700 !important; }
-.sl-level-info                                 { color: #60a5fa !important; }
+.sl-level-info                                 { color:#8b949e !important; }
 .sl-level-debug                                { color: #8b949e !important; }
 
 /* 28 ─ NETWORK / MAP */
@@ -2213,7 +2213,7 @@ input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 
 .legal-table th       { background: #f6f8fa !important; border-color: #d0d7de !important; color: #1a1f2e !important; }
 .legal-table td       { border-color: #d0d7de !important; }
 .legal-table tr:nth-child(even) td { background: #f9fafb !important; }
-.legal-highlight      { background: #f0f6fc !important; border-color: #bfdbfe !important; color: #57606a !important; }
+.legal-highlight      { background: #f0f6fc !important; border-color:#8b949e !important; color: #57606a !important; }
 .legal-title          { color: #1a1f2e !important; }
 .legal-updated        { color: #8b949e !important; }
 
@@ -2616,7 +2616,7 @@ input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 
       </div>
       <div class="mvd-gauge-label" id="mvd-gauge-label">—/100</div>
       <div class="mvd-gauge-leg">
-        <div class="mvd-gauge-leg-item"><div class="mvd-gauge-leg-dot" style="background:#60a5fa"></div>Low 0-29</div>
+        <div class="mvd-gauge-leg-item"><div class="mvd-gauge-leg-dot" style="background:#8b949e"></div>Low 0-29</div>
         <div class="mvd-gauge-leg-item"><div class="mvd-gauge-leg-dot" style="background: #1f2328"></div>Med 30-69</div>
         <div class="mvd-gauge-leg-item"><div class="mvd-gauge-leg-dot" style="background:#1c2128"></div>High 70-100</div>
       </div>
@@ -2625,7 +2625,7 @@ input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 
     </div>
 
     <!-- Panel 2: Threat Awareness + Recommendations -->
-    <div class="mvd-card" style="border-left:1px solid #bfdbfe;">
+    <div class="mvd-card" style="border-left:1px solid #d0d7de;">
       <div class="mvd-card-section-title">Threat awareness</div>
       <div class="mvd-card-h" id="mvd-threat-h">Loading threat data…</div>
       <p class="mvd-card-p" id="mvd-threat-p">Security findings detected across your scanned targets. Immediate action may be required for critical-severity issues.</p>
@@ -2675,7 +2675,7 @@ input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 
     </div>
 
     <!-- Panel 3: Secure Score -->
-    <div class="mvd-card" style="border-left:1px solid #bfdbfe;border-right:1px solid #bfdbfe;">
+    <div class="mvd-card" style="border-left:1px solid #d0d7de;border-right:1px solid #d0d7de;">
       <div class="mvd-card-section-title">Intel Web Security Score for Sites</div>
       <div class="mvd-score-h">Your score for sites: <span id="mvd-sec-pct">—</span>%</div>
       <p class="mvd-card-p">This score reflects the collective security configuration across SSL/TLS, HTTP Headers, Authentication, and CMS Security. It is potentially impacted by active exceptions.</p>
@@ -2715,7 +2715,7 @@ input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 
     </div>
 
     <!-- Panel 5: Exposure Distribution -->
-    <div class="mvd-card-b" style="border-left:1px solid #bfdbfe;">
+    <div class="mvd-card-b" style="border-left:1px solid #d0d7de;">
       <div class="mvd-card-section-title">Site exposure distribution</div>
       <div class="mvd-card-h">Exposure distribution</div>
       <p class="mvd-card-p">Exposed sites are easy targets for security attacks. Ensure all sites receive security updates and have critical issues resolved.</p>
@@ -2724,7 +2724,7 @@ input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 
     </div>
 
     <!-- Panel 6: Remediation Activities -->
-    <div class="mvd-card-b" style="border-left:1px solid #bfdbfe;border-right:1px solid #bfdbfe;">
+    <div class="mvd-card-b" style="border-left:1px solid #d0d7de;border-right:1px solid #d0d7de;">
       <div class="mvd-card-section-title">Top remediation activities</div>
       <div class="mvd-card-h">Remediation activities</div>
       <p class="mvd-card-p">This table lists top activities that were generated from security recommendations. Track progress and confirm that remediation actions are completed.</p>
@@ -2767,7 +2767,7 @@ input::placeholder, textarea::placeholder { color: #8b949e !important; opacity: 
         <div id="ek-coverage" style="font-size:18px;font-weight:800;color:#1f2328;line-height:1.1;">—%</div>
         <div style="font-size:9px;color:#8b949e;margin-top:1px;">targets scanned</div>
       </div>
-      <div style="background:#fff;border:1px solid #d0d7de;border-top:2px solid #3b82f6;padding:6px 8px 5px;border-radius:3px;min-width:0;">
+      <div style="background:#fff;border:1px solid #d0d7de;border-top:2px solid #57606a;padding:6px 8px 5px;border-radius:3px;min-width:0;">
         <div style="font-size:9px;color: #344054;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">MTTD</div>
         <div id="ek-mttd" style="font-size:18px;font-weight:800;color:#1f2328;line-height:1.1;">—h</div>
         <div style="font-size:9px;color:#8b949e;margin-top:1px;">mean detect</div>
@@ -3031,15 +3031,15 @@ Export Power BI
 
     <!-- KPI row -->
     <div id="ti-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:#fff;">
-      <div style="padding:12px 16px;border-right:1px solid #bfdbfe;">
+      <div style="padding:12px 16px;border-right:1px solid #d0d7de;">
         <div style="font-size:10px;color:#57606a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">CVEs Found</div>
         <div id="ti-total-cves" style="font-size:22px;font-weight:700;color:#0f172a;font-family:'Segoe UI',sans-serif;">—</div>
       </div>
-      <div style="padding:12px 16px;border-right:1px solid #bfdbfe;">
+      <div style="padding:12px 16px;border-right:1px solid #d0d7de;">
         <div style="font-size:10px;color:#57606a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">In CISA KEV</div>
         <div id="ti-kev-count" style="font-size:22px;font-weight:700;color:#1f2328;font-family:'Segoe UI',sans-serif;">—</div>
       </div>
-      <div style="padding:12px 16px;border-right:1px solid #bfdbfe;">
+      <div style="padding:12px 16px;border-right:1px solid #d0d7de;">
         <div style="font-size:10px;color:#57606a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">EPSS &ge;50%</div>
         <div id="ti-epss-high" style="font-size:22px;font-weight:700;color: #344054;font-family:'Segoe UI',sans-serif;">—</div>
       </div>
@@ -3950,7 +3950,7 @@ Export Power BI
     .dca-chip{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid}
     .dca-chip.avail{background: #1f2328;border-color: #1f2328;color:#fff}
     .dca-chip.unavail{background:#64748b;border-color:#64748b;color:#fff}
-    .dca-chip.loading{background:#dbeafe;border-color:#93c5fd;color: #344054}
+    .dca-chip.loading{background:#dbeafe;border-color:#8b949e;color: #344054}
     .dca-dot{display:none}
     /* Main layout */
     .dca-wrap{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:0 20px 20px;max-width:1400px;margin:0 auto}
@@ -4430,9 +4430,9 @@ Export Power BI
     .rtp-peace-inner{background:#1c2128;border-radius:12px;padding:24px 28px;display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap}
     .rtp-peace-left{flex:1;min-width:220px}
     .rtp-peace-title{font-size:16px;font-weight:800;color:#fff;margin-bottom:6px}
-    .rtp-peace-sub{font-size:12px;color:#93c5fd;line-height:1.6}
+    .rtp-peace-sub{font-size:12px;color:#8b949e;line-height:1.6}
     .rtp-peace-items{display:flex;flex-direction:column;gap:8px;flex:1;min-width:200px}
-    .rtp-peace-item{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#dbeafe;line-height:1.5}
+    .rtp-peace-item{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#adbac7;line-height:1.5}
     .rtp-peace-check{width:18px;height:18px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:10px;color:#fff;font-weight:800}
     /* ── Background strip ── */
     .rtp-bg-strip{padding:0 28px 18px;max-width:1300px;margin:0 auto}
@@ -4638,7 +4638,7 @@ Export Power BI
     .rtp-deploy-inner{background:var(--c11);border:2px solid #1f2328;border-radius:12px;overflow:hidden}
     .rtp-deploy-hdr{background:#1c2128;padding:16px 22px;display:flex;align-items:center;gap:12px}
     .rtp-deploy-title{font-size:14px;font-weight:800;color:#fff}
-    .rtp-deploy-sub{font-size:11px;color:#93c5fd;margin-top:2px}
+    .rtp-deploy-sub{font-size:11px;color:#8b949e;margin-top:2px}
     .rtp-deploy-badge{font-size:9px;font-weight:700;background:rgba(255,255,255,.15);color:#fff;padding:2px 8px;border-radius:20px;letter-spacing:.4px;text-transform:uppercase}
     .rtp-dtabs{display:flex;gap:0;border-bottom:1px solid var(--c8);background:var(--c10)}
     .rtp-dtab{padding:11px 18px;font-size:12px;font-weight:600;color:var(--c5);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;user-select:none}
@@ -5389,8 +5389,8 @@ Export Power BI
         <div class="csa-chart-canvas"><canvas id="csa-chart"></canvas></div>
         <div class="csa-chart-legend">
           <span class="csa-leg"><span class="csa-leg-dot" style="background:#1c2128"></span>High Risk</span>
-          <span class="csa-leg"><span class="csa-leg-dot" style="background:#3b82f6"></span>Medium</span>
-          <span class="csa-leg"><span class="csa-leg-dot" style="background:#3b82f6"></span>Low / Info</span>
+          <span class="csa-leg"><span class="csa-leg-dot" style="background:#57606a"></span>Medium</span>
+          <span class="csa-leg"><span class="csa-leg-dot" style="background:#57606a"></span>Low / Info</span>
         </div>
       </div>
 
@@ -5609,26 +5609,26 @@ Export Power BI
   .sl-wrap { max-width:1280px; margin:0 auto; padding:24px 28px; }
   .sl-hdr { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
   .sl-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:2px; padding-left:12px; border-left:3px solid #1f2328; }
-  .sl-sub { font-size:13px; color:#3b82f6; padding-left:15px; }
+  .sl-sub { font-size:13px; color:#57606a; padding-left:15px; }
   .sl-hdr-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .sl-stat-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
   .sl-stat { background:#fff; border:1px solid #bfdbfe; border-radius:8px; padding:12px 18px; min-width:120px; flex:1; }
   .sl-stat-val { font-size:22px; font-weight:700; color:#0f172a; line-height:1.1; }
-  .sl-stat-lbl { font-size:11px; color:#3b82f6; font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
+  .sl-stat-lbl { font-size:11px; color:#57606a; font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
   .sl-stat.critical .sl-stat-val { color:#dc2626; }
   .sl-stat.error    .sl-stat-val { color:#f97316; }
   .sl-stat.warn     .sl-stat-val { color: #344054; }
-  .sl-stat.info     .sl-stat-val { color:#3b82f6; }
-  .sl-stat.debug    .sl-stat-val { color:#60a5fa; }
+  .sl-stat.info     .sl-stat-val { color:#57606a; }
+  .sl-stat.debug    .sl-stat-val { color:#8b949e; }
   .sl-tabs { display:flex; gap:0; border-bottom:1px solid #bfdbfe; margin-bottom:18px; }
-  .sl-tab { padding:8px 18px; border-radius:0; border:none; border-bottom:2px solid transparent; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; color:#3b82f6; background:transparent; transition:.12s; margin-bottom:-1px; }
+  .sl-tab { padding:8px 18px; border-radius:0; border:none; border-bottom:2px solid transparent; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; color:#57606a; background:transparent; transition:.12s; margin-bottom:-1px; }
   .sl-tab.active { color: #344054; border-bottom-color: #344054; }
   .sl-panel { display:none; }
   .sl-panel.active { display:block; }
   .sl-filter-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#fff; border:1px solid #bfdbfe; border-radius:8px; padding:10px 14px; margin-bottom:12px; }
   .sl-filter-bar select, .sl-filter-bar input[type=text], .sl-filter-bar input[type=number] { border:1px solid #bfdbfe; border-radius:4px; padding:5px 10px; font-size:12px; color:#0f172a; font-family:inherit; outline:none; background:#f8faff; }
-  .sl-filter-bar select:focus, .sl-filter-bar input:focus { border-color:#3b82f6; background:#fff; }
-  .sl-filter-bar label { font-size:11px; font-weight:600; color:#3b82f6; white-space:nowrap; }
+  .sl-filter-bar select:focus, .sl-filter-bar input:focus { border-color:#57606a; background:#fff; }
+  .sl-filter-bar label { font-size:11px; font-weight:600; color:#57606a; white-space:nowrap; }
   .sl-search { flex:1; min-width:160px; }
   .sl-auto-badge { font-size:10px; background: #1f2328; color:#fff; border-radius:10px; padding:2px 8px; font-weight:700; }
   .sl-auto-badge.paused { background:#374151; color:#d1d5db; }
@@ -5644,28 +5644,28 @@ Export Power BI
   .sl-level-ERROR    { background:#fff7ed; color:#c2410c; }
   .sl-level-WARN     { background:#fef9c3; color:#854d0e; }
   .sl-level-INFO     { background:#f6f8fa; color: #344054; }
-  .sl-level-DEBUG    { background:#f6f8fa; color:#3b82f6; border:1px solid #bfdbfe; }
+  .sl-level-DEBUG    { background:#f6f8fa; color:#57606a; border:1px solid #bfdbfe; }
   .sl-msg { max-width:480px; white-space:pre-wrap; word-break:break-all; line-height:1.4; }
-  .sl-empty { text-align:center; padding:48px 20px; color:#60a5fa; font-size:13px; }
-  .sl-footer { display:flex; justify-content:space-between; align-items:center; padding:8px 14px; font-size:11px; color:#3b82f6; border-top:1px solid #dbeafe; background:#f8faff; }
+  .sl-empty { text-align:center; padding:48px 20px; color:#8b949e; font-size:13px; }
+  .sl-footer { display:flex; justify-content:space-between; align-items:center; padding:8px 14px; font-size:11px; color:#57606a; border-top:1px solid #dbeafe; background:#f8faff; }
   .sl-config-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
   @media (max-width:900px) { .sl-config-grid { grid-template-columns:1fr; } }
   .sl-config-card { background:#fff; border:1px solid #bfdbfe; border-radius:8px; padding:20px; }
   .sl-config-title { font-size:15px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-  .sl-config-sub { font-size:12px; color:#3b82f6; margin-bottom:16px; }
+  .sl-config-sub { font-size:12px; color:#57606a; margin-bottom:16px; }
   .sl-config-field { margin-bottom:14px; }
   .sl-config-label { font-size:11px; font-weight:700; color:#57606a; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; display:block; }
   .sl-config-val { display:flex; gap:6px; align-items:center; }
   .sl-config-val input { flex:1; border:1px solid #bfdbfe; border-radius:4px; padding:7px 10px; font-size:12px; font-family:var(--mono,'IBM Plex Mono',monospace); color:#0f172a; background:#f8faff; outline:none; }
   .sl-code-block { background:#161b22; color:#adbac7; border-radius:8px; padding:14px 16px; font-family:var(--mono,'IBM Plex Mono',monospace); font-size:11.5px; line-height:1.7; overflow-x:auto; white-space:pre; position:relative; margin-top:8px; border:1px solid #30363d; }
-  .sl-copy-btn { position:absolute; top:8px; right:8px; background:rgba(255,255,255,.12); color:#93c5fd; border:none; border-radius:4px; padding:3px 10px; font-size:10px; cursor:pointer; font-family:inherit; }
+  .sl-copy-btn { position:absolute; top:8px; right:8px; background:rgba(255,255,255,.12); color:#8b949e; border:none; border-radius:4px; padding:3px 10px; font-size:10px; cursor:pointer; font-family:inherit; }
   .sl-copy-btn:hover { background:rgba(255,255,255,.2); }
   .sl-step { display:flex; gap:10px; margin-bottom:12px; }
   .sl-step-num { width:22px; height:22px; background: #1f2328; color:#fff; border-radius:50%; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
   .sl-step-body { flex:1; font-size:13px; color:#0f172a; line-height:1.55; }
   .sl-step-body strong { color:#1f2328; }
   .sl-host-table { width:100%; border-collapse:collapse; font-size:12px; }
-  .sl-host-table th { font-size:10px; color:#3b82f6; font-weight:600; text-transform:uppercase; padding:5px 8px; text-align:left; border-bottom:1px solid #dbeafe; }
+  .sl-host-table th { font-size:10px; color:#57606a; font-weight:600; text-transform:uppercase; padding:5px 8px; text-align:left; border-bottom:1px solid #dbeafe; }
   .sl-host-table td { padding:5px 8px; border-bottom:1px solid #f8faff; color:#0f172a; }
   .sl-bar { height:6px; border-radius:3px; background: #1f2328; display:inline-block; min-width:4px; }
   </style>
@@ -6174,7 +6174,7 @@ Export Power BI
       <div class="signals-sidebar">
         <h4>Severity</h4>
         <div class="sig-sev-row active" onclick="filterSignals('all',this)">
-          <span class="sig-sev-dot" style="background:#3b82f6;"></span>
+          <span class="sig-sev-dot" style="background:#57606a;"></span>
           <span class="sig-sev-label">All</span>
           <span class="sig-sev-count" id="sig-cnt-all">0</span>
         </div>
@@ -6268,7 +6268,7 @@ Export Power BI
         <div class="le-cred-actions">
           <button class="btn btn-sm" onclick="runWpLive()" id="le-wp-btn" style="background: #1f2328;color:#fff;border-color: #1f2328;border-radius:8px;padding:7px 20px;">Fetch Live Events</button>
           <button class="btn btn-sm" onclick="installPlugin('simple-history','Simple History','le-wp-install-btn-sh')" id="le-wp-install-btn-sh" title="Simple History has a free REST API — agents read events from it directly" style="background:linear-gradient(135deg,#1f2328,#2d333b);color:#fff;border-color:#344054;border-radius:8px;padding:7px 20px;">Install Simple History (agent-ready)</button>
-          <button class="btn btn-sm" onclick="installPlugin('wp-security-audit-log','WP Activity Log','le-wp-install-btn-wsal')" id="le-wp-install-btn-wsal" title="WP Activity Log (WSAL) — richer UI, PRO needed for agent REST access" style="background:#3b82f6;color:#fff;border-color:#57606a;border-radius:8px;padding:7px 20px;">Install WP Activity Log</button>
+          <button class="btn btn-sm" onclick="installPlugin('wp-security-audit-log','WP Activity Log','le-wp-install-btn-wsal')" id="le-wp-install-btn-wsal" title="WP Activity Log (WSAL) — richer UI, PRO needed for agent REST access" style="background:#57606a;color:#fff;border-color:#57606a;border-radius:8px;padding:7px 20px;">Install WP Activity Log</button>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#57606a;cursor:pointer;">
             <input type="checkbox" id="le-wp-autorefresh" onchange="toggleWpAutoRefresh()"> Auto-refresh every 30s
           </label>
@@ -6518,7 +6518,7 @@ Export Power BI
         </div>
         <div class="le-cred-actions">
           <button class="btn btn-sm" onclick="runCfInsights()" id="le-cf-btn" style="background: #1f2328;color:#fff;border-color: #1f2328;border-radius:8px;padding:7px 20px;">Fetch Security Insights</button>
-          <button class="btn btn-sm" onclick="runCfZones()" id="le-cf-zones-btn" style="background:#3b82f6;color:#fff;border-color:#57606a;border-radius:8px;padding:7px 20px;">List Zones</button>
+          <button class="btn btn-sm" onclick="runCfZones()" id="le-cf-zones-btn" style="background:#57606a;color:#fff;border-color:#57606a;border-radius:8px;padding:7px 20px;">List Zones</button>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#57606a;cursor:pointer;margin-left:4px;">
             <input type="checkbox" id="le-cf-dismissed"> Show dismissed
           </label>
@@ -6562,7 +6562,7 @@ Export Power BI
         <div class="le-cred-actions">
           <button class="btn btn-sm" onclick="runFtpBrowse()" id="le-ftp-browse-btn" style="background: #1f2328;color:#fff;border-color: #1f2328;border-radius:8px;padding:7px 20px;">Browse &amp; List Files</button>
           <button class="btn btn-sm" onclick="runFtpScan()" id="le-ftp-scan-btn" style="background: #1f2328;color:#fff;border-color: #1f2328;border-radius:8px;padding:7px 20px;">Scan for Malware</button>
-          <button class="btn btn-sm" onclick="runFtpLogs()" id="le-ftp-logs-btn" style="background:#3b82f6;color:#fff;border-color:#57606a;border-radius:8px;padding:7px 20px;">View Access Logs</button>
+          <button class="btn btn-sm" onclick="runFtpLogs()" id="le-ftp-logs-btn" style="background:#57606a;color:#fff;border-color:#57606a;border-radius:8px;padding:7px 20px;">View Access Logs</button>
         </div>
         <div class="le-hint">Connect via FTP to browse files, scan for malware patterns (<code>eval</code>, <code>base64_decode</code>, <code>gzinflate</code>), or read server access logs. Works with Hostinger, cPanel, and any standard FTP host.</div>
       </div>
@@ -6778,7 +6778,7 @@ Export Power BI
           </div>
         </div>
         <iframe id="gf-dash-iframe" src="" frameborder="0" style="width:100%;height:420px;border:none;" allowfullscreen></iframe>
-        <div id="gf-embed-warning" style="display:none;padding:10px 14px;background: #1f2328;border-top:1px solid #1f2328;font-size:11px;color:#dbeafe;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div id="gf-embed-warning" style="display:none;padding:10px 14px;background: #1f2328;border-top:1px solid #1f2328;font-size:11px;color:#f3f4f6;display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <span>Anonymous access not enabled — Grafana login page will appear instead of the dashboard.</span>
           <button onclick="gfPatchIni()" style="padding:4px 12px;background: #1f2328;color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">Fix automatically</button>
         </div>
@@ -6887,7 +6887,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       <div class="mdef-kpi mdef-kpi-blue"><div class="mdef-kpi-val" id="wk-total">—</div><div class="mdef-kpi-label">Vulnerabilities found</div></div>
       <div class="mdef-kpi" style="border-left:3px solid #dc2626;"><div class="mdef-kpi-val" id="wk-critical">—</div><div class="mdef-kpi-label">Critical</div></div>
       <div class="mdef-kpi" style="border-left:3px solid #1f2328;"><div class="mdef-kpi-val" id="wk-exploitable">—</div><div class="mdef-kpi-label">Exploitable (EPSS &ge;20%)</div></div>
-      <div class="mdef-kpi" style="border-left:3px solid #60a5fa;"><div class="mdef-kpi-val" id="wk-kev-count">—</div><div class="mdef-kpi-label">In CISA KEV</div></div>
+      <div class="mdef-kpi" style="border-left:3px solid #8b949e;"><div class="mdef-kpi-val" id="wk-kev-count">—</div><div class="mdef-kpi-label">In CISA KEV</div></div>
     </div>
     <div class="mdef-toolbar">
       <button class="mdef-toolbar-btn primary" onclick="loadWeaknesses()">Refresh</button>
@@ -7005,9 +7005,9 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
           <div class="soc-map-legend">
             <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background: #1f2328;"></div>Critical / Attack</div>
             <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background: #1f2328;"></div>High</div>
-            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#3b82f6;"></div>Medium</div>
-            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#60a5fa;"></div>Login Success</div>
-            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#60a5fa;"></div>Info</div>
+            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#57606a;"></div>Medium</div>
+            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#8b949e;"></div>Login Success</div>
+            <div class="soc-map-leg-item"><div class="soc-map-leg-dot" style="background:#8b949e;"></div>Info</div>
           </div>
         </div>
         <!-- Manual event ingest -->
@@ -7648,7 +7648,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
                 <span class="grc2-attn-num" id="grc-test-overdue">0</span>
               </div>
               <div class="grc2-attn-row">
-                <span class="grc2-attn-label"><span class="grc2-ev-dot" style="background:#3b82f6;display:inline-block;"></span>Due soon</span>
+                <span class="grc2-attn-label"><span class="grc2-ev-dot" style="background:#57606a;display:inline-block;"></span>Due soon</span>
                 <span class="grc2-attn-num" id="grc-test-duesoon">0</span>
               </div>
               <div class="grc2-attn-row">
@@ -7778,7 +7778,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
         <div style="display:flex;gap:10px;margin-top:10px;font-size:11px;flex-wrap:wrap;">
           <span><span class="grc2-ev-dot" style="background:#1c2128;display:inline-block;"></span>Critical</span>
           <span><span class="grc2-ev-dot" style="background: #2d333b;display:inline-block;"></span>High</span>
-          <span><span class="grc2-ev-dot" style="background:#3b82f6;display:inline-block;"></span>Medium</span>
+          <span><span class="grc2-ev-dot" style="background:#57606a;display:inline-block;"></span>Medium</span>
           <span><span class="grc2-ev-dot" style="background:#e5e7eb;display:inline-block;"></span>Low</span>
         </div>
       </div>
@@ -8046,15 +8046,15 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     <style>
       .moa-wrap { max-width:1100px; margin:0 auto; padding:32px 24px 48px; }
       .moa-title { font-size:1.6rem; font-weight:700; color:#1f2328; margin-bottom:6px; }
-      .moa-sub   { font-size:.95rem; color:#3b82f6; margin-bottom:32px; }
+      .moa-sub   { font-size:.95rem; color:#57606a; margin-bottom:32px; }
       .moa-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:20px; }
       .moa-card  { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:24px; display:flex; flex-direction:column; gap:10px; transition:box-shadow .15s; }
       .moa-card:hover { box-shadow:0 4px 18px rgba(0,0,0,.08); }
       .moa-card-header { display:flex; align-items:center; gap:12px; }
       .moa-name  { font-size:1rem; font-weight:700; color:#1f2328; }
-      .moa-desc  { font-size:.82rem; color:#3b82f6; font-style:italic; }
+      .moa-desc  { font-size:.82rem; color:#57606a; font-style:italic; }
       .moa-body  { font-size:.88rem; color:#57606a; line-height:1.6; }
-      .moa-covers-title { font-size:.75rem; font-weight:700; color:#60a5fa; letter-spacing:.06em; text-transform:uppercase; margin-top:4px; }
+      .moa-covers-title { font-size:.75rem; font-weight:700; color:#8b949e; letter-spacing:.06em; text-transform:uppercase; margin-top:4px; }
       .moa-covers { display:flex; flex-wrap:wrap; gap:5px; }
       .moa-tag   { font-size:.73rem; background:#f6f8fa; color: #344054; border:1px solid #bfdbfe; border-radius:4px; padding:2px 7px; }
     </style>
@@ -8224,9 +8224,9 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .pricing-wrap { max-width:920px; margin:0 auto; padding:40px 24px 60px; }
     .pricing-title { font-size:22px; font-weight:700; color:#0f172a; }
-    .pricing-sub { font-size:13px; color:#3b82f6; margin-top:6px; margin-bottom:8px; }
+    .pricing-sub { font-size:13px; color:#57606a; margin-top:6px; margin-bottom:8px; }
     .pricing-billing-toggle { display:flex; align-items:center; gap:10px; margin-bottom:28px; margin-top:14px; }
-    .pricing-billing-toggle label { font-size:12px; color:#3b82f6; cursor:pointer; }
+    .pricing-billing-toggle label { font-size:12px; color:#57606a; cursor:pointer; }
     .pricing-billing-toggle label.active { color:#0f172a; font-weight:600; }
     .ptoggle { position:relative; width:36px; height:20px; }
     .ptoggle input { opacity:0; width:0; height:0; }
@@ -8247,23 +8247,23 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .pricing-badge.badge-current { background:#dbeafe; color: #344054; border:1px solid #93c5fd; }
     .pricing-plan-name { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
     .pricing-price { font-size:28px; font-weight:800; color:#0f172a; margin-bottom:2px; }
-    .pricing-price span { font-size:13px; font-weight:400; color:#3b82f6; }
+    .pricing-price span { font-size:13px; font-weight:400; color:#57606a; }
     .pricing-price-annual { display:none; }
-    .pricing-price-alt { font-size:11px; color:#3b82f6; margin-bottom:4px; }
-    .pricing-price-secondary { font-size:12px; color:#3b82f6; margin-bottom:2px; }
-    .pricing-desc { font-size:12px; color:#3b82f6; margin-bottom:20px; }
+    .pricing-price-alt { font-size:11px; color:#57606a; margin-bottom:4px; }
+    .pricing-price-secondary { font-size:12px; color:#57606a; margin-bottom:2px; }
+    .pricing-desc { font-size:12px; color:#57606a; margin-bottom:20px; }
     .pricing-divider { border:none; border-top:1px solid #bfdbfe; margin:0 0 18px; }
     .pricing-features { list-style:none; padding:0; margin:0 0 24px; flex:1; }
     .pricing-features li { font-size:13px; color:#1f2328; padding:5px 0; display:flex; align-items:flex-start; gap:8px; line-height:1.45; }
     .pricing-features li .pf-check { width:15px; height:15px; flex-shrink:0; margin-top:1px; stroke:#1f2328; }
     .pricing-features li .pf-lock { width:15px; height:15px; flex-shrink:0; margin-top:1px; stroke:#60a5fa; }
-    .pricing-features li.locked { color:#60a5fa; }
-    .pricing-cta { text-align:center; font-size:12px; color:#3b82f6; padding:10px 0 0; border-top:1px solid #bfdbfe; margin-top:auto; }
+    .pricing-features li.locked { color:#8b949e; }
+    .pricing-cta { text-align:center; font-size:12px; color:#57606a; padding:10px 0 0; border-top:1px solid #bfdbfe; margin-top:auto; }
     .pricing-cta strong { color:#1f2328; }
-    .pricing-footer-links { margin-top:24px; text-align:center; font-size:12px; color:#60a5fa; }
+    .pricing-footer-links { margin-top:24px; text-align:center; font-size:12px; color:#8b949e; }
     .pricing-footer-links a { color: #344054; text-decoration:none; }
     .pricing-footer-links a:hover { text-decoration:underline; }
-    .pricing-admin-note { margin-top:20px; background:#f8faff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 18px; font-size:12px; color:#3b82f6; }
+    .pricing-admin-note { margin-top:20px; background:#f8faff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 18px; font-size:12px; color:#57606a; }
     .pricing-admin-note strong { color:#1f2328; }
   </style>
 
@@ -8362,7 +8362,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .legal-wrap { max-width:860px; margin:0 auto; padding:40px 28px 72px; }
     .legal-title { font-size:22px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-    .legal-updated { font-size:11px; color:#60a5fa; margin-bottom:32px; }
+    .legal-updated { font-size:11px; color:#8b949e; margin-bottom:32px; }
     .legal-section { margin-bottom:32px; }
     .legal-section h2 { font-size:15px; font-weight:700; color:#0f172a; margin:0 0 10px; padding-bottom:8px; border-bottom:1px solid #bfdbfe; }
     .legal-section h3 { font-size:13px; font-weight:700; color:#57606a; margin:16px 0 6px; }
@@ -8535,10 +8535,10 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .acct-wrap { max-width:620px; margin:0 auto; padding:36px 24px 72px; }
     .acct-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-    .acct-sub { font-size:12px; color:#60a5fa; margin-bottom:32px; }
+    .acct-sub { font-size:12px; color:#8b949e; margin-bottom:32px; }
     .acct-card { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:24px; margin-bottom:20px; }
     .acct-card-title { font-size:14px; font-weight:700; color:#1f2328; margin-bottom:4px; }
-    .acct-card-desc { font-size:12px; color:#60a5fa; margin-bottom:18px; line-height:1.5; }
+    .acct-card-desc { font-size:12px; color:#8b949e; margin-bottom:18px; line-height:1.5; }
     .acct-field { margin-bottom:14px; }
     .acct-lbl { display:block; font-size:11px; font-weight:700; color:#57606a; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
     .acct-inp { width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #bfdbfe; border-radius:6px; font-size:13px; color:#0f172a; background:#f8faff; outline:none; transition:border-color .15s; scrollbar-width:none; -ms-overflow-style:none; }
@@ -8750,7 +8750,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
       background:#f6f8fa; color: #344054; cursor:pointer;
       transition:all .15s;
     }
-    .cr-preset-btn:hover { background:#dbeafe; border-color:#93c5fd; }
+    .cr-preset-btn:hover { background:#dbeafe; border-color:#8b949e; }
     .cr-submit-btn {
       width:100%; padding:12px; background:linear-gradient(135deg,#1f2328,#2d333b);
       color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700;
@@ -8810,9 +8810,9 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .myappt-wrap { max-width:860px; margin:0 auto; padding:36px 24px 72px; }
     .myappt-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-    .myappt-sub { font-size:12px; color:#60a5fa; margin-bottom:24px; line-height:1.6; }
+    .myappt-sub { font-size:12px; color:#8b949e; margin-bottom:24px; line-height:1.6; }
     .myappt-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
-    .myappt-tab { padding:7px 14px; border:1px solid #bfdbfe; border-radius:20px; font-size:11px; font-weight:600; color:#3b82f6; background:#fff; cursor:pointer; transition:all .15s; }
+    .myappt-tab { padding:7px 14px; border:1px solid #bfdbfe; border-radius:20px; font-size:11px; font-weight:600; color:#57606a; background:#fff; cursor:pointer; transition:all .15s; }
     .myappt-tab:hover { background:#f6f8fa; }
     .myappt-tab.myappt-active { background: #1f2328; border-color: #1f2328; color:#fff; }
     .myappt-card { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:18px 20px; margin-bottom:14px; }
@@ -8821,9 +8821,9 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .myappt-badge { font-size:10px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
     .myappt-badge.pending    { background:#f6f8fa; color: #344054; border:1px solid #bfdbfe; }
     .myappt-badge.approved   { background: #1f2328; color:#fff; }
-    .myappt-badge.rescheduled{ background: #2d333b; color:#bfdbfe; }
+    .myappt-badge.rescheduled{ background: #2d333b; color:#8b949e; }
     .myappt-badge.completed  { background:#1c2128; color:#e0f2fe; }
-    .myappt-badge.cancelled  { background:#dbeafe; color:#3b82f6; }
+    .myappt-badge.cancelled  { background:#dbeafe; color:#57606a; }
     .myappt-row { font-size:12px; color:#57606a; line-height:1.7; }
     .myappt-row strong { color:#0f172a; }
     .myappt-cost { font-size:12px; font-weight:700; color:#57606a; background:#f6f8fa; border:1px solid #d0d7de; border-radius:6px; padding:6px 12px; margin:8px 0; display:inline-block; }
@@ -8832,7 +8832,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .myappt-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
     .myappt-btn { padding:7px 16px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; border:1px solid #d0d7de; background:#f6f8fa; color:#57606a; transition:opacity .15s; }
     .myappt-btn:hover { opacity:.8; }
-    .myappt-btn-cancel { background:#dbeafe; color: #344054; border-color:#93c5fd; }
+    .myappt-btn-cancel { background:#dbeafe; color: #344054; border-color:#8b949e; }
     .myappt-btn-reschedule { background: #1f2328; color:#fff; border-color: #1f2328; }
     .myappt-inline { display:none; margin-top:12px; background:#f8faff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 16px; }
     .myappt-inline-lbl { font-size:10px; font-weight:700; color:#57606a; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
@@ -8847,9 +8847,9 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .myappt-msg { font-size:12px; padding:8px 12px; border-radius:6px; margin-top:8px; display:none; }
     .myappt-msg.ok  { background:#f0fdf4; border:1px solid #86efac; color:#15803d; }
     .myappt-msg.err { background:#dbeafe; border:1px solid #93c5fd; color: #344054; }
-    .myappt-empty { text-align:center; color:#93c5fd; font-size:13px; padding:40px 0; }
+    .myappt-empty { text-align:center; color:#8b949e; font-size:13px; padding:40px 0; }
     .myappt-info { background:#f6f8fa; border:1px solid #d0d7de; border-radius:8px; padding:12px 16px; font-size:12px; color:#57606a; line-height:1.6; margin-bottom:20px; }
-    .myappt-country-note { font-size:11px; color:#3b82f6; margin-top:4px; }
+    .myappt-country-note { font-size:11px; color:#57606a; margin-top:4px; }
     @media(max-width:600px){ .myappt-grid2 { grid-template-columns:1fr; } }
   </style>
   <div class="myappt-wrap">
@@ -8880,7 +8880,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .fm-wrap { max-width:960px; margin:0 auto; padding:36px 24px 72px; }
     .fm-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-    .fm-sub { font-size:12px; color:#60a5fa; margin-bottom:24px; line-height:1.6; }
+    .fm-sub { font-size:12px; color:#8b949e; margin-bottom:24px; line-height:1.6; }
     /* Upload panel (admin only) */
     .fm-upload-panel { background:#f8faff; border:1px solid #bfdbfe; border-radius:12px; padding:24px; margin-bottom:28px; }
     .fm-upload-panel-title { font-size:13px; font-weight:700; color:#57606a; margin-bottom:16px; letter-spacing:.2px; }
@@ -8891,9 +8891,9 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .fm-sel:focus, .fm-inp:focus { border-color: #1f2328; box-shadow:0 0 0 2px rgba(37,99,235,.1); }
     .fm-upload-zone { border:2px dashed #bfdbfe; border-radius:10px; padding:28px 24px; text-align:center; cursor:pointer; transition:background .15s,border-color .15s; background:#fff; }
     .fm-upload-zone:hover, .fm-upload-zone.drag-over { background:#f6f8fa; border-color: #1f2328; }
-    .fm-upload-hint { font-size:13px; color:#3b82f6; line-height:1.6; }
+    .fm-upload-hint { font-size:13px; color:#57606a; line-height:1.6; }
     .fm-upload-hint strong { color:#57606a; }
-    .fm-upload-sub { font-size:11px; color:#93c5fd; margin-top:4px; }
+    .fm-upload-sub { font-size:11px; color:#8b949e; margin-top:4px; }
     .fm-btn { padding:9px 22px; border:none; border-radius:6px; background: #1f2328; color:#fff; font-size:12px; font-weight:700; cursor:pointer; transition:opacity .15s; }
     .fm-btn:hover { opacity:.88; }
     .fm-btn:disabled { opacity:.5; cursor:not-allowed; }
@@ -8910,7 +8910,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .fm-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
     .fm-search { padding:7px 12px; border:none; border-radius:6px; font-size:12px; font-family:inherit; color:#0f172a; background:#f8faff; box-shadow:0 0 0 1px #bfdbfe; outline:none; width:240px; -webkit-appearance:none; }
     .fm-search:focus { box-shadow:0 0 0 1px #1f2328; }
-    .fm-count { font-size:12px; color:#3b82f6; }
+    .fm-count { font-size:12px; color:#57606a; }
     .fm-table { width:100%; border-collapse:collapse; background:#fff; border:1px solid #bfdbfe; border-radius:10px; overflow:hidden; font-size:12px; }
     .fm-table th { background:#f6f8fa; color:#57606a; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:10px 14px; text-align:left; border-bottom:1px solid #d0d7de; }
     .fm-table td { padding:11px 14px; border-bottom:1px solid #f0f5ff; color:#0f172a; vertical-align:middle; }
@@ -8919,12 +8919,12 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .fm-ext { display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; background:#f6f8fa; color: #344054; border:1px solid #bfdbfe; }
     .fm-ext.code { background:#1c2128; color:#adbac7; border-color:#30363d; }
     .fm-ext.doc  { background: #1f2328; color:#fff; border-color: #1f2328; }
-    .fm-ext.img  { background:#dbeafe; color: #344054; border-color:#93c5fd; }
+    .fm-ext.img  { background:#dbeafe; color: #344054; border-color:#8b949e; }
     .fm-name { font-weight:600; color:#0f172a; word-break:break-all; max-width:220px; }
     .fm-note { font-size:10px; color:#94a3b8; margin-top:2px; }
-    .fm-size { color:#3b82f6; white-space:nowrap; }
-    .fm-date { color:#60a5fa; white-space:nowrap; }
-    .fm-user { color:#3b82f6; font-size:11px; }
+    .fm-size { color:#57606a; white-space:nowrap; }
+    .fm-date { color:#8b949e; white-space:nowrap; }
+    .fm-user { color:#57606a; font-size:11px; }
     .fm-actions { display:flex; gap:5px; white-space:nowrap; flex-wrap:wrap; }
     .fm-dl-btn  { padding:5px 11px; border:none; border-radius:4px; background: #1f2328; color:#fff; font-size:11px; font-weight:700; cursor:pointer; }
     .fm-dl-btn:hover { opacity:.85; }
@@ -8932,7 +8932,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .fm-ren-btn:hover { background:#dbeafe; }
     .fm-del-btn { padding:5px 11px; border:1px solid #fca5a5; border-radius:4px; background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700; cursor:pointer; }
     .fm-del-btn:hover { background:#fecaca; }
-    .fm-empty { text-align:center; color:#93c5fd; font-size:13px; padding:48px 0; }
+    .fm-empty { text-align:center; color:#8b949e; font-size:13px; padding:48px 0; }
     .fm-info-box { background:#f6f8fa; border:1px solid #d0d7de; border-radius:8px; padding:14px 18px; margin-bottom:24px; font-size:12px; color:#57606a; line-height:1.6; }
     @media(max-width:640px){ .fm-upload-row{grid-template-columns:1fr;}
       .fm-table th:nth-child(3),.fm-table td:nth-child(3),
@@ -9011,7 +9011,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .supp-wrap { max-width:680px; margin:0 auto; padding:36px 24px 72px; }
     .supp-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-    .supp-sub { font-size:12px; color:#60a5fa; margin-bottom:8px; line-height:1.6; }
+    .supp-sub { font-size:12px; color:#8b949e; margin-bottom:8px; line-height:1.6; }
     .supp-info-bar { background:#f6f8fa; border:1px solid #d0d7de; border-radius:8px; padding:12px 16px; margin-bottom:28px; font-size:12px; color:#57606a; line-height:1.6; }
     .supp-form { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:28px; }
     .supp-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -9021,23 +9021,23 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .supp-inp:focus, .supp-sel:focus, .supp-ta:focus { background:#fff; box-shadow:0 0 0 1px #1f2328!important; -webkit-box-shadow:0 0 0 1px #1f2328!important; outline:none!important; }
     .supp-ta { resize:none; min-height:140px; line-height:1.6; }
     .supp-sel { -webkit-appearance:none!important; appearance:none!important; cursor:pointer; }
-    .supp-char { font-size:10px; color:#93c5fd; text-align:right; margin-top:3px; }
+    .supp-char { font-size:10px; color:#8b949e; text-align:right; margin-top:3px; }
     .supp-btn { width:100%; padding:11px; border:none; border-radius:6px; background: #1f2328; color:#fff; font-size:13px; font-weight:700; cursor:pointer; transition:opacity .15s; letter-spacing:.2px; }
     .supp-btn:hover { opacity:.88; }
     .supp-btn:disabled { opacity:.5; cursor:not-allowed; }
     .supp-result { margin-top:16px; padding:12px 16px; border-radius:6px; font-size:13px; display:none; }
     .supp-result.ok  { background:#f0fdf4; border:1px solid #86efac; color:#15803d; }
     .supp-result.err { background:#f6f8fa; border:1px solid #93c5fd; color: #344054; }
-    .supp-section-lbl { font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.5px; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid #bfdbfe; }
+    .supp-section-lbl { font-size:10px; font-weight:700; color:#57606a; text-transform:uppercase; letter-spacing:.5px; margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid #bfdbfe; }
     @media(max-width:600px) { .supp-grid2 { grid-template-columns:1fr; } }
-    .appt-intro { font-size:12px; color:#3b82f6; line-height:1.65; margin-bottom:20px; }
+    .appt-intro { font-size:12px; color:#57606a; line-height:1.65; margin-bottom:20px; }
     .appt-services { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
     .appt-svc-card { border:1.5px solid #bfdbfe; border-radius:8px; padding:14px; cursor:pointer; transition:border-color .15s,background .15s; background:#f8faff; }
     .appt-svc-card:hover { border-color: #1f2328; background:#f6f8fa; }
     .appt-svc-card.appt-selected { border-color: #1f2328; background:#f6f8fa; outline:2px solid #bfdbfe; outline-offset:2px; }
     .appt-svc-name { font-size:12px; font-weight:700; color:#57606a; margin-bottom:5px; }
-    .appt-svc-desc { font-size:11px; color:#3b82f6; line-height:1.5; margin-bottom:6px; }
-    .appt-svc-dur { font-size:10px; color:#93c5fd; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+    .appt-svc-desc { font-size:11px; color:#57606a; line-height:1.5; margin-bottom:6px; }
+    .appt-svc-dur { font-size:10px; color:#8b949e; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
     .appt-divider { border:none; border-top:1px solid #bfdbfe; margin:20px 0; }
     #appt-time::-webkit-calendar-picker-indicator { width:12px; height:12px; opacity:1; cursor:pointer; filter:brightness(0); }
     @media(max-width:700px){ .appt-services { grid-template-columns:1fr; } }
@@ -9207,13 +9207,13 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
   <style>
     .amgr-wrap { max-width:860px; margin:0 auto; padding:36px 24px 72px; }
     .amgr-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-    .amgr-sub { font-size:12px; color:#60a5fa; margin-bottom:24px; line-height:1.6; }
+    .amgr-sub { font-size:12px; color:#8b949e; margin-bottom:24px; line-height:1.6; }
     .amgr-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:24px; }
     .amgr-stat { background:#fff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 12px; text-align:center; }
     .amgr-stat-n { font-size:22px; font-weight:700; color:#57606a; line-height:1; }
-    .amgr-stat-l { font-size:10px; color:#3b82f6; text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
+    .amgr-stat-l { font-size:10px; color:#57606a; text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
     .amgr-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
-    .amgr-tab { padding:7px 14px; border:1px solid #bfdbfe; border-radius:20px; font-size:11px; font-weight:600; color:#3b82f6; background:#fff; cursor:pointer; transition:all .15s; }
+    .amgr-tab { padding:7px 14px; border:1px solid #bfdbfe; border-radius:20px; font-size:11px; font-weight:600; color:#57606a; background:#fff; cursor:pointer; transition:all .15s; }
     .amgr-tab:hover { background:#f6f8fa; }
     .amgr-tab.amgr-active { background: #1f2328; border-color: #1f2328; color:#fff; }
     .amgr-card { background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:18px 20px; margin-bottom:14px; }
@@ -9222,9 +9222,9 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .amgr-badge { font-size:10px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
     .amgr-badge.pending    { background:#f6f8fa; color: #344054; border:1px solid #bfdbfe; }
     .amgr-badge.approved   { background: #1f2328; color:#fff; }
-    .amgr-badge.rescheduled{ background: #2d333b; color:#bfdbfe; }
+    .amgr-badge.rescheduled{ background: #2d333b; color:#8b949e; }
     .amgr-badge.completed  { background:#1c2128; color:#e0f2fe; }
-    .amgr-badge.cancelled  { background:#dbeafe; color:#3b82f6; }
+    .amgr-badge.cancelled  { background:#dbeafe; color:#57606a; }
     .amgr-row { font-size:12px; color:#57606a; line-height:1.7; }
     .amgr-row strong { color:#0f172a; }
     .amgr-divider { border:none; border-top:1px solid #eaeef2; margin:12px 0; }
@@ -9234,7 +9234,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .amgr-btn-approve   { background: #1f2328; color:#fff; }
     .amgr-btn-cancel    { background:#f6f8fa; color: #344054; border:1px solid #bfdbfe!important; }
     .amgr-btn-complete  { background:#1c2128; color:#e0f2fe; }
-    .amgr-btn-reschedule{ background: #2d333b; color:#bfdbfe; }
+    .amgr-btn-reschedule{ background: #2d333b; color:#8b949e; }
     .amgr-btn-note      { background:#f8faff; color: #344054; border:1px solid #bfdbfe!important; }
     .amgr-inline { display:none; margin-top:14px; background:#f8faff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 16px; }
     .amgr-inline-lbl { font-size:10px; font-weight:700; color:#57606a; text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
@@ -9248,7 +9248,7 @@ sudo systemctl enable --now prometheus prometheus-node-exporter</div>
     .amgr-msg.ok  { background:#f0fdf4; border:1px solid #86efac; color:#15803d; }
     .amgr-msg.err { background:#f6f8fa; border:1px solid #93c5fd; color: #344054; }
     .amgr-meet { font-size:11px; color: #344054; word-break:break-all; margin-top:4px; }
-    .amgr-empty { text-align:center; padding:48px 24px; color:#93c5fd; font-size:13px; }
+    .amgr-empty { text-align:center; padding:48px 24px; color:#8b949e; font-size:13px; }
     @media(max-width:600px){ .amgr-stats{grid-template-columns:repeat(3,1fr);} .amgr-grid2{grid-template-columns:1fr;} }
   </style>
   <div class="amgr-wrap">
@@ -10884,7 +10884,7 @@ function _entRenderAnalytics(scans, incData) {
         var rl=s.risk==='HIGH'?'CRITICAL':s.risk;
         var rc2=rC2[s.risk]||'#8b949e';
         var finding=(s.output||'').split('\n').find(function(l){return l.trim().length>8;})||'Security issue detected';
-        return '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:3px 5px;font-size:10px;color:#1f2328;font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml((s.target||'').slice(0,18))+'</td><td style="padding:3px 5px;font-size:9.5px;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(finding.slice(0,40))+'</td><td style="padding:3px 5px;text-align:center;"><span style="font-size:8px;font-weight:700;background:linear-gradient(135deg,'+rc2+',#3b82f6);color:#fff;padding:1px 5px;border-radius:2px;">'+rl+'</span></td><td style="padding:3px 5px;font-size:9px;color:#64748b;text-align:center;">'+age+'d</td></tr>';
+        return '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:3px 5px;font-size:10px;color:#1f2328;font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml((s.target||'').slice(0,18))+'</td><td style="padding:3px 5px;font-size:9.5px;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(finding.slice(0,40))+'</td><td style="padding:3px 5px;text-align:center;"><span style="font-size:8px;font-weight:700;background:linear-gradient(135deg,'+rc2+',#57606a);color:#fff;padding:1px 5px;border-radius:2px;">'+rl+'</span></td><td style="padding:3px 5px;font-size:9px;color:#64748b;text-align:center;">'+age+'d</td></tr>';
       }).join('');
     }
   }
@@ -11385,7 +11385,7 @@ function _pualPluginRender() {
     var invKey = (r.name||'') + '@' + (r.targets||[]).join(',');
     var status = invStatuses[invKey] || 'none';
     var namePart = _esc(r.name);
-    if (r.risk === 'HIGH') namePart += ' <span style="background:#1c2128;color:#dbeafe;font-size:9px;padding:1px 4px;border-radius:2px;font-weight:700;vertical-align:middle;">VULNERABLE</span>';
+    if (r.risk === 'HIGH') namePart += ' <span style="background:#1c2128;color:#f3f4f6;font-size:9px;padding:1px 4px;border-radius:2px;font-weight:700;vertical-align:middle;">VULNERABLE</span>';
     var srcBadge = r.source && r.source !== 'scan' ? ' <span style="background:#f3f4f6;color:#57606a;font-size:9px;padding:1px 4px;border-radius:2px;">'+_esc(r.source)+'</span>' : '';
     var statusBadge = r.status && r.status !== 'active' ? ' <span style="background:#f6f8fa;color:#57606a;font-size:9px;padding:1px 4px;border-radius:2px;">'+_esc(r.status.charAt(0).toUpperCase()+r.status.slice(1))+'</span>' : '';
     var flagBadges = {
@@ -11551,7 +11551,7 @@ function _renderPluginLogs(logs) {
   var _plStatuses = JSON.parse(localStorage.getItem('cfai_log_statuses') || '{}');
   _plCurrentLogs = []; // reset for bulk ops
   var _plFlagBadges = {
-    suspicious: '<span style="background: #1f2328;color:#dbeafe;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
+    suspicious: '<span style="background: #1f2328;color:#f3f4f6;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
     blocked:    '<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
     safe:       '<span style="background:#f0fdf4;color:#15803d;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
     watchlist:  '<span style="background:#f59e0b;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
@@ -12534,7 +12534,7 @@ function openDetailsModal(id) {
         '</div>';
       } else {
         /* Non-WordPress CMS / any site */
-        html += '<div class="rpt-sec" style="background:linear-gradient(135deg,#dbeafe,#f6f8fa);border:1px solid #d0d7de;border-radius:7px;padding:14px 16px;">'+
+        html += '<div class="rpt-sec" style="background:linear-gradient(135deg,#f3f4f6,#f6f8fa);border:1px solid #d0d7de;border-radius:7px;padding:14px 16px;">'+
           '<h3 style="color:#57606a;border-color:#98a2b3;">Deeper Scanning Available for This Site</h3>'+
           '<div style="font-size:13px;color:#57606a;line-height:1.6;">'+
             'To get more in-depth results for this target, run a targeted scan using one of these agent types:<br><br>'+
@@ -12616,14 +12616,14 @@ function openWpLogsModal(target) {
 
       html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">'+
         '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px 16px;text-align:center;min-width:80px;">'+
-          '<div style="font-size:22px;font-weight:bold;color:#bfdbfe;">'+high+'</div>'+
-          '<div style="font-size:10px;color:#bfdbfe;font-weight:600;text-transform:uppercase;">High Risk</div>'+
+          '<div style="font-size:22px;font-weight:bold;color:#d0d7de;">'+high+'</div>'+
+          '<div style="font-size:10px;color:#d0d7de;font-weight:600;text-transform:uppercase;">High Risk</div>'+
         '</div>'+
         '<div style="background:linear-gradient(135deg,#1f2328,#2d333b);border:1px solid #d0d7de;border-radius:6px;padding:8px 16px;text-align:center;min-width:80px;">'+
           '<div style="font-size:22px;font-weight:bold;color:#f6f8fa;">'+medium+'</div>'+
           '<div style="font-size:10px;color:#f6f8fa;font-weight:600;text-transform:uppercase;">Medium</div>'+
         '</div>'+
-        '<div style="background:linear-gradient(135deg,#60a5fa,#93c5fd);border:1px solid #60a5fa;border-radius:6px;padding:8px 16px;text-align:center;min-width:80px;">'+
+        '<div style="background:linear-gradient(135deg,#8b949e,#8b949e);border:1px solid #8b949e;border-radius:6px;padding:8px 16px;text-align:center;min-width:80px;">'+
           '<div style="font-size:22px;font-weight:bold;color:#1f2328;">'+low+'</div>'+
           '<div style="font-size:10px;color:#1f2328;font-weight:600;text-transform:uppercase;">Low</div>'+
         '</div>'+
@@ -16694,7 +16694,7 @@ function _taRender(d, grid) {
       + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">'
       + '<span title="'+escHtml(h.target)+'">'+escHtml(h.target.slice(0,28))+'</span>'
       + '<strong>' + h.total + '</strong></div>'
-      + '<div style="height:5px;background:#e8f0fb;border-radius:2px;"><div style="height:100%;background:linear-gradient(90deg,#1f2328,#3b82f6);width:'+w+'%;border-radius:2px;"></div></div>'
+      + '<div style="height:5px;background:#e8f0fb;border-radius:2px;"><div style="height:100%;background:linear-gradient(90deg,#1f2328,#57606a);width:'+w+'%;border-radius:2px;"></div></div>'
       + '</div>';
   });
   remHtml += '</div>';
@@ -18595,7 +18595,7 @@ function _plSetStatus(sel, logKey, idx) {
   var badge = document.getElementById('plbadge-'+idx);
   var row   = document.getElementById('plrow-'+idx);
   var flagBadges = {
-    suspicious: '<span style="background: #1f2328;color:#dbeafe;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
+    suspicious: '<span style="background: #1f2328;color:#f3f4f6;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
     blocked:    '<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
     safe:       '<span style="background:#f0fdf4;color:#15803d;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
     watchlist:  '<span style="background:#f59e0b;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
@@ -18613,7 +18613,7 @@ function _logSetStatus(sel, logKey, idx) {
   var badge = document.getElementById('logbadge-'+idx);
   var row   = document.getElementById('logrow-'+idx);
   var flagBadges = {
-    suspicious: '<span style="background: #1f2328;color:#dbeafe;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
+    suspicious: '<span style="background: #1f2328;color:#f3f4f6;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SUSPICIOUS</span>',
     blocked:    '<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">BLOCKED</span>',
     safe:       '<span style="background:#f0fdf4;color:#15803d;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">SAFE</span>',
     watchlist:  '<span style="background:#f59e0b;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap;">WATCHLIST</span>',
@@ -18927,7 +18927,7 @@ function _fsRender(data) {
   // ── Site info (from mu-plugin) ──────────────────────────────────────────
   if (data.plugin_installed && (data.wp_version || data.php_version)) {
     var infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'font-size:11px;color:#3b82f6;margin-bottom:12px;';
+    infoDiv.style.cssText = 'font-size:11px;color:#57606a;margin-bottom:12px;';
     infoDiv.innerHTML = (data.wp_version ? 'WordPress <strong>'+_esc(data.wp_version)+'</strong> ' : '')
       + (data.php_version ? '| PHP <strong>'+_esc(data.php_version)+'</strong>' : '')
       + (data.scan_time ? ' | Scanned at '+_esc(data.scan_time) : '');
@@ -21341,7 +21341,7 @@ function grcExport() {
     tipsEl.innerHTML = '';
     if (info.tips && info.tips.length) {
       var hd = document.createElement('div');
-      hd.style.cssText = 'font-size:9px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;';
+      hd.style.cssText = 'font-size:9px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;';
       hd.textContent = 'How to use';
       tipsEl.appendChild(hd);
       info.tips.forEach(function(t){
@@ -21707,7 +21707,7 @@ function grcExport() {
         actions += '<button class="amgr-btn" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca!important;" onclick="amgrDoDelete(\''+a.id+'\')">Delete</button>';
       }
       actions += '<button class="amgr-btn amgr-btn-note" onclick="amgrToggle(\''+a.id+'\',\'note\')">Notes</button>';
-      actions += '<button class="amgr-btn" style="background:#f6f8fa;border-color:#bfdbfe;" onclick="amgrToggle(\''+a.id+'\',\'cost\')">Set Cost</button>';
+      actions += '<button class="amgr-btn" style="background:#f6f8fa;border-color:#d0d7de;" onclick="amgrToggle(\''+a.id+'\',\'cost\')">Set Cost</button>';
 
       var costDisplay = (a.cost_amount !== undefined && a.cost_amount !== null)
         ? '<div style="font-size:12px;font-weight:700;color:#57606a;margin-top:6px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:5px 10px;display:inline-block;">Cost: '+_amgrEsc(String(a.cost_amount))+' '+_amgrEsc(a.cost_currency||'USD')+'</div>' : '';
@@ -24362,7 +24362,7 @@ document.addEventListener('DOMContentLoaded', function() {
         Cookie &amp; Storage Preferences
       </div>
       <div style="font-size:11px;color:#98a2b3;line-height:1.5;">
-        We use an essential session cookie and localStorage for dashboard preferences. <strong style="color:#bfdbfe;">Accept All</strong> or choose <strong style="color:#bfdbfe;">Necessary Only</strong>.
+        We use an essential session cookie and localStorage for dashboard preferences. <strong style="color:#d0d7de;">Accept All</strong> or choose <strong style="color:#d0d7de;">Necessary Only</strong>.
         &nbsp;<a href="#" onclick="sbNav('privacy',document.getElementById('sb-privacy'));return false;" style="color:#8b949e;font-size:10px;text-decoration:underline;white-space:nowrap;">Privacy</a>
       </div>
     </div>
@@ -25209,6 +25209,73 @@ button[style*="background:linear-gradient(135deg,#1f2328,#2d333b)"] { background
 
 /* ── 55. PAGE INFO MODAL BORDER ─────────────────────────────────────────── */
 #page-info-modal { border-color:#e5e7eb !important; }
+
+/* ── 56. LOADING SPINNER — white on dark overlay ────────────────────────── */
+.ink-spin-label { color:#ffffff !important; }
+/* Any remaining blue spinner border → white */
+[class*="spinner"],[class*="loading-dot"],[class*="spin"] {
+  border-color: rgba(255,255,255,.2) !important;
+  border-top-color: #ffffff !important;
+}
+
+/* ── 57. CATCH-ALL: ANY remaining blue text → neutral grey ─────────────── */
+/* These fire last and catch anything a more specific rule missed */
+[style*="color:#3b82f6"] { color:#57606a !important; }
+[style*="color: #3b82f6"] { color:#57606a !important; }
+[style*="color:#60a5fa"] { color:#8b949e !important; }
+[style*="color: #60a5fa"] { color:#8b949e !important; }
+[style*="color:#93c5fd"] { color:#8b949e !important; }
+[style*="color: #93c5fd"] { color:#8b949e !important; }
+[style*="color:#1e40af"] { color:#344054 !important; }
+[style*="color: #1e40af"] { color:#344054 !important; }
+[style*="color:#dbeafe"] { color:#8b949e !important; }
+[style*="color: #dbeafe"] { color:#8b949e !important; }
+
+/* ── 58. SPECIFIC REMAINING CLASS FIXES ────────────────────────────────── */
+/* Topbar user role label */
+.topbar-role-user { color:#8b949e !important; }
+/* PCI pass/good config indicator → green */
+.pci-cfg-g, .pci-cfg-pass { color:#15803d !important; }
+/* PCI medium severity label */
+.pci-sev-med { background:#fef3c7 !important; color:#92400e !important; border-color:#fde68a !important; }
+/* Remediation evidence title */
+.rem-evidence-title { color:#344054 !important; }
+/* Legal nav back link */
+.legal-nav-back { color:#344054 !important; }
+/* Syslog sub-label on light bg */
+.sl-sub { color:#57606a !important; }
+.sl-stat-lbl { color:#8b949e !important; }
+.sl-stat.info .sl-stat-val { color:#0891b2 !important; }
+.sl-stat.debug .sl-stat-val { color:#8b949e !important; }
+.sl-tab { color:#57606a !important; }
+.sl-filter-bar label { color:#8b949e !important; }
+.sl-level-DEBUG { color:#8b949e !important; border-color:#e5e7eb !important; background:#f9fafb !important; }
+.sl-empty { color:#8b949e !important; }
+.sl-footer { color:#8b949e !important; border-top-color:#e5e7eb !important; }
+.sl-config-sub { color:#57606a !important; }
+.sl-host-table th { color:#8b949e !important; border-bottom-color:#e5e7eb !important; }
+/* PT2 sev-low border → green */
+.pt2-finding-card.sev-low { border-left-color:#16a34a !important; }
+/* GRC2 table cell text */
+.grc2-tbl td { color:#1a1f2e !important; }
+.grc2-mhd { color:#1a1f2e !important; border-bottom-color:#e5e7eb !important; }
+/* RTP dark-bg subtitles → visible light grey */
+.rtp-peace-sub { color:#adbac7 !important; }
+.rtp-deploy-sub { color:#adbac7 !important; }
+/* ll (log line) info on dark bg */
+.ll-info { color:#adbac7 !important; }
+/* GRC subnav active tab */
+.grc-subnav-tab.active { color:#1a1f2e !important; border-bottom-color:#1f2328 !important; }
+/* UM role badge */
+.um-role-user { color:#344054 !important; background:#f6f8fa !important; border-color:#d0d7de !important; }
+/* Inv status paid */
+.inv-status-paid { color:#344054 !important; background:#f6f8fa !important; }
+/* Secure score large value */
+.ss-score-val { color:#1a1f2e !important; }
+/* Progress bar dot */
+.mvd-prog-num { color:#57606a !important; }
+/* Syslog copy button (on dark bg) */
+.sl-copy-btn { color:#adbac7 !important; }
 
 </style>
 </body>
