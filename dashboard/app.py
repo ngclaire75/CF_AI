@@ -1311,7 +1311,7 @@ def _startup_policy_check():
         _threading.Thread(target=_check_privacy_policy_update, daemon=True).start()
 
 # ── Global auth enforcement ───────────────────────────────────────────────────
-_PUBLIC_PATHS = ('/login', '/signup', '/verify/', '/logout',
+_PUBLIC_PATHS = ('/', '/landing', '/login', '/signup', '/verify/', '/logout',
                  '/api/syslog/hec', '/api/syslog/ingest', '/api/events/ingest',
                  '/api/payment/notification')
 
@@ -1370,8 +1370,8 @@ def _enforce_auth():
         return None
     if not session.get('user'):
         if request.path.startswith('/api/'):
-            return jsonify({'error': 'Not authenticated', 'redirect': '/login'}), 401
-        return redirect(url_for('login_page'))
+            return jsonify({'error': 'Not authenticated', 'redirect': '/'}), 401
+        return redirect(url_for('index'))
     # Enforce role-based API access
     u = session['user']
     if request.path.startswith('/api/admin/') and u.get('role') != 'admin':
@@ -4609,7 +4609,14 @@ def enrich(scan: dict, track_age: bool = False) -> dict:
 def index():
     if session.get('user'):
         return redirect(url_for('app_dashboard'))
-    return redirect(url_for('login_page'))
+    return render_template('landing.html')
+
+
+@app.route('/landing')
+def landing_page():
+    if session.get('user'):
+        return redirect(url_for('app_dashboard'))
+    return render_template('landing.html')
 
 
 @app.route('/app')
