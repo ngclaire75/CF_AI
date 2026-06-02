@@ -182,7 +182,8 @@ img{display:block;max-width:100%}
   animation:fadeUp .8s cubic-bezier(.22,1,.36,1) .16s both
 }
 .hero-cta{
-  display:flex;flex-wrap:wrap;gap:12px;justify-content:center;
+  display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;
+  width:100%;text-align:center;
   animation:fadeUp .8s cubic-bezier(.22,1,.36,1) .24s both
 }
 .btn-cta{
@@ -494,7 +495,7 @@ img{display:block;max-width:100%}
 ════════════════════════════════════════ */
 .cta-section{
   position:relative;z-index:1;padding:96px 24px;text-align:center;
-  overflow:hidden
+  overflow:hidden;display:flex;flex-direction:column;align-items:center
 }
 .cta-glow{
   position:absolute;top:-100px;left:50%;transform:translateX(-50%);
@@ -513,7 +514,7 @@ img{display:block;max-width:100%}
   letter-spacing:-1.5px;line-height:1.08;margin-bottom:16px
 }
 .cta-sub{font-size:16px;color:var(--text3);line-height:1.6;margin-bottom:36px;max-width:440px;margin-left:auto;margin-right:auto}
-.cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.cta-btns{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;width:100%;text-align:center}
 .btn-cta-lg{
   height:52px;padding:0 36px;border-radius:12px;
   font-size:15px;font-weight:700;letter-spacing:-.1px;
